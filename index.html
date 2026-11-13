@@ -4297,7 +4297,7 @@ class Car {
 
   detach(p, by) {
     p.detached = true;
-    const m = p.mesh;
+    const m = p.mesh; m.traverse((o) => { o.layers.mask = 1; }); // debris is always drawn, however far the car was
     m.updateWorldMatrix(true, true);
     const box = new THREE.Box3();
     m.geometry ? (m.geometry.computeBoundingBox(), box.copy(m.geometry.boundingBox)) : box.setFromObject(m).applyMatrix4(new THREE.Matrix4().copy(m.matrixWorld).invert());
@@ -4766,8 +4766,8 @@ function updateHUD(dt) {
   } else $('reticle').hidden = true;
   el.nosFill.style.width = (player.nitro * 100).toFixed(1) + '%';
   game.flash = Math.max(0, game.flash - dt * 2);
-  el.flash.style.opacity = game.flash.toFixed(2);
-  { const w = player ? Math.min(1, (player.wet || 0) * 1.3) : 0; if (w !== el.wetO) { el.wetO = w; $('wet').style.opacity = w.toFixed(2); } }
+  { const f = game.flash.toFixed(2); if (f !== el.flashO) { el.flashO = f; el.flash.style.opacity = f; el.flash.style.display = f > 0 ? '' : 'none'; } } // full-screen layers leave the page when unused: tablets pay for them every frame
+  { const w = player ? Math.min(1, (player.wet || 0) * 1.3) : 0; if (w !== el.wetO) { el.wetO = w; $('wet').style.opacity = w.toFixed(2); $('wet').style.display = w > 0.01 ? '' : 'none'; } }
   if (hudT > 0) return;
   hudT = 0.1;
   el.gforce.textContent = `${player.gforce.toFixed(1)} g · ${Math.round(player.mass).toLocaleString()} kg · ${Math.round(S.frontWeight)}/${Math.round(100 - S.frontWeight)} balance`;
@@ -5890,10 +5890,30 @@ function updateCrane(dt) {
 let propTick = 0;
 function wakeProp(pr) { if (pr.dormant) { pr.dormant = false; if (!world.bodies.includes(pr.body)) world.addBody(pr.body); } }
 function wakePropsNear(p, r) { for (const pr of props) if (pr.dormant && pr.body.position.distanceTo(p) < r) wakeProp(pr); }
+// far away, a car's small bits (bolts, lamps, mirrors, stickers) are a pixel or two: stop drawing them. Layer 1 is never rendered, and it leaves .visible alone for the game
+const _lodV = new THREE.Vector3();
+const LOD_NEAR = [[35, 0.25], [70, 0.5], [120, 0.8]], LOD_LITE = [[20, 0.3], [45, 0.6], [80, 0.9]]; // [beyond this distance, hide parts smaller than this]
+function lodList(root, skip) { const out = []; root.updateMatrixWorld(true);
+  root.traverse((o) => { if (!o.isMesh || !o.geometry || (skip && skip.has(o))) return; const g = o.geometry; if (!g.boundingSphere) g.computeBoundingSphere(); const sc = o.getWorldScale(_lodV), r = g.boundingSphere.radius * Math.max(sc.x, sc.y, sc.z); if (r < 0.9) out.push({ o, r }); });
+  return out; }
+function lodCut(h, d) { let cut = 0; for (const [dist, r] of QUALITY.lite ? LOD_LITE : LOD_NEAR) if (d > dist + ((h.lodCut || 0) >= r ? -5 : 0)) cut = r; return cut; } // a little hysteresis so parts don't flicker at the edge
+let lodGroups = null; // the yard's moving machinery and animals: same treatment
+function sceneLOD(cp) {
+  if (!lodGroups || lodGroups.n !== scene.children.length) { const cg = new Set(cars.map((c) => c.group)); lodGroups = scene.children.filter((t) => t.isGroup && !cg.has(t)).map((g) => ({ g, list: lodList(g) })).filter((h) => h.list.length >= 3); lodGroups.n = scene.children.length; }
+  for (const h of lodGroups) { const p = h.g.getWorldPosition(_lodV), cut = lodCut(h, p.distanceTo(cp)); if (cut === (h.lodCut || 0)) continue; h.lodCut = cut; for (const it of h.list) it.o.layers.mask = it.r < cut ? 2 : 1; }
+}
+function carLOD(c, d) {
+  if (!c.lodList) { const wh = new Set(); for (const w of c.wheelMeshes || []) if (w) w.traverse((x) => wh.add(x)); c.lodList = lodList(c.group, wh); }
+  const cut = lodCut(c, d);
+  if (!cut && !c.lodCut) return; c.lodCut = cut; // (re-checked every pass while far: parts fly off)
+  for (const it of c.lodList) { const o = it.o; let inCar = false; for (let q = o.parent; q; q = q.parent) if (q === c.group) { inCar = true; break; } o.layers.mask = inCar && it.r < cut ? 2 : 1; } // a panel that flew off is debris now: always drawn
+}
 function updatePropActivity(dt) {
   propTick -= dt; if (propTick > 0) return; propTick = 0.15;
-  const cp = camera.position, far2 = 150 * 150;
+  const cp = camera.position, far2 = QUALITY.lite ? 85 * 85 : 150 * 150;
   for (const pr of props) { const q = pr.body.position, dx = q.x - cp.x, dz = q.z - cp.z; pr.mesh.visible = dx * dx + dz * dz < far2 || pr.body.mass > 120; } // small clutter far away isn't worth drawing
+  for (const c of cars) { const q = c.body.position, d = Math.hypot(q.x - cp.x, q.y - cp.y, q.z - cp.z); carLOD(c, d); }
+  sceneLOD(cp);
   const movers = []; for (const c of cars) movers.push(c.body.position); for (const bl of BULLS) movers.push(bl.body.position);
   for (const pr of props) {
     const q = pr.body.position; let d2 = 1e9;
@@ -6019,8 +6039,10 @@ function updateBulls(dt) {
    BroadcastChannel stand-in between tabs of one browser elsewhere). A host opens a game; guests join it, pick a car
    and drive it. The host runs all the physics and AI, and publishes a compact snapshot ~20 times a second in its
    presence; guests send their stick and buttons in theirs, and draw the host's world, interpolated 100 ms behind. */
+// every snapshot that arrives is kept and stamped with its arrival time: a slow frame on the guest must not look like network jitter, and two arriving in one frame must not lose one
+function netIn(pr) { if (!pr || !pr.s || typeof MP === 'undefined' || MP.role !== 'guest') return; pr.s.a = performance.now() / 1000; MP.inbox.push(pr.s); if (MP.inbox.length > 24) MP.inbox.shift(); }
 const MP = {
-  role: 'solo', api: null, lobby: null, room: null, code: '', snaps: [], rt: 0, ev: [], evSeq: 0, seen: 0, rk: '', builtRk: '',
+  inbox: [], role: 'solo', api: null, lobby: null, room: null, code: '', snaps: [], rt: 0, ev: [], evSeq: 0, seen: 0, rk: '', builtRk: '',
   inN: { fire: 0, jump: 0 }, sentIn: '', snapT: 0, lastFire: new Map(), lastJump: new Map(), statusTxt: '',
   dummy: { isPlayer: false, name: '', T: {} },
   async init() {
@@ -6121,7 +6143,7 @@ const MP = {
   event(e) { if (!this.room) return; e.n = ++this.evSeq; this.ev.push(e); while (this.ev.length > 10) this.ev.shift(); },
   hostFrame(dt) {
     if (!this.room) return;
-    this.snapT -= dt; if (this.snapT > 0) return; this.snapT = 0.05; // ~20 Hz
+    const nowMs = performance.now(); if (nowMs < this.nextSnap) return; this.nextSnap = Math.max(nowMs - 25, (this.nextSnap || 0) + 50); // 20 a second by the wall clock (game time slows down on a struggling host)
     const r = (v, k = 100) => Math.round(v * k);
     const cs = cars.map((c) => { const b = c.body, p = b.position, q = b.quaternion, v = b.velocity, z = c.zones;
       return [r(p.x), r(p.y), r(p.z), r(q.x, 1e4), r(q.y, 1e4), r(q.z, 1e4), r(q.w, 1e4), r(v.x, 10), r(v.y, 10), r(v.z, 10), Math.round(c.health),
@@ -6158,12 +6180,14 @@ const MP = {
     const hp = this.hostPresence();
     if (!hp) { if (this.room && this.rt > 3) { toast('HOST LEFT', 'bad'); this.leave(); } this.rt += dt; return; }
     if (hp.roster && hp.rk && hp.rk !== this.builtRk) this.rebuild(hp);
-    const s = hp.s;
-    if (s && s.rk === this.builtRk && (!this.snaps.length || s.t > this.snaps[this.snaps.length - 1].t)) {
-      const now = performance.now() / 1000, N = this.net || (this.net = { iv: 0.05, jit: 0.01, off: null, lastA: now, lastT: s.t, n: 0 });
-      const gapT = s.t - N.lastT, gapA = now - N.lastA; N.lastA = now; N.lastT = s.t; N.n++;
-      if (gapT > 0 && gapT < 1) { N.iv = lerp(N.iv, gapT, 0.1); N.jit = lerp(N.jit, Math.abs(gapA - gapT), 0.1); }
-      const off = s.t - now; N.off = N.off === null ? off : off > N.off ? off : N.off + (off - N.off) * 0.02; // host clock: jump forward fast, drift back slowly
+    const inc = this.inbox.splice(0); if (hp.s && (!inc.length || inc[inc.length - 1].t < hp.s.t)) inc.push(hp.s); // (rooms without arrival hooks just hand over the latest)
+    for (const s of inc) {
+      if (!s || s.rk !== this.builtRk || (this.snaps.length && s.t <= this.snaps[this.snaps.length - 1].t)) continue;
+      const now = s.a ?? performance.now() / 1000, N = this.net || (this.net = { iv: 0.05, jit: 0.01, off: null, lastT: s.t, n: 0 });
+      const gapT = s.t - N.lastT; N.lastT = s.t; N.n++;
+      if (gapT > 0 && gapT < 1) { N.iv = lerp(N.iv, gapT, 0.1); N.gap = lerp(N.gap ?? gapT, gapT, gapT > (N.gap ?? 0) ? 0.3 : 0.015); } // typical and worst-recent gap between updates
+      const off = s.t - now; N.off = N.off === null ? off : off > N.off ? off : N.off + (off - N.off) * 0.01; // host clock as seen by the fastest delivery: jump forward fast, drift back slowly
+      const late = N.off - off; N.jit = lerp(N.jit, late, late > N.jit ? 0.25 : 0.02); // how late snapshots run behind the fastest: rises fast, relaxes slowly
       this.snaps.push(s); if (this.snaps.length > 12) this.snaps.shift();
     }
     if (!this.snaps.length) return;
@@ -6179,17 +6203,22 @@ const MP = {
     // interpolate 100 ms behind the newest snapshot
     // render a little in the past, by an amount that adapts to how jittery the network is
     const N = this.net || { iv: 0.05, jit: 0.01, off: latest.t - performance.now() / 1000 };
-    this.delay = clamp(0.05 + 1.2 * N.iv + 2.5 * N.jit, 0.08, 0.35);
+    this.delay = window.__fixedDelay ?? clamp(0.02 + (N.gap ?? N.iv) + 1.6 * N.jit, 0.07, 0.35); // (__fixedDelay: test hook to compare with the old fixed 100 ms)
     this.rt = performance.now() / 1000 + (N.off ?? 0) - this.delay;
     let a = this.snaps[0], b = latest, ext = 0;
-    if (this.rt >= latest.t) { a = b = latest; ext = Math.min(0.25, this.rt - latest.t); } // data is late: carry on along the last velocity for a moment
+    if (this.rt >= latest.t) { a = b = latest; ext = window.__fixedDelay ? 0 : Math.min(0.25, this.rt - latest.t); } // data is late: carry on along the last velocity for a moment
     else for (let i = 0; i < this.snaps.length - 1; i++) if (this.snaps[i].t <= this.rt && this.snaps[i + 1].t >= this.rt) { a = this.snaps[i]; b = this.snaps[i + 1]; break; }
-    const k = b.t > a.t ? clamp((this.rt - a.t) / (b.t - a.t), 0, 1) : 1;
+    const k = b.t > a.t ? clamp((this.rt - a.t) / (b.t - a.t), 0, 1) : 1; this.lastExt = ext;
     const qa = new THREE.Quaternion(), qb = new THREE.Quaternion();
     cars.forEach((c, i) => {
       const A = a.c[i], B = b.c[i]; if (!A || !B) return;
       const L = (j) => lerp(A[j], B[j], k);
-      c.body.position.set(L(0) / 100 + B[7] / 10 * ext, L(1) / 100 + B[8] / 10 * ext * 0.5, L(2) / 100 + B[9] / 10 * ext);
+      const px = L(0) / 100 + B[7] / 10 * ext, py = L(1) / 100 + B[8] / 10 * ext * 0.5, pz = L(2) / 100 + B[9] / 10 * ext;
+      // a correction (late data after guessing ahead) is blended in over ~0.1 s instead of jumping
+      const E = c.netE || (c.netE = new THREE.Vector3()), pv = c.netP;
+      if (pv && !window.__fixedDelay) { const ex = px - (pv[0] + pv[3] * dt), ey = py - (pv[1] + pv[4] * dt), ez = pz - (pv[2] + pv[5] * dt), e = Math.hypot(ex, ey, ez); if (e > 4) E.set(0, 0, 0); else if (e > 0.1) E.set(E.x - ex, E.y - ey, E.z - ez); }
+      c.netP = [px, py, pz, B[7] / 10, B[8] / 10, B[9] / 10]; E.multiplyScalar(Math.exp(-dt * 12));
+      c.body.position.set(px + E.x, py + E.y, pz + E.z);
       qa.set(A[3], A[4], A[5], A[6]).normalize(); qb.set(B[3], B[4], B[5], B[6]).normalize(); qa.slerp(qb, k);
       c.body.quaternion.set(qa.x, qa.y, qa.z, qa.w);
       c.body.velocity.set(B[7] / 10, B[8] / 10, B[9] / 10);
@@ -6253,12 +6282,12 @@ function peerRoom(code, isHost) {
     setInterval(sendAll, 250);
     const wire = (conn) => {
       conn.on('open', () => { others.set(conn.peer, { conn, p: { peer: conn.peer, by: null, isMe: false, sameTab: false, kind: 'viewer', guest: false, presence: {}, updatedAt: Date.now() } }); try { conn.send({ t: 'p', p: mine }); } catch (e) {} fire(); if (!isHost && !done) { done = true; resolve(api); } });
-      conn.on('data', (d) => { if (!d || d.t !== 'p' || typeof d.p !== 'object') return; const o = others.get(conn.peer); if (!o) return; o.p = { ...o.p, presence: d.p, updatedAt: Date.now() }; fire(); });
+      conn.on('data', (d) => { if (!d || d.t !== 'p' || typeof d.p !== 'object') return; const o = others.get(conn.peer); if (!o) return; netIn(d.p); o.p = { ...o.p, presence: d.p, updatedAt: Date.now() }; fire(); });
       conn.on('close', () => { others.delete(conn.peer); fire(); });
       conn.on('error', () => {});
     };
     const api = {
-      name: code, presence(patch) { mine = { ...mine }; for (const k in patch) { if (patch[k] === null) delete mine[k]; else mine[k] = patch[k]; } cache = snapshot(); if (!pending) { pending = true; setTimeout(() => { pending = false; sendAll(); }, 33); } return Promise.resolve(); },
+      name: code, presence(patch) { mine = { ...mine }; for (const k in patch) { if (patch[k] === null) delete mine[k]; else mine[k] = patch[k]; } cache = snapshot(); if (!pending) { pending = true; queueMicrotask(() => { pending = false; sendAll(); }); } return Promise.resolve(); },
       peers() { return cache; }, onPeers(h) { hs.push(h); setTimeout(() => h({ peers: cache, joined: cache, left: [], updated: [] }), 0); return () => hs.splice(hs.indexOf(h), 1); },
       emit() { return Promise.resolve(); }, on() { return () => {}; }, connected() { return !peer.disconnected; }, onConnection(h) { setTimeout(() => h(true), 0); return () => {}; },
       leave() { try { peer.destroy(); } catch (e) {} return Promise.resolve(); },
@@ -6304,7 +6333,7 @@ function nearRoom() {
   const fire = () => { cache = snapshot(); for (const h of hs) try { h({ peers: cache, joined: [], left: [], updated: [] }); } catch (e) {} };
   setInterval(() => { for (const o of others.values()) if (o.dc.readyState === 'open') try { o.dc.send(JSON.stringify(mine)); } catch (e) {} }, 250); // resend: messages may be dropped, so state is repeated
   const api = {
-    name: 'near', presence(patch) { mine = { ...mine }; for (const k in patch) { if (patch[k] === null) delete mine[k]; else mine[k] = patch[k]; } cache = snapshot(); if (!pending) { pending = true; setTimeout(() => { pending = false; for (const o of others.values()) if (o.dc.readyState === 'open') try { o.dc.send(JSON.stringify(mine)); } catch (e) {} }, 33); } return Promise.resolve(); },
+    name: 'near', presence(patch) { mine = { ...mine }; for (const k in patch) { if (patch[k] === null) delete mine[k]; else mine[k] = patch[k]; } cache = snapshot(); if (!pending) { pending = true; queueMicrotask(() => { pending = false; for (const o of others.values()) if (o.dc.readyState === 'open') try { o.dc.send(JSON.stringify(mine)); } catch (e) {} }); } return Promise.resolve(); },
     peers() { return cache; }, onPeers(h) { hs.push(h); setTimeout(() => h({ peers: cache, joined: cache, left: [], updated: [] }), 0); return () => hs.splice(hs.indexOf(h), 1); },
     emit() { return Promise.resolve(); }, on() { return () => {}; }, connected() { return true; }, onConnection(h) { setTimeout(() => h(true), 0); return () => {}; },
     leave() { for (const o of others.values()) try { o.pc.close(); } catch (e) {} others.clear(); return Promise.resolve(); },
@@ -6312,7 +6341,7 @@ function nearRoom() {
       const id = 'n' + Math.random().toString(36).slice(2, 8);
       const opened = () => { if (others.has(id)) return; others.set(id, { pc, dc, p: { peer: id, by: null, isMe: false, sameTab: false, kind: 'viewer', guest: false, presence: {}, updatedAt: Date.now() } }); try { dc.send(JSON.stringify({ __id: me })); dc.send(JSON.stringify(mine)); } catch (e) {} fire(); };
       dc.onopen = opened; if (dc.readyState === 'open') setTimeout(opened, 0);
-      dc.onmessage = (m) => { const o = others.get(id); if (!o) return; try { const d = JSON.parse(m.data); if (d && d.__id) { o.p = { ...o.p, peer: d.__id }; fire(); return; } o.p = { ...o.p, presence: d, updatedAt: Date.now() }; fire(); } catch (e) {} }; // both sides agree on each phone's id
+      dc.onmessage = (m) => { const o = others.get(id); if (!o) return; try { const d = JSON.parse(m.data); if (d && d.__id) { o.p = { ...o.p, peer: d.__id }; fire(); return; } netIn(d); o.p = { ...o.p, presence: d, updatedAt: Date.now() }; fire(); } catch (e) {} }; // both sides agree on each phone's id
       dc.onclose = () => { others.delete(id); fire(); };
       pc.onconnectionstatechange = () => { if (pc.connectionState === 'failed' || pc.connectionState === 'closed') { others.delete(id); fire(); } };
     },
@@ -6321,7 +6350,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '33'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '34'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
@@ -6421,7 +6450,7 @@ function mpShim() {
     const fire = () => { cache = snapshot(); for (const h of hs) try { h({ peers: cache, joined: [], left: [], updated: [] }); } catch (e) {} };
     bc.onmessage = (ev) => { const d = ev.data; if (!d || d.peer === me) return;
       if (d.t === 'bye') { others.delete(d.peer); fire(); return; }
-      others.set(d.peer, { seen: Date.now(), p: { peer: d.peer, by: null, isMe: false, sameTab: false, kind: 'viewer', guest: false, presence: d.p, updatedAt: Date.now() } });
+      netIn(d.p); others.set(d.peer, { seen: Date.now(), p: { peer: d.peer, by: null, isMe: false, sameTab: false, kind: 'viewer', guest: false, presence: d.p, updatedAt: Date.now() } });
       if (d.t === 'hello') bc.postMessage({ t: 'p', peer: me, p: mine });
       fire(); };
     const beat = setInterval(() => { bc.postMessage({ t: 'p', peer: me, p: mine }); const now = Date.now(); let ch = false; for (const [k, o] of others) if (now - o.seen > 4000) { others.delete(k); ch = true; } if (ch) fire(); }, 1000);
@@ -6591,5 +6620,3 @@ function frameBody(now) {
 requestAnimationFrame(frame);
 window.__derby = { nearHostAdd: () => nearHostAdd(), nearJoin: () => nearJoin(), JUMBO, BALL, BOLLARDS, GASQ, updateArenaPub: (dt) => updateArena(dt), CRUSHER, crushNow: () => crushNow(), applyNight: () => applyNight(), FIREWORKS, ARENA, CROWD, MP, QUALITY, applyQuality: (i) => applyQuality(i), MERGED, camera, updatePropActivity: (dt) => updatePropActivity(dt), renderer, scene, spawnFree: (x, z, r) => spawnFree(x, z, r), BULLS, updateBulls: (dt) => updateBulls(dt), updateShells, tilt, setTilt, get CRANE() { return CRANE; }, updateCrane: (dt) => updateCrane(dt), CONCRETE, THREE, craters, shells, pickups, barks, PERSONAS, TUNE, game, cars, S, world, CAR_TYPES, sfx, touch, drawGauge, get player() { return player; }, keys, startMatch, selectCar, setValue, debris, props, platformOf, get simTime() { return simTime; }, set simTime(v) { simTime = v; } }; // console tinkering + tests
 </script>
-
-</body></html>
