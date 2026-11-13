@@ -232,6 +232,8 @@
   #netlog[hidden] { display: none; }
   #perfdlg { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 44; width: min(620px, calc(100vw - 24px)); }
   #perfdlg[hidden] { display: none; }
+  #note { position: fixed; left: 50%; top: 18%; transform: translateX(-50%); z-index: 60; max-width: min(520px, calc(100vw - 32px)); background: rgba(20, 17, 14, 0.96); color: #f3e9dc; border: 1px solid var(--accent); border-radius: 12px; padding: 12px 16px; font: 500 15px/1.4 system-ui, sans-serif; }
+  #note[hidden] { display: none; }
   #perfdlg .nl-card { background: rgba(20, 17, 14, 0.9); }
   #pfText { margin: 0; font: 12px/1.45 ui-monospace, Menlo, monospace; color: #e8dccb; white-space: pre-wrap; max-height: 52vh; overflow: auto; }
   #pfVerdict { font-weight: 600; color: #ffd08a; opacity: 1; }
@@ -390,6 +392,7 @@
         <button id="btnMusic" type="button">Music on<kbd>B</kbd></button>
         <button id="btnMute" type="button">Sound on<kbd>M</kbd></button>
         <button id="btnVoices" type="button">Voices on<kbd>U</kbd></button>
+        <button id="btnVoiceTest" type="button">Test voices</button>
       </div>
     </div>
     <div class="speedo"><canvas id="gauge" aria-label="Speedometer and tachometer"></canvas><div class="gforce" id="gforce"></div></div>
@@ -2354,7 +2357,7 @@ function explodeShell(hp, hitBody, owner, scale = 1) {
     if (o.bull && o.bull.state !== 'burger') { const bl = o.bull; bl.state = 'down'; bl.t = rand(2.5, 3.5); o.fixedRotation = false; o.updateMassProperties(); o.applyImpulse(new CANNON.Vec3(0, o.mass * 6 * f, 0)); o.angularVelocity.set(rand(-4, 4), rand(-4, 4), rand(-4, 4)); bl.cook = (bl.cook || 0) + 0.3 * f; if (f > 0.4 && game.state === 'playing' && Math.random() < 0.5) barks.announce('bullFly', {}); } // the bull goes for a little flight
     if (o.prop && props.includes(o.prop) && f > 0.45 && Math.random() < 0.6) igniteProp(o.prop, 6);
     if (o.prop && props.includes(o.prop)) { damageProp(o.prop, 12 + 30 * f, o.quaternion.conjugate().vmult(dir.scale(-1))); if (owner.isPlayer && game.state === 'playing') { game.score += 10; game.propHits++; } continue; }
-    const c = o.car;
+    const c = o.car; if (c) c.blastT = simTime;
     if (c && !c.wrecked && c !== owner) {
       const local = c.body.pointToLocalFrame(P), model = new THREE.Vector3(local.x + c.comShift, local.y, local.z);
       const nl = c.body.quaternion.conjugate().vmult(P.vsub(c.body.position).unit());
@@ -3012,8 +3015,12 @@ class Car {
       });
     }
     v.addToWorld(world);
-    if (T.style === 'tank') { // tank tracks treat cars as ground, so it can climb onto them
-      v.world = Object.assign(Object.create(world), { rayTest(from, to, res) { world.raycastClosest(from, to, { skipBackfaces: true, collisionFilterMask: ~LIGHT }, res); } });
+    if (T.style === 'tank') { // tank tracks treat WRECKS as ground, so it climbs onto them and flattens them. A live car is bulldozed instead:
+      // standing the stiff track suspension on a live car's roof would spring eleven tonnes into the air when that car pushes in under the side
+      v.world = Object.assign(Object.create(world), { rayTest(from, to, res) {
+        world.raycastClosest(from, to, { skipBackfaces: true, collisionFilterMask: ~LIGHT }, res);
+        const hc = res.hasHit && res.body && res.body.car; if (hc && !hc.wrecked && !window.__tankRidesCars) { res.reset(); world.raycastClosest(from, to, { skipBackfaces: true, collisionFilterMask: ~(LIGHT | CARG) }, res); }
+      } });
     }
     b.addEventListener('collide', (e) => this.onCollide(e));
     this.buildModel();
@@ -3760,7 +3767,8 @@ class Car {
     // Unstick: wanting to move but going nowhere (high-centred on junk, wheels spinning in the air, nose in a pile). After a moment
     // the car claws its way out: a firm push the way it is trying to go, the belly lifted a little. Never while something holds it.
     {
-      const want = Math.abs(thr) > 0.3 && !window.__noUnstick && !this.wrecked && !this.craned && !this.carriedBy && !this.towedBy && !this.ghost && this.up.y > 0.5;
+      const shoving = cars.some((o) => o !== this && o.body.position.distanceTo(b.position) < (o.T.L + T.L) * 0.5 + 0.8); // pushing against another car is a shoving match, not being stuck: no extra help
+      const want = Math.abs(thr) > 0.3 && !shoving && !window.__noUnstick && !this.wrecked && !this.craned && !this.carriedBy && !this.towedBy && !this.ghost && this.up.y > 0.5;
       const hv = Math.hypot(b.velocity.x, b.velocity.z);
       this.stuckA = want && hv < 1.2 ? (this.stuckA || 0) + dt : Math.max(0, (this.stuckA || 0) - dt * 2);
       if (this.stuckA > 0.7) {
@@ -4730,7 +4738,7 @@ class Car {
       const dir = o.position.vsub(p); dir.y += 1.5; dir.normalize();
       const imp = o.mass * (1 - d / BR) * (big ? 15 : 9);
       o.wakeUp();
-      o.applyImpulse(dir.scale(imp));
+      o.applyImpulse(dir.scale(imp)); if (o.car) o.car.blastT = simTime;
       if (o.car && !o.car.wrecked) o.car.applyDamage((big ? 40 : 6) * (1 - d / BR), this.lastAttacker && simTime - this.lastAttackTime < 4 ? this.lastAttacker : null, null, null);
     }
     if (big) for (let i = 0; i < 60; i++) emit('fire', p.x + rand(-4, 4), p.y + rand(0, 3), p.z + rand(-4, 4), rand(-6, 6), rand(3, 10), rand(-6, 6), rand(0.8, 1.6), rand(1.2, 2.4));
@@ -5037,12 +5045,13 @@ function unwedge(dt) {
       let ux = dx / (dh || 1), uz = dz / (dh || 1);
       if (dh < 0.3) { const r = Math.random() * 6.28; ux = Math.cos(r); uz = Math.sin(r); }
       const top = pa.y > pb.y ? a : b;
+      const light = a.body.mass <= b.body.mass ? a : b, ratio = Math.max(a.body.mass, b.body.mass) / Math.min(a.body.mass, b.body.mass);
       for (const [c, s] of [[a, 1], [b, -1]]) {
         if (c.wrecked && c !== top) continue;
         c.body.wakeUp();
-        const mk = clamp(Math.sqrt(1500 / c.body.mass), 0.3, 1.1);
-        c.body.velocity.x += ux * s * 3 * mk; c.body.velocity.z += uz * s * 3 * mk;
-        c.body.velocity.y += (c === top ? 3 : 1) * mk;
+        const mk = clamp(Math.sqrt(1500 / c.body.mass), 0.3, 1.1), heavy = c !== light && ratio > 1.8; // a much heavier car barely moves, and is never the one lifted
+        c.body.velocity.x += ux * s * 3 * mk * (heavy ? 0.25 : 1); c.body.velocity.z += uz * s * 3 * mk * (heavy ? 0.25 : 1);
+        if (!heavy) c.body.velocity.y += (c === top || c === light ? 3 : 1) * mk;
       }
     }
   }
@@ -5057,6 +5066,37 @@ function platformOf(p) {
 }
 
 world.addEventListener('preStep', () => { for (const c of cars) c.physicsStep(FIXED); });
+// Weight matters: a light car can't lever up one more than 2.5x its weight. Its sloped nose can wedge under a heavy car's side and
+// the contact then points upward; for those side contacts the push is made horizontal (before the solver runs), so the tank
+// gets shoved, not lifted. Landing on a roof, and driving over a wreck, are left alone.
+const PHYS = { log: [], fixes: 0, clamps: 0, blowups: 0 };
+// Safety net: if the solver ever blows up (bodies forced deep into each other), nothing leaves at rocket speed
+world.addEventListener('postStep', () => {
+  const lim = (b, who) => { const v = b.velocity, sp = v.length(), w = b.angularVelocity, ws = w.length(); let hit = false;
+    if (sp > 75) { v.scale(60 / sp, v); hit = true; } if (ws > 25) { w.scale(15 / ws, w); hit = true; }
+    if (hit) { PHYS.blowups++; if (PHYS.log.length < 200) PHYS.log.push({ t: +simTime.toFixed(2), kind: 'blow-up clamped', who, speed: Math.round(sp), spin: Math.round(ws) }); } };
+  for (const c of cars) if (!c.ghost) lim(c.body, c.T.name);
+  for (const bl of BULLS) lim(bl.body, 'bull');
+});
+// An 11-tonne tank does not bounce: outside of blasts and jumps, cap how fast it can rise or roll (contact pops with a car on its deck)
+world.addEventListener('postStep', () => {
+  for (const c of cars) { if (!c.T.skid || c.ghost || c.wrecked) continue; const b = c.body; if (simTime - (c.blastT ?? -9) < 0.8 || c.tclimb > 0 || c.crawlT > 0.25) continue; // (its own climbing over an obstacle is allowed)
+    const air = !c.vehicle.wheelInfos.some((w) => w.isInContact) && b.position.y > 2.5; if (air) continue;
+    if (b.velocity.y > 1.6) { b.velocity.y = 1.6; PHYS.clamps++; }
+    const wx = b.angularVelocity.x, wz = b.angularVelocity.z, wl = Math.hypot(wx, wz); if (wl > 1.2) { b.angularVelocity.x = wx / wl * 1.2; b.angularVelocity.z = wz / wl * 1.2; PHYS.clamps++; } }
+});
+{ const np = world.narrowphase, gc = np.getContacts.bind(np);
+  np.getContacts = function (p1, p2, w, result, ...rest) {
+    gc(p1, p2, w, result, ...rest);
+    for (const eq of result) {
+      const ca = eq.bi.car, cb = eq.bj.car; if (!ca || !cb || ca === cb) continue;
+      const heavy = ca.body.mass >= cb.body.mass ? ca : cb, light = heavy === ca ? cb : ca, ratio = heavy.body.mass / light.body.mass;
+      if (ratio < 2.5 || light.wrecked || window.__noWeightFix) continue;
+      const n = eq.ni; if (Math.abs(n.y) > 0.85 || Math.abs(n.y) < 0.05) continue;
+      n.y = 0; const l = Math.hypot(n.x, n.z) || 1; n.x /= l; n.z /= l; PHYS.fixes++;
+    }
+  };
+}
 // Backup for the round concrete pillars: the physics engine's hull-vs-cylinder test can miss now and then, letting a car slide through.
 // After each step, a car whose footprint overlaps a pillar is pushed back out and loses its speed into the pillar.
 const _pl = new CANNON.Vec3(), _pn = new CANNON.Vec3();
@@ -5830,8 +5870,10 @@ const barks = {
       if (speechSynthesis.pending || (speechSynthesis.speaking && this.queued > 1)) { speechSynthesis.cancel(); this.queued = 0; }
       speechSynthesis.resume();
       this.queued = (this.queued || 0) + 1;
-      u.onstart = () => { this.speechOK = true; };
-      u.onend = u.onerror = () => { this.queued = Math.max(0, this.queued - 1); };
+      u.onstart = () => { this.speechOK = true; this.lastStart = Date.now(); };
+      u.onend = () => { this.queued = Math.max(0, this.queued - 1); };
+      u.onerror = (ev) => { this.queued = Math.max(0, this.queued - 1); this.lastErr = (ev && ev.error) || 'error'; }; // (shown by Test voices)
+      this.keep = (this.keep || []).concat(u).slice(-6); // Chrome can drop an utterance nobody holds on to before it is spoken
       if (this.speechOK !== true) { const id = setTimeout(() => { if (this.speechOK !== true) { this.speechOK = false; this.babble(P, line, pos); } }, 1500); u.addEventListener('start', () => clearTimeout(id)); }
       speechSynthesis.speak(u);
     } catch (e) {}
@@ -6343,6 +6385,20 @@ let VOICES_OFF = false; try { VOICES_OFF = localStorage.getItem('derby-voices') 
 function setVoices(off) { VOICES_OFF = off; $('btnVoices').firstChild.textContent = off ? 'Voices off' : 'Voices on'; try { localStorage.setItem('derby-voices', off ? 'off' : 'on'); } catch (e) {} if (off) try { speechSynthesis.cancel(); } catch (e) {} }
 setVoices(VOICES_OFF);
 $('btnVoices').addEventListener('click', (e) => { e.currentTarget.blur(); setVoices(!VOICES_OFF); });
+function showNote(t) { let n = $('note'); if (!n) { n = document.createElement('div'); n.id = 'note'; n.addEventListener('click', () => { n.hidden = true; }); document.body.appendChild(n); } n.textContent = t + '  (tap to close)'; n.hidden = false; clearTimeout(n.tm); n.tm = setTimeout(() => { n.hidden = true; }, 12000); }
+$('btnVoiceTest').addEventListener('click', () => { // speaks a line now and says what is going on, so a silent device can be diagnosed
+  const ss = window.speechSynthesis, vs = ss ? ss.getVoices() : [];
+  if (VOICES_OFF) setVoices(false);
+  barks.speechOK = null; barks.unlock();
+  setTimeout(() => {
+    const P = CAR_CAST.forklift, u = ss ? new SpeechSynthesisUtterance('Testing, testing. I am Arthur, King of the Britons!') : null;
+    if (u) { const v = barks.pickVoice(P); if (v) { u.voice = v; u.lang = v.lang; } u.volume = Math.max(0.6, S.voiceVolume); u.onerror = (ev) => { barks.lastErr = (ev && ev.error) || 'error'; }; u.onstart = () => { barks.speechOK = true; }; barks.keep = (barks.keep || []).concat(u).slice(-6); ss.speak(u); }
+    setTimeout(() => {
+      const msg = !ss ? 'This browser has no speech. You will hear the cartoon babble instead.' : barks.speechOK ? `Speech works (${vs.length} voices). If you heard nothing, check the device volume and silent switch.` : `Speech did not start${barks.lastErr ? ' (' + barks.lastErr + ')' : ''}. ${vs.length} voices on this device. ${sfx.muted ? 'Sound is OFF in the menu. ' : ''}${S.voiceVolume <= 0 ? 'Voice volume is 0 in Tune physics. ' : ''}Inside the Claude app speech can be blocked: try the GitHub Pages link.`;
+      toast(barks.speechOK ? '🔊 VOICES WORK' : '🔇 NO VOICES', barks.speechOK ? 'cool' : 'bad'); NETLOG.incident('me', 'voice test: ' + msg); showNote(msg);
+    }, 1600);
+  }, 300);
+});
 const btnMute = $('btnMute');
 function toggleMute() {
   sfx.setMuted(!sfx.muted);
@@ -6849,7 +6905,7 @@ function updateBulls(dt) {
     if (MP.role === 'guest' && MP.applyBull(bl)) { /* host-driven */ }
     else if (bl.state === 'burger') { // a giant burger sitting in the dirt, steaming; after a while a fresh bull wanders back in
       b.velocity.x *= 0.9; b.velocity.z *= 0.9; if (Math.random() < dt * 3) emit('steam', p.x + rand(-0.5, 0.5), p.y + 1.6, p.z + rand(-0.5, 0.5), 0, rand(1, 2), 0, rand(0.8, 1.4), rand(0.3, 0.5));
-      if (bl.t <= 0) { const sp = findSpawn(rand(-70, 70), rand(-70, 70)); p.set(sp.x, 1.3, sp.z); b.velocity.set(0, 0, 0); bl.state = 'graze'; bl.t = 3; bl.cook = 0; }
+      if (bl.t <= 0) { let sp = null; for (let k = 0; k < 12 && !sp; k++) { const c0 = findSpawn(rand(-70, 70), rand(-70, 70)); if (!cars.some((c) => c.body.position.distanceTo(new CANNON.Vec3(c0.x, 1.3, c0.z)) < 8)) sp = c0; } if (sp) { p.set(sp.x, 1.3, sp.z); b.velocity.set(0, 0, 0); bl.state = 'graze'; bl.t = 3; bl.cook = 0; } else bl.t = 1; }
     }
     else if (bl.state !== 'down' && Math.hypot(b.velocity.x, b.velocity.z) > 3 && puddleAt(p.x, p.z, 'oil', 0.2)) { // hooves on an oil slick: whoops
       bl.state = 'down'; bl.t = rand(1.8, 2.6); b.fixedRotation = false; b.updateMassProperties(); b.angularVelocity.set(rand(-1, 1), rand(4, 7) * (Math.random() < 0.5 ? -1 : 1), rand(-1, 1)); bullMoo(bl, 0.9);
@@ -6857,10 +6913,10 @@ function updateBulls(dt) {
     }
     else if (bl.state !== 'down' && (bl.stuckT > 0 || puddleAt(p.x, p.z, 'concrete', 0.2))) { // wet concrete: cement shoes, a bull statue for a while
       if (!(bl.stuckT > 0)) { bl.stuckT = 5; bullMoo(bl, 0.8); if (game.state === 'playing' && Math.random() < 0.6) barks.announce('bullStuck', {}); }
-      bl.stuckT -= dt; b.velocity.x *= 0.5; b.velocity.z *= 0.5; if (bl.stuckT <= 0) { bl.stuckT = 0; bl.state = 'graze'; bl.t = 2; p.x += Math.cos(bl.yaw) * 2.5; p.z -= Math.sin(bl.yaw) * 2.5; } // finally steps out
+      bl.stuckT -= dt; b.velocity.x *= 0.5; b.velocity.z *= 0.5; if (bl.stuckT <= 0) { bl.stuckT = 0; bl.state = 'walk'; bl.t = 2; } // finally pulls free and walks off
     }
     else if (bl.state === 'down') { // tumbling, then back on its feet with a shake of the head
-      if (bl.t <= 0 && Math.abs(b.velocity.y) < 1) { b.fixedRotation = true; b.updateMassProperties(); b.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), bl.yaw); b.angularVelocity.set(0, 0, 0); b.position.y = Math.max(p.y, 1.3); bl.state = bl.angry && live ? 'paw' : 'graze'; bl.t = 1.2; bl.target = bl.angry && !bl.angry.wrecked ? bl.angry : null; bullMoo(bl, 0.8); }
+      if (bl.t <= 0 && Math.abs(b.velocity.y) < 1 && !cars.some((c) => c.body.position.distanceTo(p) < 3.2)) { b.fixedRotation = true; b.updateMassProperties(); b.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), bl.yaw); b.angularVelocity.set(0, 0, 0); b.position.y = Math.max(p.y, 1.3); bl.state = bl.angry && live ? 'paw' : 'graze'; bl.t = 1.2; bl.target = bl.angry && !bl.angry.wrecked ? bl.angry : null; bullMoo(bl, 0.8); } // (not while a car is on it: snapping upright inside a car makes the physics kick it into orbit)
     } else {
       // pick a victim: the angriest grudge, else the nearest moving car in range
       if ((bl.state === 'graze' || bl.state === 'walk') && live && bl.t <= 0) {
@@ -7322,7 +7378,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '39'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '40'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
@@ -7524,9 +7580,12 @@ function updatePerfHud(realDt) {
 function governQuality(realDt) {
   updatePerfHud(realDt);
   if (!S.autoGfx || game.state === 'menu' || document.hidden) { govern.acc = govern.n = 0; return; }
-  govern.acc += Math.min(realDt, 0.1); govern.n++; govern.t += realDt;
+  (govern.fr || (govern.fr = [])).push(realDt); govern.acc += Math.min(realDt, 0.1); govern.n++; govern.t += realDt;
   if (govern.t < (govern.first ? 2 : 1.2)) return; govern.first = true;
-  const avg = govern.acc / govern.n; govern.acc = govern.n = govern.t = 0;
+  // judge by the typical frame (70th percentile), not the average: a hitch or two (an explosion, a voice starting) must not cost two quality steps
+  const fr = govern.fr.sort((a, b) => a - b), avg = fr[Math.min(fr.length - 1, Math.floor(fr.length * 0.7))]; govern.fr = []; govern.acc = govern.n = govern.t = 0;
+  govern.slowRuns = avg > 1 / 48 ? (govern.slowRuns || 0) + 1 : 0;
+  if (avg > 1 / 48 && avg <= 1 / 28 && govern.slowRuns < 2) return; // mildly slow once: wait and see
   if (avg > 1 / 48 && QUALITY.level < QSTEPS.length - 1) { applyQuality(Math.min(QSTEPS.length - 1, QUALITY.level + (avg > 1 / 28 ? 2 : 1))); govern.good = 0; govern.lastDown = clock; }   // struggling: drop a step (two if it's really bad)
   else if (avg < 1 / 57) { govern.good++; if (govern.good >= 5 && QUALITY.level > 0 && clock - govern.lastDown > 25) { applyQuality(QUALITY.level - 1); govern.good = 0; } } // 10 s of headroom: try one step back up
   else govern.good = 0;
@@ -7569,12 +7628,32 @@ const PERFREP = { f: [], max: 900, seq: 0, lastT: 0, r0: 0, render: 0, calls: 0,
     const verdict = fa < 20 ? 'smooth' : wait > ba ? 'waiting on the graphics chip (fewer pixels/effects would help)' : simA > drawA ? 'the game step (physics/AI) is the slow part' : 'preparing the drawing (draw calls) is the slow part';
     return { why, at: Date.now(), who: MP.role === 'solo' ? 'this device' : MP.nick(), car: player ? player.T.name : '?', secs: Math.round(F.reduce((s, x) => s + x[0], 0) / 1000),
       fps: Math.round(1000 / fa), frame: r1(fa), frame95: r1(pc(fr, 0.95)), frameMax: Math.round(fr[fr.length - 1]), busy: r1(ba), sim: r1(simA), sim95: r1(pc(sim, 0.95)), draw: r1(drawA), render: r1(rendA), wait: r1(wait), verdict,
-      parts: parts.filter(([, v]) => v >= 0.05).map(([k, v]) => `${k} ${v.toFixed(1)}`).join(', '), q: QUALITY.level, res: Math.round(renderer.getPixelRatio() * 100), calls: this.calls, tris: this.tris, cars: cars.length, role: MP.role, dev: this.device() };
+      parts: parts.filter(([, v]) => v >= 0.05).map(([k, v]) => `${k} ${v.toFixed(1)}`).join(', '), slowMoments: this.incidents.slice(-5), q: QUALITY.level, res: Math.round(renderer.getPixelRatio() * 100), calls: this.calls, tris: this.tris, cars: cars.length, role: MP.role, dev: this.device() };
   },
   send(why) {
     const r = this.summary(why, this.secRef); if (!r) return; this.lastT = performance.now(); this.secRef = SEC.snap();
     if (MP.role === 'guest' && MP.room) { MP.room.presence({ pf: [++this.seq, r] }, true).catch(() => {}); NETLOG.addPerf(r); } // to the host (and kept here)
     else NETLOG.addPerf(r);
+  },
+  // slow moments: under ~25 fps for over a second gets recorded with what was eating the time, kept for the Perf panel and reports
+  incidents: [], win: [], slow: null,
+  watch(dtMs) {
+    if (dtMs > 1000 || document.hidden) { this.win.length = 0; return; } // a background tab isn't a slow game
+    const now = performance.now(); this.win.push([now, dtMs]); while (this.win.length && now - this.win[0][0] > 1000) this.win.shift();
+    const avg = this.win.reduce((a, x) => a + x[1], 0) / this.win.length;
+    if (!this.slow) { if (avg > 40 && this.win.length >= 5 && game.state === 'playing') this.slow = { start: now, at: Date.now(), ref: SEC.snap(), worst: 0 }; return; }
+    this.slow.worst = Math.max(this.slow.worst, dtMs);
+    if (avg < 30 || now - this.slow.start > 8000) {
+      const S0 = this.slow; this.slow = null; const sum = this.summary('slow', S0.ref); if (!sum) return;
+      const live = parts.filter((x) => x && x.mesh.visible).length, mem = performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) + ' MB' : null;
+      this.incidents.push({ at: S0.at, secs: +((now - S0.start) / 1000).toFixed(1), fps: sum.fps, frame: sum.frame, worst: Math.round(S0.worst), sim: sum.sim, draw: sum.draw, wait: sum.wait, parts: sum.parts, verdict: sum.verdict, q: sum.q, res: sum.res, calls: sum.calls, cars: cars.length, particles: live, booms: BOOMS.length, fires: props.filter((x) => x.fireT > 0).length, mem });
+      if (this.incidents.length > 20) this.incidents.shift();
+    }
+  },
+  incidentText() {
+    if (!this.incidents.length) return 'Slow moments: none so far (anything under ~25 fps for over a second is recorded here).';
+    const ts = (t) => new Date(t).toLocaleTimeString();
+    return [`Slow moments (${this.incidents.length}, newest first):`, ...this.incidents.slice().reverse().map((x) => `  ${ts(x.at)} · ${x.secs}s at ${x.fps} fps (worst frame ${x.worst} ms) → ${x.verdict}\n      by system: ${x.parts || '?'}\n      game step ${x.sim} · draw prep ${x.draw} · GPU wait ${x.wait} ms · quality ${x.q} · ${x.calls} draw calls · ${x.cars} cars · ${x.particles} particles · ${x.fires} fires · ${x.booms} big blasts${x.mem ? ' · ' + x.mem : ''}`)].join('\n');
   },
   check() { // called every frame: a fresh wreck, or two quiet minutes, sends a report
     if (!player || game.state !== 'playing') return;
@@ -7596,7 +7675,7 @@ function perfLiveText() {
     'By system (ms per frame):', ...String(p.parts || '').split(', ').filter(Boolean).map((x) => '  ' + x), '',
     `Quality ${p.q} of ${QSTEPS.length - 1} (0 best) · resolution ${p.res}% · ${p.calls} draw calls · ${p.tris} triangles · ${p.cars} cars`,
     `${MP.role === 'solo' ? 'Single player' : MP.role === 'host' ? 'Hosting' : 'Guest'}${MP.role === 'guest' && MP.net ? ` · ${Math.round(1 / MP.net.iv)} updates/s, smoothing ${Math.round((MP.delay || 0) * 1000)} ms` : ''}`,
-    p.dev];
+    p.dev, '', PERFREP.incidentText()];
   return [p.verdict, L.join('\n')];
 }
 const PF = { timer: 0, snaps: [] };
@@ -7679,7 +7758,8 @@ const NETLOG = {
       `Players: ${cars.filter((c) => c.remote || c.netPeer || c.isPlayer).map((c) => (c.isPlayer ? MP.nick() + ' (this device)' : c.name) + ' · ' + c.T.name).join(', ')}`,
       'Host sends 20 snapshots/s; guests should see ~20 updates/s, jitter < 30 ms, smoothing 80-200 ms, gaps < 150 ms.', '',
       `Performance reports (${this.perf.length}, newest last; sent after each wreck and every 2 minutes; times in ms per frame):`,
-      ...this.perf.map((p) => `  ${ts(p.at)}  ${String(p.who).padEnd(14)} ${p.why}: ${p.fps} fps (frame ${p.frame} avg, ${p.frame95} p95, ${p.frameMax} worst) · game step ${p.sim} (p95 ${p.sim95}) · drawing prep ${p.draw} (draw call ${p.render}) · waiting on GPU ${p.wait} · quality ${p.q}, res ${p.res}%, ${p.calls} draw calls, ${p.tris} triangles, ${p.cars} cars · ${p.car} · ${p.dev}\n      per system (ms/frame): ${p.parts || '?'}\n      → ${p.verdict}`), '',
+      ...this.perf.map((p) => `  ${ts(p.at)}  ${String(p.who).padEnd(14)} ${p.why}: ${p.fps} fps (frame ${p.frame} avg, ${p.frame95} p95, ${p.frameMax} worst) · game step ${p.sim} (p95 ${p.sim95}) · drawing prep ${p.draw} (draw call ${p.render}) · waiting on GPU ${p.wait} · quality ${p.q}, res ${p.res}%, ${p.calls} draw calls, ${p.tris} triangles, ${p.cars} cars · ${p.car} · ${p.dev}\n      per system (ms/frame): ${p.parts || '?'}\n      → ${p.verdict}${(p.slowMoments || []).map((x) => `\n      slow moment ${new Date(x.at).toISOString().slice(11, 19)}: ${x.secs}s at ${x.fps} fps, worst ${x.worst} ms → ${x.verdict} · ${x.parts} · ${x.particles} particles, ${x.fires} fires, ${x.booms} blasts`).join('')}`), '',
+      `Physics safety events (${typeof PHYS !== 'undefined' ? PHYS.log.length : 0}; light-car levering prevented ${typeof PHYS !== 'undefined' ? PHYS.fixes : 0} contacts, tank rise/roll capped ${typeof PHYS !== 'undefined' ? PHYS.clamps : 0} steps, blow-ups clamped ${typeof PHYS !== 'undefined' ? PHYS.blowups : 0}):`, ...(typeof PHYS !== 'undefined' ? PHYS.log.slice(-30).map((x) => '  ' + JSON.stringify(x)) : []), '',
       `Incidents (${this.inc.length}):`, ...this.inc.map((e) => `  ${ts(e.t)}  ${e.who.padEnd(14)} ${e.what}`), '',
       'Timeline, one line per player per second (newest last):',
       '  time      who            fps worst  upd jitter smooth  gap extrap% q    rtt  | host: ticks sent step(ms) stepMax'];
@@ -7727,7 +7807,7 @@ function frameBody(now) {
   const t1 = performance.now(); PERFREP.render = 0;
   drawBody(Math.min(0.05, rawDt));
   const t2 = performance.now();
-  PERFREP.add(rawDt * 1000, t2 - t0 + (TICK.on ? simMs : 0), simMs, t2 - t1, PERFREP.render); SEC.n++;
+  PERFREP.add(rawDt * 1000, t2 - t0 + (TICK.on ? simMs : 0), simMs, t2 - t1, PERFREP.render); SEC.n++; PERFREP.watch(rawDt * 1000);
 }
 function simBody(now) {
   const rawDt = (now - lastT) / 1000;
@@ -7834,5 +7914,5 @@ function drawBody(dt) {
   if (!window.__noRender) { const gq = Math.min(S.gfx, S.autoGfx ? (QUALITY.gfxCap ?? 2) : 2); if (gq > 0) { grade.uniforms.uTime.value = clock % 10; grade.enabled = gq > 1; bloom.strength = gq > 1 ? 0.42 : 0.34; composer.render(); } else renderer.render(scene, camera); PERFREP.render = performance.now() - PERFREP.r0; SEC.add('render', PERFREP.render); } // tests can skip drawing to run physics faster
 }
 requestAnimationFrame(frame);
-window.__derby = { wakeProp: (pr) => wakeProp(pr), addConcrete: (x, z, r, k) => addConcrete(x, z, r, k), igniteProp: (pr, t) => igniteProp(pr, t), cookBull: (bl, by, dt) => cookBull(bl, by, dt), tankerBoom: (p, c) => tankerBoom(p, c), CAR_TYPES, sfx, CANNON, barks, PERF, shells, NETLOG, nearHostAdd: () => nearHostAdd(), nearJoin: () => nearJoin(), JUMBO, BALL, BOLLARDS, GASQ, updateArenaPub: (dt) => updateArena(dt), CRUSHER, crushNow: () => crushNow(), applyNight: () => applyNight(), FIREWORKS, ARENA, CROWD, MP, QUALITY, applyQuality: (i) => applyQuality(i), MERGED, camera, updatePropActivity: (dt) => updatePropActivity(dt), renderer, scene, spawnFree: (x, z, r) => spawnFree(x, z, r), BULLS, updateBulls: (dt) => updateBulls(dt), updateShells, tilt, setTilt, get CRANE() { return CRANE; }, updateCrane: (dt) => updateCrane(dt), CONCRETE, THREE, craters, shells, pickups, barks, PERSONAS, TUNE, game, cars, S, world, CAR_TYPES, sfx, touch, drawGauge, get player() { return player; }, keys, startMatch, selectCar, setValue, debris, props, platformOf, get simTime() { return simTime; }, set simTime(v) { simTime = v; } }; // console tinkering + tests
+window.__derby = { get simTime() { return simTime; }, PHYS, wakeProp: (pr) => wakeProp(pr), addConcrete: (x, z, r, k) => addConcrete(x, z, r, k), igniteProp: (pr, t) => igniteProp(pr, t), cookBull: (bl, by, dt) => cookBull(bl, by, dt), tankerBoom: (p, c) => tankerBoom(p, c), CAR_TYPES, sfx, CANNON, barks, PERF, shells, NETLOG, nearHostAdd: () => nearHostAdd(), nearJoin: () => nearJoin(), JUMBO, BALL, BOLLARDS, GASQ, updateArenaPub: (dt) => updateArena(dt), CRUSHER, crushNow: () => crushNow(), applyNight: () => applyNight(), FIREWORKS, ARENA, CROWD, MP, QUALITY, applyQuality: (i) => applyQuality(i), MERGED, camera, updatePropActivity: (dt) => updatePropActivity(dt), renderer, scene, spawnFree: (x, z, r) => spawnFree(x, z, r), BULLS, updateBulls: (dt) => updateBulls(dt), updateShells, tilt, setTilt, get CRANE() { return CRANE; }, updateCrane: (dt) => updateCrane(dt), CONCRETE, THREE, craters, shells, pickups, barks, PERSONAS, TUNE, game, cars, S, world, CAR_TYPES, sfx, touch, drawGauge, get player() { return player; }, keys, startMatch, selectCar, setValue, debris, props, platformOf, get simTime() { return simTime; }, set simTime(v) { simTime = v; } }; // console tinkering + tests
 </script>
