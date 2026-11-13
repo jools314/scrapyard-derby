@@ -128,6 +128,10 @@
   .mprow { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
   .mprow input { font: 500 13px var(--ui); padding: 6px 8px; background: var(--panel-solid); color: var(--fg); border: 1px solid var(--line); border-radius: 4px; width: 9em; }
   .mprow .join { border-color: var(--accent); }
+  .nearbox { z-index: 30; }
+  .nearbox .card { max-width: 420px; gap: 10px; }
+  #nearQR { width: min(78vw, 360px, 62vh); height: min(78vw, 360px, 62vh); background: #fff; border-radius: 8px; padding: 8px; image-rendering: pixelated; justify-self: center; }
+  #nearCam { width: min(78vw, 360px); max-height: 55vh; border-radius: 8px; background: #000; justify-self: center; object-fit: cover; }
   .mpshare { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
   .mpshare canvas { width: 140px; height: 140px; background: #fff; border-radius: 6px; padding: 6px; image-rendering: pixelated; }
   .mpshare input { font: 500 12px var(--ui); width: 15em; padding: 6px 8px; background: var(--panel-solid); color: var(--fg); border: 1px solid var(--line); border-radius: 4px; margin-right: 6px; }
@@ -357,6 +361,7 @@
       <div id="mpBox" class="mp">
         <p class="label" style="margin:0">Multiplayer <span id="mpStatus" class="quiet"></span></p>
         <div class="mprow"><input id="mpNick" maxlength="14" placeholder="Your name" aria-label="Your name"><button id="btnHost" type="button">Host a game</button><button id="btnLeave" type="button" hidden>Leave</button></div>
+        <div class="mprow" id="nearRow" hidden><button id="btnNearHost" type="button">Add nearby player</button><button id="btnNearJoin" type="button">Join nearby</button><span class="quiet">No internet service: the phones scan each other's screens, then talk over your Wi-Fi.</span></div>
         <div id="mpGames" class="mprow"></div>
         <p id="mpInfo" class="quiet" style="margin:0"></p>
         <div id="mpShare" class="mpshare" hidden><canvas id="mpQR" width="180" height="180" aria-label="QR code to join"></canvas><div><p class="quiet" style="margin:0 0 6px">Scan to join, or send this link:</p><input id="mpLink" readonly aria-label="Join link"><button id="btnCopyLink" type="button">Copy link</button></div></div>
@@ -392,6 +397,17 @@
         <button id="btnStart" class="primary" type="button">Start derby</button>
         <span class="quiet">or press Enter</span>
       </div>
+    </div>
+  </div>
+
+  <div id="near" class="overlay nearbox" hidden>
+    <div class="card">
+      <p class="eyebrow" id="nearStep">Nearby</p>
+      <h2 id="nearTitle" style="margin:0"></h2>
+      <canvas id="nearQR" width="600" height="600" hidden></canvas>
+      <video id="nearCam" playsinline muted hidden></video>
+      <p id="nearMsg" class="quiet" style="margin:0"></p>
+      <div class="actions"><button id="nearNext" type="button" class="primary" hidden></button><button id="nearClose" type="button">Close</button></div>
     </div>
   </div>
 
@@ -6005,7 +6021,7 @@ const MP = {
     let api = null;
     if (!window.__mpShim) try { if (window.claude && window.claude.use) api = await window.claude.use('room'); } catch (e) { api = null; }
     if (!api && !window.__mpShim) { // not inside Claude: go phone-to-phone with PeerJS + a QR code
-      this.transport = 'peer'; this.api = { peer: true }; this.lobby = null; this.status('online · host shows a QR code');
+      this.transport = 'peer'; this.api = { peer: true }; this.lobby = null; this.status('online · host shows a QR code'); $('nearRow').hidden = !window.__nearUI; // two-way scan pairing stays off unless asked for
       try { const n = localStorage.getItem('derby-nick'); if (n) $('mpNick').value = n; } catch (e) {}
       const m = location.hash.match(/^#join-([a-z0-9]{3,12})$/); if (m) setTimeout(() => this.join(m[1]), 300);
       this.renderGames(); return;
@@ -6247,10 +6263,98 @@ function peerRoom(code, isHost) {
     setTimeout(() => { if (!done) { done = true; try { peer.destroy(); } catch (e) {} reject({ type: 'timeout' }); } }, 32000);
   });
 }
-function drawQR(text) {
-  const cv = $('mpQR'), g = cv.getContext('2d');
-  if (!window.qrcode) { loadScript('https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js').then(() => drawQR(text)).catch(() => {}); return; }
-  const q = window.qrcode(0, 'M'); q.addData(text); q.make();
+// ---------- Nearby: serverless WebRTC. Each phone shows its connection details as a QR code, the other scans it ----------
+const NEAR_ICE = { iceServers: [] }; // same Wi-Fi: the phones' own addresses are all that's needed, no outside server
+async function packSDP(desc) {
+  const lines = desc.sdp.split(/\r?\n/).filter((l) => l && !/^a=(extmap|msid-semantic|ice-options|extmap-allow-mixed)/.test(l) && !(l.startsWith('a=candidate') && / tcp /i.test(l)));
+  let cand = 0; const keep = lines.filter((l) => !l.startsWith('a=candidate') || cand++ < 5); // a handful of candidates is plenty on one network
+  const txt = (desc.type === 'offer' ? 'O' : 'A') + keep.join('\n');
+  if (typeof CompressionStream === 'undefined') return 'R' + btoa(unescape(encodeURIComponent(txt)));
+  const buf = await new Response(new Blob([txt]).stream().pipeThrough(new CompressionStream('deflate-raw'))).arrayBuffer();
+  let bin = ''; for (const b of new Uint8Array(buf)) bin += String.fromCharCode(b); return 'Z' + btoa(bin);
+}
+async function unpackSDP(code) {
+  let txt;
+  if (code[0] === 'R') txt = decodeURIComponent(escape(atob(code.slice(1))));
+  else { const bin = atob(code.slice(1)), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); txt = await new Response(new Blob([u]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).text(); }
+  return { type: txt[0] === 'O' ? 'offer' : 'answer', sdp: txt.slice(1).split('\n').join('\r\n') + '\r\n' };
+}
+const gathered = (pc) => new Promise((res) => { if (pc.iceGatheringState === 'complete') return res(); const t = setTimeout(res, 2500); pc.addEventListener('icegatheringstatechange', () => { if (pc.iceGatheringState === 'complete') { clearTimeout(t); res(); } }); });
+// A room over plain data channels: the host keeps one channel per guest; same calls as the other rooms
+function nearRoom() {
+  const hs = [], others = new Map(); let mine = {}, pending = false, cache = Object.freeze([]); const me = 'n' + Math.random().toString(36).slice(2, 8);
+  const snapshot = () => Object.freeze([{ peer: me, by: null, isMe: true, sameTab: true, kind: 'viewer', guest: false, presence: mine, updatedAt: Date.now() }, ...[...others.values()].map((o) => o.p)]);
+  const fire = () => { cache = snapshot(); for (const h of hs) try { h({ peers: cache, joined: [], left: [], updated: [] }); } catch (e) {} };
+  const api = {
+    name: 'near', presence(patch) { mine = { ...mine }; for (const k in patch) { if (patch[k] === null) delete mine[k]; else mine[k] = patch[k]; } cache = snapshot(); if (!pending) { pending = true; setTimeout(() => { pending = false; for (const o of others.values()) if (o.dc.readyState === 'open') try { o.dc.send(JSON.stringify(mine)); } catch (e) {} }, 33); } return Promise.resolve(); },
+    peers() { return cache; }, onPeers(h) { hs.push(h); setTimeout(() => h({ peers: cache, joined: cache, left: [], updated: [] }), 0); return () => hs.splice(hs.indexOf(h), 1); },
+    emit() { return Promise.resolve(); }, on() { return () => {}; }, connected() { return true; }, onConnection(h) { setTimeout(() => h(true), 0); return () => {}; },
+    leave() { for (const o of others.values()) try { o.pc.close(); } catch (e) {} others.clear(); return Promise.resolve(); },
+    attach(pc, dc) { // a channel to one more phone
+      const id = 'n' + Math.random().toString(36).slice(2, 8);
+      const opened = () => { if (others.has(id)) return; others.set(id, { pc, dc, p: { peer: id, by: null, isMe: false, sameTab: false, kind: 'viewer', guest: false, presence: {}, updatedAt: Date.now() } }); try { dc.send(JSON.stringify({ __id: me })); dc.send(JSON.stringify(mine)); } catch (e) {} fire(); };
+      dc.onopen = opened; if (dc.readyState === 'open') setTimeout(opened, 0);
+      dc.onmessage = (m) => { const o = others.get(id); if (!o) return; try { const d = JSON.parse(m.data); if (d && d.__id) { o.p = { ...o.p, peer: d.__id }; fire(); return; } o.p = { ...o.p, presence: d, updatedAt: Date.now() }; fire(); } catch (e) {} }; // both sides agree on each phone's id
+      dc.onclose = () => { others.delete(id); fire(); };
+      pc.onconnectionstatechange = () => { if (pc.connectionState === 'failed' || pc.connectionState === 'closed') { others.delete(id); fire(); } };
+    },
+  };
+  return api;
+}
+// camera QR scanner (jsQR), with a test hook
+const NEAR = { stream: null, scanning: false };
+async function scanQR(onText) {
+  if (window.__nearScan) { window.__nearScanCb = onText; return; }
+  if (!window.jsQR) await loadScript('https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js');
+  const v = $('nearCam'); v.hidden = false; $('nearQR').hidden = true;
+  try { NEAR.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false }); } catch (e) { $('nearMsg').textContent = 'The camera is blocked. Allow camera access for this site, then try again.'; return; }
+  v.srcObject = NEAR.stream; await v.play().catch(() => {}); NEAR.scanning = true;
+  const cv = document.createElement('canvas'), g = cv.getContext('2d', { willReadFrequently: true });
+  const tick = () => { if (!NEAR.scanning) return;
+    if (v.videoWidth) { const w = 640, h = Math.round(640 * v.videoHeight / v.videoWidth); cv.width = w; cv.height = h; g.drawImage(v, 0, 0, w, h);
+      const r = window.jsQR(g.getImageData(0, 0, w, h).data, w, h, { inversionAttempts: 'dontInvert' });
+      if (r && r.data && /^[ZR]/.test(r.data)) { stopScan(); onText(r.data); return; } }
+    setTimeout(tick, 120); };
+  tick();
+}
+function stopScan() { NEAR.scanning = false; if (NEAR.stream) { for (const t of NEAR.stream.getTracks()) t.stop(); NEAR.stream = null; } $('nearCam').hidden = true; }
+function nearShow(step, title, msg, qrText, nextLabel, onNext) {
+  $('near').hidden = false; $('nearStep').textContent = step; $('nearTitle').textContent = title; $('nearMsg').textContent = msg;
+  const q = $('nearQR'); q.hidden = !qrText; if (qrText) { drawQR(qrText, q); window.__lastNearQR = qrText; }
+  const b = $('nearNext'); b.hidden = !nextLabel; b.textContent = nextLabel || ''; b.onclick = onNext || null;
+}
+function nearClose() { stopScan(); $('near').hidden = true; }
+async function nearHostAdd() { // host: one more phone
+  if (MP.role === 'guest') return;
+  if (MP.role === 'solo') { MP.room = nearRoom(); MP.role = 'host'; MP.code = 'near'; MP.room.presence({ host: 1, nick: MP.nick() }); MP.room.onPeers(() => { const n = MP.guests().length; MP.info(n ? `Players in your game: ${MP.guests().map((g) => g.presence.nick || 'Player').join(', ')}. Press Start when ready, or add another.` : 'Hosting nearby. Add players, then press Start.'); }); $('btnHost').hidden = true; $('btnLeave').hidden = false; MP.status('hosting nearby'); }
+  const pc = new RTCPeerConnection(NEAR_ICE), dc = pc.createDataChannel('derby', { ordered: true }); MP.room.attach(pc, dc);
+  nearShow('Add a player · 1 of 2', 'Let your friend scan this', 'On their phone: open this game, tap "Join nearby" and point the camera at this code.', null);
+  await pc.setLocalDescription(await pc.createOffer()); await gathered(pc);
+  const code = await packSDP(pc.localDescription);
+  nearShow('Add a player · 1 of 2', 'Let your friend scan this', 'On their phone: open this game, tap "Join nearby" and point the camera at this code. When their phone shows a code, tap the button below.', code, 'Scan their reply', () => {
+    nearShow('Add a player · 2 of 2', 'Scan their reply', 'Point your camera at the code on their screen.', null);
+    scanQR(async (txt) => { try { await pc.setRemoteDescription(await unpackSDP(txt)); nearShow('Connecting…', 'Connecting…', 'Hold on a second.', null); } catch (e) { nearShow('Oops', "That code didn't work", 'Try again: tap "Add nearby player".', null); return; }
+      const ok = await new Promise((res) => { if (dc.readyState === 'open') return res(true); dc.addEventListener('open', () => res(true)); setTimeout(() => res(dc.readyState === 'open'), 12000); });
+      if (ok) { nearClose(); toast('PLAYER CONNECTED', 'cool'); } else nearShow('No luck', "Couldn't connect", 'Make sure both phones are on the same Wi-Fi (not a guest network that isolates devices), then try again.', null); });
+  });
+}
+async function nearJoin() { // guest: scan the host, show our reply
+  if (MP.role !== 'solo') return;
+  nearShow('Join nearby · 1 of 2', "Scan the host's code", 'Point your camera at the code on the host\'s screen.', null);
+  scanQR(async (txt) => {
+    let offer; try { offer = await unpackSDP(txt); if (offer.type !== 'offer') throw 0; } catch (e) { nearShow('Oops', "That's not a host code", 'Ask the host to tap "Add nearby player" and scan that code.', null); return; }
+    const pc = new RTCPeerConnection(NEAR_ICE), room = nearRoom(); let dc = null;
+    pc.ondatachannel = (ev) => { dc = ev.channel; room.attach(pc, dc); dc.addEventListener('open', () => { nearClose(); MP.room = room; MP.role = 'guest'; MP.code = 'near'; MP.snaps = []; MP.builtRk = ''; MP.rt = 0; MP.seen = 0; MP.sendWant(); $('btnHost').hidden = true; $('btnLeave').hidden = false; $('btnStart').hidden = true; MP.status('in a nearby game'); MP.info('Connected! Pick your car; the host starts the round.'); toast('CONNECTED TO HOST', 'cool'); }); };
+    await pc.setRemoteDescription(offer); await pc.setLocalDescription(await pc.createAnswer()); await gathered(pc);
+    const code = await packSDP(pc.localDescription);
+    nearShow('Join nearby · 2 of 2', 'Now let the host scan this', 'Show this code to the host. You\'ll connect automatically.', code);
+    setTimeout(() => { if (MP.role === 'solo' && !$('near').hidden) $('nearMsg').textContent = 'Still waiting… both phones need to be on the same Wi-Fi.'; }, 25000);
+  });
+}
+function drawQR(text, cv0) {
+  const cv = cv0 || $('mpQR'), g = cv.getContext('2d');
+  if (!window.qrcode) { loadScript('https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js').then(() => drawQR(text, cv0)).catch(() => {}); return; }
+  const q = window.qrcode(0, text.length > 300 ? 'L' : 'M'); q.addData(text); q.make();
   const n = q.getModuleCount(), cell = Math.floor(cv.width / (n + 2)), off = Math.floor((cv.width - cell * n) / 2);
   g.fillStyle = '#fff'; g.fillRect(0, 0, cv.width, cv.height); g.fillStyle = '#000';
   for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (q.isDark(r, c)) g.fillRect(off + c * cell, off + r * cell, cell, cell);
@@ -6285,6 +6389,9 @@ function mpShim() {
 }
 $('btnHost').addEventListener('click', () => MP.host());
 $('btnLeave').addEventListener('click', () => MP.leave());
+$('btnNearHost').addEventListener('click', () => nearHostAdd());
+$('btnNearJoin').addEventListener('click', () => nearJoin());
+$('nearClose').addEventListener('click', () => nearClose());
 $('btnCopyLink').addEventListener('click', () => { const v = $('mpLink').value; (navigator.clipboard ? navigator.clipboard.writeText(v) : Promise.reject()).then(() => toast('LINK COPIED', 'cool')).catch(() => { $('mpLink').select(); }); });
 $('mpLink').addEventListener('focus', (e) => e.target.select());
 $('mpNick').addEventListener('change', () => { MP.nick(); if (MP.role === 'host' && MP.lobby) MP.lobby.presence({ nick: MP.nick() }); if (MP.role === 'guest') MP.sendWant(); });
@@ -6414,7 +6521,7 @@ function frameBody(now) {
   if (!window.__noRender) { const gq = Math.min(S.gfx, S.autoGfx ? (QUALITY.gfxCap ?? 2) : 2); if (gq > 0) { grade.uniforms.uTime.value = clock % 10; grade.enabled = gq > 1; bloom.strength = gq > 1 ? 0.42 : 0.34; composer.render(); } else renderer.render(scene, camera); } // tests can skip drawing to run physics faster
 }
 requestAnimationFrame(frame);
-window.__derby = { JUMBO, BALL, BOLLARDS, GASQ, updateArenaPub: (dt) => updateArena(dt), CRUSHER, crushNow: () => crushNow(), applyNight: () => applyNight(), FIREWORKS, ARENA, CROWD, MP, QUALITY, applyQuality: (i) => applyQuality(i), MERGED, camera, updatePropActivity: (dt) => updatePropActivity(dt), renderer, scene, spawnFree: (x, z, r) => spawnFree(x, z, r), BULLS, updateBulls: (dt) => updateBulls(dt), updateShells, tilt, setTilt, get CRANE() { return CRANE; }, updateCrane: (dt) => updateCrane(dt), CONCRETE, THREE, craters, shells, pickups, barks, PERSONAS, TUNE, game, cars, S, world, CAR_TYPES, sfx, touch, drawGauge, get player() { return player; }, keys, startMatch, selectCar, setValue, debris, props, platformOf, get simTime() { return simTime; }, set simTime(v) { simTime = v; } }; // console tinkering + tests
+window.__derby = { nearHostAdd: () => nearHostAdd(), nearJoin: () => nearJoin(), JUMBO, BALL, BOLLARDS, GASQ, updateArenaPub: (dt) => updateArena(dt), CRUSHER, crushNow: () => crushNow(), applyNight: () => applyNight(), FIREWORKS, ARENA, CROWD, MP, QUALITY, applyQuality: (i) => applyQuality(i), MERGED, camera, updatePropActivity: (dt) => updatePropActivity(dt), renderer, scene, spawnFree: (x, z, r) => spawnFree(x, z, r), BULLS, updateBulls: (dt) => updateBulls(dt), updateShells, tilt, setTilt, get CRANE() { return CRANE; }, updateCrane: (dt) => updateCrane(dt), CONCRETE, THREE, craters, shells, pickups, barks, PERSONAS, TUNE, game, cars, S, world, CAR_TYPES, sfx, touch, drawGauge, get player() { return player; }, keys, startMatch, selectCar, setValue, debris, props, platformOf, get simTime() { return simTime; }, set simTime(v) { simTime = v; } }; // console tinkering + tests
 </script>
 
 </body></html>
