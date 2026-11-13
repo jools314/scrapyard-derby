@@ -107,7 +107,11 @@
   #hint:empty { display: none; }
   #threats { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
   .threat { position: absolute; left: 0; top: 0; width: 0; height: 0; }
-  #hostlost { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); background: rgba(20, 17, 14, 0.9); color: #ffd9a8; border: 1px solid rgba(255, 170, 90, 0.4); border-radius: 999px; padding: 7px 14px; font: 600 14px/1.2 system-ui, sans-serif; z-index: 30; white-space: nowrap; }
+  #hostlost { position: fixed; inset: 0; z-index: 35; display: flex; align-items: center; justify-content: center; background: rgba(8, 6, 4, 0.55); backdrop-filter: grayscale(0.7); -webkit-backdrop-filter: grayscale(0.7); }
+  #hostlost .hl-card { background: rgba(20, 17, 14, 0.94); color: #f3e9dc; border: 1px solid rgba(255, 170, 90, 0.4); border-radius: 16px; padding: 18px 26px; text-align: center; min-width: min(360px, 90vw); }
+  #hostlost .hl-t { font: 400 22px var(--display, sans-serif); color: #ffb35a; letter-spacing: 0.04em; }
+  #hostlost .hl-n { font: 400 64px/1.1 var(--display, sans-serif); color: #fff; margin: 6px 0; }
+  #hostlost .hl-s { font: 500 14px/1.35 system-ui, sans-serif; opacity: 0.85; }
   #hostlost[hidden] { display: none; }
   #tags { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
   .ntag { position: absolute; left: 0; top: 0; transform-origin: 50% 100%; white-space: nowrap; font: 600 13px/1 system-ui, sans-serif; color: #fff; background: rgba(15, 12, 10, 0.62); border: 1px solid rgba(255,255,255,0.18); border-radius: 999px; padding: 4px 9px 4px 7px; display: flex; align-items: center; gap: 5px; text-shadow: 0 1px 2px rgba(0,0,0,0.6); }
@@ -357,7 +361,7 @@
     <div id="perf" hidden></div>
     <div id="threats"></div>
     <div id="tags"></div>
-    <div id="hostlost" hidden></div>
+    <div id="hostlost" hidden><div class="hl-card"><div class="hl-t">PAUSED · HOST DISCONNECTED</div><div class="hl-n" id="hlN"></div><div class="hl-s" id="hlS"></div></div></div>
     <div id="reticle" hidden></div>
     <div id="subs" aria-live="polite"></div>
   </div>
@@ -1413,7 +1417,7 @@ const GASQ = [];
 function updateGas(dt) {
   for (let i = GASQ.length - 1; i >= 0; i--) { const q = GASQ[i]; q.t -= dt; if (q.t > 0) continue; GASQ.splice(i, 1);
     const pr = q.pr; if (pr.lit || !props.includes(pr)) continue; pr.lit = true;
-    const p = pr.body.position.clone(); props.splice(props.indexOf(pr), 1); world.removeBody(pr.body); scene.remove(pr.mesh);
+    const p = pr.body.position.clone(); props.splice(props.indexOf(pr), 1); propGone(pr); world.removeBody(pr.body); scene.remove(pr.mesh);
     explodeShell(p, null, { isPlayer: false, name: '' }, 0.8); addConcrete(p.x, p.z, 2.2, 'fuel'); CONCRETE.list[CONCRETE.list.length - 1].burning = 6;
     const top = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.5, 10), M.gas); top.position.set(p.x, p.y + 0.5, p.z); scene.add(top); // the valve end rockets off
     addDebris(top, new CANNON.Cylinder(0.3, 0.3, 0.5, 8), undefined, undefined, 8, new CANNON.Vec3(rand(-6, 6), rand(16, 24), rand(-6, 6)), new CANNON.Vec3(rand(-20, 20), rand(-20, 20), rand(-20, 20)));
@@ -1572,6 +1576,8 @@ const G = {
   barrier: new THREE.BoxGeometry(3, 0.9, 0.6),
   shell: new THREE.BoxGeometry(4.2, 1.1, 1.8),
 };
+const PROPID = { n: 0, map: new Map() };
+function propGone(pr) { if (MP.role === 'host') MP.event({ k: 'pr', id: pr.id }); } // tell guests a prop was destroyed
 function addProp(shape, geo, mat, mass, x, y, z, yaw = 0, kind = 'metal', shadow = true, offset) {
   const body = new CANNON.Body({ mass, sleepSpeedLimit: 0.4, sleepTimeLimit: 0.6, linearDamping: 0.04, angularDamping: 0.08 });
   body.addShape(shape, offset);
@@ -1585,7 +1591,7 @@ function addProp(shape, geo, mat, mass, x, y, z, yaw = 0, kind = 'metal', shadow
   const mesh = geo.isObject3D ? geo : new THREE.Mesh(geo, mat);
   mesh.traverse((o) => { o.castShadow = shadow && mass > 40; o.receiveShadow = true; if (o.isMesh && mass <= 120) o.material = lightLook(o.material); });
   scene.add(mesh);
-  const prop = { body, mesh, kind, hp: mass <= 40 ? 1 : 3 };
+  const prop = { body, mesh, kind, hp: mass <= 40 ? 1 : 3, id: PROPID.n++ }; PROPID.map.set(prop.id, prop); // id: same on every device (the yard is built the same way)
   body.prop = prop;
   props.push(prop);
   return body;
@@ -1618,9 +1624,9 @@ const oilMat = new THREE.MeshStandardMaterial({ color: 0x0b0a08, roughness: 0.08
 function bits(p, mat, n, spread = 5, up = 5) { for (let i = 0; i < n; i++) emit('debris', p.x, p.y + 0.3, p.z, rand(-spread, spread), rand(1, up), rand(-spread, spread), rand(1.2, 2.5), rand(0.05, 0.16), mat); }
 const flats = [];
 function flattenProp(pr, by) { // 11 tonnes of tank: boxes, drums, bins and potties go flat as a pancake
-  const i = props.indexOf(pr); if (i < 0) return;
+  const i = props.indexOf(pr); if (i < 0 || MP.role === 'guest') return; // guests: the host decides (and says so)
   if (pr.kind === 'wood' || pr.kind === 'rubber') { damageProp(pr, 30, new CANNON.Vec3(0, 1, 0)); if (props.includes(pr)) { /* tyres just get squashed below */ } else return; }
-  props.splice(i, 1);
+  props.splice(i, 1); propGone(pr);
   const m = pr.mesh, p = pr.body.position;
   setTimeout(() => world.removeBody(pr.body), 0); // not mid-step
   if (pr.body.mass === 90) bits(p, BIT.oil, 10, 3, 2); else if (pr.body.mass === 70) bits(p, BIT.blue, 12, 4, 3); else bits(p, BIT.paper, 8, 3, 2);
@@ -1650,9 +1656,9 @@ function damageProp(pr, v, nLocal) {
   else if (mass === 35 || mass === 22) bits(p, BIT.splinter, 10, 5, 5);                                                // wood splinters
   else if (mass === 3) bits(p, BIT.cone, 4, 2, 3);
   else if (mass === 18 && m.isObject3D && !pr.bent) { pr.bent = true; m.children.forEach((ch, i) => { if (i > 0) { ch.rotation.z += rand(0.4, 0.9); ch.position.x += 0.2; } }); } // signs bend over
-  if (pr.kind === 'wood' && v > 8) { // splinters into planks
+  if (pr.kind === 'wood' && v > 8 && MP.role !== 'guest') { // splinters into planks (on a guest, the host's word decides)
     const i = props.indexOf(pr); if (i < 0) return;
-    props.splice(i, 1); world.removeBody(pr.body); scene.remove(m);
+    props.splice(i, 1); propGone(pr); world.removeBody(pr.body); scene.remove(m);
     for (let k = 0; k < 4; k++) {
       const pm = new THREE.Mesh(plankGeo, m.material); pm.castShadow = true;
       pm.position.set(pr.body.position.x + rand(-0.4, 0.4), pr.body.position.y + rand(0, 0.5), pr.body.position.z + rand(-0.4, 0.4));
@@ -1705,7 +1711,28 @@ const binTex = canvasTex(128, (g, w) => { for (let x = 0; x < w; x += 8) { const
 const boxTex = canvasTex(128, (g, w) => { g.fillStyle = '#b48c5a'; g.fillRect(0, 0, w, w); g.fillStyle = '#c8b48a'; g.fillRect(w / 2 - 12, 0, 24, w); g.strokeStyle = '#3a2a1a'; g.lineWidth = 4; g.beginPath(); g.moveTo(30, 70); g.lineTo(30, 40); g.lineTo(22, 50); g.moveTo(30, 40); g.lineTo(38, 50); g.stroke(); g.beginPath(); g.moveTo(98, 70); g.lineTo(98, 40); g.lineTo(90, 50); g.moveTo(98, 40); g.lineTo(106, 50); g.stroke(); });
 M.crate.map = crateTex; M.crate.color.set(0xffffff);
 M.barrel.map = drumTex; M.barrelRed.map = drumTex;
+// Props drawn in batches: every barrel, crate and tyre of the same kind is one draw call (InstancedMesh). Each prop keeps its own
+// mesh for the game logic (moving, hiding far away, being flattened); that mesh is just never drawn itself (layer 0 cleared),
+// and every frame its transform is copied into the batch.
+let PROPBATCH = [];
+const _bm = new THREE.Matrix4(), _bZero = new THREE.Matrix4().makeScale(0, 0, 0);
+function batchProps() {
+  for (const b of PROPBATCH) { scene.remove(b.im); b.im.dispose(); for (const m of b.list) m.layers.mask = 1; } PROPBATCH = [];
+  if (window.__noPropBatch) return;
+  const groups = new Map();
+  for (const pr of props) { const m = pr.mesh; if (!m.isMesh || m.children.length || Array.isArray(m.material) || m.material.transparent) continue; const k = m.geometry.uuid + '|' + m.material.uuid + '|' + (m.castShadow ? 1 : 0); let g = groups.get(k); if (!g) groups.set(k, (g = [])); g.push(m); }
+  for (const list of groups.values()) {
+    if (list.length < 3) continue; const m0 = list[0];
+    const im = new THREE.InstancedMesh(m0.geometry, m0.material, list.length); im.castShadow = m0.castShadow; im.receiveShadow = true; im.frustumCulled = false; im.userData.keep = true; im.userData.propBatch = true;
+    scene.add(im); for (const m of list) m.layers.mask = 0; PROPBATCH.push({ im, list });
+  }
+  updatePropBatches();
+}
+function updatePropBatches() {
+  for (const { im, list } of PROPBATCH) { for (let i = 0; i < list.length; i++) { const m = list[i]; if (m.parent === scene && m.visible) { _bm.compose(m.position, m.quaternion, m.scale); im.setMatrixAt(i, _bm); } else im.setMatrixAt(i, _bZero); } im.instanceMatrix.needsUpdate = true; }
+}
 function buildProps() {
+  PROPID.n = 0; PROPID.map.clear();
   for (const p of props) { world.removeBody(p.body); scene.remove(p.mesh); p.dormant = false; }
   for (const m of flats) scene.remove(m); flats.length = 0;
   props.length = 0;
@@ -5837,7 +5864,7 @@ function resetMatch() {
   barks.used.clear();
   threatEls.clear();
   clearSkids();
-  buildProps();
+  buildProps(); batchProps();
   buildPickups();
   spawnCars();
   game.chatT = 14; game.score = 0; game.time = 0; game.overTimer = -1; game.attractReset = -1; game.shake = 0; game.propHits = 0;
@@ -6592,6 +6619,22 @@ const MP = {
       if (jn !== (this.lastJump.get(c) ?? jn)) ct.jump = true; this.lastJump.set(c, jn);
     }
   },
+  propState(r) { // props that are moving (up to 14, fastest first) plus a few others in turn, so every device's yard stays the same
+    const mv = []; for (const pr of props) if (!pr.dormant && pr.body.sleepState !== CANNON.Body.SLEEPING) mv.push(pr);
+    mv.sort((a, b) => b.body.velocity.lengthSquared() - a.body.velocity.lengthSquared()); const out = mv.slice(0, 14);
+    for (let k = 0; k < 6 && props.length; k++) { const pr = props[(this.propRR = ((this.propRR || 0) + 1) % props.length)]; if (!out.includes(pr)) out.push(pr); }
+    return out.map((pr) => { const b = pr.body, p = b.position, q = b.quaternion, v = pr.dormant || b.sleepState === CANNON.Body.SLEEPING ? { x: 0, y: 0, z: 0 } : b.velocity; return [pr.id, r(p.x), r(p.y), r(p.z), r(q.x, 1e4), r(q.y, 1e4), r(q.z, 1e4), r(q.w, 1e4), r(v.x, 10), r(v.y, 10), r(v.z, 10)]; });
+  },
+  applyProps(s) { // guest: pull each prop towards where the host has it (snap if far off), carry the host's velocity
+    if (!s || !s.p || s === this.propSnap) return; this.propSnap = s;
+    for (const e of s.p) { const pr = PROPID.map.get(e[0]); if (!pr || !props.includes(pr)) continue; const b = pr.body;
+      const x = e[1] / 100, y = e[2] / 100, z = e[3] / 100, err = Math.hypot(b.position.x - x, b.position.y - y, b.position.z - z), moving = Math.abs(e[8]) + Math.abs(e[9]) + Math.abs(e[10]) > 2;
+      if (err < 0.05 && !moving) continue;
+      wakeProp(pr); b.wakeUp(); const k = err > 2.5 ? 1 : 0.5;
+      b.position.set(lerp(b.position.x, x, k), lerp(b.position.y, y, k), lerp(b.position.z, z, k));
+      const q = new CANNON.Quaternion(e[4] / 1e4, e[5] / 1e4, e[6] / 1e4, e[7] / 1e4); q.normalize(); if (k === 1) b.quaternion.copy(q); else b.quaternion.slerp(q, k, b.quaternion);
+      b.velocity.set(e[8] / 10, e[9] / 10, e[10] / 10); }
+  },
   event(e) { if (!this.room) return; e.n = ++this.evSeq; this.ev.push(e); while (this.ev.length > 10) this.ev.shift(); },
   hostFrame(dt) {
     if (!this.room) return;
@@ -6605,8 +6648,8 @@ const MP = {
         r(c.rpm || 0, 0.01), r(c.steerVal || 0), r(c.turretYaw || 0), r(c.forkH || 0), c.kills || 0]; });
     const snap = { t: Math.round(performance.now()) / 1000, st: game.state === 'playing' ? 1 : game.state === 'over' ? 2 : 0, cd: Math.round(game.countdown * 100) / 100, rk: this.rk, rv: this.rv, c: cs,
       b: BULLS.map((bl) => [r(bl.body.position.x), r(bl.body.position.y), r(bl.body.position.z), r(bl.yaw), ['graze', 'walk', 'paw', 'charge', 'proud', 'down'].indexOf(bl.state)]),
-      k: [r(CRANE.ang), r(CRANE.r), r(CRANE.h), CRANE.held ? cars.indexOf(CRANE.held) : -1], cr: [r(CRUSHER.y), ['idle', 'warn', 'slam', 'hold'].indexOf(CRUSHER.state)], bp: [r(BALL.ph), BOLLARDS.up ? 1 : 0], e: this.ev };
-    let json = JSON.stringify(snap); while (json.length > 3600 && snap.e.length) { snap.e = snap.e.slice(1); json = JSON.stringify(snap); }
+      k: [r(CRANE.ang), r(CRANE.r), r(CRANE.h), CRANE.held ? cars.indexOf(CRANE.held) : -1], cr: [r(CRUSHER.y), ['idle', 'warn', 'slam', 'hold'].indexOf(CRUSHER.state)], bp: [r(BALL.ph), BOLLARDS.up ? 1 : 0], e: this.ev, p: this.propState(r) };
+    let json = JSON.stringify(snap); while (json.length > 3600 && (snap.e.length || snap.p.length > 4)) { if (snap.p.length > 4) snap.p = snap.p.slice(0, snap.p.length - 3); else snap.e = snap.e.slice(1); json = JSON.stringify(snap); } // keep each packet small: drop extra props first, then old events
     NETLOG.w && NETLOG.w.sent++; this.room.presence({ s: snap }, true).catch(() => {}); // out now: never wait behind this frame's drawing
   },
   // ---------- guest ----------
@@ -6627,17 +6670,17 @@ const MP = {
     const ban = $('hostlost'); ban.hidden = false;
     if (this.epoch > L.epoch0) { // somebody already took over: wait for their first updates instead of electing again
       L.newT = L.newT ?? L.t; const nm = this.room.peers().find((p) => p.peer === this.hostPeer)?.presence?.nick || 'another player';
-      ban.textContent = `${nm} took over as host · reconnecting…`;
+      $('hlN').textContent = '…'; $('hlS').textContent = `${nm} took over as host. Reconnecting…`;
       if (L.t - L.newT < 6) return; L.epoch0 = this.epoch; L.newT = null; L.at = performance.now() - 5000; L.t = 5; // nothing came: elect again
     }
-    if (L.t < 5) { ban.textContent = `Host disconnected · waiting ${Math.ceil(5 - L.t)} s for them to come back`; return; }
+    if (L.t < 5) { $('hlN').textContent = Math.ceil(5 - L.t); $('hlS').textContent = 'Waiting for the host to come back. If they don\'t, the strongest device here takes over.'; return; }
     const me = this.myPeer();
     const pool = [{ peer: me, ps: this.psSent ?? perfScore() }, /* published scores: everyone ranks alike */ ...this.room.peers().filter((p) => !p.sameTab && p.presence && !p.presence.host && !L.excl.has(p.peer) && p.presence.nick).map((p) => ({ peer: p.peer, ps: p.presence.ps || 0 }))];
     pool.sort((a, b) => (b.ps - a.ps) || (a.peer < b.peer ? -1 : 1)); const pick = pool[0];
     if (pick.peer === me) { this.becomeHost((this.epoch || 1) + 1, null); return; }
     if (!L.wait || L.wait.peer !== pick.peer) L.wait = { peer: pick.peer, t: L.t };
     const nm = this.room.peers().find((p) => p.peer === pick.peer)?.presence?.nick || 'another player';
-    ban.textContent = `Host disconnected · ${nm} is taking over…`;
+    $('hlN').textContent = '…'; $('hlS').textContent = `${nm} is taking over as host…`;
     if (L.t - L.wait.t > 6) { L.excl.add(pick.peer); L.wait = null; } // they didn't: next best
   },
   hostBack() { this.lost = null; $('hostlost').hidden = true; },
@@ -6668,6 +6711,7 @@ const MP = {
   handOver(peer) { if (this.role !== 'host') return; this.room.presence({ handoff: [peer, this.epoch + 1] }, true).catch(() => {}); NETLOG.incident('host', 'handing hosting over'); },
   rebuild(hp) {
     for (const c of cars) c.dispose(); cars.length = 0;
+    buildProps(); batchProps(); // a new round: the same fresh yard as the host's
     const me = this.myPeer();
     const first = hp.s && hp.s.rk === hp.rk ? hp.s.c : null;
     hp.roster.forEach((e, i) => {
@@ -6734,7 +6778,7 @@ const MP = {
     let a = this.snaps[0], b = latest, ext = 0;
     if (this.rt >= latest.t) { a = b = latest; ext = window.__fixedDelay ? 0 : Math.min(0.15, this.rt - latest.t); } // data is late: carry on along the last velocity for a moment
     else for (let i = 0; i < this.snaps.length - 1; i++) if (this.snaps[i].t <= this.rt && this.snaps[i + 1].t >= this.rt) { a = this.snaps[i]; b = this.snaps[i + 1]; break; }
-    const k = b.t > a.t ? clamp((this.rt - a.t) / (b.t - a.t), 0, 1) : 1; this.lastExt = ext; NETLOG.guestFrame(ext > 0.02);
+    const k = b.t > a.t ? clamp((this.rt - a.t) / (b.t - a.t), 0, 1) : 1; this.lastExt = ext; this.applyProps(b); NETLOG.guestFrame(ext > 0.02);
     const qa = new THREE.Quaternion(), qb = new THREE.Quaternion();
     cars.forEach((c, i) => {
       const sv = this.slotRv[i] || 0; if ((b.rv || 0) < sv) return; // that slot was respawned: data about the old wreck no longer applies
@@ -6765,6 +6809,7 @@ const MP = {
     // events: barks, hits, blasts
     for (const e of latest.e || []) {
       if (e.n <= this.seen) continue; this.seen = e.n;
+      if (e.k === 'pr') { const pr = PROPID.map.get(e.id); const i = pr ? props.indexOf(pr) : -1; if (i >= 0) { props.splice(i, 1); world.removeBody(pr.body); scene.remove(pr.mesh); bits(pr.body.position, BIT.splinter, 8, 4, 4); } }
       if (e.k === 'b') { const c = cars[e.i], P = e.i === -1 ? ANNOUNCER : c && c.persona; if (P) { barks.show(P, e.i === -1 ? new THREE.Color(0xf2a20c) : c.baseColor, e.x); barks.speak(P, e.x, c ? c.body.position : null); } }
       else if (e.k === 'h') { const p = new CANNON.Vec3(e.p[0], e.p[1], e.p[2]); sparks(p, Math.min(50, e.v * 2.5 | 0)); if (player) sfx.crash(Math.min(1, e.v / 18) * clamp(1 - player.body.position.distanceTo(p) / 110, 0, 1), e.v); }
       else if (e.k === 'x') { explodeShell(new CANNON.Vec3(e.p[0], e.p[1], e.p[2]), null, this.dummy, e.s || 1); }
@@ -6818,6 +6863,7 @@ function peerRoom(code, isHost) {
       peers() { return cache; }, onPeers(h) { hs.push(h); setTimeout(() => h({ peers: cache, joined: cache, left: [], updated: [] }), 0); return () => hs.splice(hs.indexOf(h), 1); },
       emit() { return Promise.resolve(); }, on() { return () => {}; }, connected() { return !peer.disconnected; }, onConnection(h) { setTimeout(() => h(true), 0); return () => {}; },
       leave() { try { peer.destroy(); } catch (e) {} return Promise.resolve(); },
+      get me() { return me; }, connectTo(id) { if (others.has(id)) return; wire(peer.connect(id, { serialization: 'json', reliable: false })); }, // mesh: straight to another player
     };
     let tries = 0;
     const dial = () => { tries++; MP.info(tries > 1 ? `Still connecting… (try ${tries} of 4)` : 'Connecting to the host…'); const c = peer.connect(PEER_PREFIX + code, { serialization: 'json', reliable: false }); wire(c);
@@ -6827,7 +6873,7 @@ function peerRoom(code, isHost) {
     peer.on('disconnected', () => { if (!peer.destroyed) { MP.info(isHost ? 'Reconnecting your game so friends can find it…' : 'Reconnecting…'); setTimeout(() => { try { if (!peer.destroyed && peer.disconnected) peer.reconnect(); } catch (e) {} }, 500); } });
     document.addEventListener('visibilitychange', () => { if (!document.hidden && !peer.destroyed && peer.disconnected) try { peer.reconnect(); } catch (e) {} });
     if (isHost) peer.on('open', () => { if (MP.role === 'host') MP.info(MP.guests().length ? '' : 'Your game is live. Friends can scan the QR code now.'); });
-    if (isHost) peer.on('connection', wire);
+    peer.on('connection', wire); // the host takes joiners; everyone takes mesh links from other players
     peer.on('error', (e) => {
       const t = e.type || 'error';
       if (t === 'peer-unavailable' && !isHost && tries < 4 && !done) return; // the host may be re-registering: the dial loop retries
@@ -6877,7 +6923,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '36'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '37'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
@@ -6920,7 +6966,14 @@ function relayJoin(code) { // guest: post our offer to the host's topic, wait fo
 // relay topic. With everyone connected, losing the host doesn't end the game: another player can take over.
 const MESH = { es: null, code: '', pend: new Map(), tried: new Map(), n: 0 };
 function meshTick() {
-  const room = MP.room; if (!room || !room.attach || !room.code || MP.role === 'solo' || window.__noMesh) return;
+  const room = MP.room; if (!room || MP.role === 'solo' || window.__noMesh) return;
+  if (room.connectTo) { // PeerJS route: the server introduces us, no relay topics needed
+    if (MP.role === 'host') { const mem = MP.guests().map((g) => g.peer).sort(), k = mem.join(','); if (k !== MESH.memK) { MESH.memK = k; room.presence({ mem }).catch(() => {}); } return; }
+    const hp = MP.hostPresence(), mem = hp && Array.isArray(hp.mem) ? hp.mem : [], have = new Set(room.peers().map((p) => p.peer)), now = performance.now();
+    for (const id of mem) if (id !== room.me && !have.has(id) && room.me < id && now - (MESH.tried.get(id) ?? -1e9) > 12000) { MESH.tried.set(id, now); room.connectTo(id); }
+    return;
+  }
+  if (!room.attach || !room.code) return;
   const me = room.me;
   if (!MESH.es || MESH.code !== room.code + me) { try { MESH.es && MESH.es.close(); } catch (e) {} MESH.code = room.code + me; MESH.es = ntfySub('sd-' + room.code + '-p' + me, onMeshMsg); }
   if (MP.role === 'host') { const mem = MP.guests().map((g) => g.peer).sort(), k = mem.join(','); if (k !== MESH.memK) { MESH.memK = k; room.presence({ mem }).catch(() => {}); } return; }
@@ -7101,9 +7154,12 @@ const NETLOG = {
   onSnap(a, t) { const w = this.w; if (!w) return; w.snaps++; if (this.lastA) w.gapMax = Math.max(w.gapMax, (a - this.lastA) * 1000); this.lastA = a; this.lastSnapT = t; this.lastSnapA = a; },
   guestFrame(ext) { const w = this.w; if (!w) return; w.gframes++; if (ext) w.ext++; },
   push(e) { this.buf.push(e); if (this.buf.length > this.max) this.buf.shift(); },
-  incident(who, what) { this.inc.push({ t: Date.now(), who, what }); if (this.inc.length > this.incMax) this.inc.shift(); this.unseen++; $('netDot').hidden = false; },
+  incident(who, what) { this.inc.push({ t: Date.now(), who, what }); if (this.inc.length > this.incMax) this.inc.shift(); this.unseen++; $('netDot').hidden = false; this.save(); },
+  save() { try { localStorage.setItem('derby-netlog', JSON.stringify({ at: Date.now(), build: BUILD, role: MP.role, inc: this.inc, buf: this.buf.slice(-600) })); } catch (e) {} }, // kept on this device: survives closing the page
+  loadPrev() { try { const o = JSON.parse(localStorage.getItem('derby-netlog') || 'null'); if (o && Array.isArray(o.buf)) this.old = o; } catch (e) {} },
   second() {
     const w = this.w; this.reset(); if (!w || MP.role === 'solo' || !MP.room) return;
+    if ((this.nSec = (this.nSec || 0) + 1) % 10 === 0) this.save();
     const now = performance.now(), dur = Math.max(0.2, (now - w.t0) / 1000), r = Math.round, fps = w.frames / dur, q = QUALITY.level;
     if (MP.role === 'guest') {
       const N = MP.net || {}, last = MP.snaps[MP.snaps.length - 1];
@@ -7157,11 +7213,13 @@ const NETLOG = {
       else if (e.silent != null) L.push(`  ${ts(e.t)}  ${e.who.padEnd(14)} silent for ${e.silent} s${e.bad ? '  !' : ''}`);
       else L.push(`  ${ts(e.t)}  ${e.who.padEnd(14)}${pad(e.fps, 4)}${pad(e.worst, 6)}${pad(e.upd, 5)}${pad(e.jit, 7)}${pad(e.dly, 7)}${pad(e.gap, 5)}${pad(e.ext, 8)}${pad(e.q, 2)}${pad(e.rtt ?? e.age, 7)}${e.bad ? '  !' : ''}`);
     }
+    if (this.old) { const o = this.old; L.push('', `Previous session on this device (build ${o.build}, ${o.role}, ended ${new Date(o.at).toISOString()}):`, `  incidents (${o.inc.length}):`, ...o.inc.map((e) => `  ${ts(e.t)}  ${String(e.who).padEnd(14)} ${e.what}`), `  last ${Math.min(120, o.buf.length)} timeline lines:`, ...o.buf.slice(-120).map((e) => `  ${ts(e.t)}  ${String(e.who).padEnd(14)} ${JSON.stringify(e)}`)); }
     return L.join('\n');
   },
 };
-NETLOG.reset();
-setInterval(() => { try { NETLOG.second(); } catch (e) { console.error('netlog', e); } $('btnNetLog').hidden = MP.role === 'solo'; }, 1000);
+NETLOG.reset(); NETLOG.loadPrev();
+addEventListener('pagehide', () => { if (MP.role !== 'solo') NETLOG.save(); });
+setInterval(() => { try { NETLOG.second(); } catch (e) { console.error('netlog', e); } $('btnNetLog').hidden = MP.role === 'solo' && !NETLOG.old; }, 1000);
 $('btnNetLog').addEventListener('click', (e) => { e.currentTarget.blur(); NETLOG.unseen = 0; $('netDot').hidden = true; $('nlText').value = NETLOG.exportText(); const bad = NETLOG.inc.filter((x) => x.what !== 'recovered' && x.what !== 'host recovered').length; $('nlSum').textContent = `${bad} problem${bad === 1 ? '' : 's'} logged · ${NETLOG.buf.length} samples kept (newest few minutes)`; $('netlog').hidden = false; });
 $('nlClose').addEventListener('click', () => { $('netlog').hidden = true; });
 function renderHandover() { // the host can move hosting to another player (say the game feels laggy because this device is busy)
@@ -7269,6 +7327,7 @@ function simBody(now) {
   }
 }
 function drawBody(dt) {
+  updatePropBatches();
   const running = !(game.state === 'playing' && game.paused);
   updateCamera(dt);
   sky.position.copy(camera.position);
