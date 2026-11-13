@@ -393,6 +393,7 @@
         <button id="btnMute" type="button">Sound on<kbd>M</kbd></button>
         <button id="btnVoices" type="button">Voices on<kbd>U</kbd></button>
         <button id="btnVoiceTest" type="button">Test voices</button>
+        <button id="btnSong" type="button">Song: your car's</button>
       </div>
     </div>
     <div class="speedo"><canvas id="gauge" aria-label="Speedometer and tachometer"></canvas><div class="gforce" id="gforce"></div></div>
@@ -2209,13 +2210,21 @@ const WEAPONS = {
 };
 
 /* ---------------- Wet concrete ---------------- */
+// puddles are splashes, not circles: a handful of lumpy outlines (a few waves round the edge plus a lobe or two), picked at random and turned
+const BLOBS = (() => { const out = [], rnd = mulberry(4242);
+  for (let k = 0; k < 10; k++) { const a = [rnd() * 6.3, rnd() * 6.3, rnd() * 6.3], lobe = rnd() * 6.3, lobe2 = rnd() * 6.3, sh = new THREE.Shape(), N = 40;
+    for (let i = 0; i <= N; i++) { const th = i / N * Math.PI * 2; let r = 1 + 0.16 * Math.sin(3 * th + a[0]) + 0.1 * Math.sin(5 * th + a[1]) + 0.05 * Math.sin(9 * th + a[2]);
+      r += 0.35 * Math.exp(-(((th - lobe + 9.42) % 6.28 - 3.14) ** 2) * 6) + 0.2 * Math.exp(-(((th - lobe2 + 9.42) % 6.28 - 3.14) ** 2) * 9); // splash lobes
+      const x = Math.cos(th) * r, y = Math.sin(th) * r; if (i === 0) sh.moveTo(x, y); else sh.lineTo(x, y); }
+    out.push(new THREE.ShapeGeometry(sh, 2)); }
+  return out; })();
 const CONCRETE = { list: [], geo: new THREE.CircleGeometry(1, 28), wetMat: new THREE.MeshStandardMaterial({ color: 0x8d8a84, roughness: 0.25, metalness: 0.1 }) };
 CONCRETE.tex = canvasTex(128, (g, w) => { g.fillStyle = '#9a968e'; g.fillRect(0, 0, w, w); for (let i = 0; i < 900; i++) { const v = 120 + Math.random() * 50 | 0; g.fillStyle = `rgba(${v},${v},${v - 6},.5)`; g.fillRect(Math.random() * w, Math.random() * w, 2, 2); } });
 function addConcrete(x, z, r, kind = 'concrete') {
   const fuel = kind === 'fuel' || kind === 'oil' || kind === 'water';
   if (kind === 'water') for (const o of CONCRETE.list) if (o.kind === 'fuel' && (o.x - x) ** 2 + (o.z - z) ** 2 < (o.r + r) ** 2) { o.burning = 0; o.t = Math.min(o.t, 2); } // water washes the fuel away
   const mat = new THREE.MeshStandardMaterial({ map: fuel ? null : CONCRETE.tex, color: kind === 'water' ? 0x3d5a6a : kind === 'oil' ? 0x050403 : fuel ? 0x1a1610 : kind === 'spikes' ? 0x2a2622 : 0xcfcac0, roughness: 0.15, metalness: 0.05, transparent: true, opacity: 0.95, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3 });
-  const m = new THREE.Mesh(CONCRETE.geo, mat); m.rotation.x = -Math.PI / 2; m.position.set(x, 0.025 + CONCRETE.list.length * 0.0004, z); m.scale.setScalar(r); scene.add(m);
+  const m = new THREE.Mesh(kind === 'spikes' ? CONCRETE.geo : BLOBS[(Math.random() * BLOBS.length) | 0], mat); m.rotation.x = -Math.PI / 2; m.rotation.z = Math.random() * Math.PI * 2; m.position.set(x, 0.025 + CONCRETE.list.length * 0.0004, z); m.scale.set(r * rand(0.85, 1.15), r * rand(0.85, 1.15), 1); scene.add(m);
   if (kind === 'water') { m.material.opacity = 0.6; m.material.roughness = 0.04; m.material.metalness = 0.4; }
   if (kind === 'spikes') { m.material.opacity = 0.5; for (let i = 0; i < 18; i++) { const sp = new THREE.Mesh(spikeGeo, M.steel); sp.position.set(rand(-0.8, 0.8), rand(-0.8, 0.8), 0.12); sp.rotation.x = Math.PI / 2; sp.scale.setScalar(0.6); m.add(sp); } }
   CONCRETE.list.push({ x, z, r, t: kind === 'water' ? 16 : kind === 'concrete' ? 20 : kind === 'spikes' ? 22 : 30, mesh: m, kind, burning: 0, hit: new Set() });
@@ -2842,7 +2851,7 @@ const sfx = {
       o.connect(g); g.connect(this.gtrIn); o.start(t); o.stop(t + dur + 0.02);
     }
   },
-  setStyle(style) { if (style !== this.musicStyle) { this.musicStyle = style; this.mStep = 0; } },
+  setStyle(style, force) { if (this.songPick && !force) return; if (style !== this.musicStyle) { this.musicStyle = style; this.mStep = 0; } }, // (a song picked in the menu sticks)
   playStep(step, t) {
     const st = this.musicStyle || 'rock';
     if (st !== 'rock') return MUSIC[st].play(this, step, t);
@@ -4959,6 +4968,25 @@ class Car {
       for (const pk of pickups) if (pk.kind === 'repair' && pk.respawn <= 0 && pk.y < 3) { const d = Math.hypot(pk.x - b.position.x, pk.z - b.position.z); if (d < bd) { bd = d; best = pk; } }
       if (best) aim.set(best.x, 0, best.z);
     }
+    // Forklift with a car on its forks, tow truck with one on the hook: deliver it to the crusher or under the wrecking ball
+    const load = this.carry ? this.carry.c : this.tow ? this.tow.c : null;
+    if (load && !this.isPlayer && !this.remote) {
+      if (!this.delivery) { const dc = Math.hypot(CRUSHER.x - b.position.x, CRUSHER.z - b.position.z), db = Math.hypot(BALL.px - b.position.x, BALL.pz - b.position.z);
+        this.delivery = { to: this.tow ? 'ball' : dc <= db + 20 ? 'crusher' : 'ball', until: simTime + 26 }; if (Math.random() < 0.6) barks.announce('delivery', { a: this.name, v: load.isPlayer ? 'our hero' : load.name, w: this.delivery.to === 'crusher' ? 'the crusher' : 'the wrecking ball' }, true); } // forks fit in the press; a car on a hook is dragged under the ball
+      const D0 = this.delivery, gx = D0.to === 'crusher' ? CRUSHER.x : BALL.px, gz = D0.to === 'crusher' ? CRUSHER.z : BALL.pz, lp = load.body.position;
+      this.reverseTo = null;
+      if (D0.to === 'crusher') { // the press is open only on its east side: line up outside the mouth, then go in (forks first, or reversing with a car on the hook)
+        const mx = CRUSHER.x + CRUSHER.hx + 18, mz = CRUSHER.z;
+        if (!D0.lined) { aim.set(mx, 0, mz); if (Math.hypot(b.position.x - mx, b.position.z - mz) < 6) D0.lined = true; }
+        else if (this.tow) { aim.set(mx + 20, 0, mz); this.reverseTo = { x: gx, z: gz }; } // nose away, back the load in
+        else aim.set(gx, 0, gz);
+      } else if (this.tow) { const dx = gx - b.position.x, dz = gz - b.position.z, d = Math.hypot(dx, dz) || 1; aim.set(gx + dx / d * 16, 0, gz + dz / d * 16); } // drag it through the ball's swing
+      else aim.set(gx, 0, gz);
+      this.gentle = !!this.carry; // forks loaded: steady does it
+      const there = D0.to === 'crusher' ? crusherInside(lp, 0.6) : Math.hypot(lp.x - gx, lp.z - gz) < 3.5;
+      if (there) { if (this.carry) liftRelease(this, false); else towRelease(this, false); this.delivery = null; this.mode = 'backup'; this.modeT = 2; if (game.state === 'playing') { barks.say(this, 'gloat', true); barks.announce(D0.to === 'crusher' ? 'intoCrusher' : 'underBall', { a: this.name, v: load.isPlayer ? 'our hero' : load.name }, true); } }
+      else if (simTime > D0.until) this.delivery = { ...D0, until: Infinity, gaveUp: true }; // couldn't get there: the normal toss/whip takes over
+    } else { this.delivery = null; this.gentle = false; this.reverseTo = null; }
     const local = b.pointToLocalFrame(aim);
     const angle = Math.atan2(-local.z, local.x); // + = target on the left
     let steer = clamp(angle * 1.8, -1, 1);
@@ -4994,7 +5022,7 @@ class Car {
     if (this.T.special && !this.specialCd && Math.random() < 0.12) { // AI weapon use: every driver knows their gadget
       const sp = this.T.special, l = b.pointToLocalFrame(t.body.position), ahead = l.x > 0 && Math.abs(l.z) < Math.max(2.5, l.x * 0.6);
       const behind = cars.some((c) => c !== this && !c.wrecked && (() => { const q = b.pointToLocalFrame(c.body.position); return q.x < -this.T.L / 2 && q.x > -32 && Math.abs(q.z) < 7 + -q.x * 0.15; })());
-      if ((sp === 'harpoon' && ((ahead && dist > 10 && dist < 40) || !!frontTarget(this, 40, 0.4))) || (sp === 'flame' && ahead && dist < 10) || (sp === 'water' && ahead && dist < 22) || (sp === 'ram' && ahead && dist > 8 && dist < 28) || ((sp === 'oil' || sp === 'spikes' || sp === 'bomb') && behind && sp !== 'bomb') || (sp === 'bomb' && ahead && dist > 12 && dist < 50) || (sp === 'lift' && (this.carry ? this.carry.t > 2.4 : forkReady(this))) || (sp === 'tow' && (this.tow ? this.tow.t > 3.5 && Math.abs(this.speed) > 6 : towable(this))) || (sp === 'minigun' && this.mgTarget && dist < 55) || (sp === 'rockets' && !!frontTarget(this, 90, 0.45) && dist > 10)) ctrl.fire = true;
+      if ((sp === 'harpoon' && ((ahead && dist > 10 && dist < 40) || !!frontTarget(this, 40, 0.4))) || (sp === 'flame' && ahead && dist < 10) || (sp === 'water' && ahead && dist < 22) || (sp === 'ram' && ahead && dist > 8 && dist < 28) || ((sp === 'oil' || sp === 'spikes' || sp === 'bomb') && behind && sp !== 'bomb') || (sp === 'bomb' && ahead && dist > 12 && dist < 50) || (sp === 'lift' && (this.carry ? this.carry.t > 2.4 && (!this.delivery || this.delivery.gaveUp) : forkReady(this))) || (sp === 'tow' && (this.tow ? this.tow.t > 3.5 && Math.abs(this.speed) > 6 && (!this.delivery || this.delivery.gaveUp) : towable(this))) || (sp === 'minigun' && this.mgTarget && dist < 55) || (sp === 'rockets' && !!frontTarget(this, 90, 0.45) && dist > 10)) ctrl.fire = true;
     }
     if (this.T.pour && !this.pourT && this.load > 0.4) { // mixer: pour when someone is right behind
       for (const c of cars) { if (c === this || c.wrecked) continue; const l = b.pointToLocalFrame(c.body.position); if (l.x < -this.T.L / 2 && l.x > -38 && Math.abs(l.z) < 9 && Math.random() < 0.08) { ctrl.fire = true; break; } }
@@ -5011,6 +5039,11 @@ class Car {
     if (this.mode === 'charge') { throttle = 1; this.reverseTimer = 0; ctrl.wheelie = !!this.T.wheelie && this.speed < 14 && Math.random() < 0.5; } else ctrl.wheelie = false;
     if (this.mode === 'ambush') { throttle = Math.abs(angle) > 0.3 ? 0.4 : 0; steer = clamp(angle * 2, -1, 1); if (Math.abs(angle) < 0.3) ctrl.brake = true; } else ctrl.brake = false;
     if (this.wet > 0.3) { steer = clamp(steer + Math.sin(simTime * 3 + this.number) * this.wet * 0.9, -1, 1); if (this.wet > 0.6) throttle = Math.min(throttle, 0.5); } // can't see through the spray
+    if (this.gentle) throttle = clamp(throttle, -0.5, Math.abs(this.speed) > 7 ? 0.25 : 0.6); // a car on the forks: no racing
+    if (this.reverseTo) { // backing up to a point: steer by where it is behind us
+      const lr = b.pointToLocalFrame(new CANNON.Vec3(this.reverseTo.x, b.position.y, this.reverseTo.z)), ang = Math.atan2(-lr.z, -lr.x);
+      throttle = -0.65; steer = clamp(-ang * 1.6, -1, 1);
+    }
     ctrl.throttle = throttle; ctrl.steer = steer; ctrl.pitch = 0;
     ctrl.handbrake = Math.abs(angle) > 1.2 && this.speed > 14 && S.aiSkill > 0.4;
     ctrl.nitro = (this.mode === 'charge' && Math.abs(angle) < 0.35) || this.mode === 'flee' || (Math.abs(angle) < 0.2 && dist > 35 && this.nitro > 0.35 && S.aiSkill > 0.3);
@@ -5504,6 +5537,9 @@ for (const P of Object.values(CAR_CAST)) PERSONAS.push(P); // (pushed last: gues
 const CAST_SET = new Set(Object.values(CAR_CAST));
 const ANNOUNCER = { nick: 'Announcer', lang: 'en-US', pitch: 0.75, rate: 1.12, words: { voice: ['Ralph', 'Fred', 'Daniel', 'Google US English'] } };
 const ANN_LINES = {
+  delivery: ['{a} has {v} and is heading for {w}!', 'Uh oh, {v}! {a} is taking you to {w}!', 'Special delivery for {w}, courtesy of {a}!'],
+  intoCrusher: ['{a} just fed {v} to the crusher! Pancake time!', 'Into the press with {v}! Thank you, {a}!', 'Squish! {v} is going to be a lot flatter!'],
+  underBall: ['{a} parked {v} right under the wrecking ball!', 'Ding dong! The ball\'s coming for {v}!', '{v} has a date with the wrecking ball!'],
   rodeo: ['{a} just harpooned a bull! It\'s a RODEO, folks!', 'Yee-haw! {a} is riding the bull!', 'That is NOT how you herd cattle, {a}!'],
   bullShot: ['Uh oh. {a} just made that bull VERY angry!', 'Never shoot a bull, {a}. It remembers.', 'That bull is coming for {a}!'],
   bullFly: ['Look at that bull FLY!', 'Cows can fly now, folks!', 'Hey diddle diddle, the bull jumped over... everything!'],
@@ -6386,6 +6422,11 @@ function setVoices(off) { VOICES_OFF = off; $('btnVoices').firstChild.textConten
 setVoices(VOICES_OFF);
 $('btnVoices').addEventListener('click', (e) => { e.currentTarget.blur(); setVoices(!VOICES_OFF); });
 function showNote(t) { let n = $('note'); if (!n) { n = document.createElement('div'); n.id = 'note'; n.addEventListener('click', () => { n.hidden = true; }); document.body.appendChild(n); } n.textContent = t + '  (tap to close)'; n.hidden = false; clearTimeout(n.tm); n.tm = setTimeout(() => { n.hidden = true; }, 12000); }
+const SONGS = [['', "your car's"], ['rock', 'Rock'], ['hillbilly', 'Hillbilly'], ['funk', '70s Funk'], ['march', 'March'], ['synth', 'Synthwave'], ['surf', 'Surf'], ['country', 'Country'], ['dirge', 'Dirge']];
+let songI = 0; try { songI = Math.max(0, SONGS.findIndex((x) => x[0] === localStorage.getItem('derby-song'))); } catch (e) {}
+function applySong() { const [k, name] = SONGS[songI]; sfx.songPick = k || null; sfx.setStyle(k || MUSIC_FOR[player ? player.type : 'outrider'] || 'rock', true); $('btnSong').textContent = 'Song: ' + name; try { localStorage.setItem('derby-song', k); } catch (e) {} }
+$('btnSong').addEventListener('click', (e) => { e.currentTarget.blur(); songI = (songI + 1) % SONGS.length; applySong(); if (!sfx.musicOn) toggleMusic(); });
+setTimeout(applySong, 0);
 $('btnVoiceTest').addEventListener('click', () => { // speaks a line now and says what is going on, so a silent device can be diagnosed
   const ss = window.speechSynthesis, vs = ss ? ss.getVoices() : [];
   if (VOICES_OFF) setVoices(false);
@@ -7378,7 +7419,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '40'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '41'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
