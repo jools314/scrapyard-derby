@@ -872,7 +872,8 @@ function numberTex(n, color) {
     g.fillText(String(n), s / 2, s / 2 + 4);
   });
 }
-function plateTex(n) {
+function plateTex(n) { const t = plateTex0(n); t.userData.own = true; return t; } // one per car: freed with it
+function plateTex0(n) {
   return canvasTex(64, (g, w, h) => { g.fillStyle = '#e8d890'; g.fillRect(0, 0, w, h); g.strokeStyle = '#1a1208'; g.lineWidth = 3; g.strokeRect(2, 2, w - 4, h - 4);
     g.fillStyle = '#1a1208'; g.font = '700 40px "Arial Black", Impact, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('SCR ' + String(100 + n * 37 % 900), w / 2, h / 2 + 2); }, 1, 1, 200);
 }
@@ -2036,7 +2037,7 @@ function addSpikeStrip(x, z, yaw, owner) { // a folding police stop-stick laid a
   scene.add(g);
   const dx = Math.cos(yaw + Math.PI / 2), dz = Math.sin(yaw + Math.PI / 2); // along the strip (across the road)
   CONCRETE.list.push({ x, z, r: L / 2 + 0.5, t: 22, mesh: g, kind: 'spikes', burning: 0, hit: new Set(), owner, strip: { dx, dz, hl: L / 2, hw: 0.4 } });
-  while (CONCRETE.list.length > 40) scene.remove(CONCRETE.list.shift().mesh);
+  while (CONCRETE.list.length > 40) { const old = CONCRETE.list.shift(); scene.remove(old.mesh); freePuddle(old); }
   sfx.at({ x, y: 0, z }).clank(0.5); if (MP.role === 'host') MP.event && MP.event({ k: 'ss', p: [Math.round(x * 10) / 10, Math.round(z * 10) / 10, Math.round(yaw * 100) / 100] });
 }
 const TOURIST = { nick: 'German tourist (in the back)', lang: 'de-DE', pitch: 1.35, rate: 1.2, words: { voice: ['Anna', 'Markus', 'Google Deutsch', 'Petra', 'Yannick'] } };
@@ -2380,7 +2381,7 @@ function addConcrete(x, z, r, kind = 'concrete') {
   if (kind === 'water') { m.material.opacity = 0.6; m.material.roughness = 0.04; m.material.metalness = 0.4; }
   if (kind === 'spikes') { m.material.opacity = 0.5; for (let i = 0; i < 18; i++) { const sp = new THREE.Mesh(spikeGeo, M.steel); sp.position.set(rand(-0.8, 0.8), rand(-0.8, 0.8), 0.12); sp.rotation.x = Math.PI / 2; sp.scale.setScalar(0.6); m.add(sp); } }
   CONCRETE.list.push({ x, z, r, t: kind === 'water' ? 16 : kind === 'concrete' ? 20 : kind === 'spikes' ? 22 : 30, mesh: m, kind, burning: 0, hit: new Set() });
-  while (CONCRETE.list.length > 40) scene.remove(CONCRETE.list.shift().mesh);
+  while (CONCRETE.list.length > 40) { const old = CONCRETE.list.shift(); scene.remove(old.mesh); freePuddle(old); }
 }
 function updateConcrete(dt) {
   for (let i = CONCRETE.list.length - 1; i >= 0; i--) {
@@ -2394,7 +2395,7 @@ function updateConcrete(dt) {
       c.mesh.material.color.setHex(0x0a0806);
     }
     if (c.t < 3) { if (c.strip) c.mesh.position.y = -0.2 * (1 - c.t / 3); else c.mesh.material.opacity = Math.max(0, c.t / 3); } // (a stop-stick is pulled back in rather than fading)
-    if (c.t <= 0) { scene.remove(c.mesh); CONCRETE.list.splice(i, 1); }
+    if (c.t <= 0) { scene.remove(c.mesh); freePuddle(c); CONCRETE.list.splice(i, 1); }
   }
 }
 function inConcrete(car) { // wet concrete only bogs down others, and only near the ground
@@ -2403,6 +2404,7 @@ function inConcrete(car) { // wet concrete only bogs down others, and only near 
   for (const c of CONCRETE.list) if (c.kind === 'concrete' && c.t > 2 && (p.x - c.x) ** 2 + (p.z - c.z) ** 2 < (c.r + 0.8) ** 2) return true;
   return false;
 }
+function freePuddle(c) { if (c.strip) freeObject(c.mesh, []); else if (c.mesh.material && c.mesh.material.dispose) c.mesh.material.dispose(); } // (blob shapes are shared; the material and a stop-stick's parts are not)
 function puddleAt(x, z, kind, pad = 0) { for (const c of CONCRETE.list) { if (c.kind !== kind || c.t <= 1) continue; if (c.strip) { const rx = x - c.x, rz = z - c.z, a = rx * c.strip.dx + rz * c.strip.dz, w = rx * -c.strip.dz + rz * c.strip.dx; if (Math.abs(a) < c.strip.hl + pad && Math.abs(w) < c.strip.hw + pad) return c; } else if ((x - c.x) ** 2 + (z - c.z) ** 2 < (c.r + pad) ** 2) return c; } return null; }
 function inFire(car) {
   const p = car.body.position;
@@ -2714,7 +2716,7 @@ const JUNK = [ // what falls out of a cheap RV: [w, h, d, colour]
 const junkMats = new Map(), junkGeos = new Map();
 function spawnJunk(at, dir, from) {
   const j = JUNK[Math.random() * JUNK.length | 0], key = j.join(',');
-  if (!junkGeos.has(key)) { junkGeos.set(key, new THREE.BoxGeometry(j[0], j[1], j[2])); junkMats.set(key, new THREE.MeshStandardMaterial({ color: j[3], roughness: 0.8 })); }
+  if (!junkGeos.has(key)) { const jg = new THREE.BoxGeometry(j[0], j[1], j[2]); jg.userData.shared = true; junkGeos.set(key, jg); junkMats.set(key, new THREE.MeshStandardMaterial({ color: j[3], roughness: 0.8 })); }
   const m = new THREE.Mesh(junkGeos.get(key), junkMats.get(key)); m.castShadow = true; m.position.set(at.x, at.y, at.z); m.rotation.set(rand(0, 6), rand(0, 6), rand(0, 6)); scene.add(m);
   const v = from ? from.velocity : { x: 0, z: 0 }, wq = from ? from.quaternion.vmult(dir) : dir, sp = rand(3, 8);
   addDebris(m, new CANNON.Box(new CANNON.Vec3(j[0] / 2, j[1] / 2, j[2] / 2)), new CANNON.Vec3(), undefined, clamp(j[0] * j[1] * j[2] * 60, 1, 12), new CANNON.Vec3(v.x * 0.6 + wq.x * sp + rand(-1.5, 1.5), rand(2, 6), v.z * 0.6 + wq.z * sp + rand(-1.5, 1.5)), new CANNON.Vec3(rand(-8, 8), rand(-8, 8), rand(-8, 8)));
@@ -2782,8 +2784,13 @@ function addDebris(mesh, shape, shapeOffset, shapeQuat, mass, vel, angVel) {
   debris.push({ body, mesh, life: 30 });
   while (debris.length > DEBRIS_MAX) removeDebris(debris[0]);
 }
+function freeObject(root, ownMats) { // release the GPU buffers of everything under root; shared geometry is marked userData.shared and kept
+  const seen = new Set(); root.traverse((o) => { const g = o.geometry; if (g && !seen.has(g) && !(g.userData && g.userData.shared)) { seen.add(g); g.dispose(); }
+    for (const m of [].concat(o.material || [])) if (m && m.map && m.map.userData && m.map.userData.own && !seen.has(m)) { seen.add(m); m.map.dispose(); m.dispose(); } }); // a car's own number plates and track belts
+  for (const m of ownMats) if (m && m.dispose) m.dispose();
+}
 function removeDebris(d) {
-  world.removeBody(d.body); scene.remove(d.mesh);
+  world.removeBody(d.body); scene.remove(d.mesh); if (!d.mesh.userData.shared) freeObject(d.mesh, []);
   const i = debris.indexOf(d); if (i >= 0) debris.splice(i, 1);
 }
 function updateDebris(dt) {
@@ -3195,6 +3202,7 @@ const springGeo = (() => {
   return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 160, 0.018, 5, false);
 })();
 const strutGeo = new THREE.CylinderGeometry(0.035, 0.035, 1, 6).translate(0, 0.5, 0);
+for (const g of [plankGeo, oilGeo, rocketGeo, blobGeo, pGeo, spikeGeo, scuffGeo, strutGeo]) g.userData.shared = true; // used by everything: never freed with one car
 
 function shapeHull(geo, L, H, W, style) {
   const a = geo.attributes.position.array;
@@ -3544,7 +3552,7 @@ class Car {
     }
     if (st === 'tank') {
       // Tracks: scrolling tread, road wheels, sprocket and idler, armoured skirts
-      this.trackTex = canvasTex(64, (g, sz) => { g.fillStyle = '#1d1a17'; g.fillRect(0, 0, sz, sz); g.fillStyle = '#4c463d'; for (let i = 0; i < 8; i++) g.fillRect(i * 8, 0, 4, sz); }, 14, 1);
+      this.trackTex = canvasTex(64, (g, sz) => { g.fillStyle = '#1d1a17'; g.fillRect(0, 0, sz, sz); g.fillStyle = '#4c463d'; for (let i = 0; i < 8; i++) g.fillRect(i * 8, 0, 4, sz); }, 14, 1); this.trackTex.userData.own = true;
       const trackMat = new THREE.MeshStandardMaterial({ map: this.trackTex, roughness: 0.9, metalness: 0.45 });
       const rwGeo = new THREE.CylinderGeometry(0.34, 0.34, 0.16, 14).rotateX(Math.PI / 2);
       this.trackHp = [100, 100]; this.trackBroken = [false, false]; this.trackMeshes = [[], []];
@@ -4000,6 +4008,7 @@ class Car {
     scene.remove(this.group);
     for (const w of this.wheelMeshes) if (w) scene.remove(w);
     for (const d of this.deform) d.mesh.geometry.dispose();
+    freeObject(this.group, [this.paint, this.glassMat]); for (const w of this.wheelMeshes) if (w) freeObject(w, []); // every part's GPU buffers go with it (this leaked a whole car per respawn)
   }
 
   get mass() { return this.body.mass; }
@@ -7962,7 +7971,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '49'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '50'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
