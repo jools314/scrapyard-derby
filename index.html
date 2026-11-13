@@ -88,7 +88,7 @@
   }
   #gauge { width: 190px; height: 190px; display: block; }
   .gforce { font: 500 11px var(--ui); color: var(--muted); letter-spacing: 0.06em; white-space: nowrap; }
-  #toasts { position: absolute; top: 24%; left: 50%; transform: translateX(-50%); display: grid; gap: 4px; justify-items: center; }
+  #toasts { position: absolute; top: calc(116px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); display: grid; gap: 4px; justify-items: center; }
   .toast { font-family: var(--display); font-size: clamp(18px, 4vw, 28px); color: var(--accent); text-shadow: 0 3px 0 #000; white-space: nowrap; animation: pop 1.7s forwards; }
   .toast.bad { color: var(--danger); }
   .toast.cool { color: var(--nitro); }
@@ -101,7 +101,7 @@
   }
   @media (prefers-reduced-motion: reduce) { .toast { animation: fade 1.7s forwards; } @keyframes fade { 0%, 80% { opacity: 1; } 100% { opacity: 0; } } }
   #hint {
-    position: absolute; bottom: calc(96px + env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%);
+    position: absolute; top: calc(78px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%);
     font-size: 14px; background: var(--panel); border: 1px solid var(--line); padding: 6px 12px; border-radius: 4px; white-space: nowrap;
   }
   #hint:empty { display: none; }
@@ -111,11 +111,12 @@
   .threat b { position: absolute; left: -10px; top: 16px; width: 20px; text-align: center; font: 400 16px var(--display); color: var(--danger); text-shadow: 0 2px 0 #000; }
   .threat.charge i { animation: blink 0.35s steps(2) infinite; }
   @keyframes blink { 50% { opacity: 0.35; } }
-  #subs { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(200px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 6px; justify-items: center; width: min(640px, 92vw); }
+  #subs { position: absolute; left: 50%; transform: translateX(-50%); top: calc(10px + env(safe-area-inset-top, 0px)); display: grid; gap: 4px; justify-items: center; width: min(600px, calc(100vw - 660px)); min-width: 260px; } /* top strip, between the stats and the map: never over your car */
+  #subs .sub:nth-last-child(n+3) { display: none; } /* two lines at most */
   .sub { background: rgba(14, 11, 8, 0.82); border: 1px solid var(--line); border-radius: 6px; padding: 7px 12px; font-size: 16px; line-height: 1.35; text-align: center; animation: subIn 0.18s ease-out; }
   .sub b { font-family: var(--display); font-weight: 400; margin-right: 8px; }
-  @keyframes subIn { from { opacity: 0; transform: translateY(6px); } }
-  @media (max-width: 900px), (max-height: 640px) { #subs { bottom: calc(150px + env(safe-area-inset-bottom, 0px)); } .sub { font-size: 14px; } }
+  @keyframes subIn { from { transform: translateY(-4px); } } /* slide only: a stalled animation must never leave the text invisible */
+  @media (max-width: 900px), (max-height: 640px) { .sub { font-size: 14px; } }
   .gun-only { display: none !important; }
   body.has-gun .row.gun-only { display: flex !important; } body.has-gun .bar.gun-only { display: block !important; } body.has-gun #touch .tb.gun-only { display: inline-block !important; }
   #gunFill { background: var(--danger); }
@@ -186,13 +187,13 @@
   .presets button { padding: 5px 8px; font-size: 12px; }
 
   #touch { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
-  .stick-zone { position: absolute; left: 0; bottom: 0; width: 46%; height: 62%; pointer-events: auto; touch-action: none; }
-  .stick { position: absolute; left: calc(110px + env(safe-area-inset-left, 0px)); top: calc(100% - 120px - env(safe-area-inset-bottom, 0px)); width: 150px; height: 150px; margin: -75px 0 0 -75px; border-radius: 50%; background: rgba(26, 21, 16, 0.45); border: 2px solid var(--line); }
+  .stick-zone { position: absolute; right: 0; bottom: 0; width: 46%; height: 62%; pointer-events: auto; touch-action: none; }
+  .stick { position: absolute; left: calc(100% - 110px - env(safe-area-inset-right, 0px)); top: calc(100% - 120px - env(safe-area-inset-bottom, 0px)); width: 150px; height: 150px; margin: -75px 0 0 -75px; border-radius: 50%; background: rgba(26, 21, 16, 0.45); border: 2px solid var(--line); }
   .stick.on { background: rgba(26, 21, 16, 0.65); border-color: var(--accent); }
   .knob { position: absolute; left: 50%; top: 50%; width: 64px; height: 64px; margin: -32px 0 0 -32px; border-radius: 50%; background: var(--fg); opacity: 0.85; box-shadow: 0 3px 0 rgba(0,0,0,.4); }
-  .tlabel { position: absolute; left: calc(110px + env(safe-area-inset-left, 0px)); bottom: calc(6px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
-  .pedal-zone { position: absolute; right: 0; bottom: 0; width: 46%; height: 62%; pointer-events: auto; touch-action: none; }
-  .pedal-track { position: absolute; right: calc(70px + env(safe-area-inset-right, 0px)); bottom: calc(40px + env(safe-area-inset-bottom, 0px)); width: 96px; height: 190px; margin: 0 -48px 0 0; border-radius: 48px; background: rgba(26, 21, 16, 0.45); border: 2px solid var(--line); }
+  .tlabel { position: absolute; left: calc(100% - 110px - env(safe-area-inset-right, 0px)); bottom: calc(6px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+  .pedal-zone { position: absolute; left: 0; bottom: 0; width: 46%; height: 62%; pointer-events: auto; touch-action: none; }
+  .pedal-track { position: absolute; left: calc(70px + env(safe-area-inset-left, 0px)); bottom: calc(40px + env(safe-area-inset-bottom, 0px)); width: 96px; height: 190px; margin: 0 0 0 -48px; border-radius: 48px; background: rgba(26, 21, 16, 0.45); border: 2px solid var(--line); }
   .pedal-track.on { border-color: var(--accent); background: rgba(26, 21, 16, 0.65); }
   .pedal-track .knob { top: 50%; }
   .pedal-track .pl { position: absolute; left: 0; right: 0; text-align: center; font: 700 11px var(--ui); letter-spacing: .1em; color: var(--muted); }
@@ -210,7 +211,7 @@
   body.touch .touch-only { display: inline-block; }
   body.touch .speedo { left: calc(290px + env(safe-area-inset-left, 0px)); top: calc(10px + env(safe-area-inset-top, 0px)); bottom: auto; transform: none; } /* up top beside the stats: the bottom centre is where your car is */
   body.touch #gauge { width: 150px; height: 150px; }
-  body.touch #hint { bottom: calc(150px + env(safe-area-inset-bottom, 0px)); }
+
   @media (max-width: 900px), (max-height: 640px) {
     #opponents, #btnMusic, #btnMute, .gforce, .btns kbd { display: none; }
     #minimap { width: 110px; height: 110px; }
@@ -235,33 +236,27 @@
     body.touch #gauge { width: 92px; height: 92px; }
     body.touch .speedo { left: calc(160px + env(safe-area-inset-left, 0px)); top: calc(4px + env(safe-area-inset-top, 0px)); bottom: auto; }
     body.touch #gauge { width: 80px; height: 80px; }
-    body.touch .stick { width: 104px; height: 104px; margin: -52px 0 0 -52px; left: calc(72px + env(safe-area-inset-left, 0px)); top: calc(100% - 66px - env(safe-area-inset-bottom, 0px)); }
+    body.touch .stick { width: 104px; height: 104px; margin: -52px 0 0 -52px; left: calc(100% - 72px - env(safe-area-inset-right, 0px)); top: calc(100% - 66px - env(safe-area-inset-bottom, 0px)); }
     body.touch .knob { width: 44px; height: 44px; margin: -22px 0 0 -22px; }
     body.touch .tlabel { display: none; }
-    body.touch .pedal-track { width: 70px; height: 128px; margin: 0 -35px 0 0; right: calc(46px + env(safe-area-inset-right, 0px)); bottom: calc(8px + env(safe-area-inset-bottom, 0px)); border-radius: 35px; }
+    body.touch .pedal-track { width: 70px; height: 128px; margin: 0 0 0 -35px; left: calc(46px + env(safe-area-inset-left, 0px)); bottom: calc(8px + env(safe-area-inset-bottom, 0px)); border-radius: 35px; }
     body.touch .pedal-track .pl { font-size: 9px; }
     body.touch .rightpad { bottom: calc(144px + env(safe-area-inset-bottom, 0px)) !important; right: calc(8px + env(safe-area-inset-right, 0px)); }
     body.touch .rightpad .small { gap: 6px; }
     body.touch #touch .tb { width: 44px; height: 44px; font-size: 10px; }
-    body.touch #subs { bottom: calc(100px + env(safe-area-inset-bottom, 0px)); }
-    body.touch .sub { font-size: 11px; padding: 3px 7px; }
-    body.touch #hint { bottom: calc(100px + env(safe-area-inset-bottom, 0px)); font-size: 11px; }
-    body.touch .toast { font-size: 16px; }
-    body.touch #toasts { top: 18%; }
+    body.touch #subs { left: calc(252px + env(safe-area-inset-left, 0px)); right: calc(170px + env(safe-area-inset-right, 0px)); width: auto; min-width: 0; transform: none; top: calc(4px + env(safe-area-inset-top, 0px)); }
+    body.touch .sub { font-size: 11px; padding: 3px 7px; line-height: 1.25; }
+    body.touch #hint { top: calc(52px + env(safe-area-inset-top, 0px)); font-size: 11px; padding: 3px 8px; }
+    body.touch .toast { font-size: 15px; }
+    body.touch #toasts { top: calc(74px + env(safe-area-inset-top, 0px)); gap: 0; }
   }
   @media (max-width: 500px) { /* portrait phone: buttons stack up the right edge */
     body.touch .rightpad { bottom: calc(146px + env(safe-area-inset-bottom, 0px)) !important; }
     body.touch .rightpad .small { flex-direction: column; }
     body.touch .stick-zone, body.touch .pedal-zone { height: 45%; }
   }
-  /* Tilt steering: no stick needed, so gas/brake moves under the LEFT thumb and the buttons sit under the RIGHT thumb */
+  /* Tilt steering: the stick hides, nothing else moves */
   body.tilt .stick-zone, body.tilt .tlabel { display: none; }
-  body.tilt .pedal-zone { right: auto; left: 0; }
-  body.tilt .pedal-track { right: auto; left: calc(24px + env(safe-area-inset-left, 0px)); margin: 0; }
-  body.tilt .rightpad { bottom: calc(14px + env(safe-area-inset-bottom, 0px)) !important; right: calc(14px + env(safe-area-inset-right, 0px)); }
-  body.tilt .rightpad .small { display: grid; grid-template-columns: repeat(3, auto); gap: 10px; }
-  body.tilt #touch .tb { width: 64px; height: 64px; font-size: 12px; }
-  @media (max-height: 500px), (max-width: 500px) { body.tilt #touch .tb { width: 56px; height: 56px; } body.tilt .pedal-track { left: calc(12px + env(safe-area-inset-left, 0px)); } }
   @media (max-width: 720px) {
     #menu { place-items: end center; background: linear-gradient(0deg, rgba(23, 19, 15, 0.92) 0%, rgba(23, 19, 15, 0.6) 60%, rgba(23, 19, 15, 0.1) 100%); }
     .garage { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -325,7 +320,7 @@
   </div>
 
   <div id="touch" hidden>
-    <div id="stickZone" class="stick-zone"><div id="stick" class="stick"><div id="knob" class="knob"></div></div><span class="tlabel">◀ Slide to steer ▶</span></div>
+    <div id="stickZone" class="stick-zone"><div id="stick" class="stick"><div id="knob" class="knob"></div></div><span class="tlabel">◀ Steer ▶</span></div>
     <div class="rightpad">
       <div class="small">
         <button class="tb gun-only" data-k="fire" type="button">FIRE</button>
@@ -5646,7 +5641,7 @@ pedalZone.addEventListener('pointerdown', (e) => {
   pedalId = e.pointerId; try { pedalZone.setPointerCapture(e.pointerId); } catch (err) {}
   const r = pedalZone.getBoundingClientRect();
   py0 = e.clientY;
-  pedal.style.right = 'auto'; pedal.style.left = (e.clientX - r.left - 48) + 'px'; pedal.style.top = (e.clientY - r.top - 95) + 'px'; pedal.style.bottom = 'auto';
+  pedal.style.right = 'auto'; pedal.style.left = (e.clientX - r.left) + 'px'; pedal.style.top = (e.clientY - r.top - pedal.offsetHeight / 2) + 'px'; pedal.style.bottom = 'auto'; // the track centres on your thumb (its margin takes half its width)
   pedal.classList.add('on'); pedalKnob.style.transform = 'translate(0,0)'; touch.throttle = 0; sfx.init();
 });
 pedalZone.addEventListener('pointermove', (e) => {
