@@ -4224,6 +4224,7 @@ class Car {
 
   applyDamage(dmg, by, zone, model, dv = 0) {
     if (this.wrecked) return;
+    if (by && !by.body) by = null; // blasts from scenery (gas cylinders, crane drops) have no driver to credit
     if (this.trackHp && (zone === 'left' || zone === 'right') && dmg > 3 && !by) this.hurtTrack(zone === 'left' ? 0 : 1, dmg * 2, by); // blasts beside the tank
     dmg = Math.min(dmg, this.health);
     this.health -= dmg;
@@ -6023,7 +6024,7 @@ const MP = {
     if (!api && !window.__mpShim) { // not inside Claude: go phone-to-phone with PeerJS + a QR code
       this.transport = 'peer'; this.api = { peer: true }; this.lobby = null; this.status('online · host shows a QR code'); $('nearRow').hidden = !window.__nearUI; // two-way scan pairing stays off unless asked for
       try { const n = localStorage.getItem('derby-nick'); if (n) $('mpNick').value = n; } catch (e) {}
-      const m = location.hash.match(/^#join-([a-z0-9]{3,12})$/); if (m) setTimeout(() => this.join(m[1]), 300);
+      const m = location.hash.match(/^#join-((?:p-)?[a-z0-9]{3,12})$/); if (m) setTimeout(() => this.join(m[1]), 300);
       this.renderGames(); return;
     }
     let local = false;
@@ -6057,14 +6058,14 @@ const MP = {
   },
   async host() {
     if (!(this.lobby || this.transport === 'peer') || this.role !== 'solo') return;
-    this.code = Math.random().toString(36).slice(2, 7);
+    this.code = Math.random().toString(36).slice(2, this.transport === 'peer' ? 10 : 7);
     try {
-      if (this.transport === 'peer') { this.status('opening a game…'); await loadPeerJS(); this.room = await peerRoom(this.code, true); }
+      if (this.transport === 'peer') { this.status('opening a game…'); try { this.room = await relayHost(this.code); this.via = 'relay'; } catch (e) { await loadPeerJS(); this.room = await peerRoom(this.code, true); this.via = 'peerjs'; } }
       else this.room = await this.lobby.join('derby-' + this.code);
     } catch (e) { this.status('could not open a game'); this.info('Could not open a game: ' + this.explain(e.type || e.message || 'error')); return; }
     this.role = 'host';
     if (this.lobby) this.lobby.presence({ host: this.code, nick: this.nick(), n: 0 });
-    if (this.transport === 'peer') { const url = location.origin + location.pathname + '#join-' + this.code; $('mpLink').value = url; $('mpShare').hidden = false; drawQR(url); }
+    if (this.transport === 'peer') { const url = location.origin + location.pathname + '#join-' + (this.via === 'peerjs' ? 'p-' : '') + this.code; $('mpLink').value = url; $('mpShare').hidden = false; drawQR(url); MP.info('Your game is live. Friends scan the QR code (any network; same Wi-Fi is fastest).'); }
     this.room.presence({ host: 1, nick: this.nick() });
     this.room.onPeers(() => { const n = this.guests().length; if (this.lobby) this.lobby.presence({ n }); $('mpInfo').textContent = n ? `Players in your game: ${this.guests().map((g) => g.presence.nick || 'Player').join(', ')}. Press Start when ready.` : 'Waiting for players… share this page link. Press Start to play anyway.'; });
     $('btnHost').hidden = true; $('btnLeave').hidden = false; this.status(`hosting game ${this.code}`); this.renderGames();
@@ -6073,7 +6074,7 @@ const MP = {
   async join(code) {
     if (!(this.lobby || this.transport === 'peer') || this.role !== 'solo') return;
     try {
-      if (this.transport === 'peer') { this.status('joining game ' + code + '…'); await loadPeerJS(); this.room = await peerRoom(code, false); }
+      if (this.transport === 'peer') { this.status('joining game ' + code + '…'); const pj = /^p-/.test(code); if (pj) { await loadPeerJS(); this.room = await peerRoom(code.slice(2), false); } else this.room = await relayJoin(code); }
       else this.room = await this.lobby.join('derby-' + code);
     } catch (e) { this.status('could not join'); this.info('Could not join: ' + this.explain(e.type || e.message || 'error')); return; }
     this.role = 'guest'; this.code = code; this.snaps = []; this.builtRk = ''; this.rt = 0; this.seen = 0;
@@ -6267,7 +6268,7 @@ function peerRoom(code, isHost) {
 const NEAR_ICE = { iceServers: [] }; // same Wi-Fi: the phones' own addresses are all that's needed, no outside server
 async function packSDP(desc) {
   const lines = desc.sdp.split(/\r?\n/).filter((l) => l && !/^a=(extmap|msid-semantic|ice-options|extmap-allow-mixed)/.test(l) && !(l.startsWith('a=candidate') && / tcp /i.test(l)));
-  let cand = 0; const keep = lines.filter((l) => !l.startsWith('a=candidate') || cand++ < 5); // a handful of candidates is plenty on one network
+  const per = {}; const keep = lines.filter((l) => { if (!l.startsWith('a=candidate')) return true; const t = (l.match(/ typ (\w+)/) || [])[1] || 'host'; per[t] = (per[t] || 0) + 1; return per[t] <= 2; }); // two of each kind: local, public, relayed
   const txt = (desc.type === 'offer' ? 'O' : 'A') + keep.join('\n');
   if (typeof CompressionStream === 'undefined') return 'R' + btoa(unescape(encodeURIComponent(txt)));
   const buf = await new Response(new Blob([txt]).stream().pipeThrough(new CompressionStream('deflate-raw'))).arrayBuffer();
@@ -6300,6 +6301,38 @@ function nearRoom() {
     },
   };
   return api;
+}
+// ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
+const NTFY = 'https://ntfy.sh/';
+const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
+function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
+async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
+const gatheredOnline = (pc) => new Promise((res) => { if (pc.iceGatheringState === 'complete') return res(); const t = setTimeout(res, 4000); pc.addEventListener('icegatheringstatechange', () => { if (pc.iceGatheringState === 'complete') { clearTimeout(t); res(); } }); });
+function relayHost(code) { // host: answer every phone that knocks on our topic
+  const room = nearRoom(), seen = new Set();
+  room.es = ntfySub('sd-' + code + '-h', async (txt) => {
+    let m; try { m = JSON.parse(txt); } catch (e) { return; } if (!m || !m.g || !m.o || seen.has(m.g + m.n)) return; seen.add(m.g + m.n);
+    const pc = new RTCPeerConnection(ONLINE_ICE); pc.ondatachannel = (ev) => room.attach(pc, ev.channel);
+    try { await pc.setRemoteDescription(await unpackSDP(m.o)); await pc.setLocalDescription(await pc.createAnswer()); await gatheredOnline(pc); await ntfyPub('sd-' + code + '-g' + m.g, JSON.stringify({ a: await packSDP(pc.localDescription), n: m.n })); } catch (e) { MP.info('A player tried to join but the handshake failed: ' + (e.message || e.type || 'error')); }
+  });
+  const leave = room.leave; room.leave = () => { try { room.es.close(); } catch (e) {} return leave(); };
+  return new Promise((res, rej) => { let ok = false; room.es.onopen = () => { ok = true; res(room); }; room.es.onerror = () => { if (!ok) { room.es.close(); rej({ type: 'network' }); } }; setTimeout(() => { if (!ok) { room.es.close(); rej({ type: 'network' }); } }, 8000); });
+}
+function relayJoin(code) { // guest: post our offer to the host's topic, wait for the answer on ours
+  return new Promise(async (resolve, reject) => {
+    const room = nearRoom(), g = Math.random().toString(36).slice(2, 10); let done = false, tries = 0, pc = null;
+    const es = ntfySub('sd-' + code + '-g' + g, async (txt) => { let m; try { m = JSON.parse(txt); } catch (e) { return; } if (!m || !m.a || m.n !== tries || !pc) return; try { await pc.setRemoteDescription(await unpackSDP(m.a)); MP.info('Host answered, connecting…'); } catch (e) {} });
+    const attempt = async () => {
+      if (done) return; tries++; MP.info(tries > 1 ? `Knocking again… (try ${tries} of 4)` : 'Finding the host…');
+      if (pc) try { pc.close(); } catch (e) {}
+      pc = new RTCPeerConnection(ONLINE_ICE); const dc = pc.createDataChannel('derby', { ordered: true }); room.attach(pc, dc);
+      dc.addEventListener('open', () => { if (done) return; done = true; es.close(); const leave = room.leave; room.leave = () => leave(); resolve(room); });
+      await pc.setLocalDescription(await pc.createOffer()); await gatheredOnline(pc);
+      try { await ntfyPub('sd-' + code + '-h', JSON.stringify({ g, n: tries, o: await packSDP(pc.localDescription) })); } catch (e) { if (!done) { done = true; es.close(); reject({ type: 'network' }); } return; }
+      setTimeout(() => { if (!done) { if (tries < 4) attempt(); else { done = true; es.close(); reject({ type: 'timeout' }); } } }, 9000);
+    };
+    es.onopen = () => attempt(); es.onerror = () => { if (!tries && !done) { done = true; es.close(); reject({ type: 'network' }); } };
+  });
 }
 // camera QR scanner (jsQR), with a test hook
 const NEAR = { stream: null, scanning: false };
