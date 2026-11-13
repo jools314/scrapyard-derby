@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Scrapyard Derby</title></head><body>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta http-equiv="Cache-Control" content="no-cache"><title>Scrapyard Derby</title></head><body>
 <title>Scrapyard Derby</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -6022,7 +6022,7 @@ const MP = {
     let api = null;
     if (!window.__mpShim) try { if (window.claude && window.claude.use) api = await window.claude.use('room'); } catch (e) { api = null; }
     if (!api && !window.__mpShim) { // not inside Claude: go phone-to-phone with PeerJS + a QR code
-      this.transport = 'peer'; this.api = { peer: true }; this.lobby = null; this.status('online · host shows a QR code'); $('nearRow').hidden = !window.__nearUI; // two-way scan pairing stays off unless asked for
+      this.transport = 'peer'; this.api = { peer: true }; this.lobby = null; this.status(`online · build ${BUILD}`); $('nearRow').hidden = !window.__nearUI; // two-way scan pairing stays off unless asked for
       try { const n = localStorage.getItem('derby-nick'); if (n) $('mpNick').value = n; } catch (e) {}
       const m = location.hash.match(/^#join-((?:p-)?[a-z0-9]{3,12})$/); if (m) setTimeout(() => this.join(m[1]), 300);
       this.renderGames(); return;
@@ -6060,21 +6060,21 @@ const MP = {
     if (!(this.lobby || this.transport === 'peer') || this.role !== 'solo') return;
     this.code = Math.random().toString(36).slice(2, this.transport === 'peer' ? 10 : 7);
     try {
-      if (this.transport === 'peer') { this.status('opening a game…'); try { this.room = await relayHost(this.code); this.via = 'relay'; } catch (e) { await loadPeerJS(); this.room = await peerRoom(this.code, true); this.via = 'peerjs'; } }
+      if (this.transport === 'peer') { this.status('opening a game…'); try { this.room = await relayHost(this.code); this.via = 'relay'; } catch (e) { this.info('The relay was unreachable, using the backup server…'); await loadPeerJS(); this.room = await peerRoom(this.code, true); this.via = 'peerjs'; } }
       else this.room = await this.lobby.join('derby-' + this.code);
     } catch (e) { this.status('could not open a game'); this.info('Could not open a game: ' + this.explain(e.type || e.message || 'error')); return; }
     this.role = 'host';
     if (this.lobby) this.lobby.presence({ host: this.code, nick: this.nick(), n: 0 });
-    if (this.transport === 'peer') { const url = location.origin + location.pathname + '#join-' + (this.via === 'peerjs' ? 'p-' : '') + this.code; $('mpLink').value = url; $('mpShare').hidden = false; drawQR(url); MP.info('Your game is live. Friends scan the QR code (any network; same Wi-Fi is fastest).'); }
+    if (this.transport === 'peer') { const url = location.origin + location.pathname + '?v=' + BUILD + '#join-' + (this.via === 'peerjs' ? 'p-' : '') + this.code; $('mpLink').value = url; $('mpShare').hidden = false; drawQR(url); MP.info(`Your game is live (${this.via === 'peerjs' ? 'backup server' : 'relay'}). Friends scan the QR code.`); this.status(`hosting · build ${BUILD} · ${this.via}`); }
     this.room.presence({ host: 1, nick: this.nick() });
     this.room.onPeers(() => { const n = this.guests().length; if (this.lobby) this.lobby.presence({ n }); $('mpInfo').textContent = n ? `Players in your game: ${this.guests().map((g) => g.presence.nick || 'Player').join(', ')}. Press Start when ready.` : 'Waiting for players… share this page link. Press Start to play anyway.'; });
-    $('btnHost').hidden = true; $('btnLeave').hidden = false; this.status(`hosting game ${this.code}`); this.renderGames();
+    $('btnHost').hidden = true; $('btnLeave').hidden = false; this.status(this.transport === "peer" ? `hosting · build ${BUILD} · ${this.via}` : `hosting game ${this.code}`); this.renderGames();
     $('mpInfo').textContent = 'Waiting for players… share this page link. Press Start to play anyway.';
   },
   async join(code) {
     if (!(this.lobby || this.transport === 'peer') || this.role !== 'solo') return;
     try {
-      if (this.transport === 'peer') { this.status('joining game ' + code + '…'); const pj = /^p-/.test(code); if (pj) { await loadPeerJS(); this.room = await peerRoom(code.slice(2), false); } else this.room = await relayJoin(code); }
+      if (this.transport === 'peer') { const pj = /^p-/.test(code); this.status(`joining ${code} · build ${BUILD} · ${pj ? 'peerjs' : 'relay'}…`); if (pj) { await loadPeerJS(); this.room = await peerRoom(code.slice(2), false); } else this.room = await relayJoin(code); }
       else this.room = await this.lobby.join('derby-' + code);
     } catch (e) { this.status('could not join'); this.info('Could not join: ' + this.explain(e.type || e.message || 'error')); return; }
     this.role = 'guest'; this.code = code; this.snaps = []; this.builtRk = ''; this.rt = 0; this.seen = 0;
@@ -6304,6 +6304,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
+const BUILD = '31'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
@@ -6316,7 +6317,7 @@ function relayHost(code) { // host: answer every phone that knocks on our topic
     try { await pc.setRemoteDescription(await unpackSDP(m.o)); await pc.setLocalDescription(await pc.createAnswer()); await gatheredOnline(pc); await ntfyPub('sd-' + code + '-g' + m.g, JSON.stringify({ a: await packSDP(pc.localDescription), n: m.n })); } catch (e) { MP.info('A player tried to join but the handshake failed: ' + (e.message || e.type || 'error')); }
   });
   const leave = room.leave; room.leave = () => { try { room.es.close(); } catch (e) {} return leave(); };
-  return new Promise((res, rej) => { let ok = false; room.es.onopen = () => { ok = true; res(room); }; room.es.onerror = () => { if (!ok) { room.es.close(); rej({ type: 'network' }); } }; setTimeout(() => { if (!ok) { room.es.close(); rej({ type: 'network' }); } }, 8000); });
+  return new Promise((res, rej) => { let ok = false; const go = () => { if (!ok) { ok = true; res(room); } }; room.es.onopen = go; setTimeout(go, 2500); room.es.onerror = () => { if (!ok && room.es.readyState === 2) { ok = true; room.es.close(); rej({ type: 'network' }); } }; });
 }
 function relayJoin(code) { // guest: post our offer to the host's topic, wait for the answer on ours
   return new Promise(async (resolve, reject) => {
@@ -6331,7 +6332,8 @@ function relayJoin(code) { // guest: post our offer to the host's topic, wait fo
       try { await ntfyPub('sd-' + code + '-h', JSON.stringify({ g, n: tries, o: await packSDP(pc.localDescription) })); } catch (e) { if (!done) { done = true; es.close(); reject({ type: 'network' }); } return; }
       setTimeout(() => { if (!done) { if (tries < 4) attempt(); else { done = true; es.close(); reject({ type: 'timeout' }); } } }, 9000);
     };
-    es.onopen = () => attempt(); es.onerror = () => { if (!tries && !done) { done = true; es.close(); reject({ type: 'network' }); } };
+    let started = false; const start = () => { if (!started) { started = true; attempt(); } };
+    es.onopen = start; setTimeout(start, 2000); es.onerror = () => { if (!tries && !done && es.readyState === 2) { done = true; es.close(); reject({ type: 'network' }); } };
   });
 }
 // camera QR scanner (jsQR), with a test hook
