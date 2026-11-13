@@ -128,6 +128,9 @@
   .mprow { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
   .mprow input { font: 500 13px var(--ui); padding: 6px 8px; background: var(--panel-solid); color: var(--fg); border: 1px solid var(--line); border-radius: 4px; width: 9em; }
   .mprow .join { border-color: var(--accent); }
+  .mpshare { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .mpshare canvas { width: 140px; height: 140px; background: #fff; border-radius: 6px; padding: 6px; image-rendering: pixelated; }
+  .mpshare input { font: 500 12px var(--ui); width: 15em; padding: 6px 8px; background: var(--panel-solid); color: var(--fg); border: 1px solid var(--line); border-radius: 4px; margin-right: 6px; }
   #keys { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(6px + env(safe-area-inset-bottom, 0px)); max-width: min(900px, 70vw); text-align: center; font: 500 12px var(--ui); color: var(--muted); background: rgba(23, 19, 15, 0.55); border: 1px solid var(--line); border-radius: 4px; padding: 4px 10px; line-height: 1.6; white-space: normal; }
   #keys b { color: var(--fg); font-weight: 700; } #keys .sp { color: var(--accent); }
   body.touch #keys { display: none; }
@@ -351,6 +354,13 @@
       <p class="eyebrow">Demolition derby · physics sandbox</p>
       <h1>Scrapyard Derby</h1>
       <p>Wreck every opponent in the yard. Hit them nose first: your front bumper takes half damage. Knock off bumpers, doors and wheels. Every car has real mass, suspension and momentum.</p>
+      <div id="mpBox" class="mp">
+        <p class="label" style="margin:0">Multiplayer <span id="mpStatus" class="quiet"></span></p>
+        <div class="mprow"><input id="mpNick" maxlength="14" placeholder="Your name" aria-label="Your name"><button id="btnHost" type="button">Host a game</button><button id="btnLeave" type="button" hidden>Leave</button></div>
+        <div id="mpGames" class="mprow"></div>
+        <p id="mpInfo" class="quiet" style="margin:0"></p>
+        <div id="mpShare" class="mpshare" hidden><canvas id="mpQR" width="180" height="180" aria-label="QR code to join"></canvas><div><p class="quiet" style="margin:0 0 6px">Scan to join, or send this link:</p><input id="mpLink" readonly aria-label="Join link"><button id="btnCopyLink" type="button">Copy link</button></div></div>
+      </div>
       <div>
         <p class="label" style="margin:0 0 8px">Pick your car</p>
         <div class="garage" id="garage"></div>
@@ -378,12 +388,6 @@
           <dt>Touch</dt><dd>Drag left side to steer, pedals on the right</dd>
         </dl>
       </details>
-      <div id="mpBox" class="mp">
-        <p class="label" style="margin:0">Multiplayer <span id="mpStatus" class="quiet"></span></p>
-        <div class="mprow"><input id="mpNick" maxlength="14" placeholder="Your name" aria-label="Your name"><button id="btnHost" type="button">Host a game</button><button id="btnLeave" type="button" hidden>Leave</button></div>
-        <div id="mpGames" class="mprow"></div>
-        <p id="mpInfo" class="quiet" style="margin:0"></p>
-      </div>
       <div class="actions">
         <button id="btnStart" class="primary" type="button">Start derby</button>
         <span class="quiet">or press Enter</span>
@@ -6000,6 +6004,12 @@ const MP = {
   async init() {
     let api = null;
     if (!window.__mpShim) try { if (window.claude && window.claude.use) api = await window.claude.use('room'); } catch (e) { api = null; }
+    if (!api && !window.__mpShim) { // not inside Claude: go phone-to-phone with PeerJS + a QR code
+      this.transport = 'peer'; this.api = { peer: true }; this.lobby = null; this.status('online · host shows a QR code');
+      try { const n = localStorage.getItem('derby-nick'); if (n) $('mpNick').value = n; } catch (e) {}
+      const m = location.hash.match(/^#join-([a-z0-9]{3,12})$/); if (m) setTimeout(() => this.join(m[1]), 300);
+      this.renderGames(); return;
+    }
     let local = false;
     if (!api && typeof BroadcastChannel !== 'undefined') { api = mpShim(); local = true; }
     this.api = api; this.lobby = api;
@@ -6012,6 +6022,7 @@ const MP = {
   status(t) { this.statusTxt = t; $('mpStatus').textContent = '· ' + t; },
   myPeer(room) { const me = (room || this.room).peers().find((p) => p.sameTab); return me ? me.peer : null; },
   renderGames() {
+    if (this.transport === 'peer') { $('mpGames').innerHTML = this.role === 'solo' ? '<span class="quiet">To join a friend, scan the QR code on their screen (or open their link).</span>' : ''; return; }
     if (!this.lobby) return;
     const box = $('mpGames'); box.innerHTML = '';
     if (this.role !== 'solo') return;
@@ -6024,21 +6035,28 @@ const MP = {
     if (!games.length) { const p = document.createElement('span'); p.className = 'quiet'; p.textContent = 'No open games yet. Host one, then send the link to a friend.'; box.appendChild(p); }
   },
   async host() {
-    if (!this.lobby || this.role !== 'solo') return;
+    if (!(this.lobby || this.transport === 'peer') || this.role !== 'solo') return;
     this.code = Math.random().toString(36).slice(2, 7);
-    try { this.room = await this.lobby.join('derby-' + this.code); } catch (e) { this.status('could not open a game'); return; }
+    try {
+      if (this.transport === 'peer') { this.status('opening a game…'); await loadPeerJS(); this.room = await peerRoom(this.code, true); }
+      else this.room = await this.lobby.join('derby-' + this.code);
+    } catch (e) { this.status('could not open a game (' + (e.type || e.message || 'error') + ')'); return; }
     this.role = 'host';
-    this.lobby.presence({ host: this.code, nick: this.nick(), n: 0 });
+    if (this.lobby) this.lobby.presence({ host: this.code, nick: this.nick(), n: 0 });
+    if (this.transport === 'peer') { const url = location.origin + location.pathname + '#join-' + this.code; $('mpLink').value = url; $('mpShare').hidden = false; drawQR(url); }
     this.room.presence({ host: 1, nick: this.nick() });
-    this.room.onPeers(() => { const n = this.guests().length; this.lobby.presence({ n }); $('mpInfo').textContent = n ? `Players in your game: ${this.guests().map((g) => g.presence.nick || 'Player').join(', ')}. Press Start when ready.` : 'Waiting for players… share this page link. Press Start to play anyway.'; });
+    this.room.onPeers(() => { const n = this.guests().length; if (this.lobby) this.lobby.presence({ n }); $('mpInfo').textContent = n ? `Players in your game: ${this.guests().map((g) => g.presence.nick || 'Player').join(', ')}. Press Start when ready.` : 'Waiting for players… share this page link. Press Start to play anyway.'; });
     $('btnHost').hidden = true; $('btnLeave').hidden = false; this.status(`hosting game ${this.code}`); this.renderGames();
     $('mpInfo').textContent = 'Waiting for players… share this page link. Press Start to play anyway.';
   },
   async join(code) {
-    if (!this.lobby || this.role !== 'solo') return;
-    try { this.room = await this.lobby.join('derby-' + code); } catch (e) { this.status('could not join'); return; }
+    if (!(this.lobby || this.transport === 'peer') || this.role !== 'solo') return;
+    try {
+      if (this.transport === 'peer') { this.status('joining game ' + code + '…'); await loadPeerJS(); this.room = await peerRoom(code, false); }
+      else this.room = await this.lobby.join('derby-' + code);
+    } catch (e) { this.status('could not join (' + (e.type || e.message || 'error') + ') · is the host still in the menu?'); return; }
     this.role = 'guest'; this.code = code; this.snaps = []; this.builtRk = ''; this.rt = 0; this.seen = 0;
-    this.lobby.presence({ host: null });
+    if (this.lobby) this.lobby.presence({ host: null });
     this.sendWant();
     $('btnHost').hidden = true; $('btnLeave').hidden = false; $('btnStart').hidden = true; this.status(`in game ${code}`); this.renderGames();
     $('mpInfo').textContent = 'Joined! Pick your car; the host starts the round.';
@@ -6047,6 +6065,7 @@ const MP = {
     if (this.room) { try { await this.room.leave(); } catch (e) {} }
     this.room = null; const was = this.role; this.role = 'solo'; this.code = '';
     if (this.lobby) this.lobby.presence({ host: null });
+    $('mpShare').hidden = true; if (location.hash.startsWith('#join-')) history.replaceState(null, '', location.pathname);
     $('btnHost').hidden = false; $('btnLeave').hidden = true; $('btnStart').hidden = false; $('mpInfo').textContent = ''; this.status('online'); this.renderGames();
     if (was === 'guest') { game.state = 'menu'; resetMatch(); el.menu.hidden = false; }
   },
@@ -6182,6 +6201,44 @@ const MP = {
     return true;
   },
 };
+// Outside Claude: phone-to-phone over WebRTC, using the free PeerJS service only to introduce the devices.
+// The host is the hub: guests connect to it; presence goes guest -> host and host -> every guest.
+const loadScript = (src) => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
+async function loadPeerJS() { if (!window.Peer) await loadScript('https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js'); return window.Peer; }
+const PEER_PREFIX = 'scrapyard-derby-';
+function peerRoom(code, isHost) {
+  return new Promise((resolve, reject) => {
+    const Peer = window.Peer, peer = isHost ? new Peer(PEER_PREFIX + code, { debug: 0 }) : new Peer({ debug: 0 });
+    const hs = [], others = new Map(); let mine = {}, me = null, pending = false, done = false, cache = Object.freeze([]);
+    const snapshot = () => Object.freeze([{ peer: me || 'me', by: null, isMe: true, sameTab: true, kind: 'viewer', guest: false, presence: mine, updatedAt: Date.now() }, ...[...others.values()].map((o) => o.p)]);
+    const fire = () => { cache = snapshot(); for (const h of hs) try { h({ peers: cache, joined: [], left: [], updated: [] }); } catch (e) {} };
+    const sendAll = () => { for (const o of others.values()) if (o.conn.open) try { o.conn.send({ t: 'p', p: mine }); } catch (e) {} };
+    const wire = (conn) => {
+      conn.on('open', () => { others.set(conn.peer, { conn, p: { peer: conn.peer, by: null, isMe: false, sameTab: false, kind: 'viewer', guest: false, presence: {}, updatedAt: Date.now() } }); try { conn.send({ t: 'p', p: mine }); } catch (e) {} fire(); if (!isHost && !done) { done = true; resolve(api); } });
+      conn.on('data', (d) => { if (!d || d.t !== 'p' || typeof d.p !== 'object') return; const o = others.get(conn.peer); if (!o) return; o.p = { ...o.p, presence: d.p, updatedAt: Date.now() }; fire(); });
+      conn.on('close', () => { others.delete(conn.peer); fire(); });
+      conn.on('error', () => {});
+    };
+    const api = {
+      name: code, presence(patch) { mine = { ...mine }; for (const k in patch) { if (patch[k] === null) delete mine[k]; else mine[k] = patch[k]; } cache = snapshot(); if (!pending) { pending = true; setTimeout(() => { pending = false; sendAll(); }, 33); } return Promise.resolve(); },
+      peers() { return cache; }, onPeers(h) { hs.push(h); setTimeout(() => h({ peers: cache, joined: cache, left: [], updated: [] }), 0); return () => hs.splice(hs.indexOf(h), 1); },
+      emit() { return Promise.resolve(); }, on() { return () => {}; }, connected() { return !peer.disconnected; }, onConnection(h) { setTimeout(() => h(true), 0); return () => {}; },
+      leave() { try { peer.destroy(); } catch (e) {} return Promise.resolve(); },
+    };
+    peer.on('open', (id) => { me = id; cache = snapshot(); if (isHost) { done = true; resolve(api); } else wire(peer.connect(PEER_PREFIX + code, { serialization: 'json', reliable: false })); });
+    if (isHost) peer.on('connection', wire);
+    peer.on('error', (e) => { if (!done) { done = true; reject(e); } else if (MP.role !== 'solo') MP.status('connection trouble: ' + (e.type || 'error')); });
+    setTimeout(() => { if (!done) { done = true; try { peer.destroy(); } catch (e) {} reject(new Error('timeout')); } }, 15000);
+  });
+}
+function drawQR(text) {
+  const cv = $('mpQR'), g = cv.getContext('2d');
+  if (!window.qrcode) { loadScript('https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js').then(() => drawQR(text)).catch(() => {}); return; }
+  const q = window.qrcode(0, 'M'); q.addData(text); q.make();
+  const n = q.getModuleCount(), cell = Math.floor(cv.width / (n + 2)), off = Math.floor((cv.width - cell * n) / 2);
+  g.fillStyle = '#fff'; g.fillRect(0, 0, cv.width, cv.height); g.fillStyle = '#000';
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (q.isDark(r, c)) g.fillRect(off + c * cell, off + r * cell, cell, cell);
+}
 // Same calls as the real room, between tabs of one browser: lets the game (and its tests) run multiplayer anywhere
 function mpShim() {
   const mk = (name) => {
@@ -6212,6 +6269,8 @@ function mpShim() {
 }
 $('btnHost').addEventListener('click', () => MP.host());
 $('btnLeave').addEventListener('click', () => MP.leave());
+$('btnCopyLink').addEventListener('click', () => { const v = $('mpLink').value; (navigator.clipboard ? navigator.clipboard.writeText(v) : Promise.reject()).then(() => toast('LINK COPIED', 'cool')).catch(() => { $('mpLink').select(); }); });
+$('mpLink').addEventListener('focus', (e) => e.target.select());
 $('mpNick').addEventListener('change', () => { MP.nick(); if (MP.role === 'host' && MP.lobby) MP.lobby.presence({ nick: MP.nick() }); if (MP.role === 'guest') MP.sendWant(); });
 $('mpNick').addEventListener('keydown', (e) => e.stopPropagation()); // typing a name isn't driving
 MP.init();
