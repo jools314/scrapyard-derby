@@ -388,6 +388,7 @@
       <div class="rail"><!-- a slim column on the right edge: nothing over the middle of the screen -->
         <button id="btnGear" class="ic gear" type="button" title="Settings and debugging" aria-label="Settings" aria-expanded="false">⚙️<span id="netDot" hidden></span></button>
         <button id="btnMap" class="ic" type="button" title="Map (Tab)" aria-pressed="false">🗺️<small>Map</small></button>
+        <button id="btnBug" class="ic" type="button" title="Something weird? One tap copies a full bug report for Claude">🐞<small>Bug</small></button>
         <button id="btnCam" class="ic" type="button" title="Camera: chase / far / inside (C)">🎥<small>View</small></button>
         <button id="btnPause" class="ic" type="button" title="Pause (P)">⏸️<small>Pause</small></button>
         <button id="btnRespawn" class="ic hot" type="button" title="Respawn or pick a new car (K)">🔄<small>Respawn</small></button>
@@ -619,7 +620,7 @@ const CAR_TYPES = {
   towtruck: { special: 'tow', handling: { steer: 0.85, rate: 0.9, spring: 1.1, damp: 1.15, rear: 1.1, drag: 1.3, roll: 0.8 }, name: 'Tow Truck', blurb: 'Wrecker with a boom and hook. Back up to a car, press F to hook it and drag it nose-up; F again whips it loose.', style: 'pickup', mass: 4200, L: 6.0, W: 2.2, H: 0.85, wheelR: 0.46, wheelW: 0.36, wb: 3.7, track: 1.86, power: 1.35, grip: 1.05, armor: 0.7, cabin: { l: 1.9, h: 0.95, w: 2.0, x: 1.25 }, color: 0xd8761a, redline: 4200, idle: 700, cyl: 4 },
   forklift: { noPlant: true, special: 'lift', forkSteer: true, comBias: 0.02, frontDrive: 1, antiWheelie: true, handling: { steer: 1.3, rate: 1.5, spring: 1.4, damp: 1.4, rear: 1.0, drag: 110, roll: 0.6 }, name: 'Forklift', blurb: 'Warehouse forklift with a 2.5 t counterweight. Drive the forks under a car, press F to hoist it, F again to toss it.', style: 'fork', mass: 2900, L: 3.3, W: 1.35, H: 0.75, wheelR: 0.34, wheelW: 0.3, wb: 1.85, track: 1.12, power: 0.6, grip: 1.15, armor: 0.75, cabin: { l: 1.0, h: 0.42, w: 1.05, x: -0.35 }, color: 0xe0a812, redline: 3600, idle: 800, cyl: 3, noWheelLoss: true },
   sandflea: { special: 'flame', handling: { steer: 1.15, rate: 1.35, spring: 0.7, damp: 0.75, rear: 0.95, drag: 1.25, roll: 1.1 }, frontDrive: 0.35, name: 'Sandflea', blurb: 'Light buggy on long-travel springs. Flies far.', style: 'buggy', mass: 850, L: 3.7, W: 1.9, H: 0.45, wheelR: 0.5, wheelW: 0.4, wb: 2.55, track: 1.8, power: 0.75, grip: 1.1, armor: 1.3, cabin: { l: 1.6, h: 0.75, w: 1.4, x: -0.15 }, color: 0x3a8fb0, hullW: 0.72, extraTravel: 0.12, redline: 8500, idle: 1100, cyl: 2 },
-  camper: { special: 'bomb', handling: { steer: 0.55, rate: 0.65, spring: 0.85, damp: 0.9, rear: 1.4, drag: 1.5, roll: 1.0 }, name: 'Camper', blurb: 'Rusty old RV. Top-heavy, slow to turn, and a rolling wrecking ball.', style: 'van', mass: 3600, L: 6.6, W: 2.3, H: 0.9, wheelR: 0.47, wheelW: 0.38, wb: 4.0, track: 2.0, power: 1.3, grip: 0.92, armor: 0.7, cabin: { l: 1.3, h: 0.6, w: 2.15, x: 2.5 }, color: 0xe3d6bc, redline: 5000, idle: 700, cyl: 3 },
+  camper: { special: 'bomb', handling: { steer: 0.55, rate: 0.65, spring: 0.85, damp: 0.9, rear: 1.4, drag: 1.5, roll: 1.0 }, name: 'Camper', blurb: 'Rusty old RV. Top-heavy, slow to turn, and a rolling wrecking ball.', style: 'van', flimsy: true, mass: 3600, L: 6.6, W: 2.3, H: 0.9, wheelR: 0.47, wheelW: 0.38, wb: 4.0, track: 2.0, power: 1.3, grip: 0.92, armor: 1.0, cabin: { l: 1.3, h: 0.6, w: 2.15, x: 2.5 }, color: 0xe3d6bc, redline: 5000, idle: 700, cyl: 3 },
   mixer: { heavy: true, handling: { steer: 0.7, rate: 0.6, spring: 1.2, damp: 1.3, rear: 1.15, drag: 3.2, roll: 0.7 }, name: 'Mixer', blurb: 'Concrete mixer: 9.5 tonnes. F or FIRE pours wet concrete that bogs down anyone who drives into it.', style: 'mixer', pour: true, mass: 9500, L: 8.2, W: 2.5, H: 0.8, wheelR: 0.55, wheelW: 0.44, wb: 5.0, axles: [2.9, -1.4, -2.8], track: 2.05, power: 1.45, grip: 0.95, armor: 0.5, cabin: { l: 1.8, h: 1.3, w: 2.3, x: 2.85 }, color: 0xd8a020, redline: 2800, idle: 600, cyl: 3 },
   firetruck: { heavy: true, special: 'water', handling: { steer: 0.8, rate: 0.75, spring: 1.1, damp: 1.2, rear: 1.15, drag: 1.3, roll: 0.75 }, name: 'Fire Truck', blurb: 'Long ladder, flashing lights, and automatic rear steering for tight turns. G toggles the siren.', style: 'fire', siren: true, rearSteer: true, mass: 8000, L: 9.6, W: 2.5, H: 0.95, wheelR: 0.52, wheelW: 0.42, wb: 6.0, track: 2.05, power: 1.8, grip: 0.95, armor: 0.6, cabin: { l: 2.4, h: 1.15, w: 2.3, x: 3.0 }, color: 0xb81e14, redline: 3200, idle: 650, cyl: 3 },
   hellbender: { special: 'minigun', handling: { steer: 0.95, rate: 1.0, spring: 0.8, damp: 0.85, rear: 1.05, drag: 1.1, roll: 1.1 }, frontDrive: 0.4, name: 'Hellbender', blurb: 'Super truck: 700 hp, giant tires, long-travel suspension. Hold V (or nitro from low speed) to wheelie.', style: 'pickup', superTruck: true, wheelie: true, mass: 2900, L: 5.9, W: 2.2, H: 0.85, wheelR: 0.56, wheelW: 0.42, wb: 3.7, track: 1.95, power: 1.65, grip: 1.1, armor: 0.8, extraTravel: 0.15, cabin: { l: 1.7, h: 0.66, w: 1.95, x: 0.3 }, color: 0x4a4e52, redline: 6200, idle: 750, cyl: 4 },
@@ -2137,18 +2138,33 @@ const WEAPONS = {
       }
     },
   },
-  minigun: { label: 'MINIGUN', cd: 3.5, dur: 2.4, // bed-mounted rotary gun: 22 rounds a second, brass everywhere
-    start(car) { car.mgT = 0.25; sfx.at(car.body.position).hydraulic(wv(car) * 0.8); }, // spin-up whine before it bites
+  minigun: { label: 'MINIGUN', cd: 0.25, dur: 0.4, ammo: 450, // bed-mounted rotary gun: hold to spin up and fire, a 450-round belt (about 20 s of fire), reloads when it runs dry
+    start(car) { if (car.mgReload > 0) { if (car.isPlayer) toast('RELOADING THE BELT', 'bad'); car.specialT = 0; return; } car.mgOn = true; },
+    held(car) { return car.isPlayer ? keys.has('KeyF') || touch.fire || mouseFire : !!(car.mgTarget && car.mgTarget.body && car.body.position.distanceTo(car.mgTarget.body.position) < 60 && !car.wrecked); },
     update(car, dt) {
+      if (car.mgAmmo === undefined) car.mgAmmo = WEAPONS.minigun.ammo;
+      if (car.mgReload > 0) { car.mgReload -= dt; if (car.mgReload <= 0) { car.mgAmmo = WEAPONS.minigun.ammo; car.mgReload = 0; if (car.isPlayer) toast('BELT LOADED', 'cool'); sfx.at(car.body.position).ratchet(wv(car)); } }
+      else if (!car.mgOn && car.mgAmmo < WEAPONS.minigun.ammo) car.mgAmmo = Math.min(WEAPONS.minigun.ammo, car.mgAmmo + dt * 25); // topping the belt up between bursts
+      if (car.mgOn && (!WEAPONS.minigun.held(car) || car.wrecked || game.state !== 'playing')) car.mgOn = false;
+      if (car.mgOn) car.specialT = Math.max(car.specialT, 0.2); // keeps going as long as you hold it
       if (!car.mgYaw) return;
       const tg = frontTarget(car, 75, 1.2) || frontObject(car, 45, 0.5); car.mgTarget = tg; // no car ahead: bulls, gas bottles, drums and tyres make good targets
       let want = 0; if (tg) { const l = car.body.pointToLocalFrame(tg.body.position); want = Math.atan2(-l.z, l.x + car.comShift - car.mgYaw.position.x); }
       car.mgWant = want; car.mgYawA = (car.mgYawA || 0) + clamp(want - (car.mgYawA || 0), -3 * dt, 3 * dt); car.mgYaw.rotation.y = car.mgYawA;
       let pitch = 0; if (tg) { const d = car.body.position.distanceTo(tg.body.position); pitch = clamp(Math.atan2(tg.body.position.y - car.body.position.y - 1.3, d), -0.35, 0.3); } car.mgBarrels.parent.rotation.z = lerp(car.mgBarrels.parent.rotation.z, pitch, clamp(dt * 5, 0, 1));
-      const spinning = car.specialT > 0; car.mgSpin = lerp(car.mgSpin || 0, spinning ? 1 : 0, clamp(dt * 4, 0, 1));
-      car.mgBarrels.rotation.x += car.mgSpin * dt * 45;
+      car.mgSpin = clamp((car.mgSpin || 0) + (car.mgOn ? dt / 0.45 : -dt / 1.4), 0, 1); // ~0.45 s to spool up, a long whirring run-down after
+      car.mgBarrels.rotation.x += car.mgSpin * dt * 60;
+      if (player) sfx.mgSet(car, car.mgSpin, !!car.mgFiring, wv(car, 150)); car.mgFiring = false;
     },
-    tick(car, dt) { car.mgT -= dt; while (car.mgT <= 0 && !car.wrecked) { car.mgT += 1 / 22; fireBullet(car); const v = wv(car, 150); sfx.at(car.body.position).gunShot(v); if ((car.mgN = (car.mgN || 0) + 1) % 3 === 0) sfx.at(car.body.position).mgWhirr(v); } }, // brrrrt
+    tick(car, dt) {
+      if (!car.mgOn || (car.mgSpin || 0) < 0.85 || car.wrecked) return; // nothing comes out until the barrels are up to speed
+      car.mgT = (car.mgT || 0) - dt;
+      while (car.mgT <= 0) { car.mgT += 1 / 24;
+        if (car.mgAmmo < 1) { car.mgOn = false; car.mgReload = 4; if (car.isPlayer) toast('OUT OF AMMO · RELOADING', 'bad'); sfx.at(car.body.position).clank(wv(car)); break; }
+        car.mgAmmo--; fireBullet(car); car.mgFiring = true;
+      }
+    },
+    end(car) {},
   },
   rockets: { label: 'ROCKETS', cd: 6, dur: 0.8, // four-tube roof pod: a ripple salvo that tracks the car ahead
     start(car) { car.rkLeft = 4; car.rkT = 0; car.rkTarget = frontTarget(car, 110, 0.6); if (car.rkPod) car.rkUp = 1; },
@@ -2601,6 +2617,17 @@ function clearSkids() { skids.count = 0; skidIdx = 0; }
 /* ---------------- Detached parts (physics debris) ---------------- */
 const debris = [];
 const DEBRIS_MAX = 80;
+const JUNK = [ // what falls out of a cheap RV: [w, h, d, colour]
+  [0.5, 0.5, 0.5, 0xb08a5a], [0.4, 0.3, 0.6, 0x3a6ea5], [1.6, 0.18, 0.9, 0xe8e0d0], [0.45, 0.6, 0.45, 0xc0392b], [0.3, 0.3, 0.3, 0x7a7a7a], [0.6, 0.08, 0.6, 0x2e8b57],
+  [0.25, 0.35, 0.25, 0xd4a017], [0.9, 0.5, 0.06, 0x6b4f2a], [0.35, 0.2, 0.25, 0xf0f0f0], [0.2, 0.2, 0.2, 0xff7f50] ]; // boxes, cooler, mattress, gas can, pot, lawn chair, laundry, cupboard door, microwave, beach ball
+const junkMats = new Map(), junkGeos = new Map();
+function spawnJunk(at, dir, from) {
+  const j = JUNK[Math.random() * JUNK.length | 0], key = j.join(',');
+  if (!junkGeos.has(key)) { junkGeos.set(key, new THREE.BoxGeometry(j[0], j[1], j[2])); junkMats.set(key, new THREE.MeshStandardMaterial({ color: j[3], roughness: 0.8 })); }
+  const m = new THREE.Mesh(junkGeos.get(key), junkMats.get(key)); m.castShadow = true; m.position.set(at.x, at.y, at.z); m.rotation.set(rand(0, 6), rand(0, 6), rand(0, 6)); scene.add(m);
+  const v = from ? from.velocity : { x: 0, z: 0 }, wq = from ? from.quaternion.vmult(dir) : dir, sp = rand(3, 8);
+  addDebris(m, new CANNON.Box(new CANNON.Vec3(j[0] / 2, j[1] / 2, j[2] / 2)), new CANNON.Vec3(), undefined, clamp(j[0] * j[1] * j[2] * 60, 1, 12), new CANNON.Vec3(v.x * 0.6 + wq.x * sp + rand(-1.5, 1.5), rand(2, 6), v.z * 0.6 + wq.z * sp + rand(-1.5, 1.5)), new CANNON.Vec3(rand(-8, 8), rand(-8, 8), rand(-8, 8)));
+}
 function harpoonRip(car, c) { // the barb rips the panel facing you clean off; the cable stays on the panel and you reel in a door
   c.rip = 0; const v = c.t; if (!v || !v.parts || v.wrecked) return;
   const l = v.body.pointToLocalFrame(car.body.position), side = Math.abs(l.x) > Math.abs(l.z) * 1.3 ? (l.x > 0 ? 'front' : 'rear') : (l.z > 0 ? 'right' : 'left');
@@ -2753,6 +2780,33 @@ const sfx = {
     return this;
   },
   out() { return this._pan || this.bus; },
+  panOf(pos) { if (!camera || !pos) return 0; const dx = pos.x - camera.position.x, dz = pos.z - camera.position.z, d = Math.hypot(dx, dz) || 1; camera.getWorldDirection(_panV); const rx = -_panV.z, rz = _panV.x, rl = Math.hypot(rx, rz) || 1; return clamp(((dx * rx + dz * rz) / rl / d) * Math.min(1, d / 6), -0.85, 0.85); },
+  mgVoice(car) { // one running voice per minigun: an electric motor whine that climbs with barrel speed, and the buzz-saw roar of 50 rounds a second
+    if (!this.ctx) return null; if (car.mgSnd) return car.mgSnd; const c = this.ctx;
+    const pan = c.createStereoPanner ? c.createStereoPanner() : c.createGain(); pan.connect(this.bus);
+    const motor = c.createOscillator(); motor.type = 'sawtooth'; motor.frequency.value = 40;
+    const motor2 = c.createOscillator(); motor2.type = 'square'; motor2.frequency.value = 20;
+    const mf = c.createBiquadFilter(); mf.type = 'bandpass'; mf.frequency.value = 900; mf.Q.value = 1.2;
+    const mg = c.createGain(); mg.gain.value = 0; motor.connect(mf); motor2.connect(mf); mf.connect(mg); mg.connect(pan);
+    const nz = c.createBufferSource(); nz.buffer = this.noise; nz.loop = true;
+    const nf = c.createBiquadFilter(); nf.type = 'bandpass'; nf.frequency.value = 1400; nf.Q.value = 0.8;
+    const am = c.createGain(); am.gain.value = 0; // chopped by the firing rate below: brrrrrt
+    const lfo = c.createOscillator(); lfo.type = 'square'; lfo.frequency.value = 50; const lg = c.createGain(); lg.gain.value = 0.5; lfo.connect(lg); lg.connect(am.gain);
+    const fg = c.createGain(); fg.gain.value = 0; nz.connect(nf); nf.connect(am); am.connect(fg); fg.connect(pan);
+    const thump = c.createOscillator(); thump.type = 'triangle'; thump.frequency.value = 50; const tg = c.createGain(); tg.gain.value = 0; const ta = c.createGain(); ta.gain.value = 0; lg.connect(ta.gain); thump.connect(ta); ta.connect(tg); tg.connect(pan);
+    for (const o of [motor, motor2, nz, lfo, thump]) o.start();
+    (this.mgCars = this.mgCars || new Set()).add(car);
+    if (!this.mgSweep) this.mgSweep = setInterval(() => { for (const k of this.mgCars) if (!cars.includes(k) || k.wrecked || game.state !== 'playing') { this.mgStop(k); this.mgCars.delete(k); } }, 500); // a wrecked or replaced gun falls silent
+    car.mgSnd = { pan, motor, motor2, mf, mg, fg, tg, nodes: [motor, motor2, nz, lfo, thump] }; return car.mgSnd;
+  },
+  mgSet(car, spin, firing, vol) {
+    const v = car.mgSnd || (spin > 0.01 ? this.mgVoice(car) : null); if (!v) return; const t = this.ctx.currentTime, k = 0.04;
+    v.motor.frequency.setTargetAtTime(40 + spin * 260, t, k); v.motor2.frequency.setTargetAtTime(20 + spin * 130, t, k); v.mf.frequency.setTargetAtTime(500 + spin * 2200, t, k); // whine climbs as the barrels spool up
+    v.mg.gain.setTargetAtTime(spin * vol * 0.09, t, k);
+    v.fg.gain.setTargetAtTime(firing ? vol * 0.55 : 0, t, 0.015); v.tg.gain.setTargetAtTime(firing ? vol * 0.35 : 0, t, 0.015);
+    if (v.pan.pan) v.pan.pan.setTargetAtTime(this.panOf(car.body.position), t, 0.05);
+  },
+  mgStop(car) { const v = car.mgSnd; if (!v) return; car.mgSnd = null; try { for (const o of v.nodes) o.stop(); v.pan.disconnect(); } catch (e) {} },
   noiseHit(type, freq, q, peak, dur, verb, delay = 0) {
     if (!this.ctx) return; // sound not started yet (no click so far)
     const c = this.ctx, t = c.currentTime + delay;
@@ -3078,7 +3132,7 @@ class Car {
     b.addShape(chamferBox(T.L / 2, T.H / 2, hullW / 2, Math.min(0.45, hullW * 0.22), 0.06, Math.min(0.7, T.H * 0.85)), new CANNON.Vec3(0, HULL_Y0 + T.H / 2, 0)); // nose rides up onto ramps
     const C = T.cabin;
     b.addShape(chamferBox(C.l / 2, C.h / 2, C.w / 2, Math.min(0.3, C.w * 0.18), Math.min(0.15, C.h * 0.25)), new CANNON.Vec3(C.x, HULL_Y0 + T.H + C.h / 2, 0));
-    if (T.style === 'van') b.addShape(new CANNON.Box(new CANNON.Vec3(2.65, 0.62, T.W / 2 * 0.97)), new CANNON.Vec3(-0.65, HULL_Y0 + T.H + 0.62, 0));
+    if (T.style === 'van') b.addShape(this.vanShape = new CANNON.Box(new CANNON.Vec3(2.65, 0.62, T.W / 2 * 0.97)), new CANNON.Vec3(-0.65, HULL_Y0 + T.H + 0.62, 0));
     if (T.style === 'tanker') b.addShape(new CANNON.Box(new CANNON.Vec3(2.9, 1.05, 1.05)), new CANNON.Vec3(-1.55, HULL_Y0 + T.H + 1.1, 0));
     if (T.style === 'mixer') b.addShape(new CANNON.Box(new CANNON.Vec3(2.1, 1.15, 1.15)), new CANNON.Vec3(-1.1, HULL_Y0 + T.H + 1.2, 0));
     if (T.style === 'fire') b.addShape(new CANNON.Box(new CANNON.Vec3(2.6, 0.5, 1.2)), new CANNON.Vec3(-1.8, HULL_Y0 + T.H + 0.5, 0));
@@ -3171,7 +3225,7 @@ class Car {
     }
     if (st === 'van') { // RV living box with a bunk over the cab
       const boxGeo = new THREE.BoxGeometry(5.3, 1.24, W * 0.97, 14, 4, 6);
-      const box = add(boxGeo, this.paint, -0.65, top + 0.62, 0);
+      const box = this.vanBox = add(boxGeo, this.paint, -0.65, top + 0.62, 0);
       this.deform.push({ mesh: box, orig: boxGeo.attributes.position.array.slice() });
       const bunkGeo = new THREE.BoxGeometry(1.3, 0.6, W * 0.95, 4, 2, 4);
       const bunk = add(bunkGeo, this.paint, 2.55, top + 0.94, 0);
@@ -4674,13 +4728,16 @@ class Car {
       this.body.velocity.x -= n.x * k * 0.35; this.body.velocity.z -= n.z * k * 0.35;
       this.body.velocity.y += Math.min(5, k * 0.22);
       this.body.angularVelocity.y += rand(-1, 1) * k * 0.08; this.body.angularVelocity.x += rand(-1, 1) * k * 0.03;
+      if (!otherCar.isPlayer && !this.isPlayer && dv > 12 && game.state === 'playing' && player && player.body.position.distanceTo(p) < 70 && Math.random() < 0.4) barks.announce('aiHit', { a: otherCar.name, v: this.name, kmh: Math.round(dv * 3.6) }); // Kev calls the AI's big hits too
       if (otherCar.isPlayer && dv > 9 && game.state === 'playing') { // you landed a big one
         const kmh = Math.round(Math.abs(otherCar.speed) * 3.6);
         game.hitStop = Math.min(0.22, 0.06 + dv * 0.008);
         game.shake = Math.min(1.6, game.shake + dv * 0.05); game.fovPunch = Math.min(12, dv * 0.6);
         const pts = Math.round(dv * dv * 2);
         game.addScore(pts, null); toast(`SMASH ${kmh} km/h +${pts}`);
-        if (dv > 13) barks.announce('bigHit', { a: 'You', v: this.name, vcar: this.T.name, kmh });
+        if (this.lastHitBy === otherCar && simTime - (this.lastHitT || -9) < 3) barks.announce('followUp', { a: 'You', v: this.name }, true); // a second smack straight after the first
+        else if (dv > 11) barks.announce('bigHit', { a: 'You', v: this.name, vcar: this.T.name, kmh });
+        this.lastHitBy = otherCar; this.lastHitT = simTime;
         sparks(p, 40);
         for (let i = 0; i < 12; i++) emit('smoke', p.x, p.y, p.z, rand(-5, 5), rand(0, 3), rand(-5, 5), rand(0.5, 0.9), rand(0.4, 0.8));
       }
@@ -4722,6 +4779,7 @@ class Car {
     if (this.wrecked) return;
     if (by && !by.body) by = null; // blasts from scenery (gas cylinders, crane drops) have no driver to credit
     if (this.trackHp && (zone === 'left' || zone === 'right') && dmg > 3 && !by) this.hurtTrack(zone === 'left' ? 0 : 1, dmg * 2, by); // blasts beside the tank
+    if (this.T.flimsy && (zone === 'left' || zone === 'right' || zone === 'rear')) { dmg *= 1.6; if (dmg >= 1.5) this.shedJunk(zone, dmg); } // RV walls are plywood and staples: they cave in and spill the contents
     dmg = Math.min(dmg, this.health);
     this.health -= dmg;
     if (zone && this.zones[zone] !== undefined) {
@@ -4784,6 +4842,7 @@ class Car {
     }
     if (zs.front > 50) for (let i = 0; i < this.lampMeshes.length; i++) this.breakLamp(i);
     this.bendHood();
+    if (this.T.flimsy && this.vanBox && !this.boxBurst && Math.max(zs.left, zs.right, zs.rear) >= 70) this.burstBox();
     this.engineDmg = clamp((zs.front - 20) / 80, 0, 1);
     if (!this.T.noWheelLoss) for (let i = 0; i < this.nW; i++) if (this.wheelDmg[i] >= 100 && !this.wheelLost[i]) this.loseWheel(i, by);
   }
@@ -4924,6 +4983,25 @@ class Car {
   }
 
   // Buckle a whole zone of the body: panels pushed in and wrinkled; the roof sags under top damage
+  shedJunk(zone, dmg) { // a hit to the camper's flimsy box throws its contents out of the side it came in from
+    if (this.boxBurst || !this.vanBox || QUALITY.level > 5 && Math.random() < 0.5) return;
+    const n = Math.min(9, Math.round(dmg * 0.9) + 1), b = this.body, side = zone === 'left' ? -1 : zone === 'right' ? 1 : 0;
+    for (let i = 0; i < n; i++) spawnJunk(b.pointToWorldFrame(new CANNON.Vec3(side ? rand(-2.6, 1.5) : -3.1 - this.comShift, HULL_Y0 + this.T.H + rand(0.2, 1.1), side ? side * this.T.W * 0.5 : rand(-0.9, 0.9))), side ? new CANNON.Vec3(0, 0, side) : new CANNON.Vec3(-1, 0, 0), b);
+  }
+  burstBox() { // the living box gives way: walls, roof and everything inside go everywhere, and there's nothing left to stop a car going straight through
+    this.boxBurst = true; const b = this.body, m = this.vanBox; m.visible = false; if (this.vanShape) this.vanShape.collisionResponse = false;
+    for (const p of this.parts) if (!p.detached && (p.zone === 'left' || p.zone === 'right' || p.zone === 'rear')) this.detach(p, null);
+    const mat = this.paint;
+    for (let i = 0; i < 10; i++) { // wall and roof panels
+      const pm = new THREE.Mesh(new THREE.BoxGeometry(rand(0.7, 1.4), 0.05, rand(0.5, 1.1)), mat); pm.castShadow = true;
+      const at = b.pointToWorldFrame(new CANNON.Vec3(rand(-3, 1.6) - this.comShift, HULL_Y0 + this.T.H + rand(0.2, 1.2), rand(-1, 1))); pm.position.set(at.x, at.y, at.z); scene.add(pm);
+      addDebris(pm, new CANNON.Box(new CANNON.Vec3(0.5, 0.03, 0.4)), new CANNON.Vec3(), undefined, 8, new CANNON.Vec3(b.velocity.x + rand(-5, 5), rand(3, 7), b.velocity.z + rand(-5, 5)), new CANNON.Vec3(rand(-6, 6), rand(-6, 6), rand(-6, 6)));
+    }
+    for (let i = 0; i < 16; i++) spawnJunk(b.pointToWorldFrame(new CANNON.Vec3(rand(-3, 1.5) - this.comShift, HULL_Y0 + this.T.H + rand(0.2, 1.1), rand(-0.9, 0.9))), new CANNON.Vec3(rand(-1, 1), 0, rand(-1, 1)), b);
+    sparks(b.position, 10); if (player) { sfx.at(b.position).crash(clamp(1 - player.body.position.distanceTo(b.position) / 80, 0, 1), 14); sfx.at(b.position).tear(clamp(1 - player.body.position.distanceTo(b.position) / 80, 0, 1)); }
+    if (game.state === 'playing') { if (this.isPlayer) toast('THE RV FELL APART!', 'bad'); else if (Math.random() < 0.6) barks.say(this, 'low', true); }
+    ptag('camper box burst');
+  }
   bendHood() { // the hood buckles with front damage: tents up and wrinkles, the nose edge folds back; past ~70% the latch lets go and it springs up, blocking the view
     const h = this.hood; if (!h || h.part.detached) return;
     const f = this.zones.front, bend = clamp((f - 12) / 70 + (h.kick || 0) * 0.3, 0, 1.15);
@@ -5249,10 +5327,27 @@ world.addEventListener('preStep', () => { for (const c of cars) c.physicsStep(FI
 // the contact then points upward; for those side contacts the push is made horizontal (before the solver runs), so the tank
 // gets shoved, not lifted. Landing on a roof, and driving over a wreck, are left alone.
 const PHYS = { log: [], fixes: 0, clamps: 0, blowups: 0 };
+// Solver blow-ups: when bodies are forced deep into each other the solver can shoot them out at rocket speed (this is how you end up in the sky).
+// A crash can stop a car dead, but it can't make anything faster than the fastest thing that went into it: if a car or bull leaves a physics step
+// faster than that (or suddenly spinning far faster), it gets the velocity it had before the step back.
+const _pv = new Map(); let _vmax = 0;
+{ const _is = world.internalStep.bind(world); world.internalStep = (dt) => { _snapV(); _is(dt); }; } // (cannon's 'preStep' event fires after the contact solver, too late to see the kick)
+function _snapV() { _vmax = 0; const rec = (b) => { const s = _pv.get(b) || { v: new CANNON.Vec3(), w: new CANNON.Vec3() }; s.v.copy(b.velocity); s.w.copy(b.angularVelocity); _pv.set(b, s); _vmax = Math.max(_vmax, b.velocity.length()); };
+  for (const c of cars) if (!c.ghost) rec(c.body); for (const bl of BULLS) rec(bl.body); }
+world.addEventListener('postStep', () => {
+  const allowed = _vmax * 1.15 + 6;
+  const guard = (b, who) => { const s = _pv.get(b); if (!s) return; const sp = b.velocity.length(), sp0 = s.v.length(), dw = Math.abs(b.angularVelocity.length() - s.w.length());
+    if ((sp > allowed && sp > sp0 + 8) || dw > 15) { PHYS.blowups++; if (PHYS.log.length < 200) PHYS.log.push({ t: +simTime.toFixed(2), kind: 'solver kick undone', who, speed: Math.round(sp), was: Math.round(sp0), spin: Math.round(b.angularVelocity.length()), x: Math.round(b.position.x), y: +b.position.y.toFixed(1), z: Math.round(b.position.z) }); b.velocity.copy(s.v); b.angularVelocity.copy(s.w); } };
+  for (const c of cars) if (!c.ghost) guard(c.body, c.T.name); for (const bl of BULLS) guard(bl.body, 'bull');
+  for (const c of cars) { const k = c.carry; if (!k || !k.c || c.ghost) continue; // a forklift and its load are locked together: they move as one, so the lock can't pump energy into either
+    const a = c.body, l = k.c.body, dv = l.velocity.vsub(a.velocity), dw = l.angularVelocity.vsub(a.angularVelocity);
+    if (dv.length() > 6 || dw.length() > 4) { l.velocity.copy(a.velocity.vadd(dv.scale(Math.min(1, 6 / Math.max(6, dv.length()))))); l.angularVelocity.copy(a.angularVelocity.vadd(dw.scale(Math.min(1, 4 / Math.max(4, dw.length()))))); PHYS.fixes++; }
+    if (a.angularVelocity.length() > 6) a.angularVelocity.scale(6 / a.angularVelocity.length(), a.angularVelocity); }
+});
 // Safety net: if the solver ever blows up (bodies forced deep into each other), nothing leaves at rocket speed
 world.addEventListener('postStep', () => {
   const lim = (b, who) => { const v = b.velocity, sp = v.length(), w = b.angularVelocity, ws = w.length(); let hit = false;
-    if (sp > 75) { v.scale(60 / sp, v); hit = true; } if (v.y > 32) { v.y = 32; hit = true; } if (ws > 25) { w.scale(15 / ws, w); hit = true; }
+    if (sp > 62) { v.scale(50 / sp, v); hit = true; } if (v.y > 32) { v.y = 32; hit = true; } if (ws > 26) { w.scale(16 / ws, w); hit = true; } // (nothing in the yard legitimately goes faster than ~55 m/s)
     if (hit) { PHYS.blowups++; if (PHYS.log.length < 200) PHYS.log.push({ t: +simTime.toFixed(2), kind: 'blow-up clamped', who, speed: Math.round(sp), spin: Math.round(ws) }); } };
   for (const c of cars) if (!c.ghost) lim(c.body, c.T.name);
   for (const bl of BULLS) lim(bl.body, 'bull');
@@ -5334,8 +5429,9 @@ function updateHUD(dt) {
   updateTags();
   if (player.T.special) { // special weapon cooldown
     const W = WEAPONS[player.T.special], cd = player.specialCd || 0;
-    $('gunFill').style.width = ((1 - cd / W.cd) * 100).toFixed(0) + '%';
-    $('gunState').textContent = player.specialT > 0 ? 'ACTIVE' : cd > 0 ? 'RECHARGING' : W.label;
+    if (player.T.special === 'minigun') { const a = player.mgAmmo ?? W.ammo; $('gunFill').style.width = (player.mgReload > 0 ? (1 - player.mgReload / 4) * 100 : a / W.ammo * 100).toFixed(0) + '%'; $('gunState').textContent = player.mgReload > 0 ? 'RELOADING' : player.mgOn ? `${Math.round(a)} ROUNDS` : `MINIGUN ${Math.round(a)}`; }
+    else { $('gunFill').style.width = ((1 - cd / W.cd) * 100).toFixed(0) + '%';
+    $('gunState').textContent = player.specialT > 0 ? 'ACTIVE' : cd > 0 ? 'RECHARGING' : W.label; }
     $('reticle').hidden = true;
   } else if (player.T.pour) { // concrete load
     $('gunFill').style.width = (player.load * 100).toFixed(0) + '%';
@@ -5520,14 +5616,14 @@ const CAR_CAST = {
     words: { ex: ['Ach so', 'Wunderbar', 'How delightful', 'Natürlich'], insult: ['my little strudel', 'Herr Pancake', 'my dear rabbit'], kin: ['mutti', 'tank crew'], thing: ['glass of milk', 'apple strudel', 'monocle'], boast: ['Ooh, that\'s a bingo!', 'Precision, as always.'], voice: ['Anna', 'Markus', 'Yannick', 'Helena', 'Google Deutsch'] },
     lines: {
       start: ['Shall we begin? I do love a little hunt.', 'Please, make yourselves comfortable. This will not take long.', 'A glass of milk first, then we demolish.'],
-      hitYou: ['Ooh, that\'s a bingo!', 'You see? Precision is a form of kindness.', 'How fortunate. For me.', 'Do you say "bingo"? Bingo!'],
+      hitYou: ['Knife, meet gunfight. Gunfight, meet knife.', 'Ooh, that\'s a bingo!', 'You see? Precision is a form of kindness.', 'How fortunate. For me.', 'Do you say "bingo"? Bingo!'],
       gotHit: ['Now that... was rude.', 'You scratched my paint. I will remember your face.', 'Interesting. Very interesting. Very stupid.'],
       wheel: ['A track has left. How tedious.', 'Ach. The track. Somebody fetch a wrench, schnell.'],
       low: ['The tank is... not entirely happy.', 'Perhaps I underestimated you. Slightly.'],
       wrecked: ['Most unpleasant. I shall write a complaint.', 'I insist on a rematch. In writing.'],
-      gloat: ['Au revoir, my little strudel.', 'That is what I call a fine Tuesday.', 'Flat as a pancake. Wunderbar.'],
+      gloat: ['You brought a knife to a gunfight, ja? How charming. How brief.', 'Au revoir, my little strudel.', 'That is what I call a fine Tuesday.', 'Flat as a pancake. Wunderbar.'],
       air: ['Panzers are not supposed to fly!', 'Mein Gott, the view is lovely from here.'],
-      taunt: ['You can run, little rabbit. I will find you.', 'I am a detective by nature. And I see you.', 'Come out, come out. I promise only a small explosion.'],
+      taunt: ['You brought a knife to a gunfight. I brought a tank.', 'Never bring a knife to a gunfight. Or a hatchback to a tank fight.', 'You can run, little rabbit. I will find you.', 'I am a detective by nature. And I see you.', 'Come out, come out. I promise only a small explosion.'],
       fire: ['Fire. Politely.', 'One, two, three. Like a waltz.', 'Feuer!'],
       charge: ['Panzer, forward!', 'Make way for eleven tonnes of manners!'],
       flee: ['A strategic pause, nothing more.', 'I am not retreating. I am advancing elsewhere.'],
@@ -5697,8 +5793,10 @@ const CAR_CAST = {
 };
 for (const P of Object.values(CAR_CAST)) PERSONAS.push(P); // (pushed last: guests look characters up by index)
 const CAST_SET = new Set(Object.values(CAR_CAST));
-const ANNOUNCER = { nick: 'Announcer', lang: 'en-US', pitch: 0.75, rate: 1.12, words: { voice: ['Ralph', 'Fred', 'Daniel', 'Google US English'] } };
+const ANNOUNCER = { nick: 'Crash Cam Kev', lang: 'en-AU', pitch: 0.95, rate: 1.18, words: { voice: ['Lee', 'Gordon', 'Karen', 'Catherine', 'Google UK English Male', 'Daniel', 'Ralph'] } }; // an over-the-top Aussie play-by-play caller
 const ANN_LINES = {
+  followUp: ['And ANOTHER one, just for good measure!', 'Oh, he\'s gone back for seconds! Cheeky!', 'Hit him again! A little top-up for {v}!', 'Double tap! {v} did not need that, but {a} gave it anyway!', 'One for the road! Absolutely unnecessary, absolutely beautiful!'],
+  aiHit: ['OHHH! {a} has absolutely cleaned up {v}!', 'Bang! {a} into {v} at {kmh} k\'s! Lovely!', '{v} never saw {a} coming. Classic!', 'And {a} sends {v} for a little spin! Round and round she goes!', 'Crunch! {a} and {v}, the worst first date in history!'],
   carFire: ['{v} is ON FIRE! Somebody get the hose!', '{a} just set {v} alight!', 'Is it hot in here, or is it just {v}?', 'Flame-grilled {v}, coming right up!'],
   delivery: ['{a} has {v} and is heading for {w}!', 'Uh oh, {v}! {a} is taking you to {w}!', 'Special delivery for {w}, courtesy of {a}!'],
   intoCrusher: ['{a} just fed {v} to the crusher! Pancake time!', 'Into the press with {v}! Thank you, {a}!', 'Squish! {v} is going to be a lot flatter!'],
@@ -5709,16 +5807,16 @@ const ANN_LINES = {
   bullSlip: ['The bull hit the oil! Bull on ice!', 'Whoops! That bull is doing pirouettes!', 'Moo-ving violation on the oil slick!'],
   bullStuck: ['That bull just got cement shoes!', 'We have a bull statue, folks!', 'Stuck in concrete! Now THAT\'s a monument!'],
   tankerBoom: ['KA-BOOOOM! {v}\'s tanker just lit up the whole yard!', 'Holy smokes! You could see that from space!', 'That\'s seventy-five hundred kilos of fuel saying goodbye!', 'Somebody call the fire department! ...Oh wait, they\'re IN the derby!', 'Duck and cover, folks! DUCK AND COVER!'],
-  burger: ['{a} just turned a bull into a cheeseburger!', 'Order up! One flame-grilled bull, extra crispy!', 'Would you like fries with that bull?', 'Medium rare! Medium RARE!', 'That bull is now a quarter-tonner with cheese!', 'Somebody get the ketchup!'],
-  youCrash: ['Our hero just kissed the wall at {kmh}! The wall is fine!', 'That wall was there the whole time, folks!', 'Ooh! Somebody check the driver for loose teeth!', 'And the wall wins again!', 'That is going to buff right out. It is not.'],
-  bigHit: ['WHAM! {v}\'s {vcar} just became modern art!', 'That is going to need more than duct tape, {v}!', 'Somebody call the insurance company! Actually, call ALL of them!', '{v} just got rearranged!', '{a} drove straight through {v}\'s weekend plans!', 'That {vcar} is now a two-door. It used to have four!', '{a} just introduced {v} to physics at {kmh} kilometres an hour!', 'OH! {v} felt that one in the fillings!', 'Did you hear that crunch? That was {v}\'s {vcar}!', '{a} with the hit of the night!', 'That {vcar} will never be the same!', 'Somebody check if {v} is still in there!'],
-  headOn: ['HEAD-ON! {a} and {v} meet nose to nose!', 'Face to face at {kmh}! Nobody wins that!', 'That is what we call a frank conversation!'],
-  wheel: ['There goes a wheel! {v} is driving on three!', 'That is not a wheel, folks, that is a souvenir!', 'Wheel off! Somebody in row three just caught it!'],
-  wreck: ['{v} is OUT! What a mess!', 'And {v}\'s {vcar} is now a very expensive campfire!', '{v} has been retired. Permanently.', 'Scrap that {vcar}! {v} is done!'],
-  air: ['Look at {a} fly! {secs} seconds of air!', 'Big air from {a}! The crowd loves it!'],
-  youWrecked: ['Our hero is down! What a beating!', 'And that, folks, is why you wear a helmet.'],
+  burger: ['Ohh, the bull\'s been flame-grilled! Medium rare, by the look of it!', '{a} just turned a bull into a cheeseburger!', 'Order up! One flame-grilled bull, extra crispy!', 'Would you like fries with that bull?', 'Medium rare! Medium RARE!', 'That bull is now a quarter-tonner with cheese!', 'Somebody get the ketchup!'],
+  youCrash: ['Oof! Our hero just found out what a wall feels like!', 'That\'s gonna rattle the fillings loose!', 'Ooh, a bit of a self-own there, mate!', 'Our hero just kissed the wall at {kmh}! The wall is fine!', 'That wall was there the whole time, folks!', 'Ooh! Somebody check the driver for loose teeth!', 'And the wall wins again!', 'That is going to buff right out. It is not.'],
+  bigHit: ['OHHH! {a} just parked it right in {v}\'s lap!', 'Bang! {kmh} k\'s, straight into the side of {v}. Lovely stuff.', 'And {v} has been absolutely deleted from the conversation!', 'That\'s a ripper of a hit! {v}\'s {vcar} is having a think about its life choices.', 'Down goes {v}! Didn\'t see it coming. Nobody ever does.', 'Ohh, that\'s gonna leave a mark. Several marks. A whole collection of marks.', 'WHAM! {v}\'s {vcar} just became modern art!', 'That is going to need more than duct tape, {v}!', 'Somebody call the insurance company! Actually, call ALL of them!', '{v} just got rearranged!', '{a} drove straight through {v}\'s weekend plans!', 'That {vcar} is now a two-door. It used to have four!', '{a} just introduced {v} to physics at {kmh} kilometres an hour!', 'OH! {v} felt that one in the fillings!', 'Did you hear that crunch? That was {v}\'s {vcar}!', '{a} with the hit of the night!', 'That {vcar} will never be the same!', 'Somebody check if {v} is still in there!'],
+  headOn: ['HEAD ON! Nose to nose at {kmh} k\'s! Both drivers now seeing stars!', 'Oh, they\'ve kissed! Bumper to bumper! That is NOT how you say g\'day!', 'Two cars, one patch of dirt, zero brains! Magnificent!', 'HEAD-ON! {a} and {v} meet nose to nose!', 'Face to face at {kmh}! Nobody wins that!', 'That is what we call a frank conversation!'],
+  wheel: ['There goes a wheel! Off on its own little adventure!', '{v}\'s wheel has decided to go solo!', 'There goes a wheel! {v} is driving on three!', 'That is not a wheel, folks, that is a souvenir!', 'Wheel off! Somebody in row three just caught it!'],
+  wreck: ['And {v} is DONE! Finished! Cooked! Put a fork in it!', '{v}\'s {vcar} has entered the scrap metal phase of its career.', 'Ladies and gentlemen, that is what we call a total write-off!', 'Rest in pieces, {v}. Mostly pieces.', '{v} is OUT! What a mess!', 'And {v}\'s {vcar} is now a very expensive campfire!', '{v} has been retired. Permanently.', 'Scrap that {vcar}! {v} is done!'],
+  air: ['Look at the hang time on that! {v} is a frequent flyer!', 'Air {v}! Cleared for take-off! Not cleared for landing!', 'Look at {a} fly! {secs} seconds of air!', 'Big air from {a}! The crowd loves it!'],
+  youWrecked: ['And our hero is OUT! Stretcher! Somebody bring the stretcher!', 'Well, that\'s the end of that chapter. Respawn and redemption, folks!', 'Our hero is down! What a beating!', 'And that, folks, is why you wear a helmet.'],
   status: ['The crowd is on its feet! {n} cars left and not a straight panel among them!', 'Smoke, fire and {n} very angry drivers! I love this job!', '{n} cars left in the yard and the paramedics have already gone home!', '{n} cars still running, and the crowd wants more!', 'Smoke everywhere, folks! {n} left in the yard!', 'Somebody hand the medics a crowbar, {n} cars to go!', '{n} drivers left and not one of them has a working mirror!'],
-  crush: ['{a} just parked a TANK on {v}!', '{v} is being flattened like a pancake!', 'Crunch time for {v}! Literally!'],
+  crush: ['Into the press! {v} is about to become modern art!', '{a} just parked a TANK on {v}!', '{v} is being flattened like a pancake!', 'Crunch time for {v}! Literally!'],
   shell: ['{a} is shelling the yard!', 'Who brought a TANK to a demolition derby?!', 'Direct fire from {a}! Duck, folks!', 'That will leave a crater!'],
   leak: ['The tanker is LEAKING! Everybody back up!', 'That is a rolling bonfire now, folks!', 'Fuel on the floor! Nobody light a match!'],
   ball: ['{v} just got a visit from the wrecking ball! Demolition, folks!', 'The ball wins again! {v} is going for a ride!'],
@@ -5735,7 +5833,7 @@ const ANN_LINES = {
   bentGun: ['{a} just bent {v}\'s gun like a drinking straw!', 'That cannon now shoots round corners, folks!', '{a} tied a knot in the TANK! Somebody get a picture!'],
   turretOff: ['KABOOM! {a} fired a bent gun and the TURRET just left the building!', 'The turret is flying! {a} has a convertible now!', 'Rule one of tanks, {a}: never fire a bent barrel!'],
   barrelBurst: ['KABOOM! {a} fired a bent gun and it peeled open like a banana!', 'The gun just blew up in {a}\'s face! That is going to sting!', 'Note to {a}: never fire a bent barrel!'],
-  sandwich: ['SANDWICH! {v} just got pressed like a panini!', 'Ooh, {v} caught in the middle! That is a club sandwich!'],
+  sandwich: ['It\'s a {v} sandwich! Hold the mayo!', 'Squished in the middle like the last biscuit in the packet!', 'SANDWICH! {v} just got pressed like a panini!', 'Ooh, {v} caught in the middle! That is a club sandwich!'],
 };
 const HORNS = {
   tanker:   { f: [146.8, 185, 220], wave: 'sawtooth', drive: 14, lp: 1900, gain: 0.2, attack: 0.07, breath: 0.12 }, // three-chime truck air horn
@@ -6000,7 +6098,7 @@ const barks = {
   },
   announce(ev, vars, force) {
     const now = performance.now() / 1000;
-    if (game.state !== 'playing' || (!force && now - (this.annT || -99) < 6) || now - this.lastT < 1.2) return;
+    if (game.state !== 'playing' || (!force && now - (this.annT || -99) < 4) || now - this.lastT < 1.2) return;
     const pool = ANN_LINES[ev]; if (!pool) return;
     for (let i = 0; i < 8; i++) {
       const line = this.fill(pool[Math.random() * pool.length | 0], ANNOUNCER, vars);
@@ -6024,6 +6122,11 @@ const barks = {
     setTimeout(() => d.remove(), 3600);
   },
   speechOK: null, // null = unknown, true = heard an utterance start, false = blocked/unavailable
+  safeCancel() { // never cancel within a second of handing the engine a line: that is what leaves it 'speaking' forever with nothing coming out
+    const ss = window.speechSynthesis; if (!ss || !(ss.speaking || ss.pending)) return;
+    if (performance.now() - (this.lastSpeakT || -1e9) > 1000) { try { ss.cancel(); } catch (e) {} } else this.cancelLater = true;
+  },
+  say0(u) { this.lastSpeakT = performance.now(); try { speechSynthesis.resume(); } catch (e) {} speechSynthesis.speak(u); },
   unlock() { // must run inside a tap/keypress: browsers only allow speech that a gesture started
     try {
       if (!window.speechSynthesis) { this.speechOK = false; return; }
@@ -6034,7 +6137,7 @@ const barks = {
       const ok = () => { this.speechOK = true; }; u.onstart = ok; u.onboundary = ok; u.onend = ok; // (some voices speak without ever firing 'start')
       try { speechSynthesis.resume(); } catch (e) {} // Chrome on a Mac can be stuck 'paused'
       this.keep = (this.keep || []).concat(u).slice(-6); // (Chrome can drop an utterance nobody holds)
-      if (speechSynthesis.speaking || speechSynthesis.pending) { speechSynthesis.cancel(); setTimeout(() => speechSynthesis.speak(u), 150); } else speechSynthesis.speak(u); // Chrome drops a line spoken in the same instant as a cancel
+      if (speechSynthesis.speaking || speechSynthesis.pending) { this.safeCancel(); setTimeout(() => this.say0(u), 300); } else this.say0(u); // Chrome drops (or wedges on) a line spoken in the same instant as a cancel
       setTimeout(() => { if (this.speechOK !== true) this.speechOK = false; }, 3000);
     } catch (e) { this.speechOK = false; }
   },
@@ -6079,7 +6182,8 @@ const barks = {
       const d = player && pos ? pos.distanceTo(player.body.position) : 0;
       u.volume = clamp(S.voiceVolume * (1 - d / 220), 0.25, 1);
       // Chrome stalls if speech is cancelled and restarted rapidly: only cut in when a backlog builds up, and keep the engine awake
-      let afterCancel = false; if (speechSynthesis.pending || (speechSynthesis.speaking && this.queued > 1)) { speechSynthesis.cancel(); this.queued = 0; afterCancel = true; }
+      if (this.testing) return; // the voice test owns the engine for a few seconds
+      let afterCancel = false; if (speechSynthesis.pending || (speechSynthesis.speaking && this.queued > 1)) { if (performance.now() - (this.lastSpeakT || -1e9) > 1000) { speechSynthesis.cancel(); this.queued = 0; afterCancel = true; } else return; } // (a backlog: drop this line rather than cancel too soon)
       if (speechSynthesis.paused) speechSynthesis.resume();
       this.queued = (this.queued || 0) + 1;
       const sent = performance.now(); this.stats = this.stats || { sent: 0, started: 0, errors: 0, resets: 0, lastVoice: '' }; this.stats.sent++; this.stats.lastVoice = v ? v.name + ' (' + v.lang + (v.localService ? ', on device' : ', online') + ')' : 'default';
@@ -6092,7 +6196,14 @@ const barks = {
       if (this.speechOK !== true) { const id = setTimeout(() => { if (this.speechOK !== true) { this.speechOK = false; this.babble(P, line, pos); } }, 1500); u.addEventListener('start', () => clearTimeout(id)); }
       // a voice that fails gets one retry with the device's default voice (some named voices are online-only or broken)
       u.addEventListener('error', (ev) => { const er = ev && ev.error; if (u.voice && !u.__retried && er !== 'interrupted' && er !== 'canceled') { const u2 = new SpeechSynthesisUtterance(u.text); u2.__retried = true; u2.pitch = u.pitch; u2.rate = u.rate; u2.volume = u.volume; u2.onstart = u.onstart; this.keep = (this.keep || []).concat(u2).slice(-6); this.badVoices = (this.badVoices || new Set()).add(u.voice.name); setTimeout(() => speechSynthesis.speak(u2), 60); } });
-      if (afterCancel) setTimeout(() => speechSynthesis.speak(u), 150); else speechSynthesis.speak(u);
+      if (afterCancel) setTimeout(() => this.say0(u), 300); else this.say0(u);
+      setTimeout(() => { // self-healing: a line that never starts while the engine claims to be speaking is a hung voice. Ban that voice here, clear the queue, say it in the default voice
+        if (u.__started || u.__errored || this.testing || Date.now() - (this.lastStart || 0) < 4000) return; // (someone else is still talking: it's just waiting its turn)
+        if (u.voice) { (this.badVoices = this.badVoices || new Set()).add(u.voice.name); NETLOG.incident('me', `voices: "${u.voice.name}" hung (never started) - not using it on this device`); }
+        try { speechSynthesis.cancel(); } catch (e) {} this.queued = 0;
+        if (!u.__healed && u.voice) setTimeout(() => { const u2 = new SpeechSynthesisUtterance(u.text); u2.__healed = true; u2.pitch = u.pitch; u2.rate = u.rate; u2.volume = u.volume; u2.onstart = u.onstart; u2.addEventListener('start', () => { u2.__started = true; }); this.keep = (this.keep || []).concat(u2).slice(-6); this.say0(u2); }, 400);
+      }, (afterCancel ? 300 : 0) + 2600);
+      u.addEventListener('error', () => { u.__errored = true; });
     } catch (e) {}
   },
 };
@@ -6457,7 +6568,7 @@ function resetMatch() {
   for (const c of CONCRETE.list) scene.remove(c.mesh); CONCRETE.list.length = 0;
   for (const c of cars) if (c.cable) WEAPONS.harpoon.end(c);
   for (const e of threatEls.values()) e.remove();
-  try { window.speechSynthesis && speechSynthesis.cancel(); } catch (e) {}
+  barks.safeCancel();
   barks.used.clear();
   threatEls.clear();
   clearSkids();
@@ -6472,9 +6583,9 @@ for (const ev of ['pointerdown', 'keydown', 'touchend']) addEventListener(ev, ()
 function startMatch() {
   if (MP.role === 'guest') { toast('THE HOST STARTS THE ROUND', 'cool'); return; }
   sfx.init();
-  if (barks.speechOK === null) barks.unlock(); // Start is a tap/keypress: unlock speech here
   if (sfx.ctx && sfx.ctx.state === 'suspended') sfx.ctx.resume();
-  resetMatch();
+  resetMatch(); // (first: it clears the speech queue, and a cancel right after a speak wedges Chrome's and Safari's speech engine)
+  if (barks.speechOK !== true) barks.unlock(); // Start is a tap/keypress: unlock speech here
   game.state = 'playing'; game.paused = false;
   el.menu.hidden = true; el.over.hidden = true;
   game.countdown = 1.8; game.grace = 8; game.lastCount = 4;
@@ -6622,13 +6733,14 @@ $('btnVoiceTest').addEventListener('click', () => { // speaks right inside the t
   let state0 = '';
   if (ss) {
     state0 = `before: speaking ${ss.speaking}, pending ${ss.pending}, paused ${ss.paused}`;
-    if (ss.speaking || ss.pending) ss.cancel();
-    try { ss.resume(); } catch (e) {} // Chrome on a Mac can sit 'paused' forever after a cancel or a sleep
+    barks.testing = true; setTimeout(() => { barks.testing = false; }, 6000); // game chatter must not cut into the test
+    const wasBusy = ss.speaking || ss.pending; if (wasBusy) { ss.cancel(); res.ev.push('cleared queue'); }
     const u0 = new SpeechSynthesisUtterance('Testing, testing.'); u0.volume = 1; u0.rate = 1; hook(u0, 'plain'); // default voice, no language set: the safest possible line
     const P = CAR_CAST.forklift, u = new SpeechSynthesisUtterance('I am Arthur, King of the Britons!'); const v = barks.pickVoice(P); if (v) { u.voice = v; u.lang = v.lang; } u.volume = 1; hook(u, 'character');
     barks.keep = (barks.keep || []).concat(u0, u).slice(-6);
-    ss.speak(u0); ss.speak(u); // right now, inside the tap
-    setTimeout(() => { if (res.plain === 'no' && !ss.speaking) { try { ss.resume(); ss.speak(u0); res.ev.push('retried'); } catch (e) {} } }, 1200); // a second try in case the first was swallowed
+    const go = () => { barks.say0(u0); barks.say0(u); }; // (say0 also resumes a 'paused' engine)
+    if (wasBusy) setTimeout(go, 400); else go(); // never speak in the same instant as a cancel: that is what wedged it
+    setTimeout(() => { if (res.plain === 'no' && res.character === 'no') { res.ev.push('nothing after 2.2 s: clearing and retrying'); try { ss.cancel(); } catch (e) {} setTimeout(() => { const u3 = new SpeechSynthesisUtterance('Testing again.'); hook(u3, 'plain'); barks.keep.push(u3); barks.say0(u3); }, 400); } }, 2200);
   }
   setTimeout(() => {
     const st = barks.stats || {}, now = ss ? `after: speaking ${ss.speaking}, pending ${ss.pending}, paused ${ss.paused}` : '';
@@ -6710,6 +6822,7 @@ window.addEventListener('keydown', (e) => {
     case 'Tab': e.preventDefault(); setMap(!MAP_ON); break;
     case 'KeyM': sfx.init(); toggleMute(); break;
     case 'KeyB': toggleMusic(); break;
+    case 'F2': e.preventDefault && e.preventDefault(); openBugReport(); break; // one key: full bug report copied
     case 'KeyP': case 'Escape':
       if (!el.panel.hidden && e.code === 'Escape') togglePanel(false);
       else if (game.state === 'playing') game.paused = !game.paused;
@@ -6717,10 +6830,11 @@ window.addEventListener('keydown', (e) => {
   }
 });
 window.addEventListener('keyup', (e) => keys.delete(e.code));
-canvas.addEventListener('pointerdown', (e) => { if (e.pointerType === 'mouse' && game.state === 'playing' && player && (player.T.gun || player.T.pour || player.T.special)) player.ctrl.fire = true; }); // click to fire / pour / use weapon
+canvas.addEventListener('pointerdown', (e) => { if (e.pointerType === 'mouse' && game.state === 'playing' && player && (player.T.gun || player.T.pour || player.T.special)) { player.ctrl.fire = true; mouseFire = true; } }); // click to fire / pour / use weapon
 window.addEventListener('blur', () => keys.clear());
 // Touch (iPad / phone): floating steering stick on the left half, pedals and buttons on the right
-const touch = { gas: false, brake: false, hb: false, nitro: false, steer: 0, pitch: 0, throttle: 0 };
+const touch = { gas: false, brake: false, hb: false, nitro: false, fire: false, steer: 0, pitch: 0, throttle: 0 };
+let mouseFire = false; window.addEventListener('pointerup', (e) => { if (e.pointerType === 'mouse') mouseFire = false; });
 function enableTouch() {
   el.touch.hidden = false; document.body.classList.add('touch');
   // tablets and phones: render a little lighter to keep the frame rate up
@@ -6838,7 +6952,7 @@ for (const b of el.touch.querySelectorAll('[data-k]')) {
     e.preventDefault();
     try { b.setPointerCapture(e.pointerId); } catch (err) {}
     if (k === 'siren') { if (player && (player.T.police || player.T.siren)) { player.sirenOn = !player.sirenOn; b.classList.toggle('on', player.sirenOn); } return; }
-    if (k === 'jump' || k === 'fire') { if (player && game.state === 'playing') player.ctrl[k] = true; } else touch[k] = true;
+    if (k === 'jump' || k === 'fire') { if (player && game.state === 'playing') player.ctrl[k] = true; if (k === 'fire') touch.fire = true; } else touch[k] = true;
     b.classList.add('on');
     sfx.init();
   };
@@ -7660,7 +7774,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '45'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '46'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
@@ -8063,7 +8177,8 @@ const NETLOG = {
 NETLOG.reset(); NETLOG.loadPrev();
 addEventListener('pagehide', () => { if (MP.role !== 'solo') NETLOG.save(); });
 setInterval(() => { try { NETLOG.second(); } catch (e) { console.error('netlog', e); } $('btnNetLog').hidden = MP.role === 'solo' && !NETLOG.old && !NETLOG.perf.length; }, 1000);
-$('btnNetLog').addEventListener('click', (e) => { e.currentTarget.blur(); NETLOG.unseen = 0; $('netDot').hidden = true; $('nlText').value = NETLOG.exportText(); const bad = NETLOG.inc.filter((x) => x.what !== 'recovered' && x.what !== 'host recovered').length; $('nlSum').textContent = `${bad} problem${bad === 1 ? '' : 's'} logged · ${NETLOG.perf.length} performance report${NETLOG.perf.length === 1 ? '' : 's'} · ${NETLOG.buf.length} samples kept`; $('netlog').hidden = false; });
+$('btnBug').addEventListener('click', (e) => { e.currentTarget.blur(); openBugReport(); });
+$('btnNetLog').addEventListener('click', (e) => { e.currentTarget.blur(); document.querySelector('#netlog .rs-title').textContent = 'Network log'; NETLOG.unseen = 0; $('netDot').hidden = true; $('nlText').value = NETLOG.exportText(); const bad = NETLOG.inc.filter((x) => x.what !== 'recovered' && x.what !== 'host recovered').length; $('nlSum').textContent = `${bad} problem${bad === 1 ? '' : 's'} logged · ${NETLOG.perf.length} performance report${NETLOG.perf.length === 1 ? '' : 's'} · ${NETLOG.buf.length} samples kept`; $('netlog').hidden = false; });
 $('nlClose').addEventListener('click', () => { $('netlog').hidden = true; });
 function renderHandover() { // the host can move hosting to another player (say the game feels laggy because this device is busy)
   const box = $('nlHost'); box.innerHTML = '';
@@ -8123,9 +8238,46 @@ function cockpitEye(c) { // where the driver's eye goes: toward the nose and jus
   g.position.copy(P); g.quaternion.copy(Q); g.updateMatrixWorld(true);
   return { x, y };
 }
+// ---------- One-tap bug report: everything needed to debug "something weird just happened" ----------
+const ERRS = []; // recent script errors
+window.addEventListener('error', (e) => { ERRS.push(`${new Date().toISOString().slice(11, 19)} ${e.message} @${(e.filename || '').split('/').pop()}:${e.lineno}`); if (ERRS.length > 20) ERRS.shift(); });
+window.addEventListener('unhandledrejection', (e) => { ERRS.push(`${new Date().toISOString().slice(11, 19)} promise: ${e.reason && (e.reason.message || e.reason)}`); if (ERRS.length > 20) ERRS.shift(); });
+{ const ce = console.error.bind(console); console.error = (...a) => { try { ERRS.push(new Date().toISOString().slice(11, 19) + ' ' + a.map((x) => String(x && x.stack || x)).join(' ').slice(0, 300)); if (ERRS.length > 20) ERRS.shift(); } catch (e) {} ce(...a); }; }
+const FLIGHT = { buf: [], last: -9, // flight recorder: the last 15 s of your car, 10 samples a second
+  rec() {
+    if (!player || game.state !== 'playing' || simTime - this.last < 0.1) return; this.last = simTime;
+    const b = player.body, p = b.position, v = b.velocity, w = b.angularVelocity, r1 = (x) => Math.round(x * 10) / 10;
+    const near = cars.filter((c) => c !== player && c.body.position.distanceTo(p) < 12).map((c) => `${c.T.name}@${Math.round(c.body.position.distanceTo(p))}m`).join(' ');
+    const flags = [player.carriedBy && 'carried', player.towedBy && 'towed', player.craned && 'craned', player.cable && 'harpooning', player.dozed > 0 && 'dozed', player.stuckConcrete && 'concrete', player.burnT > 0 && 'burning', player.wrecked && 'WRECKED', player.airTime > 0.3 && 'air ' + r1(player.airTime) + 's'].filter(Boolean).join(',');
+    this.buf.push(`${simTime.toFixed(1).padStart(6)} pos ${r1(p.x)},${r1(p.y)},${r1(p.z)} vel ${r1(v.x)},${r1(v.y)},${r1(v.z)} spin ${r1(w.length())} up ${r1(player.up.y)} hp ${Math.round(player.health)} ${flags}${near ? ' near ' + near : ''}`);
+    if (this.buf.length > 150) this.buf.shift();
+  },
+};
+function bugReport() {
+  const r1 = (x) => Math.round(x * 10) / 10, L = [];
+  L.push(`SCRAPYARD DERBY BUG REPORT · build ${BUILD} · ${new Date().toISOString()} · ${location.hostname || 'artifact'}`);
+  L.push(`Game: ${game.state}${game.paused ? ' (paused)' : ''} · round time ${r1(game.time || 0)} s · sim ${r1(simTime)} · mode ${GAME_MODE} · ${MP.role}${MP.code ? ' ' + MP.code : ''} · camera ${['chase', 'far', 'inside'][camMode]} · quality ${QUALITY.level} · voices ${VOICES_OFF ? 'off' : 'on'} · tilt ${tilt.on ? 'on' : 'off'}`);
+  if (player) { const b = player.body; L.push(`You: ${player.T.name} "${player.name}" · pos ${r1(b.position.x)},${r1(b.position.y)},${r1(b.position.z)} · vel ${r1(b.velocity.x)},${r1(b.velocity.y)},${r1(b.velocity.z)} · speed ${Math.round(Math.abs(player.speed) * 3.6)} km/h · spin ${r1(b.angularVelocity.length())} · up ${r1(player.up.y)} · hp ${Math.round(player.health)} · zones ${JSON.stringify(player.zones)} · wheels lost ${player.wheelLost.filter(Boolean).length} · ammo ${player.mgAmmo ?? '-'}`); }
+  L.push('', 'Flight recorder (your car, last 15 s, newest last):', ...FLIGHT.buf.slice(-150));
+  L.push('', 'All cars:'); for (const c of cars) { const b = c.body; L.push(`  ${c.isPlayer ? '*' : ' '} ${c.T.name.padEnd(11)} ${String(c.name).padEnd(16)} pos ${r1(b.position.x)},${r1(b.position.y)},${r1(b.position.z)} speed ${Math.round(b.velocity.length())} m/s spin ${r1(b.angularVelocity.length())} hp ${Math.round(c.health)}${c.wrecked ? ' WRECKED' : ''}${c.ghost ? ' ghost' : ''}${c.carry ? ' carrying' : ''}${c.tow ? ' towing' : ''}${c.mode ? ' ai:' + c.mode : ''}`); }
+  L.push('', 'Bulls: ' + BULLS.map((bl) => `${bl.state}@${Math.round(bl.body.position.x)},${r1(bl.body.position.y)},${Math.round(bl.body.position.z)} v${Math.round(bl.body.velocity.length())}`).join(' · '));
+  L.push('', 'Game events (last 40): ' + (PERFREP.tags || []).map((t) => t.what).join(' · '));
+  L.push('', `Physics safety log (${PHYS.log.length}, last 40):`, ...PHYS.log.slice(-40).map((e) => '  ' + JSON.stringify(e)));
+  L.push('', `Script errors (${ERRS.length}):`, ...ERRS.map((e) => '  ' + e));
+  L.push('', 'Settings: ' + JSON.stringify(S));
+  L.push('', '──────── network / performance / voice log ────────', NETLOG.exportText());
+  return L.join('\n');
+}
+function openBugReport() {
+  const t = bugReport(); try { localStorage.setItem('derby-bug-last', t.slice(0, 400000)); } catch (e) {}
+  $('netlog').hidden = false; $('nlText').value = t; document.querySelector('#netlog .rs-title').textContent = '🐞 Bug report'; $('nlSum').textContent = 'Copied! Paste it to Claude. (Also kept on this device.)'; $('nlHost').hidden = true;
+  const ok = () => { toast('🐞 BUG REPORT COPIED', 'cool'); $('nlCopy').textContent = 'Copied'; };
+  (navigator.clipboard ? navigator.clipboard.writeText(t).then(ok) : Promise.reject()).catch(() => { const ta = $('nlText'); ta.focus(); ta.select(); try { document.execCommand('copy') ? ok() : null; } catch (e) {} $('nlSum').textContent = 'Press Copy (or select all and copy) and paste it to Claude.'; });
+  ptag('bug report taken');
+}
 function frameBody(now) {
   const rawDt = (now - lastDrawT) / 1000; lastDrawT = now;
-  governQuality(rawDt); NETLOG.frame(rawDt);
+  governQuality(rawDt); NETLOG.frame(rawDt); FLIGHT.rec();
   if (!WARMED && game.state === 'playing' && game.countdown > 0) warmShaders();
   const t0 = performance.now(); let simMs = TICK.ms || 0; TICK.ms = 0; // (a host's game ticks run between frames: count them too)
   if (!TICK.on) { simBody(now); const ms = performance.now() - t0; simMs += ms; NETLOG.sim(ms); }
@@ -8239,5 +8391,5 @@ function drawBody(dt) {
   if (!window.__noRender) { const gq = Math.min(S.gfx, S.autoGfx ? (QUALITY.gfxCap ?? 2) : 2); if (gq > 0) { grade.uniforms.uTime.value = clock % 10; grade.enabled = gq > 1; bloom.strength = gq > 1 ? 0.42 : 0.34; composer.render(); } else renderer.render(scene, camera); PERFREP.render = performance.now() - PERFREP.r0; SEC.add('render', PERFREP.render); } // tests can skip drawing to run physics faster
 }
 requestAnimationFrame(frame);
-window.__derby = { get simTime() { return simTime; }, respawnCar: (o, t) => respawnCar(o, t), PHYS, cockpitEye: (c) => cockpitEye(c), wakeProp: (pr) => wakeProp(pr), addConcrete: (x, z, r, k) => addConcrete(x, z, r, k), igniteProp: (pr, t) => igniteProp(pr, t), cookBull: (bl, by, dt) => cookBull(bl, by, dt), tankerBoom: (p, c) => tankerBoom(p, c), CAR_TYPES, sfx, CANNON, barks, PERF, shells, NETLOG, nearHostAdd: () => nearHostAdd(), nearJoin: () => nearJoin(), JUMBO, BALL, BOLLARDS, GASQ, updateArenaPub: (dt) => updateArena(dt), CRUSHER, crushNow: () => crushNow(), applyNight: () => applyNight(), FIREWORKS, ARENA, CROWD, MP, QUALITY, applyQuality: (i) => applyQuality(i), MERGED, camera, updatePropActivity: (dt) => updatePropActivity(dt), renderer, scene, spawnFree: (x, z, r) => spawnFree(x, z, r), BULLS, updateBulls: (dt) => updateBulls(dt), updateShells, tilt, setTilt, get CRANE() { return CRANE; }, updateCrane: (dt) => updateCrane(dt), CONCRETE, THREE, craters, shells, pickups, barks, PERSONAS, TUNE, game, cars, S, world, CAR_TYPES, sfx, touch, drawGauge, get player() { return player; }, keys, startMatch, selectCar, setValue, debris, props, platformOf, get simTime() { return simTime; }, set simTime(v) { simTime = v; } }; // console tinkering + tests
+window.__derby = { get mapShapes() { return mapShapes; }, respawnCar: (o, t) => respawnCar(o, t), PHYS, cockpitEye: (c) => cockpitEye(c), wakeProp: (pr) => wakeProp(pr), addConcrete: (x, z, r, k) => addConcrete(x, z, r, k), igniteProp: (pr, t) => igniteProp(pr, t), cookBull: (bl, by, dt) => cookBull(bl, by, dt), tankerBoom: (p, c) => tankerBoom(p, c), CAR_TYPES, sfx, CANNON, barks, PERF, shells, NETLOG, nearHostAdd: () => nearHostAdd(), nearJoin: () => nearJoin(), JUMBO, BALL, BOLLARDS, GASQ, updateArenaPub: (dt) => updateArena(dt), CRUSHER, crushNow: () => crushNow(), applyNight: () => applyNight(), FIREWORKS, ARENA, CROWD, MP, QUALITY, applyQuality: (i) => applyQuality(i), MERGED, camera, updatePropActivity: (dt) => updatePropActivity(dt), renderer, scene, spawnFree: (x, z, r) => spawnFree(x, z, r), BULLS, updateBulls: (dt) => updateBulls(dt), updateShells, tilt, setTilt, get CRANE() { return CRANE; }, updateCrane: (dt) => updateCrane(dt), CONCRETE, THREE, craters, shells, pickups, barks, PERSONAS, TUNE, game, cars, S, world, CAR_TYPES, sfx, touch, drawGauge, get player() { return player; }, keys, startMatch, selectCar, setValue, debris, props, platformOf, get simTime() { return simTime; }, set simTime(v) { simTime = v; } }; // console tinkering + tests
 </script>
