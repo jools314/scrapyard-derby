@@ -208,7 +208,7 @@
   #touch .on { background: var(--accent); color: var(--ink); border-color: var(--accent); }
   .touch-only { display: none; }
   body.touch .touch-only { display: inline-block; }
-  body.touch .speedo { left: 50%; transform: translateX(-50%); }
+  body.touch .speedo { left: calc(290px + env(safe-area-inset-left, 0px)); top: calc(10px + env(safe-area-inset-top, 0px)); bottom: auto; transform: none; } /* up top beside the stats: the bottom centre is where your car is */
   body.touch #gauge { width: 150px; height: 150px; }
   body.touch #hint { bottom: calc(150px + env(safe-area-inset-bottom, 0px)); }
   @media (max-width: 900px), (max-height: 640px) {
@@ -233,7 +233,8 @@
     body.touch .btns button { font-size: 10px; padding: 3px 6px; }
     body.touch #btnTune { display: none; }
     body.touch #gauge { width: 92px; height: 92px; }
-    body.touch .speedo { bottom: calc(2px + env(safe-area-inset-bottom, 0px)); }
+    body.touch .speedo { left: calc(160px + env(safe-area-inset-left, 0px)); top: calc(4px + env(safe-area-inset-top, 0px)); bottom: auto; }
+    body.touch #gauge { width: 80px; height: 80px; }
     body.touch .stick { width: 104px; height: 104px; margin: -52px 0 0 -52px; left: calc(72px + env(safe-area-inset-left, 0px)); top: calc(100% - 66px - env(safe-area-inset-bottom, 0px)); }
     body.touch .knob { width: 44px; height: 44px; margin: -22px 0 0 -22px; }
     body.touch .tlabel { display: none; }
@@ -253,7 +254,14 @@
     body.touch .rightpad .small { flex-direction: column; }
     body.touch .stick-zone, body.touch .pedal-zone { height: 45%; }
   }
-  body.tilt .stick, body.tilt .tlabel { opacity: 0.25; }
+  /* Tilt steering: no stick needed, so gas/brake moves under the LEFT thumb and the buttons sit under the RIGHT thumb */
+  body.tilt .stick-zone, body.tilt .tlabel { display: none; }
+  body.tilt .pedal-zone { right: auto; left: 0; }
+  body.tilt .pedal-track { right: auto; left: calc(24px + env(safe-area-inset-left, 0px)); margin: 0; }
+  body.tilt .rightpad { bottom: calc(14px + env(safe-area-inset-bottom, 0px)) !important; right: calc(14px + env(safe-area-inset-right, 0px)); }
+  body.tilt .rightpad .small { display: grid; grid-template-columns: repeat(3, auto); gap: 10px; }
+  body.tilt #touch .tb { width: 64px; height: 64px; font-size: 12px; }
+  @media (max-height: 500px), (max-width: 500px) { body.tilt #touch .tb { width: 56px; height: 56px; } body.tilt .pedal-track { left: calc(12px + env(safe-area-inset-left, 0px)); } }
   @media (max-width: 720px) {
     #menu { place-items: end center; background: linear-gradient(0deg, rgba(23, 19, 15, 0.92) 0%, rgba(23, 19, 15, 0.6) 60%, rgba(23, 19, 15, 0.1) 100%); }
     .garage { grid-template-columns: repeat(2, minmax(0, 1fr)); }
