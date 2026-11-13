@@ -348,7 +348,7 @@
   body.touch .rail .ic { width: 46px; height: 46px; font-size: 19px; }
   body.touch #touch .tb.fire { width: 92px; height: 92px; }
   body.touch #touch .tb.sm { width: 56px; height: 56px; }
-  @media (max-height: 500px) { .rail { display: grid !important; grid-template-columns: repeat(2, auto); gap: 6px; } body.touch .rail .ic { width: 42px; height: 42px; font-size: 17px; } body.touch .rail .ic small { font-size: 8px; } } /* short phone screens: a 2x2 block that stays clear of the action buttons */
+  @media (max-height: 500px) { .rail { display: grid !important; grid-template-columns: repeat(3, auto); gap: 6px; } body.touch .rail .ic { width: 42px; height: 42px; font-size: 17px; } body.touch .rail .ic small { font-size: 8px; } } /* short phone screens: a 2x2 block that stays clear of the action buttons */
   @media (max-height: 500px) { body.touch #touch .tb.fire { width: 76px; height: 76px; } body.touch #touch .tb.sm { width: 46px; height: 46px; } #touch .tb.fire { width: 76px; height: 76px; } #touch .tb.fire .ico { font-size: 32px; } #touch .tb.sm { width: 48px; height: 48px; } #touch .tb .ico { font-size: 20px; } }
   .nitro-row[hidden] { display: none !important; }
   body:not(.touch) .stats { transform: scale(0.82); transform-origin: top left; } /* a smaller corner panel */
@@ -388,6 +388,7 @@
       <div class="rail"><!-- a slim column on the right edge: nothing over the middle of the screen -->
         <button id="btnGear" class="ic gear" type="button" title="Settings and debugging" aria-label="Settings" aria-expanded="false">⚙️<span id="netDot" hidden></span></button>
         <button id="btnMap" class="ic" type="button" title="Map (Tab)" aria-pressed="false">🗺️<small>Map</small></button>
+        <button id="btnCam" class="ic" type="button" title="Camera: chase / far / inside (C)">🎥<small>View</small></button>
         <button id="btnPause" class="ic" type="button" title="Pause (P)">⏸️<small>Pause</small></button>
         <button id="btnRespawn" class="ic hot" type="button" title="Respawn or pick a new car (K)">🔄<small>Respawn</small></button>
       </div>
@@ -1558,7 +1559,7 @@ function updateJumbo(dt) {
   if (JUMBO.recT <= 0) { JUMBO.recT = 0.05; JUMBO.rec.push({ t: clock, cars: cars.slice(), p: cars.map(snapCar) }); while (JUMBO.rec.length && JUMBO.rec[0].t < clock - 4.5) JUMBO.rec.shift(); }
   JUMBO.tick++;
   const gq = Math.min(S.gfx, S.autoGfx ? (QUALITY.gfxCap ?? 2) : 2);
-  if (window.__noRender || gq === 0 || JUMBO.tick % 3) return;
+  if (window.__noRender || gq === 0 || JUMBO.tick % 6) return; // a second full scene render: 10 a second is plenty for a big screen
   // only bother when the screen is in view
   const fr = new THREE.Frustum().setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
   if (!fr.intersectsSphere(new THREE.Sphere(JUMBO.screen.position, 18)) || camera.position.distanceTo(JUMBO.screen.position) > 330) return;
@@ -1576,7 +1577,7 @@ function updateJumbo(dt) {
   }
   JUMBO.screen.visible = false; JUMBO.tag.visible = JUMBO.tag.visible && false;
   const fog = scene.fog; scene.fog = null;
-  renderer.setRenderTarget(JUMBO.rt); renderer.render(scene, cam); renderer.setRenderTarget(null);
+  { const t0 = performance.now(); renderer.setRenderTarget(JUMBO.rt); renderer.render(scene, cam); renderer.setRenderTarget(null); if (typeof SEC !== 'undefined') SEC.add('jumbotron', performance.now() - t0); }
   scene.fog = fog; JUMBO.screen.visible = true; if (R) JUMBO.tag.visible = (clock * 2) % 1 < 0.7;
   if (restore) for (const c of restore) { c.group.position.copy(c.body.position); c.group.quaternion.copy(c.body.quaternion); for (let i = 0; i < c.nW; i++) { if (!c.wheelMeshes[i] || c.wheelLost[i]) continue; c.vehicle.updateWheelTransform(i); const t = c.vehicle.wheelInfos[i].worldTransform; c.wheelMeshes[i].position.copy(t.position); c.wheelMeshes[i].quaternion.copy(t.quaternion); } }
 }
@@ -2278,7 +2279,9 @@ function inFire(car) {
 }
 // The fuel tanker going up: a fireball, a shockwave racing over the dirt, a smoke column, a lake of burning fuel, chain reactions
 const BOOMS = [];
+function ptag(what, ms) { try { PERFREP.tag(what, ms); } catch (e) {} } // note a game event for the perf report (safe before PERFREP exists)
 function tankerBoom(p, car) {
+  ptag('tanker explosion');
   const fire = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 16), new THREE.MeshBasicMaterial({ color: 0xffb040, transparent: true, opacity: 0.95, depthWrite: false, blending: THREE.AdditiveBlending }));
   fire.position.set(p.x, p.y + 2, p.z); scene.add(fire);
   const ring = new THREE.Mesh(new THREE.RingGeometry(0.9, 1.0, 64), new THREE.MeshBasicMaterial({ color: 0xfff0d0, transparent: true, opacity: 0.8, side: THREE.DoubleSide, depthWrite: false }));
@@ -2309,6 +2312,7 @@ function igniteProp(pr, t = 8) {
   if (!pr || !props.includes(pr) || MP.role === 'guest') return false;
   if (pr.body.gas) { if (!pr.lit && typeof GASQ !== 'undefined' && !GASQ.some((q) => q.pr === pr)) GASQ.push({ pr, t: rand(0.3, 0.9) }); return true; } // gas bottles just go bang
   if (!flammable(pr) || pr.fireT > 0) return false;
+  ptag('prop caught fire');
   pr.fireT = t + rand(0, 3); wakeProp(pr); return true;
 }
 function charProp(pr) { // burnt out: blackened (cardboard burns away to ash)
@@ -2338,7 +2342,7 @@ function updatePropFires(dt) {
 // ---------- Cars on fire: the bonnet burns (flames + smoke you can see), it hurts, it spreads to whoever you rub against; water puts it out ----------
 function setCarAlight(c, by) {
   if (c.wrecked || MP.role === 'guest' || c.douse > 0 || c.burnT > 1) return;
-  const was = c.burnT > 0; c.burnT = 7; c.ignite = 0; c.burnBy = by || null;
+  const was = c.burnT > 0; c.burnT = 7; c.ignite = 0; c.burnBy = by || null; if (!was) ptag(c.name + ' on fire');
   if (was || game.state !== 'playing') return;
   if (c.isPlayer) toast("🔥 YOU'RE ON FIRE! FIND WATER", 'bad');
   else if (by && by.isPlayer) toast(`🔥 ${c.name.toUpperCase()} IS ON FIRE!`, 'cool');
@@ -2393,6 +2397,7 @@ function updateShells(dt) {
   }
 }
 function explodeShell(hp, hitBody, owner, scale = 1) {
+  ptag(scale > 1.5 ? 'big explosion' : 'explosion');
   if (MP.role === 'host') MP.event({ k: 'x', p: [hp.x, hp.y, hp.z].map((v) => Math.round(v * 10) / 10), s: scale });
   if (typeof wakePropsNear === 'function') wakePropsNear(hp, 9); // blasts reach crates nobody was near
   if (typeof GASQ !== 'undefined') for (const pr of props) if (pr.body.gas && !pr.lit && pr.body.position.distanceTo(new CANNON.Vec3(hp.x, hp.y, hp.z)) < 6 * Math.sqrt(scale)) GASQ.push({ pr, t: rand(0.15, 0.4) }); // chain reaction
@@ -4771,7 +4776,7 @@ class Car {
 
   wreck() {
     CROWD.x.value = 1; ARENA.lastWreck = { x: this.body.position.x, z: this.body.position.z }; if (game.state === 'playing') { fireworks(S.night ? 6 : 3); startReplay(this.body.position); }
-    this.wrecked = true; this.health = 0;
+    this.wrecked = true; this.health = 0; ptag(this.name + ' wrecked');
     const b = this.body, p = b.position;
     b.velocity.y += 6; // fuel tank pops
     b.angularVelocity.x += rand(-2, 2); b.angularVelocity.z += rand(-2, 2);
@@ -5936,6 +5941,7 @@ const barks = {
   },
   speak(P0, line0, pos) {
     if (VOICES_OFF) return; // the subtitles still show
+    ptag('voice line');
     const [P, line] = this.who(P0, line0);
     if (this.speechOK === false || !window.speechSynthesis) { this.babble(P, line, pos); return; }
     try {
@@ -6191,7 +6197,8 @@ function respawnSpot(old) {
   best.yaw = Math.atan2(best.z, -best.x); // nose towards the middle of the yard
   return best;
 }
-function respawnCar(old, type) {
+function respawnCar(old, type) { const t0 = performance.now(), r = respawnCar0(old, type); ptag('respawn: built ' + (r ? r.T.name : '?'), performance.now() - t0); return r; }
+function respawnCar0(old, type) {
   const i = cars.indexOf(old); if (i < 0 || MP.role === 'guest') return null;
   type = CAR_TYPES[type] ? type : old.type;
   for (const c of cars) { // let go of anything hooked to the old wreck
@@ -6527,6 +6534,7 @@ $('btnGarage').addEventListener('click', showMenu);
 /* ---------------- Input ---------------- */
 const keys = new Set();
 let camMode = 0;
+function nextCam() { camMode = (camMode + 1) % 3; game.camSnap = true; toast(['CHASE VIEW', 'FAR VIEW', 'INSIDE VIEW'][camMode], 'cool'); }
 const GAME_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'KeyH']);
 window.addEventListener('keydown', (e) => {
   if (e.target && e.target.tagName === 'INPUT') return;
@@ -6541,7 +6549,7 @@ window.addEventListener('keydown', (e) => {
     case 'KeyR': if (game.state === 'playing' && player && !player.wrecked) player.flipUpright(); break;
     case 'KeyN': if (GAME_MODE === 'respawn' && game.state === 'playing') openRespawnSheet(false); else showMenu(); break;
     case 'KeyK': if (game.state === 'playing') { if (RS.open) closeRespawnSheet(); else openRespawnSheet(false); } break;
-    case 'KeyC': camMode = (camMode + 1) % 3; break;
+    case 'KeyC': nextCam(); break;
     case 'KeyT': togglePanel(); break;
     case 'KeyI': perfOpen($('perfdlg').hidden); break;
     case 'KeyU': setVoices(!VOICES_OFF); toast(VOICES_OFF ? 'VOICES OFF' : 'VOICES ON', 'cool'); break;
@@ -6744,8 +6752,9 @@ function updateCamera(dt) {
   const fx = lastFlat.x, fz = lastFlat.y;
   const sp = Math.abs(player.speed);
   if (camMode === 2) { // bumper cam
-    const eye = b.pointToWorldFrame(new CANNON.Vec3(0.6 - player.comShift, HULL_Y0 + player.T.H + 0.5, 0));
-    const at = b.pointToWorldFrame(new CANNON.Vec3(14, 0.4, 0));
+    const E = player.eye || (player.eye = cockpitEye(player));
+    const eye = b.pointToWorldFrame(new CANNON.Vec3(E.x, E.y, 0));
+    const at = b.pointToWorldFrame(new CANNON.Vec3(E.x + 14, E.y - 1.9, 0));
     camera.position.set(eye.x, eye.y, eye.z);
     camLook.set(at.x, at.y, at.z);
   } else {
@@ -7476,7 +7485,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '42'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '43'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
@@ -7658,6 +7667,7 @@ const QSTEPS = [
 ];
 const govern = { acc: 0, n: 0, t: 0, good: 0, lastDown: -99 };
 function applyQuality(i) {
+  if (QUALITY.level !== i) ptag('quality ' + QUALITY.level + '→' + i);
   QUALITY.level = i; const q = QSTEPS[i];
   QUALITY.scale = q.scale; QUALITY.gfxCap = q.gfx;
   if (sun.shadow.mapSize.x !== Math.min(q.shadow, isTouchUI() ? 1024 : 2048)) { sun.shadow.mapSize.set(Math.min(q.shadow, isTouchUI() ? 1024 : 2048), Math.min(q.shadow, isTouchUI() ? 1024 : 2048)); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
@@ -7734,24 +7744,28 @@ const PERFREP = { f: [], max: 900, seq: 0, lastT: 0, r0: 0, render: 0, calls: 0,
     else NETLOG.addPerf(r);
   },
   // slow moments: under ~25 fps for over a second gets recorded with what was eating the time, kept for the Perf panel and reports
-  incidents: [], win: [], slow: null,
+  incidents: [], win: [], slow: null, tags: [],
+  tag(what, ms) { this.tags.push({ at: performance.now(), what: ms != null ? `${what} (${Math.round(ms)} ms)` : what }); if (this.tags.length > 40) this.tags.shift(); }, // game events, to explain the slow moments that follow them
+  frameParts() { const now = SEC.snap(), d = []; if (this.lastSnap) for (const k in now.t) { const v = now.t[k] - (this.lastSnap.t[k] || 0); if (v > 0.5) d.push([k, v]); } this.lastSnap = now; return d.sort((a, b) => b[1] - a[1]); },
   watch(dtMs) {
     if (dtMs > 1000 || document.hidden) { this.win.length = 0; return; } // a background tab isn't a slow game
+    const fp = this.frameParts(); if (this.slow && dtMs > (this.slow.worstF ? this.slow.worstF.ms : 0)) this.slow.worstF = { ms: Math.round(dtMs), parts: (fp.map(([k, v]) => `${k} ${v.toFixed(0)}`).join(', ') || 'no game code') + (dtMs - fp.reduce((t, x) => t + x[1], 0) > 30 ? ` · ${Math.round(dtMs - fp.reduce((t, x) => t + x[1], 0))} ms outside the game code (graphics chip, garbage collection, shader compile or the browser)` : '') };
     const now = performance.now(); this.win.push([now, dtMs]); while (this.win.length && now - this.win[0][0] > 1000) this.win.shift();
     const avg = this.win.reduce((a, x) => a + x[1], 0) / this.win.length;
     if (!this.slow) { if (avg > 40 && this.win.length >= 5 && game.state === 'playing') this.slow = { start: now, at: Date.now(), ref: SEC.snap(), worst: 0 }; return; }
     this.slow.worst = Math.max(this.slow.worst, dtMs);
     if (avg < 30 || now - this.slow.start > 8000) {
-      const S0 = this.slow; this.slow = null; const sum = this.summary('slow', S0.ref); if (!sum) return;
+      const S0 = this.slow; this.slow = null; const sum = this.summary('slow', S0.ref); if (!sum || (sum.fps >= 50 && S0.worst < 120)) return; // a blip that averaged out smooth isn't worth a report
       const live = parts.filter((x) => x && x.mesh.visible).length, mem = performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) + ' MB' : null;
-      this.incidents.push({ at: S0.at, secs: +((now - S0.start) / 1000).toFixed(1), fps: sum.fps, frame: sum.frame, worst: Math.round(S0.worst), sim: sum.sim, draw: sum.draw, wait: sum.wait, parts: sum.parts, verdict: sum.verdict, q: sum.q, res: sum.res, calls: sum.calls, cars: cars.length, particles: live, booms: BOOMS.length, fires: props.filter((x) => x.fireT > 0).length, mem });
+      const before = this.tags.filter((t) => t.at > S0.start - 2500 && t.at < now).map((t) => t.what).reduce((o, w) => { const l = o[o.length - 1]; if (l && l[0] === w) l[1]++; else o.push([w, 1]); return o; }, []).map(([w, n]) => n > 1 ? `${w} ×${n}` : w);
+      this.incidents.push({ before, worstF: S0.worstF, at: S0.at, secs: +((now - S0.start) / 1000).toFixed(1), fps: sum.fps, frame: sum.frame, worst: Math.round(S0.worst), sim: sum.sim, draw: sum.draw, wait: sum.wait, parts: sum.parts, verdict: sum.verdict, q: sum.q, res: sum.res, calls: sum.calls, cars: cars.length, particles: live, booms: BOOMS.length, fires: props.filter((x) => x.fireT > 0).length, mem });
       if (this.incidents.length > 20) this.incidents.shift();
     }
   },
   incidentText() {
     if (!this.incidents.length) return 'Slow moments: none so far (anything under ~25 fps for over a second is recorded here).';
     const ts = (t) => new Date(t).toLocaleTimeString();
-    return [`Slow moments (${this.incidents.length}, newest first):`, ...this.incidents.slice().reverse().map((x) => `  ${ts(x.at)} · ${x.secs}s at ${x.fps} fps (worst frame ${x.worst} ms) → ${x.verdict}\n      by system: ${x.parts || '?'}\n      game step ${x.sim} · draw prep ${x.draw} · GPU wait ${x.wait} ms · quality ${x.q} · ${x.calls} draw calls · ${x.cars} cars · ${x.particles} particles · ${x.fires} fires · ${x.booms} big blasts${x.mem ? ' · ' + x.mem : ''}`)].join('\n');
+    return [`Slow moments (${this.incidents.length}, newest first):`, ...this.incidents.slice().reverse().map((x) => `  ${ts(x.at)} · ${x.secs}s at ${x.fps} fps (worst frame ${x.worst} ms) → ${x.verdict}\n      by system: ${x.parts || '?'}\n      game step ${x.sim} · draw prep ${x.draw} · GPU wait ${x.wait} ms · quality ${x.q} · ${x.calls} draw calls · ${x.cars} cars · ${x.particles} particles · ${x.fires} fires · ${x.booms} big blasts${x.mem ? ' · ' + x.mem : ''}\n      worst frame: ${x.worstF ? x.worstF.ms + ' ms → ' + x.worstF.parts : '?'}\n      just before: ${x.before && x.before.length ? x.before.join(' · ') : 'nothing special happened'}`)].join('\n');
   },
   check() { // called every frame: a fresh wreck, or two quiet minutes, sends a report
     if (!player || game.state !== 'playing') return;
@@ -7792,6 +7806,7 @@ $('pfCopy').addEventListener('click', async () => { const t = $('pfVerdict').tex
 let MAP_ON = false; try { MAP_ON = localStorage.getItem('derby-map') === '1'; } catch (e) {}
 function setMap(on) { MAP_ON = on; document.body.classList.toggle('nomap', !on); $('btnMap').setAttribute('aria-pressed', String(on)); try { localStorage.setItem('derby-map', on ? '1' : '0'); } catch (e) {} }
 setMap(MAP_ON);
+$('btnCam').addEventListener('click', (e) => { e.currentTarget.blur(); nextCam(); });
 $('btnMap').addEventListener('click', (e) => { e.currentTarget.blur(); setMap(!MAP_ON); });
 const NETLOG = {
   perf: [], pfSeen: new Map(),
@@ -7856,7 +7871,7 @@ const NETLOG = {
       `Players: ${cars.filter((c) => c.remote || c.netPeer || c.isPlayer).map((c) => (c.isPlayer ? MP.nick() + ' (this device)' : c.name) + ' · ' + c.T.name).join(', ')}`,
       'Host sends 20 snapshots/s; guests should see ~20 updates/s, jitter < 30 ms, smoothing 80-200 ms, gaps < 150 ms.', '',
       `Performance reports (${this.perf.length}, newest last; sent after each wreck and every 2 minutes; times in ms per frame):`,
-      ...this.perf.map((p) => `  ${ts(p.at)}  ${String(p.who).padEnd(14)} ${p.why}: ${p.fps} fps (frame ${p.frame} avg, ${p.frame95} p95, ${p.frameMax} worst) · game step ${p.sim} (p95 ${p.sim95}) · drawing prep ${p.draw} (draw call ${p.render}) · waiting on GPU ${p.wait} · quality ${p.q}, res ${p.res}%, ${p.calls} draw calls, ${p.tris} triangles, ${p.cars} cars · ${p.car} · ${p.dev}\n      per system (ms/frame): ${p.parts || '?'}\n      → ${p.verdict}${(p.slowMoments || []).map((x) => `\n      slow moment ${new Date(x.at).toISOString().slice(11, 19)}: ${x.secs}s at ${x.fps} fps, worst ${x.worst} ms → ${x.verdict} · ${x.parts} · ${x.particles} particles, ${x.fires} fires, ${x.booms} blasts`).join('')}`), '',
+      ...this.perf.map((p) => `  ${ts(p.at)}  ${String(p.who).padEnd(14)} ${p.why}: ${p.fps} fps (frame ${p.frame} avg, ${p.frame95} p95, ${p.frameMax} worst) · game step ${p.sim} (p95 ${p.sim95}) · drawing prep ${p.draw} (draw call ${p.render}) · waiting on GPU ${p.wait} · quality ${p.q}, res ${p.res}%, ${p.calls} draw calls, ${p.tris} triangles, ${p.cars} cars · ${p.car} · ${p.dev}\n      per system (ms/frame): ${p.parts || '?'}\n      → ${p.verdict}${(p.slowMoments || []).map((x) => `\n      slow moment ${new Date(x.at).toISOString().slice(11, 19)}: ${x.secs}s at ${x.fps} fps, worst ${x.worst} ms → ${x.verdict} · ${x.parts} · ${x.particles} particles, ${x.fires} fires, ${x.booms} blasts · worst frame ${x.worstF ? x.worstF.ms + ' ms: ' + x.worstF.parts : '?'} · before: ${(x.before || []).join(', ') || '-'}`).join('')}`), '',
       `Physics safety events (${typeof PHYS !== 'undefined' ? PHYS.log.length : 0}; light-car levering prevented ${typeof PHYS !== 'undefined' ? PHYS.fixes : 0} contacts, tank rise/roll capped ${typeof PHYS !== 'undefined' ? PHYS.clamps : 0} steps, blow-ups clamped ${typeof PHYS !== 'undefined' ? PHYS.blowups : 0}):`, ...(typeof PHYS !== 'undefined' ? PHYS.log.slice(-30).map((x) => '  ' + JSON.stringify(x)) : []), '',
       `Incidents (${this.inc.length}):`, ...this.inc.map((e) => `  ${ts(e.t)}  ${e.who.padEnd(14)} ${e.what}`), '',
       'Timeline, one line per player per second (newest last):',
@@ -7897,9 +7912,41 @@ function hostTick() {
 }
 setTimeout(hostTick, 100);
 let lastDrawT = performance.now();
+let WARMED = false;
+function warmShaders() { // compile every shader the round will need during the countdown, so the first blast or fire doesn't stall mid-fight
+  WARMED = true; if (window.__noRender) return;
+  const t0 = performance.now(), tmp = new THREE.Group(), g = new THREE.SphereGeometry(1, 8, 6);
+  const mats = [new THREE.MeshBasicMaterial({ color: 0xffb040, transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending }),
+    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8, side: THREE.DoubleSide, depthWrite: false }),
+    new THREE.MeshBasicMaterial({ color: 0x333333, transparent: true, opacity: 0.6, depthWrite: false }),
+    new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 1 }), new THREE.MeshLambertMaterial({ color: 0x884422 })];
+  for (const m of mats) { const x = new THREE.Mesh(g, m); x.position.copy(camera.position); tmp.add(x); }
+  tmp.add(new THREE.Points(new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0], 3)), new THREE.PointsMaterial({ size: 1, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })));
+  scene.add(tmp);
+  try { renderer.compile(scene, camera); } catch (e) {}
+  scene.remove(tmp); // (materials kept alive: disposing them would throw the compiled shaders away again)
+  ptag('shader warm-up', performance.now() - t0);
+}
+function cockpitEye(c) { // where the driver's eye goes: toward the nose and just above the tallest part of the car ahead of it, so a cab, turret, crane or drum never fills the view
+  const g = c.group, P = g.position.clone(), Q = g.quaternion.clone();
+  g.position.set(0, 0, 0); g.quaternion.set(0, 0, 0, 1); g.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(g), front = box.max.x, L = front - box.min.x, top = box.max.y + 2;
+  const ex = front - Math.max(1.3, Math.min(2.6, L * 0.3)), rc = new THREE.Raycaster(), down = new THREE.Vector3(0, -1, 0);
+  const seen = (o) => { for (; o; o = o.parent) if (!o.visible) return false; return true; };
+  let hood = -Infinity; const meshes = []; g.traverse((o) => { if (o.isMesh && !o.isInstancedMesh && seen(o)) meshes.push(o); }); // (no sprites: name tags can't be ray-hit without a camera)
+  for (let x = ex; x <= front + 0.01; x += 0.15) for (const z of [-c.T.W * 0.22, 0, c.T.W * 0.22]) {
+    rc.set(new THREE.Vector3(x, top, z), down); rc.far = top + 3;
+    const h = rc.intersectObjects(meshes, false).find((i) => seen(i.object) && !(i.object.material && i.object.material.transparent && i.object.material.opacity < 0.6));
+    if (h) hood = Math.max(hood, h.point.y);
+  }
+  g.position.copy(P); g.quaternion.copy(Q); g.updateMatrixWorld(true);
+  if (!isFinite(hood)) hood = HULL_Y0 + c.T.H;
+  return { x: ex, y: hood + 0.38 };
+}
 function frameBody(now) {
   const rawDt = (now - lastDrawT) / 1000; lastDrawT = now;
   governQuality(rawDt); NETLOG.frame(rawDt);
+  if (!WARMED && game.state === 'playing' && game.countdown > 0) warmShaders();
   const t0 = performance.now(); let simMs = TICK.ms || 0; TICK.ms = 0; // (a host's game ticks run between frames: count them too)
   if (!TICK.on) { simBody(now); const ms = performance.now() - t0; simMs += ms; NETLOG.sim(ms); }
   const t1 = performance.now(); PERFREP.render = 0;
@@ -8012,5 +8059,5 @@ function drawBody(dt) {
   if (!window.__noRender) { const gq = Math.min(S.gfx, S.autoGfx ? (QUALITY.gfxCap ?? 2) : 2); if (gq > 0) { grade.uniforms.uTime.value = clock % 10; grade.enabled = gq > 1; bloom.strength = gq > 1 ? 0.42 : 0.34; composer.render(); } else renderer.render(scene, camera); PERFREP.render = performance.now() - PERFREP.r0; SEC.add('render', PERFREP.render); } // tests can skip drawing to run physics faster
 }
 requestAnimationFrame(frame);
-window.__derby = { get simTime() { return simTime; }, PHYS, wakeProp: (pr) => wakeProp(pr), addConcrete: (x, z, r, k) => addConcrete(x, z, r, k), igniteProp: (pr, t) => igniteProp(pr, t), cookBull: (bl, by, dt) => cookBull(bl, by, dt), tankerBoom: (p, c) => tankerBoom(p, c), CAR_TYPES, sfx, CANNON, barks, PERF, shells, NETLOG, nearHostAdd: () => nearHostAdd(), nearJoin: () => nearJoin(), JUMBO, BALL, BOLLARDS, GASQ, updateArenaPub: (dt) => updateArena(dt), CRUSHER, crushNow: () => crushNow(), applyNight: () => applyNight(), FIREWORKS, ARENA, CROWD, MP, QUALITY, applyQuality: (i) => applyQuality(i), MERGED, camera, updatePropActivity: (dt) => updatePropActivity(dt), renderer, scene, spawnFree: (x, z, r) => spawnFree(x, z, r), BULLS, updateBulls: (dt) => updateBulls(dt), updateShells, tilt, setTilt, get CRANE() { return CRANE; }, updateCrane: (dt) => updateCrane(dt), CONCRETE, THREE, craters, shells, pickups, barks, PERSONAS, TUNE, game, cars, S, world, CAR_TYPES, sfx, touch, drawGauge, get player() { return player; }, keys, startMatch, selectCar, setValue, debris, props, platformOf, get simTime() { return simTime; }, set simTime(v) { simTime = v; } }; // console tinkering + tests
+window.__derby = { get simTime() { return simTime; }, PHYS, cockpitEye: (c) => cockpitEye(c), wakeProp: (pr) => wakeProp(pr), addConcrete: (x, z, r, k) => addConcrete(x, z, r, k), igniteProp: (pr, t) => igniteProp(pr, t), cookBull: (bl, by, dt) => cookBull(bl, by, dt), tankerBoom: (p, c) => tankerBoom(p, c), CAR_TYPES, sfx, CANNON, barks, PERF, shells, NETLOG, nearHostAdd: () => nearHostAdd(), nearJoin: () => nearJoin(), JUMBO, BALL, BOLLARDS, GASQ, updateArenaPub: (dt) => updateArena(dt), CRUSHER, crushNow: () => crushNow(), applyNight: () => applyNight(), FIREWORKS, ARENA, CROWD, MP, QUALITY, applyQuality: (i) => applyQuality(i), MERGED, camera, updatePropActivity: (dt) => updatePropActivity(dt), renderer, scene, spawnFree: (x, z, r) => spawnFree(x, z, r), BULLS, updateBulls: (dt) => updateBulls(dt), updateShells, tilt, setTilt, get CRANE() { return CRANE; }, updateCrane: (dt) => updateCrane(dt), CONCRETE, THREE, craters, shells, pickups, barks, PERSONAS, TUNE, game, cars, S, world, CAR_TYPES, sfx, touch, drawGauge, get player() { return player; }, keys, startMatch, selectCar, setValue, debris, props, platformOf, get simTime() { return simTime; }, set simTime(v) { simTime = v; } }; // console tinkering + tests
 </script>
