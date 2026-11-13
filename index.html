@@ -2136,7 +2136,7 @@ function liftRelease(car, toss) { // drop the load; with a flick of the mast it 
   car.liftUp = 0.6; sfx.at(car.body.position).clank(0.7 * wv(car)); sfx.at(car.body.position).hydraulic(wv(car));
 }
 const WEAPONS = {
-  harpoon: { label: 'HARPOON', cd: 6, dur: 2.4, // grapple the car ahead and reel it in
+  harpoon: { label: 'HARPOON', cd: 2.5, dur: 2.4, // grapple the car ahead and reel it in
     start(car) {
       let t = frontTarget(car, 45, 0.5);
       if (!t) { // no car in sight: harpoon a bull (rodeo!) or a barrel and reel it in
@@ -2150,10 +2150,12 @@ const WEAPONS = {
       const d = car.body.position.distanceTo(t.body.position);
       const con = new CANNON.DistanceConstraint(car.body, t.body, d, 4e5); world.addConstraint(con);
       const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), new THREE.LineBasicMaterial({ color: 0x2a2622 }));
-      scene.add(line); car.cable = { con, t, line, d, age: 0, rip: t.parts && !t.wrecked && MP.role !== 'guest' && Math.random() < (window.__ripChance ?? 0.35) ? rand(0.35, 0.8) : 0 }; // sometimes the hook tears a panel off instead of dragging the car
+      scene.add(line); car.cable = { con, t, line, d, age: 0, rip: t.parts && !t.wrecked && MP.role !== 'guest' && Math.random() < (window.__ripChance ?? 0.65) ? rand(0.3, 0.7) : 0 };
+      if (t.parts && !t.wrecked) { const hp = t.body.pointToLocalFrame(car.body.position), zn = Math.abs(hp.x) > Math.abs(hp.z) ? (hp.x > 0 ? 'front' : 'rear') : (hp.z > 0 ? 'right' : 'left'); const m = new THREE.Vector3(zn === 'front' ? t.T.L / 2 : zn === 'rear' ? -t.T.L / 2 : 0, 0.2, zn === 'right' ? t.T.W / 2 : zn === 'left' ? -t.T.W / 2 : 0); t.applyDamage(7 * S.damage * t.T.armor, car, zn, m, 9); t.dent(m, { x: Math.sign(m.x), y: 0, z: Math.sign(m.z) }, 10); sparks(t.body.position, 10); car.cable.zn = zn; } /* the barb punches in */ // sometimes the hook tears a panel off instead of dragging the car
       sfx.at(car.body.position).zing(wv(car)); sfx.at(t.body.position).clank(wv(car) * 0.8); if (car.isPlayer && !t.bull) toast(`HARPOONED ${String(t.name).toUpperCase()}!`); else if (t.isPlayer) toast(`${car.name} HARPOONED YOU!`, 'bad'); if (t.bull) car.cable && (car.cable.bull = t.bull);
     },
-    tick(car, dt) { const c = car.cable; if (!c) return; c.age += dt; if (c.rip && c.age >= c.rip) harpoonRip(car, c); c.con.distance = Math.max(2, c.con.distance - dt * 14); car.ratT = (car.ratT || 0) - dt; if (car.ratT <= 0 && c.con.distance > 2) { car.ratT = 0.09; sfx.at(car.body.position).ratchet(wv(car)); } const p = c.line.geometry.attributes.position; p.setXYZ(0, car.body.position.x, car.body.position.y + 0.8, car.body.position.z); p.setXYZ(1, c.t.body.position.x, c.t.body.position.y + 0.8, c.t.body.position.z); p.needsUpdate = true; c.line.geometry.computeBoundingSphere(); },
+    tick(car, dt) { const c = car.cable; if (!c) return; c.age += dt; if (c.rip && c.age >= c.rip) harpoonRip(car, c);
+      if (c.t && c.t.parts && !c.t.wrecked) { c.t.applyDamage(5 * dt * S.damage * c.t.T.armor, car, c.zn || 'front', null, 0); if (!c.rip2 && c.age > 1.2 && Math.random() < 0.4) { c.rip2 = true; harpoonRip(car, c); } } /* the barb grinds as it reels in, and may tear off a second panel */ c.con.distance = Math.max(2, c.con.distance - dt * 14); car.ratT = (car.ratT || 0) - dt; if (car.ratT <= 0 && c.con.distance > 2) { car.ratT = 0.09; sfx.at(car.body.position).ratchet(wv(car)); } const p = c.line.geometry.attributes.position; p.setXYZ(0, car.body.position.x, car.body.position.y + 0.8, car.body.position.z); p.setXYZ(1, c.t.body.position.x, c.t.body.position.y + 0.8, c.t.body.position.z); p.needsUpdate = true; c.line.geometry.computeBoundingSphere(); },
     end(car) { const c = car.cable; if (!c) return; world.removeConstraint(c.con); scene.remove(c.line); car.cable = null; },
   },
   oil: { label: 'OIL SLICK', cd: 7, dur: 1.2,
@@ -6315,7 +6317,9 @@ const barks = {
       const ok = () => { this.speechOK = true; }; u.onstart = ok; u.onboundary = ok; u.onend = ok; // (some voices speak without ever firing 'start')
       try { speechSynthesis.resume(); } catch (e) {} // Chrome on a Mac can be stuck 'paused'
       this.keep = (this.keep || []).concat(u).slice(-6); // (Chrome can drop an utterance nobody holds)
-      if (speechSynthesis.speaking || speechSynthesis.pending) { this.safeCancel(); setTimeout(() => this.say0(u), 300); } else this.say0(u); // Chrome drops (or wedges on) a line spoken in the same instant as a cancel
+      const stale = !this.lastSpeakT && (speechSynthesis.speaking || speechSynthesis.pending); // 'speaking' before we ever said a word: the engine was left wedged by an earlier page (Chrome shares it across tabs and reloads)
+      if (stale) { try { speechSynthesis.cancel(); } catch (e) {} NETLOG.incident('me', 'voices: speech engine was stuck before the game spoke - reset it'); this.lastSpeakT = performance.now(); setTimeout(() => this.say0(u), 450); }
+      else if (speechSynthesis.speaking || speechSynthesis.pending) { this.safeCancel(); setTimeout(() => this.say0(u), 300); } else this.say0(u); // Chrome drops (or wedges on) a line spoken in the same instant as a cancel
       setTimeout(() => { if (this.speechOK !== true) this.speechOK = false; }, 3000);
     } catch (e) { this.speechOK = false; }
   },
@@ -7680,8 +7684,10 @@ const MP = {
     const snap = { t: Math.round(performance.now()) / 1000, st: game.state === 'playing' ? 1 : game.state === 'over' ? 2 : 0, cd: Math.round(game.countdown * 100) / 100, rk: this.rk, rv: this.rv, c: cs,
       b: BULLS.map((bl) => [r(bl.body.position.x), r(bl.body.position.y), r(bl.body.position.z), r(bl.yaw), ['graze', 'walk', 'paw', 'charge', 'proud', 'down', 'burger'].indexOf(bl.state)]),
       k: [r(CRANE.ang), r(CRANE.r), r(CRANE.h), CRANE.held ? cars.indexOf(CRANE.held) : -1], cr: [r(CRUSHER.y), ['idle', 'warn', 'slam', 'hold'].indexOf(CRUSHER.state)], bp: [r(BALL.ph), BOLLARDS.up ? 1 : 0], e: this.ev, p: this.propState(r), pf: props.filter((pr) => pr.fireT > 0).slice(0, 30).map((pr) => pr.id) };
-    let json = JSON.stringify(snap); while (json.length > 3600 && (snap.e.length || snap.p.length > 4)) { if (snap.p.length > 4) snap.p = snap.p.slice(0, snap.p.length - 3); else snap.e = snap.e.slice(1); json = JSON.stringify(snap); } // keep each packet small: drop extra props first, then old events
-    NETLOG.w && NETLOG.w.sent++; this.room.presence({ s: snap }, true).catch(() => {}); // out now: never wait behind this frame's drawing
+    this.snapN = (this.snapN || 0) + 1; if (this.snapN % 2) { delete snap.p; delete snap.pf; } // props drift slowly: their states ride on every other packet (10 a second), cars on every one
+    let json = JSON.stringify(snap); while (json.length > 3600 && (snap.e.length || (snap.p && snap.p.length > 4))) { if (snap.p && snap.p.length > 4) snap.p = snap.p.slice(0, snap.p.length - 3); else snap.e = snap.e.slice(1); json = JSON.stringify(snap); } // keep each packet small: drop extra props first, then old events
+    NETLOG.w && NETLOG.w.sent++; { const st = this.txStats || (this.txStats = { n: 0, bytes: 0, t0: performance.now(), last: null }); st.n++; st.bytes += json.length; if (performance.now() - st.t0 > 5000) { st.last = { perSec: +(st.n / ((performance.now() - st.t0) / 1000)).toFixed(1), avgBytes: Math.round(st.bytes / Math.max(1, st.n)), kbitPerGuest: Math.round(st.bytes * 8 / 1000 / ((performance.now() - st.t0) / 1000)) }; st.n = 0; st.bytes = 0; st.t0 = performance.now(); } }
+    this.room.presence({ s: snap }, true).catch(() => {}); // out now: never wait behind this frame's drawing
   },
   // ---------- guest ----------
   hostPeer: null, epoch: 1,
@@ -7956,7 +7962,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '48'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '49'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
@@ -8448,6 +8454,12 @@ function bugReport() {
   L.push('', 'Game events (last 40): ' + (PERFREP.tags || []).map((t) => t.what).join(' · '));
   L.push('', `Physics safety log (${PHYS.log.length}, last 40):`, ...PHYS.log.slice(-40).map((e) => '  ' + JSON.stringify(e)));
   L.push('', `Script errors (${ERRS.length}):`, ...ERRS.map((e) => '  ' + e));
+  try { // multiplayer: who is connected, how fresh their data is, what the host is sending
+    L.push('', `Multiplayer: role ${MP.role}${MP.code ? ' · room ' + MP.code : ''} · transport ${MP.transport || '-'} · host epoch ${MP.epoch ?? '-'} · build ${BUILD}`);
+    if (MP.room) for (const p of MP.room.peers()) { if (p.sameTab) continue; const pr = p.presence || {}; L.push(`  peer ${String(p.peer).slice(0, 8)} ${pr.nick || '?'}${pr.host ? ' (HOST epoch ' + pr.host + ')' : ''} · last update ${p.updatedAt ? Math.round((Date.now() - p.updatedAt) / 100) / 10 + ' s ago' : '?'} · build ${pr.b || '?'} · net ${pr.nh ? JSON.stringify(pr.nh).slice(0, 90) : '-'}`); }
+    if (MP.txStats && MP.txStats.last) L.push(`  host sending: ${MP.txStats.last.perSec} snapshots/s · ${MP.txStats.last.avgBytes} bytes each · ~${MP.txStats.last.kbitPerGuest} kbit/s to each guest`);
+    if (MP.role === 'guest') L.push(`  receiving: ${MP.snaps ? MP.snaps.length : 0} buffered snapshots · roster ${MP.rk || '-'} · ${cars.filter((c) => c.ghost).length} remote cars`);
+  } catch (e) { L.push('Multiplayer: (could not read: ' + e.message + ')'); }
   L.push('', 'Settings: ' + JSON.stringify(S));
   L.push('', '──────── network / performance / voice log ────────', NETLOG.exportText());
   return L.join('\n');
