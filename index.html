@@ -184,6 +184,20 @@
   .controls dt { font-weight: 700; color: var(--accent); }
   .controls dd { margin: 0; color: var(--fg); }
   .actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  #menu .card .actions { position: sticky; bottom: -24px; margin: 0 -24px -24px; padding: 12px 24px 16px; background: linear-gradient(0deg, var(--panel) 75%, rgba(0,0,0,0)); z-index: 2; } /* Start derby is always on screen, however long the menu */
+  @media (min-width: 900px) and (max-height: 1100px) { /* laptop screens: fit the menu without scrolling, keep the car visible beside it */
+    #menu .card { gap: 10px; padding: 18px 22px 22px; }
+    #menu .card h1 { font-size: 46px; margin: 0; line-height: 1.05; }
+    #menu .card > p:not(.eyebrow):not(#blurb) { font-size: 13px; line-height: 1.4; margin: 0; }
+    #menu .mp { padding: 6px 10px; gap: 4px; }
+    #menu .mp .mprow input, #menu .mp .mprow button { padding: 5px 9px; }
+    .garage { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+    .garage button { gap: 2px; padding: 6px 8px; }
+    .garage .nm { font-size: 13.5px; }
+    .garage .kg { font-size: 10px; }
+    .garage .stat { font-size: 9px; }
+    #blurb { margin: 0; font-size: 13px; }
+  }
   .primary { background: var(--accent); color: var(--ink); border: 0; font: 400 20px var(--display); padding: 14px 26px; border-radius: 4px; }
   .primary:hover { filter: brightness(1.08); }
   .quiet { color: var(--muted); font-size: 13px; }
@@ -624,9 +638,9 @@ const CAR_TYPES = {
   mixer: { heavy: true, handling: { steer: 0.7, rate: 0.6, spring: 1.2, damp: 1.3, rear: 1.15, drag: 3.2, roll: 0.7 }, name: 'Mixer', blurb: 'Concrete mixer: 9.5 tonnes. F or FIRE pours wet concrete that bogs down anyone who drives into it.', style: 'mixer', pour: true, mass: 9500, L: 8.2, W: 2.5, H: 0.8, wheelR: 0.55, wheelW: 0.44, wb: 5.0, axles: [2.9, -1.4, -2.8], track: 2.05, power: 1.45, grip: 0.95, armor: 0.5, cabin: { l: 1.8, h: 1.3, w: 2.3, x: 2.85 }, color: 0xd8a020, redline: 2800, idle: 600, cyl: 3 },
   firetruck: { heavy: true, special: 'water', handling: { steer: 0.8, rate: 0.75, spring: 1.1, damp: 1.2, rear: 1.15, drag: 1.3, roll: 0.75 }, name: 'Fire Truck', blurb: 'Long ladder, flashing lights, and automatic rear steering for tight turns. G toggles the siren.', style: 'fire', siren: true, rearSteer: true, mass: 8000, L: 9.6, W: 2.5, H: 0.95, wheelR: 0.52, wheelW: 0.42, wb: 6.0, track: 2.05, power: 1.8, grip: 0.95, armor: 0.6, cabin: { l: 2.4, h: 1.15, w: 2.3, x: 3.0 }, color: 0xb81e14, redline: 3200, idle: 650, cyl: 3 },
   hellbender: { special: 'minigun', handling: { steer: 0.95, rate: 1.0, spring: 0.8, damp: 0.85, rear: 1.05, drag: 1.1, roll: 1.1 }, frontDrive: 0.4, name: 'Hellbender', blurb: 'Super truck: 700 hp, giant tires, long-travel suspension. Hold V (or nitro from low speed) to wheelie.', style: 'pickup', superTruck: true, wheelie: true, mass: 2900, L: 5.9, W: 2.2, H: 0.85, wheelR: 0.56, wheelW: 0.42, wb: 3.7, track: 1.95, power: 1.65, grip: 1.1, armor: 0.8, extraTravel: 0.15, cabin: { l: 1.7, h: 0.66, w: 1.95, x: 0.3 }, color: 0x4a4e52, redline: 6200, idle: 750, cyl: 4 },
-  cruiser: { special: 'spikes', handling: { steer: 1.05, rate: 1.1, spring: 1.1, damp: 1.1, rear: 1.0, drag: 0.95, roll: 0.9 }, frontDrive: 0.15, name: 'Cruiser', blurb: 'Police cruiser with a light bar and siren. G toggles the siren.', style: 'sedan', police: true, mass: 1650, L: 4.9, W: 1.9, H: 0.62, wheelR: 0.38, wheelW: 0.32, wb: 2.9, track: 1.62, power: 1.05, grip: 1.0, armor: 0.9, cabin: { l: 2.3, h: 0.58, w: 1.62, x: -0.15 }, color: 0x16191e, redline: 6200, idle: 750, cyl: 4 },
+  cruiser: { special: 'spikes', handling: { steer: 1.05, rate: 1.1, spring: 1.1, damp: 1.1, rear: 1.0, drag: 0.95, roll: 0.9 }, frontDrive: 0.15, name: 'Cruiser', blurb: 'Police cruiser: F fires the pump shotgun out the window, the stop-stick drops itself behind you when someone tails you (or Z). G toggles the siren.', style: 'sedan', police: true, mass: 1650, L: 4.9, W: 1.9, H: 0.62, wheelR: 0.38, wheelW: 0.32, wb: 2.9, track: 1.62, power: 1.05, grip: 1.0, armor: 0.9, cabin: { l: 2.3, h: 0.58, w: 1.62, x: -0.15 }, color: 0x16191e, redline: 6200, idle: 750, cyl: 4 },
   tiger: { noPlant: true, handling: { steer: 0.65, rate: 0.85, spring: 2.2, damp: 2.0, rear: 1.0, drag: 45, roll: 0.02 }, frontDrive: 0.5, name: 'Tiger', blurb: 'Battle tank with an autocannon: each trigger pull fires a 3-round burst. F, click or FIRE to shoot.', style: 'tank', mass: 11000, L: 6.4, W: 3.4, H: 1.0, hullW: 0.62, wheelR: 0.5, wheelW: 0.5, wb: 4.4, axles: [2.2, 0.75, -0.75, -2.2], track: 2.7, power: 1.3, grip: 1.6, armor: 0.3, traction: 11, cabin: { l: 3.0, h: 0.85, w: 2.6, x: -0.3 }, color: 0x8f7d52, redline: 3000, idle: 600, cyl: 6, skid: true, gun: true, noWheelLoss: true },
-  dozer: { noPlant: true, antiWheelie: true, handling: { steer: 0.7, rate: 0.8, spring: 2.2, damp: 2.0, rear: 1.0, drag: 45, roll: 0.02 }, frontDrive: 0.5, name: 'Bulldozer', blurb: 'Bulldozer Bob: 14 t crawler dozer. Shoves anything it touches; F heaves the blade and flips whatever is in front of it.', style: 'tank', dozer: true, special: 'blade', mass: 14000, L: 5.6, W: 3.2, H: 1.0, hullW: 0.66, wheelR: 0.5, wheelW: 0.5, wb: 3.8, axles: [1.9, 0.65, -0.65, -1.9], track: 2.5, power: 1.25, grip: 1.7, armor: 0.32, traction: 11, cabin: { l: 1.7, h: 1.35, w: 1.8, x: -1.0 }, color: 0xe8b010, redline: 2600, idle: 550, cyl: 6, skid: true, noWheelLoss: true },
+  dozer: { noPlant: true, antiWheelie: true, maxSpeed: 8.5, handling: { steer: 0.7, rate: 0.8, spring: 2.2, damp: 2.0, rear: 1.0, drag: 45, roll: 0.02 }, frontDrive: 0.5, name: 'Bulldozer', blurb: 'Bulldozer Bob: 14 t crawler dozer, slow and unstoppable. Blade down it shoves anything; F raises the blade (flipping what is in front) so you can climb over cars, F again slams it down and crushes them.', style: 'tank', dozer: true, special: 'blade', mass: 14000, L: 5.6, W: 3.2, H: 1.0, hullW: 0.66, wheelR: 0.5, wheelW: 0.5, wb: 3.8, axles: [1.9, 0.65, -0.65, -1.9], track: 2.5, power: 1.7, grip: 1.7, armor: 0.45, traction: 18, cabin: { l: 1.7, h: 1.35, w: 1.8, x: -1.0 }, color: 0xe8b010, redline: 2600, idle: 550, cyl: 6, skid: true, noWheelLoss: true },
   tanker: { heavy: true, pour: 'fuel', handling: { steer: 0.7, rate: 0.6, spring: 1.2, damp: 1.3, rear: 1.15, drag: 1.4, roll: 0.55 }, name: 'Tanker', blurb: 'Fuel truck, 7.5 t on six wheels. F spills gasoline; once the tank is ruptured the trail catches fire. Explodes spectacularly.', style: 'tanker', mass: 7500, L: 9.2, W: 2.5, H: 0.75, wheelR: 0.56, wheelW: 0.46, wb: 5.65, axles: [3.3, -1.6, -3.05], track: 2.1, frontDrive: 0, power: 2.3, grip: 0.95, armor: 0.55, cabin: { l: 2.0, h: 1.35, w: 2.3, x: 3.05 }, color: 0x8c3a22, blast: 22, redline: 3000, idle: 600, cyl: 3 },
 };
 
@@ -1992,14 +2006,56 @@ function fireBullet(car) {
   const ej = car.mgEject; ej.updateWorldMatrix(true, false); const ep = new THREE.Vector3().setFromMatrixPosition(ej.matrixWorld), side = new THREE.Vector3(0, 0, 1).transformDirection(ej.matrixWorld), bv = car.body.velocity;
   emit('debris', ep.x, ep.y, ep.z, bv.x + side.x * rand(2.5, 4.5) + rand(-0.5, 0.5), rand(2.5, 4.5), bv.z + side.z * rand(2.5, 4.5) + rand(-0.5, 0.5), rand(1.2, 2), 0.045, brassMat); // spent casing
   if (player) { const d = player.body.position.distanceTo(car.body.position); sfx.noiseHit('bandpass', rand(1300, 1700), 1.3, clamp(1 - d / 110, 0, 1) * 0.22, 0.04); }
+  roundHit(car, res, dir, 1);
+}
+function shotgunBlast(car) { // eight pellets in a cone out of the passenger window, then a pump
+  const b = car.body, side = 1, pos = b.pointToWorldFrame(new CANNON.Vec3(0.4 - car.comShift, HULL_Y0 + car.T.H + 0.35, side * (car.T.W / 2 + 0.25)));
+  let aim = car.fwd.clone(); const tg = frontTarget(car, 40, 0.7); if (tg) { aim = tg.body.position.vsub(pos); aim.y += 0.3; aim.normalize(); }
+  const ob = b, resp = ob.collisionResponse; ob.collisionResponse = false;
+  for (let i = 0; i < 8; i++) {
+    const dir = new THREE.Vector3(aim.x + rand(-0.07, 0.07), aim.y + rand(-0.03, 0.05), aim.z + rand(-0.07, 0.07)).normalize(), end = new CANNON.Vec3(pos.x + dir.x * 42, pos.y + dir.y * 42, pos.z + dir.z * 42);
+    const res = new CANNON.RaycastResult(); world.raycastClosest(pos, end, { skipBackfaces: true, checkCollisionResponse: true }, res);
+    emit('spark', pos.x, pos.y, pos.z, dir.x * 160, dir.y * 160, dir.z * 160, 0.06, 0.04);
+    const d = res.hasHit ? res.distance : 42; roundHit(car, res, dir, d < 12 ? 4 : d < 25 ? 2.5 : 1.2); // buckshot: brutal close up, a peppering far away
+  }
+  ob.collisionResponse = resp;
+  for (let i = 0; i < 3; i++) emit('flame', pos.x + aim.x * 0.4, pos.y, pos.z + aim.z * 0.4, aim.x * 6 + b.velocity.x, 0, aim.z * 6 + b.velocity.z, 0.12, 0.45);
+  emit('smoke', pos.x + aim.x, pos.y, pos.z + aim.z, aim.x * 2 + b.velocity.x, 0.5, aim.z * 2 + b.velocity.z, 0.8, 0.35);
+  const v = wv(car, 160); sfx.at(pos).shotgun(v); setTimeout(() => sfx.at(car.body.position).pump(v), 380);
+  if (car.isPlayer) { game.fovPunch = Math.max(game.fovPunch, 3); game.shake = Math.max(game.shake, 0.25); }
+  if (!car.isPlayer && Math.random() < 0.3) megaphone(car, 'shoot');
+}
+function addSpikeStrip(x, z, yaw, owner) { // a folding police stop-stick laid across the road behind the cruiser
+  const g = new THREE.Group(), L = 6, segs = 8; g.position.set(x, 0.02, z); g.rotation.y = -yaw + Math.PI / 2;
+  const base = DET && DET.hazard ? DET.hazard : M.cone;
+  for (let i = 0; i < segs; i++) { const seg = new THREE.Mesh(new THREE.BoxGeometry(L / segs - 0.04, 0.05, 0.3), base); seg.position.set(-L / 2 + (i + 0.5) * L / segs, 0.025, (i % 2 ? 0.04 : -0.04)); seg.rotation.y = i % 2 ? 0.06 : -0.06; seg.receiveShadow = true; g.add(seg); } // accordion links
+  const n = 3 * 30, im = new THREE.InstancedMesh(spikeGeo, M.chrome, n), mx = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(0.5, 0.5, 0.5);
+  for (let i = 0; i < n; i++) { const row = i % 3, k = (i / 3) | 0; mx.compose(new THREE.Vector3(-L / 2 + 0.1 + k * (L - 0.2) / 29, 0.11, (row - 1) * 0.09 + ((k % 2) ? 0.04 : -0.04)), q.setFromEuler(new THREE.Euler(0, 0, 0)), sc); im.setMatrixAt(i, mx); }
+  im.castShadow = true; g.add(im);
+  for (const e of [-1, 1]) { const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.34, 10).rotateX(Math.PI / 2), M.black); cap.position.set(e * (L / 2 + 0.06), 0.1, 0); g.add(cap); }
+  scene.add(g);
+  const dx = Math.cos(yaw + Math.PI / 2), dz = Math.sin(yaw + Math.PI / 2); // along the strip (across the road)
+  CONCRETE.list.push({ x, z, r: L / 2 + 0.5, t: 22, mesh: g, kind: 'spikes', burning: 0, hit: new Set(), owner, strip: { dx, dz, hl: L / 2, hw: 0.4 } });
+  while (CONCRETE.list.length > 40) scene.remove(CONCRETE.list.shift().mesh);
+  sfx.at({ x, y: 0, z }).clank(0.5); if (MP.role === 'host') MP.event && MP.event({ k: 'ss', p: [Math.round(x * 10) / 10, Math.round(z * 10) / 10, Math.round(yaw * 100) / 100] });
+}
+const MEGA = { // the deputy on the megaphone / police radio
+  shoot: ['Pull over! PULL OVER!', 'This is your final warning!', 'Hands where I can see them!', 'Stop resisting!'],
+  spikes: ['Deploying spike strip!', 'Stop stick out! Stop stick out!', 'Let\'s see you outrun this!'],
+  backup: ['Dispatch, I need backup! All units to the scrapyard!', 'Ten-thirty-three! Officer needs assistance!', 'Requesting air support! ...What do you mean we don\'t have any?'],
+  chase: ['Suspect is fleeing! In pursuit!', 'You have the right to remain wrecked!', 'Step out of the vehicle! ...Or what\'s left of it!'],
+};
+function megaphone(car, kind) { const P = car.persona || COP, pool = MEGA[kind]; if (!pool) return; const line = pool[Math.random() * pool.length | 0]; barks.show(P, new THREE.Color(0x4a7aff), '📢 ' + line); barks.speak(P, line, car.body.position); }
+function roundHit(car, res, dir, k) { // what a bullet or pellet does to whatever it hits
   if (!res.hasHit) return;
   const hp = res.hitPointWorld, o = res.body;
   if (o && o.car && o.car !== car) {
     const c = o.car, local = c.body.pointToLocalFrame(hp), model = new THREE.Vector3(local.x + c.comShift, local.y, local.z), nl = c.body.quaternion.conjugate().vmult(new CANNON.Vec3(-dir.x, -dir.y, -dir.z));
-    c.applyDamage(0.6 * S.damage * c.T.armor, car, zoneOf(nl.negate()), model, 0);
-    if (Math.random() < 0.08) c.dent(model, nl.negate(), 3);
+    c.applyDamage(0.6 * k * S.damage * c.T.armor, car, zoneOf(nl.negate()), model, 0);
+    if (Math.random() < 0.08 * k) c.dent(model, nl.negate(), 3 + k);
+    if (k > 1 && Math.random() < 0.25) c.breakLamp(Math.random() < 0.5 ? 0 : 1);
     if (Math.random() < 0.006) { const loose = c.parts.filter((pt) => !pt.detached && pt.mesh.visible); if (loose.length) c.detach(loose[Math.random() * loose.length | 0], car); }
-    c.body.applyImpulse(new CANNON.Vec3(dir.x * 40, 0, dir.z * 40), new CANNON.Vec3(hp.x, hp.y, hp.z));
+    c.body.applyImpulse(new CANNON.Vec3(dir.x * 40 * k, 0, dir.z * 40 * k), new CANNON.Vec3(hp.x, hp.y, hp.z));
     for (let k = 0; k < 3; k++) emit('spark', hp.x, hp.y, hp.z, -dir.x * rand(3, 8) + rand(-4, 4), rand(1, 5), -dir.z * rand(3, 8) + rand(-4, 4), rand(0.15, 0.35), 0.05);
     if (car.isPlayer && Math.random() < 0.12) sfx.clank(0.15);
   } else if (o && o.bull) { // shoot a bull and it knows exactly who did it
@@ -2081,8 +2137,15 @@ const WEAPONS = {
   oil: { label: 'OIL SLICK', cd: 7, dur: 1.2,
     start(car) {}, tick(car, dt) { car.oilT = (car.oilT || 0) - dt; if (car.oilT <= 0) { car.oilT = 0.3; const p = behindPoint(car, 1.5); addConcrete(p.x, p.z, rand(2.2, 3), 'oil'); sfx.at(p).glug(wv(car)); } },
   },
-  spikes: { label: 'SPIKES', cd: 8, dur: 0,
-    start(car) { const p = behindPoint(car, 2); addConcrete(p.x, p.z, 2.6, 'spikes'); CONCRETE.list[CONCRETE.list.length - 1].owner = car; sfx.clank(0.4); },
+  spikes: { label: 'SHOTGUN', cd: 1.1, dur: 0, // the deputy leans out with a pump shotgun; the stop-stick drops itself when someone tails you (or Z)
+    start(car) { shotgunBlast(car); },
+    update(car, dt) {
+      car.stripCd = Math.max(0, (car.stripCd || 0) - dt);
+      const want = car.isPlayer ? keys.has('KeyZ') : false;
+      const tail = cars.some((c) => c !== car && !c.wrecked && (() => { const q = car.body.pointToLocalFrame(c.body.position); return q.x < -car.T.L / 2 && q.x > -16 && Math.abs(q.z) < 3.5 && c.body.velocity.length() > 3; })());
+      if (!car.isPlayer && game.state === 'playing') { if (car.health < 45 && !car.saidBackup) { car.saidBackup = true; megaphone(car, 'backup'); } else if (car.mode === 'charge' && Math.random() < dt * 0.04) megaphone(car, 'chase'); }
+      if (!car.stripCd && game.state === 'playing' && game.countdown <= 0 && !car.wrecked && (want || tail)) { car.stripCd = 8; const p = behindPoint(car, 2.5); addSpikeStrip(p.x, p.z, Math.atan2(car.fwd.z, car.fwd.x), car); if (car.isPlayer) toast('🚨 STOP STICK OUT!', 'cool'); else if (Math.random() < 0.5) megaphone(car, 'spikes'); }
+    },
   },
   flame: { label: 'FLAMER', cd: 5, dur: 2,
     start(car) { sfx.at(car.body.position).noiseHit('bandpass', 600, 0.6, 0.4 * wv(car), 0.6); },
@@ -2243,8 +2306,10 @@ const WEAPONS = {
       if (car.beacon) car.beacon.emissiveIntensity = (clock * 3) % 1 < 0.5 ? 2.5 : 0.2;
     },
   },
-  blade: { label: 'BLADE', cd: 2.6, dur: 0.6, // heave the blade: whatever is in front gets scooped up and flipped
+  blade: { label: 'BLADE', cd: 0.8, dur: 0, // F raises the blade (scooping up and flipping whatever is in front); F again slams it down on whatever is under it
     start(car) {
+      if (car.bladeRaised) { car.bladeRaised = false; bladeSlam(car); return; }
+      car.bladeRaised = true; car.bladeRaisedT = simTime; if (car.vanShape) {} if (car.bladeShape) car.bladeShape.collisionResponse = false; // (up out of the way: now it climbs over cars instead of pushing them)
       const b = car.body, f = car.fwd, right = new CANNON.Vec3(-f.z, 0, f.x), front = car.T.L / 2 + 0.35, hw = car.T.W * 0.62 + 0.4; let hits = 0, names = [];
       const inFront = (p, r) => { const l = b.pointToLocalFrame(p), x = l.x + car.comShift - front; return x > -0.9 - r && x < 2.6 + r && Math.abs(l.z) < hw + r && l.y < 2.5; };
       for (const c of cars) {
@@ -2261,7 +2326,9 @@ const WEAPONS = {
       sfx.at(p).hydraulic(wv(car)); if (hits) { sfx.at(p).crash(wv(car) * 0.8, 10); sparks(p, 14); for (let i = 0; i < 14; i++) emit('dust', p.x + rand(-1.5, 1.5), 0.4, p.z + rand(-1.5, 1.5), f.x * rand(1, 4), rand(1, 3), f.z * rand(1, 4), rand(1, 1.8), rand(0.5, 0.9)); }
       if (car.isPlayer && game.state === 'playing') toast(hits ? (names.length ? `FLIPPED ${names[0].toUpperCase()}!` : 'SCOOPED!') : 'NOTHING ON THE BLADE', hits ? 'cool' : 'bad');
     },
-    update(car, dt) { car.bladeT = Math.max(0, (car.bladeT || 0) - dt); const want = car.bladeT > 0 ? 1 : 0; car.forkH = lerp(car.forkH || 0, want, clamp(dt * (want ? 14 : 4), 0, 1)); },
+    update(car, dt) { const want = car.bladeRaised ? 1 : 0; car.forkH = lerp(car.forkH || 0, want, clamp(dt * (want ? 10 : 18), 0, 1));
+      if (!car.bladeRaised && car.bladeShape) car.bladeShape.collisionResponse = true;
+      if (!car.isPlayer && car.bladeRaised && simTime - (car.bladeRaisedT || 0) > (cars.some((c) => c !== car && bladeUnder(car, c)) ? 0.6 : 3)) { car.bladeRaised = false; bladeSlam(car); } }, // the AI drops it on whoever is underneath
   },
   ram: { label: 'ROCKET RAM', cd: 7, dur: 1.2, // nitro lunge that hits twice as hard
     start(car) { const f = car.fwd; car.body.velocity.x += f.x * 12; car.body.velocity.z += f.z * 12; car.ramT = 1.2; sfx.at(car.body.position).rocketLaunch(wv(car)); if (car.isPlayer) { game.fovPunch = 10; sfx.noiseHit('lowpass', 500, 0.7, 0.6, 0.8); } },
@@ -2302,7 +2369,7 @@ function updateConcrete(dt) {
       for (const o of CONCRETE.list) if (o.kind === 'fuel' && !o.burning && o.t > 2 && (o.x - c.x) ** 2 + (o.z - c.z) ** 2 < (o.r + c.r + 0.8) ** 2 && Math.random() < dt * 3) o.burning = rand(8, 12);
       c.mesh.material.color.setHex(0x0a0806);
     }
-    if (c.t < 3) c.mesh.material.opacity = Math.max(0, c.t / 3);
+    if (c.t < 3) { if (c.strip) c.mesh.position.y = -0.2 * (1 - c.t / 3); else c.mesh.material.opacity = Math.max(0, c.t / 3); } // (a stop-stick is pulled back in rather than fading)
     if (c.t <= 0) { scene.remove(c.mesh); CONCRETE.list.splice(i, 1); }
   }
 }
@@ -2312,7 +2379,7 @@ function inConcrete(car) { // wet concrete only bogs down others, and only near 
   for (const c of CONCRETE.list) if (c.kind === 'concrete' && c.t > 2 && (p.x - c.x) ** 2 + (p.z - c.z) ** 2 < (c.r + 0.8) ** 2) return true;
   return false;
 }
-function puddleAt(x, z, kind, pad = 0) { for (const c of CONCRETE.list) if (c.kind === kind && c.t > 1 && (x - c.x) ** 2 + (z - c.z) ** 2 < (c.r + pad) ** 2) return c; return null; }
+function puddleAt(x, z, kind, pad = 0) { for (const c of CONCRETE.list) { if (c.kind !== kind || c.t <= 1) continue; if (c.strip) { const rx = x - c.x, rz = z - c.z, a = rx * c.strip.dx + rz * c.strip.dz, w = rx * -c.strip.dz + rz * c.strip.dx; if (Math.abs(a) < c.strip.hl + pad && Math.abs(w) < c.strip.hw + pad) return c; } else if ((x - c.x) ** 2 + (z - c.z) ** 2 < (c.r + pad) ** 2) return c; } return null; }
 function inFire(car) {
   const p = car.body.position;
   if (p.y > 2.5) return false;
@@ -2628,6 +2695,44 @@ function spawnJunk(at, dir, from) {
   const v = from ? from.velocity : { x: 0, z: 0 }, wq = from ? from.quaternion.vmult(dir) : dir, sp = rand(3, 8);
   addDebris(m, new CANNON.Box(new CANNON.Vec3(j[0] / 2, j[1] / 2, j[2] / 2)), new CANNON.Vec3(), undefined, clamp(j[0] * j[1] * j[2] * 60, 1, 12), new CANNON.Vec3(v.x * 0.6 + wq.x * sp + rand(-1.5, 1.5), rand(2, 6), v.z * 0.6 + wq.z * sp + rand(-1.5, 1.5)), new CANNON.Vec3(rand(-8, 8), rand(-8, 8), rand(-8, 8)));
 }
+function bladeUnder(car, c) { // is car c in the blade's footprint, low enough for the blade to come down on?
+  if (c.wrecked || c.T.skid) return false; const l = car.body.pointToLocalFrame(c.body.position), x = l.x + car.comShift - car.T.L / 2;
+  return x > -0.6 && x < 2.2 + Math.min(c.T.L, c.T.W) * 0.5 && Math.abs(l.z) < car.T.W * 0.6 + c.T.W * 0.3 && l.y < 1.6;
+}
+function bladeSlam(car) { // fourteen tonnes of steel blade dropped onto a car: roof flattened, axles broken
+  const p = car.body.pointToWorldFrame(new CANNON.Vec3(car.T.L / 2 + 0.8 - car.comShift, 0, 0)); let n = 0;
+  for (const c of cars) if (c !== car && bladeUnder(car, c)) { crushCar(c, car, 1.0, 'blade'); n++; }
+  sfx.at(p).hydraulic(wv(car)); sfx.at(p).crash(wv(car), n ? 16 : 8); for (let i = 0; i < 10; i++) emit('dust', p.x + rand(-1.5, 1.5), 0.3, p.z + rand(-1.5, 1.5), rand(-3, 3), rand(1, 2), rand(-3, 3), rand(1, 1.6), rand(0.5, 0.9)); game.shake = Math.max(game.shake, car.isPlayer ? 0.8 : 0.2);
+  if (car.isPlayer && game.state === 'playing') toast(n ? 'BLADE DOWN: CRUSHED!' : 'BLADE DOWN', n ? 'cool' : null);
+}
+function crushCar(c, by, k, how) { // something enormous on top of a car: roof caves in, wheels snap, heavy damage
+  if (c.wrecked) return; const first = !c.crushedBy || simTime - (c.crushT0 || -9) > 3; c.crushedBy = by; c.crushT0 = simTime;
+  c.crumple('top', Math.min(0.9, 0.35 * k + 0.2)); c.planeCrush && c.planeCrush(new THREE.Vector3(0, HULL_Y0 + c.T.H + 0.4, 0), { x: 0, y: 1, z: 0 }, 14 * k, true);
+  const l = c.body.pointToLocalFrame(by.body.position); // the wheels on the side the weight came from go first
+  for (let i = 0; i < c.nW; i++) { const [wx] = c.wheelBase[i]; if (Math.sign(wx) === Math.sign(l.x) || k >= 1) c.wheelDmg[i] = Math.max(c.wheelDmg[i], k >= 1 ? 100 : 70 + 30 * k); }
+  c.applyDamage(28 * k * S.damage, by, 'top', new THREE.Vector3(0, HULL_Y0 + c.T.H, 0), 14);
+  if (c.T.flimsy && c.vanBox && !c.boxBurst) c.burstBox(); // the RV folds like a cardboard box
+  c.body.velocity.y = Math.min(c.body.velocity.y, -2); sparks(c.body.position, 18);
+  if (first && game.state === 'playing') { if (c.isPlayer) toast(`${by.name} IS CRUSHING YOU!`, 'bad'); else if (by.isPlayer) toast(`CRUSHED ${c.name}!`, 'cool'); if (Math.random() < 0.7) barks.announce('crushed', { a: by.isPlayer ? 'Our hero' : by.name, v: c.isPlayer ? 'our hero' : c.name }, true); }
+}
+function updateCrawlerCrush(dt) { // a tank or dozer sitting on a car squashes it, a bit more every moment it stays there
+  let walled = null; // cars touching a wall or other fixed scenery this step
+  for (const t of cars) { if (!t.T.dozer || t.wrecked || t.bladeRaised || !(t.ctrl.throttle > 0.3)) continue;
+    if (!walled) { walled = new Set(); for (const ct of world.contacts) { const a = ct.bi, b2 = ct.bj; if (Math.abs(ct.ni.y) > 0.5) continue; if (a.car && b2.mass === 0) walled.add(a.car); else if (b2.car && a.mass === 0) walled.add(b2.car); } }
+    for (const c of cars) { if (c === t || c.wrecked || !walled.has(c)) continue; const l = t.body.pointToLocalFrame(c.body.position), x = l.x + t.comShift - t.T.L / 2;
+      if (x < -1.6 || x > 1.2 + Math.max(c.T.L, c.T.W) * 0.6 || Math.abs(l.z) > t.T.W * 0.6 + c.T.W * 0.4 + 1.3) { continue; } // (including the squeeze out past the blade's corners)
+      c.compactT = (c.compactT || 0) + dt; if (c.compactT < 0.25) continue; c.compactT = 0; c.compactN = (c.compactN || 0) + 1; // blade on one side, a wall on the other: compacted
+      const lz = c.body.pointToLocalFrame(t.body.position), zn = Math.abs(lz.x) > Math.abs(lz.z) ? (lz.x > 0 ? 'front' : 'rear') : (lz.z > 0 ? 'right' : 'left'), far = { front: 'rear', rear: 'front', left: 'right', right: 'left' }[zn];
+      c.crumple(zn, 0.45); c.crumple(far, 0.3); c.applyDamage(12 * S.damage, t, zn, null, 10); sparks(c.body.position, 10); if (player) sfx.at(c.body.position).crash(wv(t) * 0.7, 9);
+      if (game.state === 'playing' && !c.compactSaid) { c.compactSaid = true; if (c.isPlayer) toast(`${t.name} IS COMPACTING YOU!`, 'bad'); else if (t.isPlayer) toast(`COMPACTING ${c.name}!`, 'cool'); barks.announce('crushed', { a: t.isPlayer ? 'Our hero' : t.name, v: c.isPlayer ? 'our hero' : c.name }, true); }
+    } }
+  for (const t of cars) { if (!t.T.skid || t.wrecked || t.ghost) continue;
+    for (const c of cars) { if (c === t || c.T.skid || c.wrecked) continue;
+      const l = c.body.pointToLocalFrame(t.body.position); if (Math.abs(l.x) > c.T.L / 2 + 0.6 || Math.abs(l.z) > c.T.W / 2 + 0.6 || t.body.position.y - c.body.position.y < 0.55) continue;
+      c.onTopT = (c.onTopT || 0) + dt; if (c.onTopT > 0.25 && simTime - (c.crushT0 || -9) > 0.7) crushCar(c, t, 0.6);
+      if (Math.random() < dt * 8) sfx.at(c.body.position).scrape(wv(t) * 0.7);
+    } }
+}
 function harpoonRip(car, c) { // the barb rips the panel facing you clean off; the cable stays on the panel and you reel in a door
   c.rip = 0; const v = c.t; if (!v || !v.parts || v.wrecked) return;
   const l = v.body.pointToLocalFrame(car.body.position), side = Math.abs(l.x) > Math.abs(l.z) * 1.3 ? (l.x > 0 ? 'front' : 'rear') : (l.z > 0 ? 'right' : 'left');
@@ -2865,6 +2970,8 @@ const sfx = {
   hiss(vol) { if (!this.ctx || vol < 0.02) return; this.noiseHit('highpass', 2800, 0.5, vol * 0.22, 0.32); this.noiseHit('bandpass', 700, 0.8, vol * 0.12, 0.3); }, // water jet
   roar(vol) { if (!this.ctx || vol < 0.02) return; this.noiseHit('lowpass', 520, 0.6, vol * 0.45, 0.34); this.noiseHit('bandpass', 240, 1.2, vol * 0.25, 0.3); if (Math.random() < 0.5) this.noiseHit('highpass', 3000, 0.6, vol * 0.06, 0.05); }, // flamethrower
   zing(vol) { if (!this.ctx || vol < 0.02) return; this.tone('sawtooth', 1500, 260, vol * 0.18, 0.28); this.noiseHit('highpass', 2200, 1.5, vol * 0.3, 0.12); }, // harpoon away
+  shotgun(vol) { if (!this.ctx || vol < 0.02) return; this.noiseHit('lowpass', 900, 0.7, vol * 0.75, 0.35, true); this.noiseHit('highpass', 2400, 0.8, vol * 0.4, 0.06); this.tone('sine', 110, 40, vol * 0.5, 0.25); }, // BOOM
+  pump(vol) { if (!this.ctx || vol < 0.02) return; this.noiseHit('bandpass', 1800, 6, vol * 0.25, 0.04); this.noiseHit('bandpass', 1300, 6, vol * 0.25, 0.05, false, 0.13); }, // chk-chk
   thump(vol, mass = 1500) { if (!this.ctx || vol < 0.02) return; const lo = mass > 5000 ? 0.6 : 1; this.tone('sine', 95 * lo, 38 * lo, vol * 0.55, 0.22); this.noiseHit('lowpass', 260 * lo, 1.2, vol * 0.4, 0.14); this.noiseHit('bandpass', 1400, 3, vol * 0.08, 0.05); }, // speed bump: suspension bottoming out
   ratchet(vol) { if (!this.ctx || vol < 0.02) return; this.noiseHit('bandpass', 2600, 6, vol * 0.18, 0.025); }, // reel winding in
   glug(vol) { if (!this.ctx || vol < 0.02) return; this.tone('sine', rand(140, 200), 60, vol * 0.3, 0.16); this.noiseHit('lowpass', 400, 2, vol * 0.12, 0.12); }, // fuel, oil, concrete pouring
@@ -3137,7 +3244,7 @@ class Car {
     if (T.style === 'mixer') b.addShape(new CANNON.Box(new CANNON.Vec3(2.1, 1.15, 1.15)), new CANNON.Vec3(-1.1, HULL_Y0 + T.H + 1.2, 0));
     if (T.style === 'fire') b.addShape(new CANNON.Box(new CANNON.Vec3(2.6, 0.5, 1.2)), new CANNON.Vec3(-1.8, HULL_Y0 + T.H + 0.5, 0));
     if (T.style === 'tank') for (const sd of [-1, 1]) b.addShape(chamferBox(T.L * 0.48, 0.42, 0.3, 0.12, 0.02, 0.5), new CANNON.Vec3(0, -0.36, sd * T.track / 2)); // tracks
-    if (T.dozer) b.addShape(new CANNON.Box(new CANNON.Vec3(0.2, 0.68, T.W * 0.56)), new CANNON.Vec3(T.L / 2 + 0.55, HULL_Y0 + 0.83, 0)); // the blade is solid steel: it pushes, it doesn't sink into what it hits
+    if (T.dozer) b.addShape(this.bladeShape = new CANNON.Box(new CANNON.Vec3(0.2, 0.68, T.W * 0.56)), new CANNON.Vec3(T.L / 2 + 0.55, HULL_Y0 + 0.83, 0)); // the blade is solid steel: it pushes, it doesn't sink into what it hits
     this.baseOffsets = b.shapeOffsets.map((o) => o.clone());
     b.position.set(x, 1.6, z);
     b.quaternion.setFromAxisAngle(AX_Y, yaw);
@@ -3229,6 +3336,13 @@ class Car {
       this.deform.push({ mesh: box, orig: boxGeo.attributes.position.array.slice() });
       const bunkGeo = new THREE.BoxGeometry(1.3, 0.6, W * 0.95, 4, 2, 4);
       const bunk = add(bunkGeo, this.paint, 2.55, top + 0.94, 0);
+      { // a tacky little-tree air freshener hanging in the windscreen, swinging with every bump and turn
+        const piv = new THREE.Group(); piv.position.set(C.x + C.l / 2 - 0.2, top + C.h - 0.04, 0.12); root.add(piv);
+        add(new THREE.CylinderGeometry(0.004, 0.004, 0.14, 4), M.black, 0, -0.07, 0, piv);
+        const sh = new THREE.Shape(); sh.moveTo(0, 0); for (const [x, y] of [[0.045, -0.03], [0.02, -0.03], [0.06, -0.075], [0.025, -0.075], [0.07, -0.13], [0.012, -0.13], [0.012, -0.16], [-0.012, -0.16], [-0.012, -0.13], [-0.07, -0.13], [-0.025, -0.075], [-0.06, -0.075], [-0.02, -0.03], [-0.045, -0.03]]) sh.lineTo(x, y); sh.lineTo(0, 0);
+        const tree = new THREE.Mesh(new THREE.ShapeGeometry(sh), new THREE.MeshStandardMaterial({ color: 0x2fbf4a, roughness: 0.7, side: THREE.DoubleSide, emissive: 0x0a3010 })); tree.position.set(0, -0.14, 0); tree.rotation.y = Math.PI / 2; tree.scale.setScalar(0.75); piv.add(tree);
+        this.freshener = { piv, ax: 0, az: 0, vax: 0, vaz: 0, lv: new CANNON.Vec3() };
+      }
       this.deform.push({ mesh: bunk, orig: bunkGeo.attributes.position.array.slice() });
       const stripeA = new THREE.MeshStandardMaterial({ color: 0x8a4a22, map: grimeTex, roughness: 0.6 });
       const stripeB = new THREE.MeshStandardMaterial({ color: 0xc8782a, map: grimeTex, roughness: 0.6 });
@@ -4020,16 +4134,22 @@ class Car {
         if (fx < T.L / 2 - 1.5 || fx > T.L / 2 + c.T.W + 1 || Math.abs(l.z) > T.W / 2 + 0.5 || Math.abs(l.y) > 2.2 || l.y > 0.8) continue;
         const cv = c.body.velocity, along = cv.x * this.fwd.x + cv.z * this.fwd.z;
         c.blockT = along < 0.8 && Math.abs(speed) < 1.5 ? (c.blockT || 0) + dt : 0; // pinned against something: time to go over it instead
-        if (T.dozer ? (c.body.mass < b.mass * 0.85 && c !== this) : (!c.wrecked && c.blockT < 0.8 && c.body.mass < b.mass * 0.5)) { // (a dozer shoves trucks and wrecks alike with the blade and never climbs) // 11 tonnes on tracks: shove it along like a bulldozer blade
-          const want = Math.max(speed, 2.5) * 1.08 + 0.5, push = T.dozer ? 14 * Math.min(1, b.mass * 0.5 / c.body.mass) : 14;
+        if (T.dozer ? (!this.bladeRaised && c !== this) : (!c.wrecked && c.blockT < 0.8 && c.body.mass < b.mass * 0.5)) { // (a dozer shoves trucks and wrecks alike with the blade and never climbs) // 11 tonnes on tracks: shove it along like a bulldozer blade
+          const want = Math.max(speed, 2.5) * 1.08 + 0.5, push = T.dozer ? (c.T.skid ? 6 : 16) : 14; // a dozer moves anything; a tank only slowly
           if (along < want) { const dv = Math.min(want - along, push * dt); cv.x += this.fwd.x * dv; cv.z += this.fwd.z * dv; c.body.wakeUp(); }
           c.dozed = 9; // its tyres skid sideways under the blade
+          c.pinT = along < 1 ? (c.pinT || 0) + dt : 0;
+          if (T.dozer && thr > 0.3 && c.pinT > 0.35) { c.compactT = (c.compactT || 0) + dt; if (c.compactT > 0.3) { c.compactT = 0; c.compactN = (c.compactN || 0) + 1; // pinned against something and still being pushed: the dozer compacts it
+            const lz = c.body.pointToLocalFrame(b.position), zn = Math.abs(lz.x) > Math.abs(lz.z) ? (lz.x > 0 ? 'front' : 'rear') : (lz.z > 0 ? 'right' : 'left');
+            c.crumple(zn, 0.45); c.dent(new THREE.Vector3(zn === 'front' ? c.T.L / 2 : zn === 'rear' ? -c.T.L / 2 : 0, 0.2, zn === 'right' ? c.T.W / 2 : zn === 'left' ? -c.T.W / 2 : 0), { x: zn === 'front' ? 1 : zn === 'rear' ? -1 : 0, y: 0, z: zn === 'right' ? 1 : zn === 'left' ? -1 : 0 }, 14);
+            c.applyDamage(12 * S.damage, this, zn, null, 10); sparks(c.body.position, 10); if (player) sfx.at(c.body.position).crash(wv(this) * 0.7, 9);
+            if (game.state === 'playing' && !c.compactSaid) { c.compactSaid = true; if (c.isPlayer) toast(`${this.name} IS COMPACTING YOU!`, 'bad'); else if (this.isPlayer) toast(`COMPACTING ${c.name}!`, 'cool'); barks.announce('crushed', { a: this.isPlayer ? 'Our hero' : this.name, v: c.isPlayer ? 'our hero' : c.name }); } } } else if (c.compactT) c.compactT = Math.max(0, c.compactT - dt);
           if (speed < 4) { this.tmpF.set(this.fwd.x * b.mass * 3, 0, this.fwd.z * b.mass * 3); b.applyForce(this.tmpF); } // tracks dig in to get it moving
           const side = l.z > 0 ? 1 : -1, rx = -this.fwd.z, rz = this.fwd.x; // and slews it off the blade to the side it's on
-          cv.x += rx * side * 1.5 * dt; cv.z += rz * side * 1.5 * dt;
+          if (!T.dozer) { cv.x += rx * side * 1.5 * dt; cv.z += rz * side * 1.5 * dt; } else { const bv = b.velocity, lat = (cv.x - bv.x) * rx + (cv.z - bv.z) * rz; cv.x -= rx * lat; cv.z -= rz * lat; } // a dozer blade holds what it pushes (its grousers bite): no sliding off sideways
           continue;
         }
-        if (T.dozer) continue; // a dozer against another crawler: blade to blade, no climbing
+        if (T.dozer && !this.bladeRaised) continue; // blade down: it pushes, it doesn't climb
         const nose = b.pointToWorldFrame(new CANNON.Vec3(T.L / 2 - this.comShift, 0, 0)).vsub(b.position);
         this.tmpF.set(this.up.x * b.mass * 15, this.up.y * b.mass * 15, this.up.z * b.mass * 15); b.applyForce(this.tmpF, nose); // lift the nose
         this.tmpF.set(this.fwd.x * b.mass * 7, 0, this.fwd.z * b.mass * 7); b.applyForce(this.tmpF);                             // tracks bite: keep driving through
@@ -4037,6 +4157,7 @@ class Car {
         c.body.velocity.x = lerp(c.body.velocity.x, 0, 0.08); c.body.velocity.z = lerp(c.body.velocity.z, 0, 0.08);
       }
     }
+    if (T.maxSpeed && Math.abs(speed) > T.maxSpeed) { const k = (Math.abs(speed) - T.maxSpeed) * Math.sign(speed) * Math.min(1, dt * 6); b.velocity.x -= this.fwd.x * k; b.velocity.z -= this.fwd.z * k; } // a governed diesel: slow but unstoppable
     if (this.dozed > 0) { this.dozed--; for (const w of v.wheelInfos) w.frictionSlip *= 0.3; }
     if (T.antiWheelie && !this.wrecked && thr !== 0) { // short wheelbase + big counterweight: keep all four on the ground under power
       const fOff = !v.wheelInfos[0].isInContact && !v.wheelInfos[1].isInContact, rOn = v.wheelInfos[2].isInContact || v.wheelInfos[3].isInContact;
@@ -4049,12 +4170,18 @@ class Car {
     if (T.skid && !this.wrecked) { // Tracks: the whole belt grips, so drive comes from the track, not from whichever road wheels are loaded
       let ground = contacts > 0;
       if (!ground) for (const c of world.contacts) { if (c.bi === b && c.ni.y < -0.5) { ground = true; break; } if (c.bj === b && c.ni.y > 0.5) { ground = true; break; } }
+      if (ground && !this.carriedBy && !this.craned && simTime - (this.blastT ?? -9) > 0.5) { // 11-14 t on steel tracks: a car hitting it rocks it, it doesn't shove it across the yard
+        const rx = -this.fwd.z, rz = this.fwd.x, vl = b.velocity.x * rx + b.velocity.z * rz, kl = 1 - Math.exp(-dt * 14);
+        b.velocity.x -= rx * vl * kl; b.velocity.z -= rz * vl * kl; // sideways: the belts don't slide
+        if (thr === 0) { const vf = b.velocity.x * this.fwd.x + b.velocity.z * this.fwd.z, kf = 1 - Math.exp(-dt * 6); b.velocity.x -= this.fwd.x * vf * kf; b.velocity.z -= this.fwd.z * vf * kf; } // and with no drive the tracks are a brake
+      }
       const brk = this.trackBroken || [false, false], live = (brk[0] ? 0 : 1) + (brk[1] ? 0 : 1);
       if (ground && thr !== 0 && live > 0) {
         const taper = clamp(1 - Math.abs(speed) / Math.max(4, this.vTop * 0.9), 0.08, 1) * (Math.sign(speed) === Math.sign(thr) || Math.abs(speed) < 1 ? 1 : 0.4);
         const slopeUp = Math.max(0, this.fwd.y * Math.sign(thr)); // uphill: the belts dig in harder
         const F = thr * b.mass * 9 * taper * (contacts >= 6 ? clamp((Math.abs(speed) < 2.5 ? 0.6 : 0.2) + slopeUp * 5, 0.2, 1.3) : 1) * (live === 2 ? 1 : 0.55);
         if (live === 2) { this.tmpF.set(this.fwd.x * F, this.fwd.y * Math.abs(F) + slopeUp * b.mass * 9, this.fwd.z * F); b.applyForce(this.tmpF); }
+        if (live === 2 && slopeUp > 0.03) { const g = b.mass * 9.8 * slopeUp * (T.dozer ? 1.9 : 1.6) * Math.sign(thr); this.tmpF.set(this.fwd.x * g, this.fwd.y * Math.abs(g), this.fwd.z * g); b.applyForce(this.tmpF); } // the whole belt bites into a slope: crawlers walk up hills that stall wheels
         else { // only one belt is turning: it shoves its own side, the dead side drags, so the tank swings round in circles
           for (let i = 0; i < this.nW; i++) { const w = v.wheelInfos[i]; w.frictionSlip *= 0.1; v.applyEngineForce(w.engineForce * 0.4, i); } // the hull skids round on the dead belt
           const sdz = (brk[0] ? 1 : -1) * T.track / 2, at = b.pointToWorldFrame(new CANNON.Vec3(0, -0.4, sdz)).vsub(b.position);
@@ -4069,7 +4196,7 @@ class Car {
       this.tclimbT = (this.tclimbT || 0) - dt;
       if (this.tclimbT <= 0) {
         this.tclimbT = 0.1; const dir = Math.sign(thr), ex = dir * (T.L / 2) - this.comShift;
-        const ray = (y, len) => { const from = b.pointToWorldFrame(new CANNON.Vec3(ex, y, 0)), to = b.pointToWorldFrame(new CANNON.Vec3(ex + dir * len, y, 0)); const r = new CANNON.RaycastResult(); world.raycastClosest(from, to, { skipBackfaces: true, collisionFilterMask: ~LIGHT }, r); return r.hasHit && r.body && r.body !== b && !r.body.bull && !(T.dozer && r.body.car && !r.body.car.wrecked); }; // (a dozer pushes live machines, it doesn't climb them)
+        const ray = (y, len) => { const from = b.pointToWorldFrame(new CANNON.Vec3(ex, y, 0)), to = b.pointToWorldFrame(new CANNON.Vec3(ex + dir * len, y, 0)); const r = new CANNON.RaycastResult(); world.raycastClosest(from, to, { skipBackfaces: true, collisionFilterMask: ~LIGHT }, r); return r.hasHit && r.body && r.body !== b && !r.body.bull && !(T.dozer && !this.bladeRaised && r.body.car && !r.body.car.wrecked); }; // (a dozer pushes live machines, it doesn't climb them)
         this.tclimb = (ray(-0.55, 1.6) || ray(0.1, 1.4)) && !ray(1.6, 2.2) ? 0.35 : Math.max(0, (this.tclimb || 0) - 0.1);
       }
       if (this.tclimb > 0) {
@@ -4345,6 +4472,11 @@ class Car {
     }
     // Loose panels flap and rattle, faster the quicker you go
     const sp = Math.abs(this.speed);
+    if (this.freshener && dt > 0) { const f = this.freshener, b = this.body, acc = b.velocity.vsub(f.lv).scale(1 / Math.max(dt, 1e-3)); f.lv.copy(b.velocity);
+      const la = b.quaternion.conjugate().vmult(acc); // acceleration in the van's frame: brake -> swings forward, turn -> swings out
+      const kx = -clamp(la.x, -25, 25) * 0.02, kz = clamp(la.z, -25, 25) * 0.02;
+      f.vaz += ((kx - f.az) * 30 - f.vaz * 2.2) * dt; f.vax += ((kz - f.ax) * 30 - f.vax * 2.2) * dt; f.az += f.vaz * dt; f.ax += f.vax * dt;
+      f.az = clamp(f.az, -1.1, 1.1); f.ax = clamp(f.ax, -1.1, 1.1); f.piv.rotation.set(f.ax, 0, f.az); }
     if (this.bladePivot) { const u = this.forkH || 0; this.bladePivot.position.y = this.bladeY0 + u * 0.95; this.bladePivot.rotation.z = u * 0.45; } // blade heaves up and curls back
     if (this.hood && this.hood.open && !this.hood.part.detached) { const h = this.hood; h.hinge.rotation.z = h.rz + h.open + Math.sin(clock * (5 + sp * 0.6) + h.seed) * Math.min(0.22, 0.02 + sp * 0.008) - Math.min(0.35, sp * 0.012); } // flaps in the wind, pressed down a little at speed
     for (const pt of this.parts) if (pt.loose && !pt.detached && pt.baseRot && !pt.own) {
@@ -4660,7 +4792,7 @@ class Car {
     }
     const p = this.body.position.vadd(r);
     const m = this.body.mass, Mo = other.mass;
-    const dv = Mo === 0 ? vImp : vImp * Mo / (m + Mo); // the lighter body takes more of the velocity change
+    let dv = Mo === 0 ? vImp : vImp * Mo / (m + Mo); // the lighter body takes more of the velocity change
     const local = this.body.pointToLocalFrame(p);
     const nl = this.body.quaternion.conjugate().vmult(n);
     const model = new THREE.Vector3(local.x + this.comShift, local.y, local.z);
@@ -4669,6 +4801,7 @@ class Car {
 
     // Which face took the hit
     const zone = zoneOf(nl);
+    if (this.T.dozer && otherCar && zone !== 'front' && zone !== 'bottom') dv = Math.max(dv, vImp * 0.55); // 14 t barely moves, but a car punched into its flank still caves the panels in
     if (this.trackHp && otherCar && (zone === 'left' || zone === 'right') && vImp > 4 && local.y < 0.4) { // a car slamming into the running gear: momentum, not the tank's tiny dv, is what snaps links
       this.hurtTrack(zone === 'left' ? 0 : 1, (vImp - 4) * Math.pow(Mo / 1500, 0.7) * 3.5 * (otherCar.ramT > 0 ? 1.6 : 1), otherCar);
     }
@@ -4685,7 +4818,9 @@ class Car {
     if (this.pinN && simTime - this.pinT < 0.6 && n.dot(this.pinN) < -0.3 && dv > 5) squeeze = 2.3;
     if (other.mass === 0 || otherCar) { this.pinN = n.clone(); this.pinT = simTime; }
     const rocket = otherCar && otherCar.ramT > 0 ? 1.6 : 1; // hit by a rocket ram
-    const dmg = Math.pow(Math.max(0, dv - 3), 1.3) * 0.8 * S.damage * armor * ram * squeeze * rocket * this.T.armor;
+    const bladeK = this.T.dozer ? (zone === 'front' ? 0.1 : zone === 'left' || zone === 'right' ? 2.4 : zone === 'rear' ? 1.5 : 1) : 1; // the blade shrugs everything off; the dozer's flanks are its soft spot
+    const onBlade = otherCar && otherCar.T.dozer && !otherCar.bladeRaised && (() => { const l = otherCar.body.pointToLocalFrame(this.body.position); return l.x + otherCar.comShift > otherCar.T.L / 2 - 0.4 && Math.abs(l.z) < otherCar.T.W * 0.8; })();
+    const dmg = Math.pow(Math.max(0, dv - 3), 1.3) * 0.8 * S.damage * armor * ram * squeeze * rocket * this.T.armor * bladeK * (onBlade ? 2.5 : 1) + (onBlade && dv > 2 ? dv * 0.8 * S.damage : 0); // ...and driving into a steel blade hurts
     if (squeeze > 1 && game.state === 'playing') {
       if (this.isPlayer) toast('SANDWICHED!', 'bad'); else if (otherCar && otherCar.isPlayer) toast(`SANDWICH! ${this.name}`);
       barks.announce('sandwich', { v: this.isPlayer ? 'our hero' : this.name });
@@ -5246,7 +5381,7 @@ class Car {
     if (this.T.special && !this.specialCd && Math.random() < 0.12) { // AI weapon use: every driver knows their gadget
       const sp = this.T.special, l = b.pointToLocalFrame(t.body.position), ahead = l.x > 0 && Math.abs(l.z) < Math.max(2.5, l.x * 0.6);
       const behind = cars.some((c) => c !== this && !c.wrecked && (() => { const q = b.pointToLocalFrame(c.body.position); return q.x < -this.T.L / 2 && q.x > -32 && Math.abs(q.z) < 7 + -q.x * 0.15; })());
-      if ((sp === 'harpoon' && ((ahead && dist > 10 && dist < 40) || !!frontTarget(this, 40, 0.4))) || (sp === 'flame' && ahead && dist < 10) || (sp === 'blade' && ahead && dist < 7.5) || (sp === 'water' && ahead && dist < 22) || (sp === 'ram' && ahead && dist > 8 && dist < 28) || ((sp === 'oil' || sp === 'spikes' || sp === 'bomb') && behind && sp !== 'bomb') || (sp === 'bomb' && ahead && dist > 12 && dist < 50) || (sp === 'lift' && (this.carry ? this.carry.t > 2.4 && (!this.delivery || this.delivery.gaveUp) : forkReady(this))) || (sp === 'tow' && (this.tow ? this.tow.t > 3.5 && Math.abs(this.speed) > 6 && (!this.delivery || this.delivery.gaveUp) : towable(this))) || (sp === 'minigun' && this.mgTarget && dist < 55) || (sp === 'rockets' && !!frontTarget(this, 90, 0.45) && dist > 10)) ctrl.fire = true;
+      if ((sp === 'harpoon' && ((ahead && dist > 10 && dist < 40) || !!frontTarget(this, 40, 0.4))) || (sp === 'flame' && ahead && dist < 10) || (sp === 'blade' && ahead && dist < 7.5) || (sp === 'water' && ahead && dist < 22) || (sp === 'ram' && ahead && dist > 8 && dist < 28) || ((sp === 'oil' || sp === 'bomb') && behind && sp !== 'bomb') || (sp === 'spikes' && ahead && dist < 28) || (sp === 'bomb' && ahead && dist > 12 && dist < 50) || (sp === 'lift' && (this.carry ? this.carry.t > 2.4 && (!this.delivery || this.delivery.gaveUp) : forkReady(this))) || (sp === 'tow' && (this.tow ? this.tow.t > 3.5 && Math.abs(this.speed) > 6 && (!this.delivery || this.delivery.gaveUp) : towable(this))) || (sp === 'minigun' && this.mgTarget && dist < 55) || (sp === 'rockets' && !!frontTarget(this, 90, 0.45) && dist > 10)) ctrl.fire = true;
     }
     if (this.T.pour && !this.pourT && this.load > 0.4) { // mixer: pour when someone is right behind
       for (const c of cars) { if (c === this || c.wrecked) continue; const l = b.pointToLocalFrame(c.body.position); if (l.x < -this.T.L / 2 && l.x > -38 && Math.abs(l.z) < 9 && Math.random() < 0.08) { ctrl.fire = true; break; } }
@@ -5795,6 +5930,7 @@ for (const P of Object.values(CAR_CAST)) PERSONAS.push(P); // (pushed last: gues
 const CAST_SET = new Set(Object.values(CAR_CAST));
 const ANNOUNCER = { nick: 'Crash Cam Kev', lang: 'en-AU', pitch: 0.95, rate: 1.18, words: { voice: ['Lee', 'Gordon', 'Karen', 'Catherine', 'Google UK English Male', 'Daniel', 'Ralph'] } }; // an over-the-top Aussie play-by-play caller
 const ANN_LINES = {
+  crushed: ['{a} just PANCAKED {v}! Flat as a tack!', 'Oh, {v} has been squashed like a bug on a windscreen!', '{a} parks fourteen tonnes on {v}. Rude!', 'That\'s not a car anymore, that\'s a sandwich press special!'],
   followUp: ['And ANOTHER one, just for good measure!', 'Oh, he\'s gone back for seconds! Cheeky!', 'Hit him again! A little top-up for {v}!', 'Double tap! {v} did not need that, but {a} gave it anyway!', 'One for the road! Absolutely unnecessary, absolutely beautiful!'],
   aiHit: ['OHHH! {a} has absolutely cleaned up {v}!', 'Bang! {a} into {v} at {kmh} k\'s! Lovely!', '{v} never saw {a} coming. Classic!', 'And {a} sends {v} for a little spin! Round and round she goes!', 'Crunch! {a} and {v}, the worst first date in history!'],
   carFire: ['{v} is ON FIRE! Somebody get the hose!', '{a} just set {v} alight!', 'Is it hot in here, or is it just {v}?', 'Flame-grilled {v}, coming right up!'],
@@ -6480,6 +6616,7 @@ function openRespawnSheet(auto) {
   $('rsClose').hidden = !!auto;
   const box = $('rsCars'); box.innerHTML = '';
   for (const [k, T] of Object.entries(CAR_TYPES)) { const b = document.createElement('button'); b.type = 'button'; b.innerHTML = `<span class="sw" style="background:#${new THREE.Color(T.color).getHexString()}"></span>`; b.append(T.name); if (k === player.type) b.classList.add('primary'); b.addEventListener('click', () => askRespawn(k)); box.appendChild(b); }
+  setTimeout(() => { try { $('rsGo').focus({ preventScroll: true }); } catch (e) {} }, 30); // Enter (or Space) respawns straight away
 }
 function closeRespawnSheet() { RS.open = false; $('rsheet').hidden = true; }
 function askRespawn(type) {
@@ -6538,7 +6675,7 @@ function spawnCars() {
 function setControlsFor(type) {
   document.body.classList.toggle('has-gun', !!(CAR_TYPES[type].gun || CAR_TYPES[type].pour || CAR_TYPES[type].special));
   { const T0 = CAR_TYPES[type]; // the controls strip and the touch FIRE button follow your car
-    const act = T0.gun ? 'fire 3-round burst' : T0.pour ? (T0.pour === 'fuel' ? 'dump fuel' : 'pour concrete') : ({ blade: 'heave blade', lift: 'lift / toss', tow: 'hook / release (back up first)', minigun: 'minigun', rockets: 'rocket salvo', water: 'water cannon', harpoon: 'harpoon', flame: 'flamethrower', bomb: 'propane bomb', spikes: 'drop spikes', oil: 'oil slick', ram: 'rocket ram' })[T0.special];
+    const act = T0.gun ? 'fire 3-round burst' : T0.pour ? (T0.pour === 'fuel' ? 'dump fuel' : 'pour concrete') : ({ blade: 'raise / slam blade', lift: 'lift / toss', tow: 'hook / release (back up first)', minigun: 'minigun', rockets: 'rocket salvo', water: 'water cannon', harpoon: 'harpoon', flame: 'flamethrower', bomb: 'propane bomb', spikes: 'shotgun · Z stop stick', oil: 'oil slick', ram: 'rocket ram' })[T0.special];
     const kb = (k, t, cls) => `<span${cls ? ' class="sp"' : ''}><b>${k}</b> ${t}</span>`;
     const parts = [kb('W A S D', 'drive'), kb('Space', 'handbrake'), kb('Shift', 'nitro'), kb('J', 'jump')];
     if (act) parts.push(kb('F', act, true));
@@ -6546,7 +6683,7 @@ function setControlsFor(type) {
     if (T0.police || T0.siren) parts.push(kb('G', 'siren'));
     parts.push(kb('H', 'horn'), kb('C', 'camera'), kb('R', 'flip'), kb('N', 'new car'), kb('P', 'pause'));
     $('keys').innerHTML = parts.join(' · ');
-    const ICON = { blade: ['🚜', 'Blade'], harpoon: ['🎯', 'Harpoon'], oil: ['🛢️', 'Oil'], spikes: ['📌', 'Spikes'], flame: ['🔥', 'Flames'], bomb: ['💣', 'Propane'], water: ['💧', 'Water'], minigun: ['🔫', 'Minigun'], rockets: ['🚀', 'Rockets'], lift: ['⬆️', 'Lift'], tow: ['🪝', 'Hook'], ram: ['🚀', 'Ram'] };
+    const ICON = { blade: ['🚜', 'Blade'], harpoon: ['🎯', 'Harpoon'], oil: ['🛢️', 'Oil'], spikes: ['💥', 'Shotgun'], flame: ['🔥', 'Flames'], bomb: ['💣', 'Propane'], water: ['💧', 'Water'], minigun: ['🔫', 'Minigun'], rockets: ['🚀', 'Rockets'], lift: ['⬆️', 'Lift'], tow: ['🪝', 'Hook'], ram: ['🚀', 'Ram'] };
     const [ic, lb] = T0.gun ? ['💥', 'Cannon'] : T0.pour ? (T0.pour === 'fuel' ? ['⛽', 'Fuel'] : ['🧱', 'Concrete']) : ICON[T0.special] || ['💥', 'Fire'];
     $('fireIco').textContent = ic; $('fireLab').textContent = lb;
     document.body.classList.toggle('has-siren', !!(T0.police || T0.siren));
@@ -6808,7 +6945,7 @@ window.addEventListener('keydown', (e) => {
   keys.add(e.code);
   if (e.repeat) return;
   switch (e.code) {
-    case 'Enter': if (game.state !== 'playing') startMatch(); break;
+    case 'Enter': if (RS.open) { e.preventDefault && e.preventDefault(); if (document.activeElement !== $('rsGo')) $('rsGo').click(); } else if (game.state !== 'playing') startMatch(); break;
     case 'KeyJ': if (game.state === 'playing' && player) player.ctrl.jump = true; break;
     case 'KeyF': if (game.state === 'playing' && player) player.ctrl.fire = true; break;
     case 'KeyG': if (player && (player.T.police || player.T.siren)) { player.sirenOn = !player.sirenOn; toast(player.sirenOn ? 'SIREN ON' : 'SIREN OFF', 'cool'); } break;
@@ -7232,7 +7369,7 @@ function bullCollide(bull, e) {
     bullMoo(bull, 1); for (let i = 0; i < 10; i++) emit('dust', bull.body.position.x, 0.4, bull.body.position.z, rand(-3, 3), rand(1, 3), rand(-3, 3), rand(0.8, 1.4), rand(0.6, 1));
     if (c.isPlayer && game.state === 'playing') { toast('+20 BULL TOSS', 'cool'); game.score += 20; }
     if (Math.random() < 0.5) barks.announce('bullDown', { a: c.isPlayer ? 'Our hero' : c.name }, false);
-    bull.angry = c; // and it will remember who did that
+    bull.angry = c; bull.grudgeT = simTime + 25; // and it will remember who did that: for a good while, it comes after you
   }
 }
 // ---------- Flame-grilled: enough flamethrower on a bull and it becomes a giant cheeseburger (it comes back as a bull later) ----------
@@ -7316,9 +7453,11 @@ function updateBulls(dt) {
     } else {
       // pick a victim: the angriest grudge, else the nearest moving car in range
       if ((bl.state === 'graze' || bl.state === 'walk') && live && bl.t <= 0) {
-        let best = null, bd = 34;
-        for (const c of cars) { if (c.wrecked) continue; const d = c.body.position.distanceTo(p) - (Math.abs(c.speed) > 3 ? 6 : 0) - (c === bl.angry ? 15 : 0); if (d < bd) { bd = d; best = c; } }
-        if (best && Math.random() < 0.55) { bl.target = best; bl.state = 'paw'; bl.t = rand(0.9, 1.5); }
+        let best = null, bd = 34; const grudge = bl.angry && !bl.angry.wrecked && simTime < (bl.grudgeT || 0) && bl.angry.body.position.distanceTo(p) < 60;
+        for (const c of cars) { if (c.wrecked) continue; const col = c.baseColor || c.paint && c.paint.color, red = col ? clamp((col.r - Math.max(col.g, col.b)) * 2.2, 0, 1) : 0; // bulls see red
+          const d = c.body.position.distanceTo(p) - (Math.abs(c.speed) > 3 ? 6 : 0) - (c === bl.angry ? 15 : 0) - red * 18; if (d < bd) { bd = d; best = c; } }
+        if (grudge) best = bl.angry; // a grudge beats everything
+        if (best && (grudge || Math.random() < 0.55)) { bl.target = best; bl.state = 'paw'; bl.t = rand(0.9, 1.5); }
         else { bl.state = Math.random() < 0.5 ? 'walk' : 'graze'; bl.t = rand(2, 5); bl.want = bl.yaw + rand(-1.5, 1.5); }
       }
       if (bl.state === 'walk') { speed = 1.6; }
@@ -7663,6 +7802,7 @@ const MP = {
       if (e.k === 'pr') { const pr = PROPID.map.get(e.id); const i = pr ? props.indexOf(pr) : -1; if (i >= 0) { props.splice(i, 1); world.removeBody(pr.body); scene.remove(pr.mesh); bits(pr.body.position, BIT.splinter, 8, 4, 4); } }
       if (e.k === 'b') { const c = cars[e.i], P = e.i === -1 ? ANNOUNCER : c && c.persona; if (P) { barks.show(P, e.i === -1 ? new THREE.Color(0xf2a20c) : c.baseColor, e.x); barks.speak(P, e.x, c ? c.body.position : null); } }
       else if (e.k === 'h') { const p = new CANNON.Vec3(e.p[0], e.p[1], e.p[2]); sparks(p, Math.min(50, e.v * 2.5 | 0)); if (player) sfx.at(p).crash(Math.min(1, e.v / 18) * clamp(1 - player.body.position.distanceTo(p) / 110, 0, 1), e.v); }
+      else if (e.k === 'ss') { addSpikeStrip(e.p[0], e.p[1], e.p[2], null); }
       else if (e.k === 'x') { explodeShell(new CANNON.Vec3(e.p[0], e.p[1], e.p[2]), null, this.dummy, e.s || 1); }
     }
     // my stick and buttons go back to the host
@@ -7774,7 +7914,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '46'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '47'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
@@ -8230,7 +8370,8 @@ function cockpitEye(c) { // where the driver's eye goes: toward the nose and jus
     if (h) hood = Math.max(hood, h.point.y);
   }
   let x = ex, y = (isFinite(hood) ? hood : HULL_Y0 + c.T.H) + 0.38;
-  if (c.T.dozer) { const C = c.T.cabin; x = C.x + C.l * 0.45; y = HULL_Y0 + c.T.H + C.h + 0.1; } // the operator sits up high in the cab and looks down over the blade
+  if (c.T.dozer) { const C = c.T.cabin; x = C.x + C.l * 0.45; y = HULL_Y0 + c.T.H + C.h + 0.1; }
+  if (c.T.style === 'van') { const C = c.T.cabin; x = C.x - C.l * 0.1; y = HULL_Y0 + c.T.H + C.h * 0.62; } // the RV: from the driver's seat, under the bunk, looking out the windscreen // the operator sits up high in the cab and looks down over the blade
   if (skip) { // a popped hood: sit behind its hinge, with its edge just under eye level, so it fills the bottom of the view and flaps up into it
     const hp = new THREE.Vector3(), tip = new THREE.Vector3(c.hood.hl, 0, 0); c.hood.hinge.getWorldPosition(hp); c.hood.hinge.localToWorld(tip);
     x = Math.min(x, hp.x - 0.15); y = Math.max(y, tip.y + 0.28 * Math.max(0.6, tip.x - x));
@@ -8308,7 +8449,7 @@ function simBody(now) {
     } else if (game.state === 'playing') game.grace -= dt;
     SEC.run('cars', () => { for (const c of cars) c.frameUpdate(dt); });
     if (MP.role !== 'guest') unwedge(dt);
-    SEC.run('arena', () => { updateCrane(dt); updateBulls(dt); updateBumps(dt); });
+    SEC.run('arena', () => { updateCrane(dt); updateBulls(dt); updateBumps(dt); updateCrawlerCrush(dt); });
     SEC.run('lod', () => updatePropActivity(dt));
     updateRespawns(dt);
     SEC.run('arena', () => updateArena(dt));
