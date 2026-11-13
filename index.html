@@ -6018,6 +6018,11 @@ const MP = {
     api.onPeers(() => this.renderGames());
     try { const n = localStorage.getItem('derby-nick'); if (n) $('mpNick').value = n; } catch (e) {}
   },
+  info(t) { $('mpInfo').textContent = t; },
+  explain(t) { return ({ 'peer-unavailable': "couldn't find the host's game. Ask the host to keep the game open on screen (not in the background), then scan again.",
+    'network': "couldn't reach the matchmaking server. Check the internet connection.", 'server-error': 'the matchmaking server had a problem. Try again in a minute.',
+    'browser-incompatible': "this browser can't do peer-to-peer. Try Safari or Chrome.", 'unavailable-id': 'that game code is taken. Host again for a new code.',
+    'webrtc': 'the phones could not reach each other directly. Try both on the same Wi-Fi.', 'timeout': "no answer from the host. Make sure the host's game is open on screen; same Wi-Fi helps." })[t] || t; },
   nick() { const v = ($('mpNick').value || '').trim().slice(0, 14) || 'Player'; try { localStorage.setItem('derby-nick', v); } catch (e) {} return v; },
   status(t) { this.statusTxt = t; $('mpStatus').textContent = '· ' + t; },
   myPeer(room) { const me = (room || this.room).peers().find((p) => p.sameTab); return me ? me.peer : null; },
@@ -6040,7 +6045,7 @@ const MP = {
     try {
       if (this.transport === 'peer') { this.status('opening a game…'); await loadPeerJS(); this.room = await peerRoom(this.code, true); }
       else this.room = await this.lobby.join('derby-' + this.code);
-    } catch (e) { this.status('could not open a game (' + (e.type || e.message || 'error') + ')'); return; }
+    } catch (e) { this.status('could not open a game'); this.info('Could not open a game: ' + this.explain(e.type || e.message || 'error')); return; }
     this.role = 'host';
     if (this.lobby) this.lobby.presence({ host: this.code, nick: this.nick(), n: 0 });
     if (this.transport === 'peer') { const url = location.origin + location.pathname + '#join-' + this.code; $('mpLink').value = url; $('mpShare').hidden = false; drawQR(url); }
@@ -6054,7 +6059,7 @@ const MP = {
     try {
       if (this.transport === 'peer') { this.status('joining game ' + code + '…'); await loadPeerJS(); this.room = await peerRoom(code, false); }
       else this.room = await this.lobby.join('derby-' + code);
-    } catch (e) { this.status('could not join (' + (e.type || e.message || 'error') + ') · is the host still in the menu?'); return; }
+    } catch (e) { this.status('could not join'); this.info('Could not join: ' + this.explain(e.type || e.message || 'error')); return; }
     this.role = 'guest'; this.code = code; this.snaps = []; this.builtRk = ''; this.rt = 0; this.seen = 0;
     if (this.lobby) this.lobby.presence({ host: null });
     this.sendWant();
@@ -6225,10 +6230,21 @@ function peerRoom(code, isHost) {
       emit() { return Promise.resolve(); }, on() { return () => {}; }, connected() { return !peer.disconnected; }, onConnection(h) { setTimeout(() => h(true), 0); return () => {}; },
       leave() { try { peer.destroy(); } catch (e) {} return Promise.resolve(); },
     };
-    peer.on('open', (id) => { me = id; cache = snapshot(); if (isHost) { done = true; resolve(api); } else wire(peer.connect(PEER_PREFIX + code, { serialization: 'json', reliable: false })); });
+    let tries = 0;
+    const dial = () => { tries++; MP.info(tries > 1 ? `Still connecting… (try ${tries} of 4)` : 'Connecting to the host…'); const c = peer.connect(PEER_PREFIX + code, { serialization: 'json' }); wire(c);
+      setTimeout(() => { if (!done && !c.open && tries < 4) { try { c.close(); } catch (e) {} dial(); } }, 7000); };
+    peer.on('open', (id) => { me = id; cache = snapshot(); if (isHost) { done = true; resolve(api); } else dial(); });
+    // phones pause pages in the background (switching to WhatsApp to send the link): come back and re-register with the server
+    peer.on('disconnected', () => { if (!peer.destroyed) { MP.info(isHost ? 'Reconnecting your game so friends can find it…' : 'Reconnecting…'); setTimeout(() => { try { if (!peer.destroyed && peer.disconnected) peer.reconnect(); } catch (e) {} }, 500); } });
+    document.addEventListener('visibilitychange', () => { if (!document.hidden && !peer.destroyed && peer.disconnected) try { peer.reconnect(); } catch (e) {} });
+    if (isHost) peer.on('open', () => { if (MP.role === 'host') MP.info(MP.guests().length ? '' : 'Your game is live. Friends can scan the QR code now.'); });
     if (isHost) peer.on('connection', wire);
-    peer.on('error', (e) => { if (!done) { done = true; reject(e); } else if (MP.role !== 'solo') MP.status('connection trouble: ' + (e.type || 'error')); });
-    setTimeout(() => { if (!done) { done = true; try { peer.destroy(); } catch (e) {} reject(new Error('timeout')); } }, 15000);
+    peer.on('error', (e) => {
+      const t = e.type || 'error';
+      if (t === 'peer-unavailable' && !isHost && tries < 4 && !done) return; // the host may be re-registering: the dial loop retries
+      if (!done) { done = true; reject(e); } else if (MP.role !== 'solo') MP.info('Connection trouble: ' + MP.explain(t));
+    });
+    setTimeout(() => { if (!done) { done = true; try { peer.destroy(); } catch (e) {} reject({ type: 'timeout' }); } }, 32000);
   });
 }
 function drawQR(text) {
