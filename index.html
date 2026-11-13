@@ -321,9 +321,9 @@
   .rail { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
   .rail .ic { width: 54px; height: 54px; border-radius: 14px; padding: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 22px; line-height: 1; background: rgba(20, 17, 14, 0.62); border: 1px solid var(--line); position: relative; color: var(--fg); }
   .rail .ic small { font: 600 9px/1 var(--ui); margin-top: 4px; opacity: 0.85; letter-spacing: 0.04em; }
-  .rail .ic.hot { border-color: var(--accent); width: 62px; height: 62px; font-size: 26px; }
+  .rail .ic.hot { border-color: var(--accent); }
   .rail .ic[aria-pressed="true"] { background: rgba(242, 162, 12, 0.28); }
-  .rail .ic.gear { width: 40px; height: 40px; font-size: 18px; opacity: 0.75; border-radius: 50%; }
+  .rail .ic.gear { opacity: 0.8; }
   #netDot { position: absolute; top: 2px; right: 2px; width: 9px; height: 9px; border-radius: 50%; background: #ff7a50; margin: 0; box-shadow: 0 0 0 2px rgba(255, 122, 80, 0.3); }
   #gearMenu { position: absolute; top: 0; right: 70px; display: grid; gap: 6px; background: rgba(20, 17, 14, 0.96); border: 1px solid var(--line); border-radius: 12px; padding: 10px; min-width: 210px; z-index: 40; }
   #gearMenu[hidden] { display: none !important; }
@@ -340,9 +340,10 @@
   .siren-only { display: none !important; }
   body.has-siren #touch .tb.siren-only { display: inline-flex !important; }
   body.touch .rail .ic { width: 46px; height: 46px; font-size: 19px; }
-  body.touch .rail .ic.hot { width: 54px; height: 54px; font-size: 23px; }
-  body.touch .rail .ic.gear { width: 36px; height: 36px; font-size: 16px; }
-  @media (max-height: 500px) { #touch .tb.fire { width: 76px; height: 76px; } #touch .tb.fire .ico { font-size: 32px; } #touch .tb.sm { width: 48px; height: 48px; } #touch .tb .ico { font-size: 20px; } }
+  body.touch #touch .tb.fire { width: 92px; height: 92px; }
+  body.touch #touch .tb.sm { width: 56px; height: 56px; }
+  @media (max-height: 500px) { .rail { display: grid !important; grid-template-columns: repeat(2, auto); gap: 6px; } body.touch .rail .ic { width: 42px; height: 42px; font-size: 17px; } body.touch .rail .ic small { font-size: 8px; } } /* short phone screens: a 2x2 block that stays clear of the action buttons */
+  @media (max-height: 500px) { body.touch #touch .tb.fire { width: 76px; height: 76px; } body.touch #touch .tb.sm { width: 46px; height: 46px; } #touch .tb.fire { width: 76px; height: 76px; } #touch .tb.fire .ico { font-size: 32px; } #touch .tb.sm { width: 48px; height: 48px; } #touch .tb .ico { font-size: 20px; } }
 </style>
 
 <div id="app">
@@ -388,6 +389,7 @@
         <button id="btnNetLog" type="button" hidden>Network log</button>
         <button id="btnMusic" type="button">Music on<kbd>B</kbd></button>
         <button id="btnMute" type="button">Sound on<kbd>M</kbd></button>
+        <button id="btnVoices" type="button">Voices on<kbd>U</kbd></button>
       </div>
     </div>
     <div class="speedo"><canvas id="gauge" aria-label="Speedometer and tachometer"></canvas><div class="gforce" id="gforce"></div></div>
@@ -1345,7 +1347,7 @@ function crushNow() {
   for (const c of cars) {
     if (!crusherInside(c.body.position)) continue;
     c.body.wakeUp(); c.body.velocity.set(0, -4, 0); c.body.angularVelocity.set(0, 0, 0);
-    sparks(c.body.position.vadd(new CANNON.Vec3(0, 1, 0)), 60); sfx.crash(1, 26); game.shake = Math.min(2, game.shake + (c.isPlayer ? 1.6 : 0.5));
+    sparks(c.body.position.vadd(new CANNON.Vec3(0, 1, 0)), 60); sfx.at(c.body.position).crash(1, 26); game.shake = Math.min(2, game.shake + (c.isPlayer ? 1.6 : 0.5));
     if (c.T.skid) { c.applyDamage(14 * S.damage, null, 'top', new THREE.Vector3(0, c.T.H + 0.5, 0), 10); if (game.state === 'playing') toast('THE TANK JAMMED THE CRUSHER!', 'cool'); C.jam = true; continue; }
     const by = c.lastAttacker && simTime - (c.lastAttackTime || -99) < 6 ? c.lastAttacker : null;
     for (let k = 0; k < 6; k++) c.dent(new THREE.Vector3(rand(-c.T.L / 2.5, c.T.L / 2.5), HULL_Y0 + c.T.H + (c.T.cabin ? c.T.cabin.h : 0), rand(-c.T.W / 3, c.T.W / 3)), { x: 0, y: 1, z: 0 }, 22);
@@ -1488,7 +1490,7 @@ const BALL = { px: 100, py: 21, pz: 90, len: 18.4, amp: 1.05, w: 0.55, ph: 0, r:
     c.body.wakeUp(); const kk = 0.55 * clamp(2500 / c.body.mass, 0.25, 1.3); c.body.velocity.x += v.x * kk; c.body.velocity.z += v.z * kk; c.body.velocity.y += 4;
     const local = c.body.pointToLocalFrame(B.body.position), nl = c.body.quaternion.conjugate().vmult(B.body.position.vsub(c.body.position).unit());
     c.applyDamage(sp * 1.1 * S.damage * c.T.armor, null, zoneOf(nl), new THREE.Vector3(local.x + c.comShift, local.y, local.z), sp); c.dent(new THREE.Vector3(local.x + c.comShift, local.y, local.z), nl, sp * 1.6);
-    sparks(B.body.position, 40); sfx.crash(1, 24); CROWD.x.value = Math.max(CROWD.x.value, 0.7);
+    sparks(B.body.position, 40); sfx.at(B.body.position).crash(1, 24); CROWD.x.value = Math.max(CROWD.x.value, 0.7);
     if (game.state === 'playing') { if (c.isPlayer) toast('WRECKING BALL!', 'bad'); barks.announce('ball', { v: c.isPlayer ? 'our hero' : c.name }); } });
   mapShapes.push({ kind: 'block', x: B.px, z: B.pz, yaw: 0, l: 2, w: 19 });
 }
@@ -1655,7 +1657,7 @@ function propCollide(e) {
   const v = Math.abs(e.contact.getImpactVelocityAlongNormal());
   if (v < 3 || simTime - (me.lastHit || -9) < 0.3) return;
   me.lastHit = simTime;
-  if (player) sfx.propHit(me.propKind, Math.min(1, v / 20) * clamp(1 - player.body.position.distanceTo(me.position) / 70, 0, 1));
+  if (player) sfx.at(me.position).propHit(me.propKind, Math.min(1, v / 20) * clamp(1 - player.body.position.distanceTo(me.position) / 70, 0, 1));
   if (me.prop && v > 5) damageProp(me.prop, v, me.quaternion.conjugate().vmult(e.contact.ni));
   if (other.car.isPlayer && game.state === 'playing' && v > 6) {
     game.score += 10; game.propHits++;
@@ -1681,7 +1683,7 @@ function flattenProp(pr, by) { // 11 tonnes of tank: boxes, drums, bins and pott
   setTimeout(() => world.removeBody(pr.body), 0); // not mid-step
   if (pr.body.mass === 90) bits(p, BIT.oil, 10, 3, 2); else if (pr.body.mass === 70) bits(p, BIT.blue, 12, 4, 3); else bits(p, BIT.paper, 8, 3, 2);
   sparks(p, 6);
-  if (player) sfx.propHit(pr.body.propKind, 0.8 * clamp(1 - player.body.position.distanceTo(p) / 70, 0, 1));
+  if (player) sfx.at(p).propHit(pr.body.propKind, 0.8 * clamp(1 - player.body.position.distanceTo(p) / 70, 0, 1));
   if (m) {
     m.position.copy(p); m.quaternion.copy(pr.body.quaternion);
     const yaw = new THREE.Euler().setFromQuaternion(m.quaternion, 'YXZ').y;
@@ -1779,7 +1781,7 @@ function batchProps() {
   updatePropBatches();
 }
 function updatePropBatches() {
-  for (const { im, list } of PROPBATCH) { for (let i = 0; i < list.length; i++) { const m = list[i]; if (m.parent === scene && m.visible) { _bm.compose(m.position, m.quaternion, m.scale); im.setMatrixAt(i, _bm); } else im.setMatrixAt(i, _bZero); } im.instanceMatrix.needsUpdate = true; }
+  for (const { im, list } of PROPBATCH) { for (let i = 0; i < list.length; i++) { const m = list[i]; if (m.parent === scene && m.visible && !m.userData.unbatched) { _bm.compose(m.position, m.quaternion, m.scale); im.setMatrixAt(i, _bm); } else im.setMatrixAt(i, _bZero); } im.instanceMatrix.needsUpdate = true; }
 }
 function buildProps() {
   PROPID.n = 0; PROPID.map.clear();
@@ -1926,6 +1928,12 @@ function updatePickups(dt) {
 
 /* ---------------- Special weapons ---------------- */
 const tmpW = new THREE.Vector3();
+function frontObject(car, range, cone) { // nearest bull or shootable prop ahead, wrapped like a car target ({ body })
+  let best = null, bd = range; const b = car.body;
+  for (const bl of BULLS) { if (bl.state === 'burger') continue; const l = b.pointToLocalFrame(bl.body.position); if (l.x > 2 && Math.abs(l.z) < l.x * cone && l.x < bd) { bd = l.x; best = { body: bl.body }; } }
+  for (const pr of props) { const o = pr.body; if (!(o.gas || o.mass === 90 || o.propKind === 'rubber') || pr.dormant && !props.includes(pr)) continue; const l = b.pointToLocalFrame(o.position); if (l.x > 2 && Math.abs(l.z) < l.x * cone && l.x < bd) { bd = l.x; best = { body: o }; } }
+  return best;
+}
 function frontTarget(car, range, cone) { // nearest car ahead inside a cone
   let best = null, bd = range;
   for (const c of cars) {
@@ -1935,6 +1943,7 @@ function frontTarget(car, range, cone) { // nearest car ahead inside a cone
   }
   return best;
 }
+function wv(car, r = 120) { return player ? clamp(1 - car.body.position.distanceTo(player.body.position) / r, 0, 1) : 1; } // weapon sound volume by distance
 function behindPoint(car, back) { return car.body.pointToWorldFrame(new CANNON.Vec3(-car.T.L / 2 - back - car.comShift, 0, 0)); }
 const cables = [];
 const brassMat = new THREE.MeshStandardMaterial({ color: 0xc8a040, metalness: 0.9, roughness: 0.3, emissive: 0x302008 });
@@ -1963,9 +1972,16 @@ function fireBullet(car) {
     c.body.applyImpulse(new CANNON.Vec3(dir.x * 40, 0, dir.z * 40), new CANNON.Vec3(hp.x, hp.y, hp.z));
     for (let k = 0; k < 3; k++) emit('spark', hp.x, hp.y, hp.z, -dir.x * rand(3, 8) + rand(-4, 4), rand(1, 5), -dir.z * rand(3, 8) + rand(-4, 4), rand(0.15, 0.35), 0.05);
     if (car.isPlayer && Math.random() < 0.12) sfx.clank(0.15);
+  } else if (o && o.bull) { // shoot a bull and it knows exactly who did it
+    const bl = o.bull; if (bl.state !== 'burger' && MP.role !== 'guest') { bl.angry = car; if (bl.state !== 'charge' && bl.state !== 'down') { bl.target = car; bl.state = 'paw'; bl.t = 0.5; bullMoo(bl, 1); if (!bl.shotSaid && game.state === 'playing') { bl.shotSaid = true; barks.announce('bullShot', { a: car.isPlayer ? 'our hero' : car.name }); } } }
+    emit('dust', hp.x, hp.y, hp.z, rand(-1, 1), rand(1, 2), rand(-1, 1), 0.4, 0.3);
   } else if (o && o.prop) {
     o.wakeUp(); o.applyImpulse(new CANNON.Vec3(dir.x * 25, 8, dir.z * 25), new CANNON.Vec3(hp.x, hp.y, hp.z));
-    if (Math.random() < 0.15 && props.includes(o.prop)) damageProp(o.prop, 9, new CANNON.Vec3(0, 1, 0));
+    const pr = o.prop;
+    if (o.gas && MP.role !== 'guest') igniteProp(pr); // a round through a gas bottle
+    else if (o.mass === 90 && MP.role !== 'guest' && !pr.leaking && props.includes(pr)) { pr.leaking = true; addConcrete(o.position.x + rand(-0.5, 0.5), o.position.z + rand(-0.5, 0.5), rand(1.6, 2.4), 'oil'); bits(o.position, BIT.oil, 8, 3, 3); } // holed drum: it leaks a slick
+    else if (o.propKind === 'rubber') o.applyImpulse(new CANNON.Vec3(0, 30, 0)); // tyres hop
+    if (Math.random() < 0.15 && props.includes(pr)) damageProp(pr, 9, new CANNON.Vec3(0, 1, 0));
     emit('spark', hp.x, hp.y, hp.z, rand(-3, 3), rand(1, 4), rand(-3, 3), 0.2, 0.05);
   } else { // dirt kicks up
     emit('dust', hp.x, hp.y + 0.1, hp.z, rand(-1, 1), rand(1.5, 3), rand(-1, 1), rand(0.4, 0.7), rand(0.2, 0.35));
@@ -2009,33 +2025,44 @@ function liftRelease(car, toss) { // drop the load; with a flick of the mast it 
     k.c.lastAttacker = car; k.c.lastAttackTime = simTime;
     if (game.state === 'playing') { if (car.isPlayer) toast(`TOSSED ${k.c.name}!`); barks.announce('forkToss', { a: car.isPlayer ? 'Our hero' : car.name, v: k.c.isPlayer ? 'our hero' : k.c.name }); }
   }
-  car.liftUp = 0.6; sfx.clank(0.7);
+  car.liftUp = 0.6; sfx.at(car.body.position).clank(0.7 * wv(car)); sfx.at(car.body.position).hydraulic(wv(car));
 }
 const WEAPONS = {
   harpoon: { label: 'HARPOON', cd: 6, dur: 2.4, // grapple the car ahead and reel it in
     start(car) {
-      const t = frontTarget(car, 45, 0.5); if (!t) { car.specialCd = 1; car.specialT = 0; if (car.isPlayer) toast('NO TARGET', 'bad'); return; }
+      let t = frontTarget(car, 45, 0.5);
+      if (!t) { // no car in sight: harpoon a bull (rodeo!) or a barrel and reel it in
+        let best = null, bd = 40; const b0 = car.body;
+        for (const bl of BULLS) { if (bl.state === 'burger') continue; const l = b0.pointToLocalFrame(bl.body.position); if (l.x > 2 && Math.abs(l.z) < l.x * 0.5 && l.x < bd) { bd = l.x; best = { body: bl.body, name: 'the bull', bull: bl }; } }
+        if (!best) for (const pr of props) { if (pr.body.mass > 120 || !props.includes(pr)) continue; const l = b0.pointToLocalFrame(pr.body.position); if (l.x > 2 && Math.abs(l.z) < l.x * 0.4 && l.x < bd) { bd = l.x; best = { body: pr.body, name: 'a ' + (pr.body.propKind === 'wood' ? 'crate' : pr.body.propKind === 'rubber' ? 'tyre' : 'barrel'), prop: pr }; } }
+        if (!best) { car.specialCd = 1; car.specialT = 0; if (car.isPlayer) toast('NO TARGET', 'bad'); return; }
+        t = best; if (best.prop) wakeProp(best.prop); best.body.wakeUp();
+        if (best.bull) { const bl = best.bull; bl.state = 'down'; bl.t = 3.2; best.body.fixedRotation = false; best.body.updateMassProperties(); bullMoo(bl, 1.2); if (game.state === 'playing') { if (car.isPlayer) toast('🤠 RODEO!', 'cool'); if (!car.isPlayer && !car.remote && Math.random() < 0.5) barks.say(car, 'rodeo', true); else barks.announce('rodeo', { a: car.isPlayer ? 'our hero' : car.name }, true); } }
+      }
       const d = car.body.position.distanceTo(t.body.position);
       const con = new CANNON.DistanceConstraint(car.body, t.body, d, 4e5); world.addConstraint(con);
       const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), new THREE.LineBasicMaterial({ color: 0x2a2622 }));
       scene.add(line); car.cable = { con, t, line, d };
-      sfx.noiseHit('highpass', 1800, 2, 0.4, 0.2); if (car.isPlayer) toast(`HARPOONED ${t.name}!`); else if (t.isPlayer) toast(`${car.name} HARPOONED YOU!`, 'bad');
+      sfx.at(car.body.position).zing(wv(car)); sfx.at(t.body.position).clank(wv(car) * 0.8); if (car.isPlayer && !t.bull) toast(`HARPOONED ${String(t.name).toUpperCase()}!`); else if (t.isPlayer) toast(`${car.name} HARPOONED YOU!`, 'bad'); if (t.bull) car.cable && (car.cable.bull = t.bull);
     },
-    tick(car, dt) { const c = car.cable; if (!c) return; c.con.distance = Math.max(2, c.con.distance - dt * 14); const p = c.line.geometry.attributes.position; p.setXYZ(0, car.body.position.x, car.body.position.y + 0.8, car.body.position.z); p.setXYZ(1, c.t.body.position.x, c.t.body.position.y + 0.8, c.t.body.position.z); p.needsUpdate = true; c.line.geometry.computeBoundingSphere(); },
+    tick(car, dt) { const c = car.cable; if (!c) return; c.con.distance = Math.max(2, c.con.distance - dt * 14); car.ratT = (car.ratT || 0) - dt; if (car.ratT <= 0 && c.con.distance > 2) { car.ratT = 0.09; sfx.at(car.body.position).ratchet(wv(car)); } const p = c.line.geometry.attributes.position; p.setXYZ(0, car.body.position.x, car.body.position.y + 0.8, car.body.position.z); p.setXYZ(1, c.t.body.position.x, c.t.body.position.y + 0.8, c.t.body.position.z); p.needsUpdate = true; c.line.geometry.computeBoundingSphere(); },
     end(car) { const c = car.cable; if (!c) return; world.removeConstraint(c.con); scene.remove(c.line); car.cable = null; },
   },
   oil: { label: 'OIL SLICK', cd: 7, dur: 1.2,
-    start(car) {}, tick(car, dt) { car.oilT = (car.oilT || 0) - dt; if (car.oilT <= 0) { car.oilT = 0.3; const p = behindPoint(car, 1.5); addConcrete(p.x, p.z, rand(2.2, 3), 'oil'); } },
+    start(car) {}, tick(car, dt) { car.oilT = (car.oilT || 0) - dt; if (car.oilT <= 0) { car.oilT = 0.3; const p = behindPoint(car, 1.5); addConcrete(p.x, p.z, rand(2.2, 3), 'oil'); sfx.at(p).glug(wv(car)); } },
   },
   spikes: { label: 'SPIKES', cd: 8, dur: 0,
     start(car) { const p = behindPoint(car, 2); addConcrete(p.x, p.z, 2.6, 'spikes'); CONCRETE.list[CONCRETE.list.length - 1].owner = car; sfx.clank(0.4); },
   },
   flame: { label: 'FLAMER', cd: 5, dur: 2,
-    start(car) { sfx.noiseHit('bandpass', 600, 0.6, 0.4, 2); },
+    start(car) { sfx.at(car.body.position).noiseHit('bandpass', 600, 0.6, 0.4 * wv(car), 0.6); },
     tick(car, dt) {
+      car.roarT = (car.roarT || 0) - dt; if (car.roarT <= 0) { car.roarT = 0.28; sfx.at(car.body.position).roar(wv(car)); }
       const b = car.body, f = car.fwd, p = b.pointToWorldFrame(new CANNON.Vec3(car.T.L / 2 + 0.4 - car.comShift, 0.4, 0));
       for (let i = 0; i < 4; i++) emit('fire', p.x, p.y, p.z, f.x * rand(10, 16) + rand(-2, 2) + b.velocity.x, rand(-0.5, 1.5), f.z * rand(10, 16) + rand(-2, 2) + b.velocity.z, rand(0.4, 0.6), rand(0.4, 0.8));
       igniteFuelNear(p.x + f.x * 6, p.z + f.z * 6, 4);
+      for (const bl of BULLS) { const l = b.pointToLocalFrame(bl.body.position); if (l.x > 0 && l.x < 11 && Math.abs(l.z) < 1.8 + l.x * 0.3) cookBull(bl, car, dt); }
+      for (const pr of props) { const l = b.pointToLocalFrame(pr.body.position); if (l.x > 0 && l.x < 10 && Math.abs(l.z) < 1.6 + l.x * 0.3 && igniteProp(pr) && car.isPlayer && !pr.toasted) { pr.toasted = true; toast('🔥 SET IT ALIGHT', 'cool'); } }
       for (const c of cars) { if (c === car || c.wrecked) continue; const l = b.pointToLocalFrame(c.body.position); if (l.x > 0 && l.x < 11 && Math.abs(l.z) < 1.5 + l.x * 0.3) { c.applyDamage(16 * dt * S.damage * c.T.armor, car, 'front', null, 0); if (Math.random() < 0.3) emit('fire', c.body.position.x, c.body.position.y + 0.5, c.body.position.z, 0, 2, 0, 0.6, 0.7); } }
     },
   },
@@ -2058,7 +2085,7 @@ const WEAPONS = {
       // the monitor nozzle swings onto the nearest car ahead (within ~40 degrees)
       const tg = frontTarget(car, 38, 0.75); let f = { x: car.fwd.x, z: car.fwd.z };
       if (tg) { const dx = tg.body.position.x - p.x, dz = tg.body.position.z - p.z, d = Math.hypot(dx, dz) || 1; f = { x: dx / d, z: dz / d }; }
-      car.waterDir = f;
+      car.waterDir = f; car.hissT = (car.hissT || 0) - dt; if (car.hissT <= 0) { car.hissT = 0.28; sfx.at(b.position).hiss(wv(car)); }
       for (let i = 0; i < (QUALITY.lite ? 3 : 6); i++) emit('steam', p.x, p.y, p.z, f.x * rand(24, 34) + rand(-1, 1), rand(1, 4), f.z * rand(24, 34) + rand(-1, 1), rand(0.6, 1.1), rand(0.2, 0.42)); // a fat, high-pressure stream
       for (const c of cars) { if (c === car) continue; const vx = c.body.position.x - p.x, vz = c.body.position.z - p.z, al = vx * f.x + vz * f.z, lat = Math.abs(vx * f.z - vz * f.x);
         if (al > 0 && al < 34 && lat < 1.8 + al * 0.15) {
@@ -2070,6 +2097,8 @@ const WEAPONS = {
       for (const c of cars) { if (c === car) continue; const vx = c.body.position.x - p.x, vz = c.body.position.z - p.z, al = vx * f.x + vz * f.z; if (al > 0 && al < 28 && Math.abs(vx * f.z - vz * f.x) < 2 + al * 0.15) { // hose down burning cars
         if (c.leakT > 0 || c.onFire || c.wrecked || c.health < 15) { if (!(c.douse > 0) && car.isPlayer && game.state === 'playing') toast(`FIRE OUT · ${c.name}`, 'cool'); }
         c.douse = c.wrecked ? 25 : 8; c.leakT = 0; } }
+      for (const pr of props) if (pr.fireT > 0) { const l = b.pointToLocalFrame(pr.body.position); if (l.x > 0 && l.x < 30 && Math.abs(l.z) < 2 + l.x * 0.15) { pr.fireT = 0; for (let k = 0; k < 6; k++) emit('steam', pr.body.position.x, pr.body.position.y + 0.6, pr.body.position.z, rand(-1, 1), rand(2, 3), rand(-1, 1), rand(0.6, 1), rand(0.4, 0.7)); if (car.isPlayer) toast('💧 FIRE OUT', 'cool'); } }
+      for (const bl of BULLS) { if (bl.state === 'burger') continue; const q = bl.body.position, vx = q.x - p.x, vz = q.z - p.z, al = vx * f.x + vz * f.z; if (al > 0 && al < 30 && Math.abs(vx * f.z - vz * f.x) < 2 + al * 0.15) { bl.cook = 0; bl.body.velocity.x += f.x * 18 * dt; bl.body.velocity.z += f.z * 18 * dt; bl.wet = 2; if (Math.random() < dt * 2) bullMoo(bl, 0.6); } } // a cold shower: no more cooking, and it gets shoved back
       if (car.douse === undefined || car.douse < 1) car.douse = 1; // spray yourself a bit too
       car.puddleT = (car.puddleT || 0) - dt;
       if (car.puddleT <= 0) { // where the stream lands, the dirt turns to mud and water
@@ -2080,22 +2109,22 @@ const WEAPONS = {
     },
   },
   minigun: { label: 'MINIGUN', cd: 3.5, dur: 2.4, // bed-mounted rotary gun: 22 rounds a second, brass everywhere
-    start(car) { car.mgT = 0.25; if (car.isPlayer) sfx.noiseHit('lowpass', 300, 1, 0.3, 0.3); }, // spin-up whine before it bites
+    start(car) { car.mgT = 0.25; sfx.at(car.body.position).hydraulic(wv(car) * 0.8); }, // spin-up whine before it bites
     update(car, dt) {
       if (!car.mgYaw) return;
-      const tg = frontTarget(car, 75, 1.2); car.mgTarget = tg;
+      const tg = frontTarget(car, 75, 1.2) || frontObject(car, 45, 0.5); car.mgTarget = tg; // no car ahead: bulls, gas bottles, drums and tyres make good targets
       let want = 0; if (tg) { const l = car.body.pointToLocalFrame(tg.body.position); want = Math.atan2(-l.z, l.x + car.comShift - car.mgYaw.position.x); }
       car.mgWant = want; car.mgYawA = (car.mgYawA || 0) + clamp(want - (car.mgYawA || 0), -3 * dt, 3 * dt); car.mgYaw.rotation.y = car.mgYawA;
       let pitch = 0; if (tg) { const d = car.body.position.distanceTo(tg.body.position); pitch = clamp(Math.atan2(tg.body.position.y - car.body.position.y - 1.3, d), -0.35, 0.3); } car.mgBarrels.parent.rotation.z = lerp(car.mgBarrels.parent.rotation.z, pitch, clamp(dt * 5, 0, 1));
       const spinning = car.specialT > 0; car.mgSpin = lerp(car.mgSpin || 0, spinning ? 1 : 0, clamp(dt * 4, 0, 1));
       car.mgBarrels.rotation.x += car.mgSpin * dt * 45;
     },
-    tick(car, dt) { car.mgT -= dt; while (car.mgT <= 0 && !car.wrecked) { car.mgT += 1 / 22; fireBullet(car); } },
+    tick(car, dt) { car.mgT -= dt; while (car.mgT <= 0 && !car.wrecked) { car.mgT += 1 / 22; fireBullet(car); const v = wv(car, 150); sfx.at(car.body.position).gunShot(v); if ((car.mgN = (car.mgN || 0) + 1) % 3 === 0) sfx.at(car.body.position).mgWhirr(v); } }, // brrrrt
   },
   rockets: { label: 'ROCKETS', cd: 6, dur: 0.8, // four-tube roof pod: a ripple salvo that tracks the car ahead
     start(car) { car.rkLeft = 4; car.rkT = 0; car.rkTarget = frontTarget(car, 110, 0.6); if (car.rkPod) car.rkUp = 1; },
     update(car, dt) { if (car.rkPod) { car.rkUp = Math.max(0, (car.rkUp || 0) - dt * 0.5); car.rkPod.rotation.z = lerp(car.rkPod.rotation.z, car.rkUp > 0 ? 0.12 : 0, clamp(dt * 6, 0, 1)); } },
-    tick(car, dt) { car.rkT -= dt; if (car.rkT <= 0 && car.rkLeft > 0) { car.rkT = 0.16; car.rkLeft--; fireRocket(car, 3 - car.rkLeft); } },
+    tick(car, dt) { car.rkT -= dt; if (car.rkT <= 0 && car.rkLeft > 0) { car.rkT = 0.16; car.rkLeft--; fireRocket(car, 3 - car.rkLeft); sfx.at(car.body.position).rocketLaunch(wv(car, 150)); } },
   },
   tow: { label: 'TOW HOOK', cd: 0.5, dur: 0,
     start(car) {
@@ -2150,7 +2179,7 @@ const WEAPONS = {
       const con = new CANNON.LockConstraint(b, vb, { maxForce: 3e5 }); con.collideConnected = false; world.addConstraint(con);
       car.carry = { c: best, con, h: 0, t: 0, p0: con.pivotA.clone() }; best.carriedBy = car;
       best.applyDamage(4 * S.damage * best.T.armor, car, 'bottom', new THREE.Vector3(0, HULL_Y0, 0), 0); best.dent(new THREE.Vector3(rand(-0.5, 0.5), HULL_Y0, rand(-0.3, 0.3)), { x: 0, y: -1, z: 0 }, 8);
-      sfx.clank(1); sparks(vb.position, 12);
+      sfx.at(vb.position).clank(wv(car)); sfx.at(vb.position).hydraulic(wv(car)); sparks(vb.position, 12);
       if (game.state === 'playing') { if (car.isPlayer) toast(`HOISTED ${best.name}!`); else if (best.isPlayer) toast(`${car.name} PICKED YOU UP!`, 'bad'); barks.announce('forkLift', { a: car.isPlayer ? 'Our hero' : car.name, v: best.isPlayer ? 'our hero' : best.name }, true); if (!best.isPlayer) barks.say(best, 'air', true); }
     },
     update(car, dt) {
@@ -2170,7 +2199,7 @@ const WEAPONS = {
     },
   },
   ram: { label: 'ROCKET RAM', cd: 7, dur: 1.2, // nitro lunge that hits twice as hard
-    start(car) { const f = car.fwd; car.body.velocity.x += f.x * 12; car.body.velocity.z += f.z * 12; car.ramT = 1.2; if (car.isPlayer) { game.fovPunch = 10; sfx.noiseHit('lowpass', 500, 0.7, 0.6, 0.8); } },
+    start(car) { const f = car.fwd; car.body.velocity.x += f.x * 12; car.body.velocity.z += f.z * 12; car.ramT = 1.2; sfx.at(car.body.position).rocketLaunch(wv(car)); if (car.isPlayer) { game.fovPunch = 10; sfx.noiseHit('lowpass', 500, 0.7, 0.6, 0.8); } },
     tick(car) { for (const ex of car.exhaust) { ex.getWorldPosition(tmpW); emit('flame', tmpW.x, tmpW.y, tmpW.z, -car.fwd.x * 8, 0, -car.fwd.z * 8, 0.25, 0.5); } },
     end(car) { car.ramT = 0; },
   },
@@ -2218,6 +2247,65 @@ function inFire(car) {
   if (typeof ARENA !== 'undefined' && ARENA.firePit && inFirePit(p)) return true;
   return false;
 }
+// The fuel tanker going up: a fireball, a shockwave racing over the dirt, a smoke column, a lake of burning fuel, chain reactions
+const BOOMS = [];
+function tankerBoom(p, car) {
+  const fire = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 16), new THREE.MeshBasicMaterial({ color: 0xffb040, transparent: true, opacity: 0.95, depthWrite: false, blending: THREE.AdditiveBlending }));
+  fire.position.set(p.x, p.y + 2, p.z); scene.add(fire);
+  const ring = new THREE.Mesh(new THREE.RingGeometry(0.9, 1.0, 64), new THREE.MeshBasicMaterial({ color: 0xfff0d0, transparent: true, opacity: 0.8, side: THREE.DoubleSide, depthWrite: false }));
+  ring.rotation.x = -Math.PI / 2; ring.position.set(p.x, 0.08, p.z); scene.add(ring);
+  const light = new THREE.PointLight(0xff8a30, 60, 120, 1.6); light.position.set(p.x, p.y + 6, p.z); scene.add(light);
+  BOOMS.push({ fire, ring, light, t: 0, x: p.x, z: p.z });
+  for (let k = 0; k < 7; k++) { const a = k / 7 * Math.PI * 2, r = k ? rand(4, 9) : 0; addConcrete(p.x + Math.cos(a) * r, p.z + Math.sin(a) * r, rand(4, 6), 'fuel'); CONCRETE.list[CONCRETE.list.length - 1].burning = rand(14, 22); } // a lake of burning fuel
+  for (let i = 0; i < 80; i++) emit('fire', p.x + rand(-6, 6), p.y + rand(0, 6), p.z + rand(-6, 6), rand(-10, 10), rand(6, 18), rand(-10, 10), rand(1.2, 2.2), rand(1.8, 3.4));
+  for (let i = 0; i < 40; i++) emit('smoke', p.x + rand(-3, 3), p.y + rand(3, 10), p.z + rand(-3, 3), rand(-2, 2), rand(5, 10), rand(-2, 2), rand(4, 7), rand(2, 3.5)); // the column
+  for (let i = 0; i < 40; i++) emit('debris', p.x, p.y + 1, p.z, rand(-16, 16), rand(8, 22), rand(-16, 16), rand(2, 4), rand(0.2, 0.5));
+  if (typeof GASQ !== 'undefined' && MP.role !== 'guest') for (const pr of props) if (pr.body.gas && !pr.lit && pr.body.position.distanceTo(p) < 34) GASQ.push({ pr, t: rand(0.3, 1.4) }); // gas bottles nearby go too
+  for (const pr of props) { const d = pr.body.position.distanceTo(p); if (d < 34) wakeProp(pr); if (d < 16) igniteProp(pr, rand(6, 12)); }
+  if (player) { const d = player.body.position.distanceTo(p); game.shake = 2; game.flash = Math.max(game.flash, clamp(1.2 - d / 120, 0.2, 1)); setTimeout(() => sfx.at(p).explosion(clamp(1 - d / 220, 0.3, 1), true), 120); }
+  CROWD.x.value = 1; fireworks(S.night ? 10 : 6);
+  if (game.state === 'playing') setTimeout(() => barks.announce('tankerBoom', { v: car.name }, true), 400);
+}
+function updateBooms(dt) {
+  for (let i = BOOMS.length - 1; i >= 0; i--) { const B = BOOMS[i]; B.t += dt;
+    const k = Math.min(1, B.t / 0.6); B.fire.scale.setScalar(1 + 11 * Math.sqrt(k)); B.fire.position.y += dt * (B.t > 0.4 ? 6 : 1); B.fire.material.opacity = Math.max(0, 0.95 - Math.max(0, B.t - 0.5) * 0.7); B.fire.material.color.setHSL(0.08 - Math.min(0.06, B.t * 0.04), 1, 0.6 - Math.min(0.35, B.t * 0.2));
+    const R = 2 + B.t * 55; B.ring.scale.setScalar(R); B.ring.material.opacity = Math.max(0, 0.8 - B.t * 1.1);
+    B.light.intensity = Math.max(0, 60 - B.t * 30);
+    if (B.t > 2.2) { scene.remove(B.fire); scene.remove(B.ring); scene.remove(B.light); B.fire.geometry.dispose(); B.ring.geometry.dispose(); BOOMS.splice(i, 1); } }
+}
+// ---------- Fire on things: crates, cardboard, tyres, bins and potties burn; fire spreads; water puts it out ----------
+const flammable = (pr) => !pr.body.gas && !pr.charred && ['wood', 'cardboard', 'rubber', 'plastic'].includes(pr.body.propKind);
+let _charMat = null;
+function igniteProp(pr, t = 8) {
+  if (!pr || !props.includes(pr) || MP.role === 'guest') return false;
+  if (pr.body.gas) { if (!pr.lit && typeof GASQ !== 'undefined' && !GASQ.some((q) => q.pr === pr)) GASQ.push({ pr, t: rand(0.3, 0.9) }); return true; } // gas bottles just go bang
+  if (!flammable(pr) || pr.fireT > 0) return false;
+  pr.fireT = t + rand(0, 3); wakeProp(pr); return true;
+}
+function charProp(pr) { // burnt out: blackened (cardboard burns away to ash)
+  const m = pr.mesh, p = pr.body.position;
+  if (pr.body.propKind === 'cardboard') { const i = props.indexOf(pr); if (i >= 0) { props.splice(i, 1); propGone(pr); world.removeBody(pr.body); scene.remove(m); bits(p, BIT.paper, 6, 2, 2); } return; }
+  if (MP.role === 'host') MP.event({ k: 'pc', id: pr.id });
+  _charMat = _charMat || new THREE.MeshStandardMaterial({ color: 0x1a1512, roughness: 1 });
+  pr.charred = true; m.userData.unbatched = true; m.traverse((o) => { if (o.isMesh) { o.material = _charMat; o.layers.mask = 1; } });
+}
+let fireScanT = 0;
+function updatePropFires(dt) {
+  if (MP.role !== 'guest' && (fireScanT -= dt) <= 0) { fireScanT = 0.4; // burning fuel lights up whatever sits in it
+    for (const pd of CONCRETE.list) if (pd.burning > 0) { for (const pr of props) { const q = pr.body.position; if ((q.x - pd.x) ** 2 + (q.z - pd.z) ** 2 < (pd.r + 0.6) ** 2) igniteProp(pr); }
+      for (const bl of BULLS) { const q = bl.body.position; if ((q.x - pd.x) ** 2 + (q.z - pd.z) ** 2 < (pd.r + 0.5) ** 2) cookBull(bl, null, 0.25); } } } // bulls standing in burning fuel slowly turn into burgers
+  for (const pr of props) { if (!(pr.fireT > 0)) continue; const p = pr.body.position;
+    pr.fireT -= dt;
+    if (Math.random() < 0.7) emit('fire', p.x + rand(-0.4, 0.4), p.y + 0.4, p.z + rand(-0.4, 0.4), rand(-0.5, 0.5), rand(2, 4), rand(-0.5, 0.5), rand(0.4, 0.8), rand(0.5, 0.9));
+    if (Math.random() < 0.15) emit('smoke', p.x, p.y + 1.2, p.z, rand(-0.5, 0.5), rand(1.5, 3), rand(-0.5, 0.5), rand(1.5, 2.5), rand(0.6, 1));
+    if (MP.role === 'guest') continue;
+    if (puddleAt(p.x, p.z, 'water', 0.6)) { pr.fireT = 0; for (let k = 0; k < 6; k++) emit('steam', p.x, p.y + 0.5, p.z, rand(-1, 1), rand(1.5, 3), rand(-1, 1), rand(0.6, 1), rand(0.4, 0.6)); continue; }
+    if (Math.random() < dt * 0.7) for (const o of props) if (o !== pr && !(o.fireT > 0) && (flammable(o) || o.body.gas) && o.body.position.distanceTo(p) < 2.7) { igniteProp(o); break; } // spreads to the next crate
+    for (const c of cars) if (!c.wrecked && c.body.position.distanceTo(p) < 2.6) c.applyDamage(5 * dt * S.damage * c.T.armor, null, null, null);
+    for (const bl of BULLS) if (bl.body.position.distanceTo(p) < 2.6) cookBull(bl, null, dt * 0.5);
+    if (pr.fireT <= 0) charProp(pr);
+  }
+}
 function igniteFuelNear(x, z, R) { for (const c of CONCRETE.list) if (c.kind === 'fuel' && !c.burning && !puddleAt(c.x, c.z, 'water', c.r * 0.5) && (c.x - x) ** 2 + (c.z - z) ** 2 < (R + c.r) ** 2) c.burning = rand(8, 12); }
 
 /* ---------------- Tank shells ---------------- */
@@ -2263,6 +2351,8 @@ function explodeShell(hp, hitBody, owner, scale = 1) {
     const d = o.position.distanceTo(P); if (d > R) continue;
     const f = 1 - d / R, dir = o.position.vsub(P); dir.y += 1.2; dir.normalize();
     o.wakeUp(); o.applyImpulse(dir.scale(Math.min(o.mass, 4000) * f * 9 * scale)); // heavy vehicles get rocked, not launched
+    if (o.bull && o.bull.state !== 'burger') { const bl = o.bull; bl.state = 'down'; bl.t = rand(2.5, 3.5); o.fixedRotation = false; o.updateMassProperties(); o.applyImpulse(new CANNON.Vec3(0, o.mass * 6 * f, 0)); o.angularVelocity.set(rand(-4, 4), rand(-4, 4), rand(-4, 4)); bl.cook = (bl.cook || 0) + 0.3 * f; if (f > 0.4 && game.state === 'playing' && Math.random() < 0.5) barks.announce('bullFly', {}); } // the bull goes for a little flight
+    if (o.prop && props.includes(o.prop) && f > 0.45 && Math.random() < 0.6) igniteProp(o.prop, 6);
     if (o.prop && props.includes(o.prop)) { damageProp(o.prop, 12 + 30 * f, o.quaternion.conjugate().vmult(dir.scale(-1))); if (owner.isPlayer && game.state === 'playing') { game.score += 10; game.propHits++; } continue; }
     const c = o.car;
     if (c && !c.wrecked && c !== owner) {
@@ -2286,11 +2376,11 @@ function explodeShell(hp, hitBody, owner, scale = 1) {
   }
   if (player) {
     const d = player.body.position.distanceTo(P);
-    sfx.explosion(clamp(1 - d / 140, 0, 1), false);
+    sfx.at(P).explosion(clamp(1 - d / 140, 0, 1), false);
     game.shake = Math.min(2, game.shake + clamp(1 - d / 50, 0, 1) * 1.1);
   }
   if (owner.isPlayer && hitCar && game.state === 'playing') toast(`DIRECT HIT · ${hitCar.name}`);
-  if (Math.random() < 0.3) barks.announce('shell', { a: owner.isPlayer ? 'Our hero' : owner.name });
+  if (Math.random() < 0.3 && (owner.isPlayer || owner.name)) barks.announce('shell', { a: owner.isPlayer ? 'Our hero' : owner.name }); // (gas bottles going off have no driver to name)
 }
 
 /* ---------------- Particles ---------------- */
@@ -2443,6 +2533,7 @@ function updateDebris(dt) {
 }
 
 /* ---------------- Sound: engine synth, effects and a generated soundtrack (WebAudio) ---------------- */
+const _panV = new THREE.Vector3();
 const sfx = {
   ctx: null, muted: false, musicOn: true, musicPlaying: false, lastProp: 0,
   init() {
@@ -2544,13 +2635,24 @@ const sfx = {
     else this.eng2.out.gain.setTargetAtTime(0, t, 0.2);
   },
   env(node, t, peak, dur) { node.gain.setValueAtTime(0.0001, t); node.gain.exponentialRampToValueAtTime(Math.max(0.0002, peak), t + 0.005); node.gain.exponentialRampToValueAtTime(0.0001, t + dur); },
+  // left/right: a sound made somewhere in the yard comes from that side of the screen. Use as sfx.at(position).crash(...)
+  at(pos) {
+    if (!this.ctx || !pos || !camera || !this.ctx.createStereoPanner) return this;
+    const dx = pos.x - camera.position.x, dz = pos.z - camera.position.z, d = Math.hypot(dx, dz) || 1;
+    camera.getWorldDirection(_panV); const rx = -_panV.z, rz = _panV.x, rl = Math.hypot(rx, rz) || 1; // camera right, flat
+    const pan = clamp(((dx * rx + dz * rz) / rl / d) * Math.min(1, d / 6), -0.85, 0.85); // close sounds stay near the middle
+    const n = this.ctx.createStereoPanner(); n.pan.value = pan; n.connect(this.bus); this._pan = n;
+    if (!this._panClear) { this._panClear = true; queueMicrotask(() => { this._pan = null; this._panClear = false; }); }
+    return this;
+  },
+  out() { return this._pan || this.bus; },
   noiseHit(type, freq, q, peak, dur, verb, delay = 0) {
     if (!this.ctx) return; // sound not started yet (no click so far)
     const c = this.ctx, t = c.currentTime + delay;
     const src = c.createBufferSource(); src.buffer = this.noise;
     const f = c.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q;
     const g = c.createGain(); this.env(g, t, peak, dur);
-    src.connect(f); f.connect(g); g.connect(this.bus); if (verb) g.connect(this.verbIn);
+    src.connect(f); f.connect(g); g.connect(this.out()); if (verb) g.connect(this.verbIn);
     src.start(t, Math.random() * 1.5); src.stop(t + dur + 0.05);
   },
   tone(type, f0, f1, peak, dur, verb, delay = 0) {
@@ -2558,7 +2660,7 @@ const sfx = {
     const c = this.ctx, t = c.currentTime + delay;
     const o = c.createOscillator(); o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
     const g = c.createGain(); this.env(g, t, peak, dur);
-    o.connect(g); g.connect(this.bus); if (verb) g.connect(this.verbIn);
+    o.connect(g); g.connect(this.out()); if (verb) g.connect(this.verbIn);
     o.start(t); o.stop(t + dur + 0.05);
   },
   crash(vol, dv) {
@@ -2576,7 +2678,7 @@ const sfx = {
     const src = c.createBufferSource(); src.buffer = this.noise;
     const f = c.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 5; f.frequency.setValueAtTime(3200, t); f.frequency.exponentialRampToValueAtTime(500, t + 0.35);
     const g = c.createGain(); this.env(g, t, vol * 0.5, 0.4);
-    src.connect(f); f.connect(g); g.connect(this.bus); src.start(t, Math.random()); src.stop(t + 0.45);
+    src.connect(f); f.connect(g); g.connect(this.out()); src.start(t, Math.random()); src.stop(t + 0.45);
     this.tone('sawtooth', 340, 90, vol * 0.08, 0.35);
   },
   scrape(vol) { if (this.ctx && vol > 0.02) this.noiseHit('bandpass', rand(2500, 4000), 4, vol * 0.3, 0.2); },
@@ -2595,6 +2697,16 @@ const sfx = {
     for (let i = 0; i < 8; i++) this.noiseHit('highpass', 2000, 0.5, vol * 0.1, 0.03, false, rand(0.4, 2.2)); // fire crackle
     this.cheer(0.8);
   },
+  // weapon sounds (all used as sfx.at(position).xxx(volume))
+  gunShot(vol) { if (!this.ctx || vol < 0.02) return; this.noiseHit('highpass', 2600, 0.7, vol * 0.32, 0.03); this.tone('square', 150, 55, vol * 0.12, 0.045); }, // one round: crack + thump
+  mgWhirr(vol) { if (!this.ctx || vol < 0.02) return; this.tone('sawtooth', 620, 680, vol * 0.05, 0.14); this.noiseHit('bandpass', 1200, 4, vol * 0.05, 0.12); }, // barrels spinning
+  rocketLaunch(vol) { if (!this.ctx || vol < 0.02) return; const c = this.ctx, t = c.currentTime; const src = c.createBufferSource(); src.buffer = this.noise; const f = c.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 1.2; f.frequency.setValueAtTime(350, t); f.frequency.exponentialRampToValueAtTime(2400, t + 0.5); const g = c.createGain(); this.env(g, t, vol * 0.55, 0.6); src.connect(f); f.connect(g); g.connect(this.out()); src.start(t, Math.random()); src.stop(t + 0.7); this.tone('sine', 110, 50, vol * 0.3, 0.25); },
+  hiss(vol) { if (!this.ctx || vol < 0.02) return; this.noiseHit('highpass', 2800, 0.5, vol * 0.22, 0.32); this.noiseHit('bandpass', 700, 0.8, vol * 0.12, 0.3); }, // water jet
+  roar(vol) { if (!this.ctx || vol < 0.02) return; this.noiseHit('lowpass', 520, 0.6, vol * 0.45, 0.34); this.noiseHit('bandpass', 240, 1.2, vol * 0.25, 0.3); if (Math.random() < 0.5) this.noiseHit('highpass', 3000, 0.6, vol * 0.06, 0.05); }, // flamethrower
+  zing(vol) { if (!this.ctx || vol < 0.02) return; this.tone('sawtooth', 1500, 260, vol * 0.18, 0.28); this.noiseHit('highpass', 2200, 1.5, vol * 0.3, 0.12); }, // harpoon away
+  ratchet(vol) { if (!this.ctx || vol < 0.02) return; this.noiseHit('bandpass', 2600, 6, vol * 0.18, 0.025); }, // reel winding in
+  glug(vol) { if (!this.ctx || vol < 0.02) return; this.tone('sine', rand(140, 200), 60, vol * 0.3, 0.16); this.noiseHit('lowpass', 400, 2, vol * 0.12, 0.12); }, // fuel, oil, concrete pouring
+  hydraulic(vol) { if (!this.ctx || vol < 0.02) return; this.tone('sawtooth', 210, 340, vol * 0.08, 0.6); this.noiseHit('bandpass', 900, 3, vol * 0.08, 0.5); },
   cannon(vol) { // deep boom with a sharp crack on top
     if (!this.ctx || vol < 0.02) return;
     this.tone('sine', 62, 22, vol, 1.5, true); this.noiseHit('lowpass', 900, 0.7, vol, 0.45, true); this.noiseHit('highpass', 1600, 0.7, vol * 0.6, 0.08); this.noiseHit('lowpass', 240, 0.7, vol * 0.8, 1.8, true);
@@ -2664,7 +2776,7 @@ const sfx = {
     if (!this.ctx || vol < 0.03) return;
     if (type === 'forklift') { this.coconut(vol); return; }
     const H = HORNS[type] || HORNS.outrider, c = this.ctx, t = c.currentTime;
-    const out = c.createGain(); out.gain.value = vol; out.connect(this.bus);
+    const out = c.createGain(); out.gain.value = vol; out.connect(this.out());
     const v = this.hornChain(H, out);
     v.g.gain.setValueAtTime(0.0001, t); v.g.gain.exponentialRampToValueAtTime(H.gain, t + H.attack); v.g.gain.setValueAtTime(H.gain, t + dur); v.g.gain.exponentialRampToValueAtTime(0.0001, t + dur + 0.12);
     v.oscs.forEach((o) => o.stop(t + dur + 0.2));
@@ -4169,6 +4281,7 @@ class Car {
     if (this.ctrl.fire) { this.ctrl.fire = false; if (this.load > 0.2 && !this.wrecked && game.state === 'playing' && game.countdown <= 0) { this.pourT = 2.6; if (!this.isPlayer) barks.say(this, 'taunt'); } }
     if (this.pourT > 0 && this.load > 0) {
       this.pourT -= dt; this.load = Math.max(0, this.load - dt * 0.28); this.pourDrop = (this.pourDrop || 0) - dt;
+      this.glugT = (this.glugT || 0) - dt; if (this.glugT <= 0) { this.glugT = 0.22; sfx.at(this.body.position).glug(wv(this)); }
       const p = this.body.pointToWorldFrame(new CANNON.Vec3(-this.T.L / 2 - 0.8 - this.comShift, 0, 0));
       const fuel = this.T.pour === 'fuel';
       if (this.pourDrop <= 0) { this.pourDrop = 0.3; addConcrete(p.x, p.z, rand(2.4, 3.4), fuel ? 'fuel' : 'concrete'); if (fuel && (this.leakT > 0 || this.health < 40)) CONCRETE.list[CONCRETE.list.length - 1].burning = rand(8, 12); }
@@ -4202,7 +4315,7 @@ class Car {
         const lim = 0.9 / Math.max(0.9, this.barrelBend); this.bendY *= Math.min(1, lim); this.bendZ *= Math.min(1, lim);
         this.applyBarrelBend();
         this.barrelHitCd = 0.35; this.lastBender = c;
-        sparks(new CANNON.Vec3(p.x, p.y, p.z), 14); sfx.crash(clamp(k * 2, 0.3, 1), 20);
+        sparks(new CANNON.Vec3(p.x, p.y, p.z), 14); sfx.at(p).crash(clamp(k * 2, 0.3, 1), 20);
         if (game.state === 'playing') {
           if (c.isPlayer) toast(this.barrelBend > 0.5 ? `BENT ${this.name.toUpperCase()}'S GUN!` : 'GUN DINGED!', 'cool'), game.addScore(this.barrelBend > 0.5 ? 250 : 60, null);
           else if (this.isPlayer) toast(this.barrelBend > 0.5 ? 'GUN BARREL BENT! FIRING IS RISKY' : 'GUN DINGED', 'cool');
@@ -4247,7 +4360,7 @@ class Car {
       seg.position.set(p.x, p.y + 0.1, p.z); seg.quaternion.copy(b.quaternion); scene.add(seg);
       addDebris(seg, new CANNON.Box(new CANNON.Vec3(T.L * 0.16, 0.03, 0.29)), undefined, undefined, 120, new CANNON.Vec3(bv.x * 0.5 + rand(-2, 2), rand(1, 3), bv.z * 0.5 + rand(-2, 2)), new CANNON.Vec3(rand(-2, 2), rand(-2, 2), rand(-2, 2)));
     }
-    sparks(b.pointToWorldFrame(new CANNON.Vec3(0, -0.4, z)), 40); sfx.crash(1, 22);
+    sparks(b.pointToWorldFrame(new CANNON.Vec3(0, -0.4, z)), 40); sfx.at(b.position).crash(1, 22);
     if (game.state === 'playing') {
       const who = by && by.isPlayer ? 'Our hero' : by ? by.name : 'Something';
       if (this.isPlayer) toast(this.trackBroken[0] && this.trackBroken[1] ? 'BOTH TRACKS GONE · IMMOBILISED' : `${sd ? 'RIGHT' : 'LEFT'} TRACK THROWN!`, 'cool');
@@ -4273,7 +4386,7 @@ class Car {
     this.turretFire = 8; // a jet of flame from the open turret ring
     for (let i = 0; i < 22; i++) emit('fire', wp.x + rand(-0.8, 0.8), wp.y + rand(0, 2), wp.z + rand(-0.8, 0.8), rand(-3, 3), rand(6, 16), rand(-3, 3), rand(0.5, 1.1), rand(0.8, 1.5));
     for (let i = 0; i < 30; i++) emit('debris', wp.x, wp.y + 0.5, wp.z, rand(-9, 9), rand(5, 14), rand(-9, 9), rand(2, 3.5), rand(0.1, 0.3), M.steel);
-    if (player) { const d = player.body.position.distanceTo(b.position); sfx.explosion(clamp(1 - d / 160, 0, 1), true); game.shake = Math.min(2, game.shake + clamp(1 - d / 60, 0, 1) * 1.6); }
+    if (player) { const d = player.body.position.distanceTo(b.position); sfx.at(b.position).explosion(clamp(1 - d / 160, 0, 1), true); game.shake = Math.min(2, game.shake + clamp(1 - d / 60, 0, 1) * 1.6); }
     if (game.state === 'playing') {
       toast(this.isPlayer ? 'TURRET BLOWN OFF! TANK DISABLED' : `${this.name.toUpperCase()}'S TURRET BLEW OFF!`, this.isPlayer ? 'bad' : undefined);
       barks.announce('turretOff', { a: this.isPlayer ? 'our hero' : this.name }, true);
@@ -4295,7 +4408,7 @@ class Car {
     for (let i = 0; i < 14; i++) emit('smoke', pos.x, pos.y, pos.z, dir.x * rand(1, 5) + rand(-2, 2), rand(0, 2), dir.z * rand(1, 5) + rand(-2, 2), rand(0.8, 1.6), rand(0.4, 0.7));
     if (player) {
       const d = player.body.position.distanceTo(this.body.position);
-      sfx.cannon(clamp(1 - d / 160, 0, 1));
+      sfx.at(this.body.position).cannon(clamp(1 - d / 160, 0, 1));
       if (this.isPlayer) { game.shake = Math.min(2, game.shake + 0.6); game.fovPunch = Math.min(12, game.fovPunch + 4); }
       else if (d < 60) game.shake = Math.min(2, game.shake + 0.2);
     }
@@ -4392,7 +4505,7 @@ class Car {
       if (this.leakT > 0 && this.leakT < 11.5) { this.applyDamage(this.health, otherCar, zone, model, dv); return; } // another big hit while leaking: boom
       this.leakT = 12; game.shake = Math.min(2, game.shake + (this.isPlayer ? 1 : 0.3));
       if (this.isPlayer && game.state === 'playing') { toast('FUEL LEAK!', 'bad'); barks.announce('leak', {}, true); }
-      if (player) sfx.crash(clamp(1 - player.body.position.distanceTo(this.body.position) / 90, 0, 1), dv * 1.5);
+      if (player) sfx.at(this.body.position).crash(clamp(1 - player.body.position.distanceTo(this.body.position) / 90, 0, 1), dv * 1.5);
     }
     if (other.mass === 0 && zone !== 'bottom' && dv > 11 && game.state === 'playing') {
       if (!this.isPlayer) barks.say(this, 'crash');
@@ -4410,7 +4523,7 @@ class Car {
         game.hitStop = Math.min(0.3, 0.1 + dv * 0.01); game.shake = Math.min(2, game.shake + dv * 0.07); game.fovPunch = Math.min(14, dv * 0.7);
         const pts = Math.round(dv * dv * 3); game.addScore(pts, null); toast(`HEAD-ON! +${pts}`, 'bad');
         barks.announce('headOn', { a: 'You', v: otherCar.name, vcar: otherCar.T.name, kmh: Math.round(dv * 3.6) }, true);
-        sfx.crash(1, dv * 1.4); sfx.crash(0.8, dv);
+        sfx.at(this.body.position).crash(1, dv * 1.4); sfx.at(this.body.position).crash(0.8, dv);
       }
     }
     if (otherCar && dv > 6 && !this.wrecked && !headOn) {
@@ -4455,7 +4568,7 @@ class Car {
       if (player) {
         const d = player.body.position.distanceTo(p);
         const vol = Math.min(1, dv / 18) * clamp(1 - d / 110, 0, 1);
-        sfx.crash(vol, dv);
+        sfx.at(p).crash(vol, dv);
         if (dv > 9 && zone !== 'bottom') sfx.glass(vol * 0.6);
       }
       if (this.isPlayer) game.shake = Math.min(1.2, game.shake + dv * 0.04);
@@ -4550,7 +4663,7 @@ class Car {
       new CANNON.Vec3(bv.x * 0.8 + out.x * rand(2, 5), bv.y * 0.5 + rand(2, 5), bv.z * 0.8 + out.z * rand(2, 5)),
       new CANNON.Vec3(rand(-6, 6), rand(-6, 6), rand(-6, 6)));
     sparks(pos, 10);
-    if (player) sfx.tear(clamp(1 - player.body.position.distanceTo(pos) / 80, 0, 1));
+    if (player) sfx.at(pos).tear(clamp(1 - player.body.position.distanceTo(pos) / 80, 0, 1));
     if (by && by.isPlayer && !this.isPlayer && game.state === 'playing') game.addScore(50, `${p.zone.toUpperCase()} PANEL OFF`);
   }
 
@@ -4560,7 +4673,7 @@ class Car {
     l.broken = true; l.material = M.lampBroken; if (l.glow) l.glow.visible = false;
     l.getWorldPosition(tmpV);
     for (let k = 0; k < 10; k++) emit('glass', tmpV.x, tmpV.y, tmpV.z, this.fwd.x * rand(1, 4) + rand(-2, 2), rand(1, 3), this.fwd.z * rand(1, 4) + rand(-2, 2), rand(0.5, 1), rand(0.03, 0.07));
-    if (player) sfx.glass(clamp(1 - player.body.position.distanceTo(this.body.position) / 60, 0, 1) * 0.7);
+    if (player) sfx.at(this.body.position).glass(clamp(1 - player.body.position.distanceTo(this.body.position) / 60, 0, 1) * 0.7);
   }
 
   refitWheel(i) { // a repair puts a fresh wheel back on
@@ -4589,7 +4702,7 @@ class Car {
       new CANNON.Vec3(bv.x + sideW.x * rand(3, 6), bv.y + rand(2, 5), bv.z + sideW.z * rand(3, 6)),
       new CANNON.Vec3(rand(-3, 3), rand(-3, 3), rand(-12, 12)));
     sparks(wm.position, 20);
-    if (player) sfx.clank(clamp(1 - player.body.position.distanceTo(this.body.position) / 90, 0, 1));
+    if (player) sfx.at(this.body.position).clank(clamp(1 - player.body.position.distanceTo(this.body.position) / 90, 0, 1));
     if (game.state === 'playing') {
       if (this.isPlayer) toast('WHEEL GONE', 'bad');
       else if (by && by.isPlayer) game.addScore(300, `${this.name} LOST A WHEEL`);
@@ -4608,7 +4721,8 @@ class Car {
     for (let i = 0; i < this.lampMeshes.length; i++) this.breakLamp(i);
     // blast pushes everything nearby
     for (let i = 0; i < this.nW; i++) if (!this.wheelLost[i] && Math.random() < 0.5) this.loseWheel(i, null);
-    const BR = this.T.blast || 10, big = !!this.T.blast;
+    const BR = this.T.blast ? 32 : 10, big = !!this.T.blast;
+    if (big) tankerBoom(p.clone(), this);
     for (const o of world.bodies.slice()) {
       if (o === b || o.type !== CANNON.Body.DYNAMIC) continue;
       const d = o.position.distanceTo(p);
@@ -4627,7 +4741,7 @@ class Car {
     igniteFuelNear(p.x, p.z, this.T.blast ? 20 : 6);
     if (player) {
       const d = player.body.position.distanceTo(p);
-      sfx.explosion(clamp(1 - d / 140, 0, 1), big);
+      sfx.at(p).explosion(clamp(1 - d / 140, 0, 1), big);
       game.shake = Math.min(1.8, game.shake + clamp(1 - d / (big ? 90 : 40), 0, 1) * (big ? 1.6 : 0.9));
     }
     game.onWreck(this);
@@ -4897,7 +5011,7 @@ class Car {
     if (t.isPlayer && dist < 60 && Math.random() < 0.004) barks.say(this, 'taunt');
     else if (!t.isPlayer && dist < 25 && Math.random() < 0.002) barks.say(this, 'taunt', false, { target: t.name, insult: undefined, car: t.T.name });
     if (this.contacts === 0 && b.position.y > 4 && Math.random() < 0.02) barks.say(this, 'air');
-    if (t.isPlayer && dist < 35 && Math.abs(angle) < 0.4 && Math.random() < 0.004 && player && game.state === 'playing') sfx.honk(this.type, clamp(1 - b.position.distanceTo(player.body.position) / 60, 0, 1) * 0.6, rand(0.25, 0.6));
+    if (t.isPlayer && dist < 35 && Math.abs(angle) < 0.4 && Math.random() < 0.004 && player && game.state === 'playing') sfx.at(b.position).honk(this.type, clamp(1 - b.position.distanceTo(player.body.position) / 60, 0, 1) * 0.6, rand(0.25, 0.6));
   }
 }
 // Cars locked together (wedged, or one sitting on another) for over a second get pushed apart
@@ -5350,6 +5464,13 @@ for (const P of Object.values(CAR_CAST)) PERSONAS.push(P); // (pushed last: gues
 const CAST_SET = new Set(Object.values(CAR_CAST));
 const ANNOUNCER = { nick: 'Announcer', lang: 'en-US', pitch: 0.75, rate: 1.12, words: { voice: ['Ralph', 'Fred', 'Daniel', 'Google US English'] } };
 const ANN_LINES = {
+  rodeo: ['{a} just harpooned a bull! It\'s a RODEO, folks!', 'Yee-haw! {a} is riding the bull!', 'That is NOT how you herd cattle, {a}!'],
+  bullShot: ['Uh oh. {a} just made that bull VERY angry!', 'Never shoot a bull, {a}. It remembers.', 'That bull is coming for {a}!'],
+  bullFly: ['Look at that bull FLY!', 'Cows can fly now, folks!', 'Hey diddle diddle, the bull jumped over... everything!'],
+  bullSlip: ['The bull hit the oil! Bull on ice!', 'Whoops! That bull is doing pirouettes!', 'Moo-ving violation on the oil slick!'],
+  bullStuck: ['That bull just got cement shoes!', 'We have a bull statue, folks!', 'Stuck in concrete! Now THAT\'s a monument!'],
+  tankerBoom: ['KA-BOOOOM! {v}\'s tanker just lit up the whole yard!', 'Holy smokes! You could see that from space!', 'That\'s seventy-five hundred kilos of fuel saying goodbye!', 'Somebody call the fire department! ...Oh wait, they\'re IN the derby!', 'Duck and cover, folks! DUCK AND COVER!'],
+  burger: ['{a} just turned a bull into a cheeseburger!', 'Order up! One flame-grilled bull, extra crispy!', 'Would you like fries with that bull?', 'Medium rare! Medium RARE!', 'That bull is now a quarter-tonner with cheese!', 'Somebody get the ketchup!'],
   youCrash: ['Our hero just kissed the wall at {kmh}! The wall is fine!', 'That wall was there the whole time, folks!', 'Ooh! Somebody check the driver for loose teeth!', 'And the wall wins again!', 'That is going to buff right out. It is not.'],
   bigHit: ['WHAM! {v}\'s {vcar} just became modern art!', 'That is going to need more than duct tape, {v}!', 'Somebody call the insurance company! Actually, call ALL of them!', '{v} just got rearranged!', '{a} drove straight through {v}\'s weekend plans!', 'That {vcar} is now a two-door. It used to have four!', '{a} just introduced {v} to physics at {kmh} kilometres an hour!', 'OH! {v} felt that one in the fillings!', 'Did you hear that crunch? That was {v}\'s {vcar}!', '{a} with the hit of the night!', 'That {vcar} will never be the same!', 'Somebody check if {v} is still in there!'],
   headOn: ['HEAD-ON! {a} and {v} meet nose to nose!', 'Face to face at {kmh}! Nobody wins that!', 'That is what we call a frank conversation!'],
@@ -5587,8 +5708,12 @@ for (const [type, more] of Object.entries(CAST_MORE)) {
     P.lines[ev] = (P.lines[ev] || []).concat(list);
   }
 }
+const BURGER_LINES = { camper: ['B|Yo, Mr. White, we made a burger! Science!', 'Perfectly cooked. Ninety-nine percent beef.'], tiger: ['Ah, a little snack. With cheese, please.', 'Flame-grilled. How delightfully efficient.'], firetruck: ['I\'m supposed to PUT OUT fires! ...Smells great though.'],
+  tanker: ['Breaker breaker, I got a cheeseburger on aisle five!'], hellbender: ['Feast, war boys! The Warlord provides!'], sandflea: ['WITNESS THE CHEESEBURGER!', 'Lovely! Medium rare and shiny!'], outrider: ['Dinner.', 'Mm. Cheeseburger.'], viper: ['Family barbecue, everybody!'],
+  towtruck: ['Hoo-wee! Somebody bring the pickles!', 'Lordy, that\'s the biggest burger in the county!'], forklift: ['C|I made a burger of your bull, English pig-dog!', 'Bring out your... burgers!'], mixer: ['Gabagool! Nah, cheeseburger.', 'Now THAT\'s a family meal.'], cruiser: ['That\'s a barbecue violation, but I\'ll allow it!'] };
+for (const [type, list] of Object.entries(BURGER_LINES)) { const P = type === 'cruiser' ? COP : CAR_CAST[type]; if (P) P.lines.burger = list; }
 // generic fallbacks so the extras (custom drivers) can join in too
-Object.assign(GENERIC, { rival: ['Hey {v}! Get out of my way!', '{v}, your {vcar} is a joke!', 'I\'m coming for you, {v}!'], respawn: ['I\'m back!', 'Miss me?', 'Round two!'], kill: ['So long, {v}!', 'Got you, {v}!', 'Ha! {v} is out!'] });
+Object.assign(GENERIC, { rodeo: ['Yee-haw! Ride \'em!', 'Gotcha, bull!', 'Rodeo time!'], burger: ['Flame-grilled!', 'Medium rare!', 'Who ordered the bull burger?'], rival: ['Hey {v}! Get out of my way!', '{v}, your {vcar} is a joke!', 'I\'m coming for you, {v}!'], respawn: ['I\'m back!', 'Miss me?', 'Round two!'], kill: ['So long, {v}!', 'Got you, {v}!', 'Ha! {v} is out!'] });
 const barks = {
   lastT: -99, el: null, voices: [],
   init() {
@@ -5677,7 +5802,7 @@ const barks = {
       const f1 = c.createBiquadFilter(); f1.type = 'bandpass'; f1.frequency.value = rand(350, 850); f1.Q.value = 5;
       const f2 = c.createBiquadFilter(); f2.type = 'bandpass'; f2.frequency.value = rand(1000, 2400); f2.Q.value = 7;
       const g = c.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol * (line.includes('!') ? 1.3 : 1), t + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-      o.connect(f1); o.connect(f2); f1.connect(g); f2.connect(g); g.connect(sfx.bus);
+      o.connect(f1); o.connect(f2); f1.connect(g); f2.connect(g); g.connect(i === 0 && pos ? sfx.at(pos).out() : (this._bOut || sfx.bus)); if (i === 0) this._bOut = pos ? sfx.out() : sfx.bus;
       o.start(t); o.stop(t + dur + 0.02);
       t += dur + rand(0.01, 0.05) / P.rate;
     }
@@ -5689,6 +5814,7 @@ const barks = {
     return vs.find((x) => x.lang && x.lang.toLowerCase().replace('_', '-').startsWith(lang)) || vs.find((x) => x.lang && x.lang.toLowerCase().startsWith(lang.slice(0, 2))) || vs.find((x) => x.lang && x.lang.startsWith('en'));
   },
   speak(P0, line0, pos) {
+    if (VOICES_OFF) return; // the subtitles still show
     const [P, line] = this.who(P0, line0);
     if (this.speechOK === false || !window.speechSynthesis) { this.babble(P, line, pos); return; }
     try {
@@ -6213,6 +6339,10 @@ $('btnTune').addEventListener('click', (e) => { togglePanel(); e.currentTarget.b
 $('btnClose').addEventListener('click', () => togglePanel(false));
 $('btnRestart').addEventListener('click', (e) => { e.currentTarget.blur(); startMatch(); togglePanel(false); });
 $('btnDefaults').addEventListener('click', (e) => { e.currentTarget.blur(); for (const d of SETTINGS_DEF) setValue(d.key, d.def); });
+let VOICES_OFF = false; try { VOICES_OFF = localStorage.getItem('derby-voices') === 'off'; } catch (e) {}
+function setVoices(off) { VOICES_OFF = off; $('btnVoices').firstChild.textContent = off ? 'Voices off' : 'Voices on'; try { localStorage.setItem('derby-voices', off ? 'off' : 'on'); } catch (e) {} if (off) try { speechSynthesis.cancel(); } catch (e) {} }
+setVoices(VOICES_OFF);
+$('btnVoices').addEventListener('click', (e) => { e.currentTarget.blur(); setVoices(!VOICES_OFF); });
 const btnMute = $('btnMute');
 function toggleMute() {
   sfx.setMuted(!sfx.muted);
@@ -6260,6 +6390,7 @@ window.addEventListener('keydown', (e) => {
     case 'KeyC': camMode = (camMode + 1) % 3; break;
     case 'KeyT': togglePanel(); break;
     case 'KeyI': perfOpen($('perfdlg').hidden); break;
+    case 'KeyU': setVoices(!VOICES_OFF); toast(VOICES_OFF ? 'VOICES OFF' : 'VOICES ON', 'cool'); break;
     case 'Tab': e.preventDefault(); setMap(!MAP_ON); break;
     case 'KeyM': sfx.init(); toggleMute(); break;
     case 'KeyB': toggleMusic(); break;
@@ -6301,7 +6432,7 @@ async function setTilt(on) {
   if (on && typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
     let res;
     try { res = await DeviceMotionEvent.requestPermission(); } catch (err) { toast('TILT BLOCKED HERE · OPEN THE LINK IN SAFARI', 'bad'); return; }
-    if (res !== 'granted') { tilt.denied = true; $('btnTilt').textContent = 'TILT ↗'; toast(window.top !== window ? 'BLOCKED IN THIS VIEWER · TAP TILT ↗ TO OPEN IN ITS OWN TAB' : 'MOTION ACCESS DENIED · ALLOW IT, THEN RELOAD', 'bad'); return; }
+    if (res !== 'granted') { tilt.denied = true; $('btnTilt').querySelector('small').textContent = 'Tilt ↗'; toast(window.top !== window ? 'BLOCKED IN THIS VIEWER · TAP TILT ↗ TO OPEN IN ITS OWN TAB' : 'MOTION ACCESS DENIED · ALLOW IT, THEN RELOAD', 'bad'); return; }
   }
   if (on && typeof DeviceMotionEvent === 'undefined') { toast('NO MOTION SENSORS IN THIS BROWSER', 'bad'); return; }
   tilt.on = on; tilt.zero = null; tilt.got = false; tilt.steer = 0; tilt.roll = 0;
@@ -6651,7 +6782,7 @@ function makeBull(x, z) {
   BULLS.push(bull); return bull;
 }
 function bullCollide(bull, e) {
-  const c = e.body.car; if (!c || bull.hitCd > 0) return;
+  const c = e.body.car; if (!c || bull.hitCd > 0 || bull.state === 'burger') return; // (a burger just gets bumped)
   const bv = bull.body.velocity, rel = bv.vsub(c.body.velocity), closing = Math.abs(e.contact.getImpactVelocityAlongNormal());
   if (bull.state === 'charge' && closing > 4) { // gored: the bull's momentum goes into the car
     bull.hitCd = 0.8;
@@ -6660,7 +6791,7 @@ function bullCollide(bull, e) {
     const local = c.body.pointToLocalFrame(bull.body.position), nl = c.body.quaternion.conjugate().vmult(bull.body.position.vsub(c.body.position).unit());
     c.applyDamage(clamp(sp * 1.1, 4, 14) * S.damage * c.T.armor, null, zoneOf(nl), new THREE.Vector3(local.x + c.comShift, local.y, local.z), sp);
     c.dent(new THREE.Vector3(local.x + c.comShift, local.y, local.z), nl, 7 + sp * 0.4);
-    sparks(e.contact.bi.position.vadd(e.contact.ri), 8); sfx.crash(0.8, 12); bullMoo(bull, 1.2);
+    sparks(e.contact.bi.position.vadd(e.contact.ri), 8); sfx.at(bull.body.position).crash(0.8, 12); bullMoo(bull, 1.2);
     bull.state = 'proud'; bull.t = rand(1.5, 2.5); bull.target = null;
     if (game.state === 'playing') { if (c.isPlayer) toast('GORED BY A BULL!', 'bad'); else barks.say(c, 'gotHit', true); if (Math.random() < 0.6) barks.announce('bullGore', { v: c.isPlayer ? 'our hero' : c.name }, true); }
   } else if (rel.length() > 9 && bull.state !== 'down') { // a car ploughs into it: over it goes
@@ -6670,6 +6801,37 @@ function bullCollide(bull, e) {
     if (c.isPlayer && game.state === 'playing') { toast('+20 BULL TOSS', 'cool'); game.score += 20; }
     if (Math.random() < 0.5) barks.announce('bullDown', { a: c.isPlayer ? 'Our hero' : c.name }, false);
     bull.angry = c; // and it will remember who did that
+  }
+}
+// ---------- Flame-grilled: enough flamethrower on a bull and it becomes a giant cheeseburger (it comes back as a bull later) ----------
+let _burgerMats = null;
+function burgerLook(bl, on) {
+  if (on && !bl.burger) {
+    const M2 = _burgerMats || (_burgerMats = { bun: new THREE.MeshStandardMaterial({ color: 0xd99a4e, roughness: 0.6 }), patty: new THREE.MeshStandardMaterial({ color: 0x5a3018, roughness: 0.9 }), cheese: new THREE.MeshStandardMaterial({ color: 0xf2c230, roughness: 0.5 }),
+      lettuce: new THREE.MeshStandardMaterial({ color: 0x5fae3a, roughness: 0.8 }), tomato: new THREE.MeshStandardMaterial({ color: 0xd8301f, roughness: 0.5 }), seed: new THREE.MeshStandardMaterial({ color: 0xf6ead0, roughness: 0.6 }) });
+    const g = new THREE.Group(), add = (geo, m, y, ry = 0) => { const o = new THREE.Mesh(geo, m); o.position.y = y; o.rotation.y = ry; o.castShadow = true; g.add(o); return o; };
+    add(new THREE.CylinderGeometry(0.95, 0.9, 0.32, 20), M2.bun, 0.16);
+    add(new THREE.CylinderGeometry(1.02, 1.02, 0.08, 20), M2.lettuce, 0.36);
+    add(new THREE.CylinderGeometry(1.0, 1.0, 0.3, 20), M2.patty, 0.55);
+    add(new THREE.BoxGeometry(1.55, 0.05, 1.55), M2.cheese, 0.72, 0.4);
+    add(new THREE.CylinderGeometry(0.85, 0.85, 0.1, 18), M2.tomato, 0.8);
+    const top = add(new THREE.SphereGeometry(0.97, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2), M2.bun, 0.84); top.scale.y = 0.62;
+    for (let k = 0; k < 10; k++) { const a = k * 2.4, r = 0.25 + (k % 3) * 0.2; const sd = add(new THREE.SphereGeometry(0.05, 6, 4), M2.seed, 0.84 + 0.6 * Math.sqrt(Math.max(0, 1 - (r / 0.97) ** 2)) * 0.97); sd.position.x = Math.cos(a) * r; sd.position.z = Math.sin(a) * r; sd.scale.set(1.4, 0.6, 0.9); }
+    g.scale.setScalar(1.25); scene.add(g); bl.burger = g;
+  }
+  if (bl.burger) bl.burger.visible = on;
+  bl.g.visible = !on;
+}
+function cookBull(bl, by, dt) { // called while a flame hits the bull
+  if (bl.state === 'burger') return;
+  bl.cook = (bl.cook || 0) + dt; bl.angry = by; if (Math.random() < 0.5) emit('smoke', bl.body.position.x, bl.body.position.y + 1, bl.body.position.z, rand(-1, 1), rand(1, 2.5), rand(-1, 1), rand(0.8, 1.4), rand(0.4, 0.7));
+  if (bl.cook < 1.1) return;
+  bl.cook = 0; bl.state = 'burger'; bl.t = 20; const p = bl.body.position; bl.body.velocity.set(0, 4, 0);
+  burgerLook(bl, true); sparks(p, 20); for (let i = 0; i < 12; i++) emit('smoke', p.x + rand(-1, 1), p.y + 1, p.z + rand(-1, 1), rand(-1, 1), rand(2, 4), rand(-1, 1), rand(1, 2), rand(0.6, 1));
+  if (player) sfx.at(p).roar(clamp(1 - player.body.position.distanceTo(p) / 100, 0, 1)); bullMoo(bl, 1.2);
+  if (MP.role !== 'guest' && game.state === 'playing') {
+    if (by && by.isPlayer) { game.addScore(250); toast('🍔 BULL BURGER! +250', 'cool'); }
+    if (by && !by.isPlayer && !by.remote && Math.random() < 0.7) barks.say(by, 'burger', true, { v: 'the bull', vcar: 'bull', target: 'you', car: 'bull' }); else barks.announce('burger', { a: by ? (by.isPlayer ? 'our hero' : by.name) : 'somebody' }, true);
   }
 }
 function bullMoo(bull, vol) { if (!player || !sfx.ctx) return; const d = player.body.position.distanceTo(bull.body.position), v = clamp(1 - d / 90, 0, 1) * vol; if (v < 0.03) return; const f = rand(95, 125); sfx.tone('sawtooth', f * 1.4, f, v * 0.25, rand(0.7, 1.1), true); sfx.tone('square', f * 0.7, f * 0.5, v * 0.08, 0.9, false); }
@@ -6685,6 +6847,18 @@ function updateBulls(dt) {
     if (p.y < -0.5 || !isFinite(p.x)) { const sp = findSpawn(rand(-60, 60), rand(-60, 60)); p.set(sp.x, 1.3, sp.z); b.velocity.set(0, 0, 0); b.angularVelocity.set(0, 0, 0); b.fixedRotation = true; b.updateMassProperties(); b.quaternion.set(0, 0, 0, 1); bl.state = 'graze'; bl.t = 3; } // never lose a bull through the floor
     let speed = 0;
     if (MP.role === 'guest' && MP.applyBull(bl)) { /* host-driven */ }
+    else if (bl.state === 'burger') { // a giant burger sitting in the dirt, steaming; after a while a fresh bull wanders back in
+      b.velocity.x *= 0.9; b.velocity.z *= 0.9; if (Math.random() < dt * 3) emit('steam', p.x + rand(-0.5, 0.5), p.y + 1.6, p.z + rand(-0.5, 0.5), 0, rand(1, 2), 0, rand(0.8, 1.4), rand(0.3, 0.5));
+      if (bl.t <= 0) { const sp = findSpawn(rand(-70, 70), rand(-70, 70)); p.set(sp.x, 1.3, sp.z); b.velocity.set(0, 0, 0); bl.state = 'graze'; bl.t = 3; bl.cook = 0; }
+    }
+    else if (bl.state !== 'down' && Math.hypot(b.velocity.x, b.velocity.z) > 3 && puddleAt(p.x, p.z, 'oil', 0.2)) { // hooves on an oil slick: whoops
+      bl.state = 'down'; bl.t = rand(1.8, 2.6); b.fixedRotation = false; b.updateMassProperties(); b.angularVelocity.set(rand(-1, 1), rand(4, 7) * (Math.random() < 0.5 ? -1 : 1), rand(-1, 1)); bullMoo(bl, 0.9);
+      if (game.state === 'playing' && Math.random() < 0.6) barks.announce('bullSlip', {});
+    }
+    else if (bl.state !== 'down' && (bl.stuckT > 0 || puddleAt(p.x, p.z, 'concrete', 0.2))) { // wet concrete: cement shoes, a bull statue for a while
+      if (!(bl.stuckT > 0)) { bl.stuckT = 5; bullMoo(bl, 0.8); if (game.state === 'playing' && Math.random() < 0.6) barks.announce('bullStuck', {}); }
+      bl.stuckT -= dt; b.velocity.x *= 0.5; b.velocity.z *= 0.5; if (bl.stuckT <= 0) { bl.stuckT = 0; bl.state = 'graze'; bl.t = 2; p.x += Math.cos(bl.yaw) * 2.5; p.z -= Math.sin(bl.yaw) * 2.5; } // finally steps out
+    }
     else if (bl.state === 'down') { // tumbling, then back on its feet with a shake of the head
       if (bl.t <= 0 && Math.abs(b.velocity.y) < 1) { b.fixedRotation = true; b.updateMassProperties(); b.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), bl.yaw); b.angularVelocity.set(0, 0, 0); b.position.y = Math.max(p.y, 1.3); bl.state = bl.angry && live ? 'paw' : 'graze'; bl.t = 1.2; bl.target = bl.angry && !bl.angry.wrecked ? bl.angry : null; bullMoo(bl, 0.8); }
     } else {
@@ -6716,6 +6890,8 @@ function updateBulls(dt) {
       b.velocity.x = lerp(b.velocity.x, vx, clamp(dt * 4, 0, 1)); b.velocity.z = lerp(b.velocity.z, vz, clamp(dt * 4, 0, 1)); b.wakeUp();
     }
     // animate
+    if ((bl.state === 'burger') !== !!(bl.burger && bl.burger.visible)) burgerLook(bl, bl.state === 'burger');
+    if (bl.burger && bl.burger.visible) { bl.burger.position.set(p.x, p.y - 0.4, p.z); bl.burger.rotation.y = bl.yaw; }
     bl.g.position.set(p.x, p.y + 0.14, p.z); bl.g.quaternion.set(b.quaternion.x, b.quaternion.y, b.quaternion.z, b.quaternion.w);
     const gs = Math.hypot(b.velocity.x, b.velocity.z); bl.phase += dt * (2 + gs * 1.6);
     bl.legs.forEach((lg, i) => { lg.rotation.z = Math.sin(bl.phase + (i === 0 || i === 3 ? 0 : Math.PI)) * Math.min(0.7, gs * 0.08); });
@@ -6848,6 +7024,7 @@ const MP = {
   },
   applyProps(s) { // guest: pull each prop towards where the host has it (snap if far off), carry the host's velocity
     if (!s || !s.p || s === this.propSnap) return; this.propSnap = s;
+    if (s.pf) { const on = new Set(s.pf); for (const pr of props) pr.fireT = on.has(pr.id) ? 1 : 0; } // which props are burning: drawn here, decided by the host
     for (const e of s.p) { const pr = PROPID.map.get(e[0]); if (!pr || !props.includes(pr)) continue; const b = pr.body;
       const x = e[1] / 100, y = e[2] / 100, z = e[3] / 100, err = Math.hypot(b.position.x - x, b.position.y - y, b.position.z - z), moving = Math.abs(e[8]) + Math.abs(e[9]) + Math.abs(e[10]) > 2;
       if (err < 0.05 && !moving) continue;
@@ -6868,8 +7045,8 @@ const MP = {
         c.parts.reduce((a, pt, i) => (pt.detached ? a.concat(i) : a), []), c.wheelLost.reduce((a, l, i) => a | (l ? 1 << i : 0), 0),
         r(c.rpm || 0, 0.01), r(c.steerVal || 0), r(c.turretYaw || 0), r(c.forkH || 0), c.kills || 0]; });
     const snap = { t: Math.round(performance.now()) / 1000, st: game.state === 'playing' ? 1 : game.state === 'over' ? 2 : 0, cd: Math.round(game.countdown * 100) / 100, rk: this.rk, rv: this.rv, c: cs,
-      b: BULLS.map((bl) => [r(bl.body.position.x), r(bl.body.position.y), r(bl.body.position.z), r(bl.yaw), ['graze', 'walk', 'paw', 'charge', 'proud', 'down'].indexOf(bl.state)]),
-      k: [r(CRANE.ang), r(CRANE.r), r(CRANE.h), CRANE.held ? cars.indexOf(CRANE.held) : -1], cr: [r(CRUSHER.y), ['idle', 'warn', 'slam', 'hold'].indexOf(CRUSHER.state)], bp: [r(BALL.ph), BOLLARDS.up ? 1 : 0], e: this.ev, p: this.propState(r) };
+      b: BULLS.map((bl) => [r(bl.body.position.x), r(bl.body.position.y), r(bl.body.position.z), r(bl.yaw), ['graze', 'walk', 'paw', 'charge', 'proud', 'down', 'burger'].indexOf(bl.state)]),
+      k: [r(CRANE.ang), r(CRANE.r), r(CRANE.h), CRANE.held ? cars.indexOf(CRANE.held) : -1], cr: [r(CRUSHER.y), ['idle', 'warn', 'slam', 'hold'].indexOf(CRUSHER.state)], bp: [r(BALL.ph), BOLLARDS.up ? 1 : 0], e: this.ev, p: this.propState(r), pf: props.filter((pr) => pr.fireT > 0).slice(0, 30).map((pr) => pr.id) };
     let json = JSON.stringify(snap); while (json.length > 3600 && (snap.e.length || snap.p.length > 4)) { if (snap.p.length > 4) snap.p = snap.p.slice(0, snap.p.length - 3); else snap.e = snap.e.slice(1); json = JSON.stringify(snap); } // keep each packet small: drop extra props first, then old events
     NETLOG.w && NETLOG.w.sent++; this.room.presence({ s: snap }, true).catch(() => {}); // out now: never wait behind this frame's drawing
   },
@@ -7030,9 +7207,10 @@ const MP = {
     // events: barks, hits, blasts
     for (const e of latest.e || []) {
       if (e.n <= this.seen) continue; this.seen = e.n;
+      if (e.k === 'pc') { const pr = PROPID.map.get(e.id); if (pr && !pr.charred) { pr.fireT = 0; charProp(pr); } }
       if (e.k === 'pr') { const pr = PROPID.map.get(e.id); const i = pr ? props.indexOf(pr) : -1; if (i >= 0) { props.splice(i, 1); world.removeBody(pr.body); scene.remove(pr.mesh); bits(pr.body.position, BIT.splinter, 8, 4, 4); } }
       if (e.k === 'b') { const c = cars[e.i], P = e.i === -1 ? ANNOUNCER : c && c.persona; if (P) { barks.show(P, e.i === -1 ? new THREE.Color(0xf2a20c) : c.baseColor, e.x); barks.speak(P, e.x, c ? c.body.position : null); } }
-      else if (e.k === 'h') { const p = new CANNON.Vec3(e.p[0], e.p[1], e.p[2]); sparks(p, Math.min(50, e.v * 2.5 | 0)); if (player) sfx.crash(Math.min(1, e.v / 18) * clamp(1 - player.body.position.distanceTo(p) / 110, 0, 1), e.v); }
+      else if (e.k === 'h') { const p = new CANNON.Vec3(e.p[0], e.p[1], e.p[2]); sparks(p, Math.min(50, e.v * 2.5 | 0)); if (player) sfx.at(p).crash(Math.min(1, e.v / 18) * clamp(1 - player.body.position.distanceTo(p) / 110, 0, 1), e.v); }
       else if (e.k === 'x') { explodeShell(new CANNON.Vec3(e.p[0], e.p[1], e.p[2]), null, this.dummy, e.s || 1); }
     }
     // my stick and buttons go back to the host
@@ -7056,7 +7234,7 @@ const MP = {
     const b = bl.body, tx = e[0] / 100, tz = e[2] / 100;
     b.velocity.set((tx - b.position.x) * 8, 0, (tz - b.position.z) * 8); b.position.y = e[1] / 100;
     bl.yaw = e[3] / 100; b.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), bl.yaw);
-    bl.state = ['graze', 'walk', 'paw', 'charge', 'proud', 'down'][e[4]] || 'graze';
+    bl.state = ['graze', 'walk', 'paw', 'charge', 'proud', 'down', 'burger'][e[4]] || 'graze';
     return true;
   },
 };
@@ -7144,7 +7322,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '38'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '39'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
@@ -7625,7 +7803,7 @@ function simBody(now) {
     updatePickups(sdt);
     updateShells(sdt);
     updateConcrete(sdt);
-    SEC.run('effects', () => updateParticles(sdt));
+    SEC.run('effects', () => { updateParticles(sdt); updateBooms(sdt); updatePropFires(sdt); });
     updateFireLights(clock);
   }
 }
@@ -7656,5 +7834,5 @@ function drawBody(dt) {
   if (!window.__noRender) { const gq = Math.min(S.gfx, S.autoGfx ? (QUALITY.gfxCap ?? 2) : 2); if (gq > 0) { grade.uniforms.uTime.value = clock % 10; grade.enabled = gq > 1; bloom.strength = gq > 1 ? 0.42 : 0.34; composer.render(); } else renderer.render(scene, camera); PERFREP.render = performance.now() - PERFREP.r0; SEC.add('render', PERFREP.render); } // tests can skip drawing to run physics faster
 }
 requestAnimationFrame(frame);
-window.__derby = { CAR_TYPES, sfx, CANNON, barks, PERF, shells, NETLOG, nearHostAdd: () => nearHostAdd(), nearJoin: () => nearJoin(), JUMBO, BALL, BOLLARDS, GASQ, updateArenaPub: (dt) => updateArena(dt), CRUSHER, crushNow: () => crushNow(), applyNight: () => applyNight(), FIREWORKS, ARENA, CROWD, MP, QUALITY, applyQuality: (i) => applyQuality(i), MERGED, camera, updatePropActivity: (dt) => updatePropActivity(dt), renderer, scene, spawnFree: (x, z, r) => spawnFree(x, z, r), BULLS, updateBulls: (dt) => updateBulls(dt), updateShells, tilt, setTilt, get CRANE() { return CRANE; }, updateCrane: (dt) => updateCrane(dt), CONCRETE, THREE, craters, shells, pickups, barks, PERSONAS, TUNE, game, cars, S, world, CAR_TYPES, sfx, touch, drawGauge, get player() { return player; }, keys, startMatch, selectCar, setValue, debris, props, platformOf, get simTime() { return simTime; }, set simTime(v) { simTime = v; } }; // console tinkering + tests
+window.__derby = { wakeProp: (pr) => wakeProp(pr), addConcrete: (x, z, r, k) => addConcrete(x, z, r, k), igniteProp: (pr, t) => igniteProp(pr, t), cookBull: (bl, by, dt) => cookBull(bl, by, dt), tankerBoom: (p, c) => tankerBoom(p, c), CAR_TYPES, sfx, CANNON, barks, PERF, shells, NETLOG, nearHostAdd: () => nearHostAdd(), nearJoin: () => nearJoin(), JUMBO, BALL, BOLLARDS, GASQ, updateArenaPub: (dt) => updateArena(dt), CRUSHER, crushNow: () => crushNow(), applyNight: () => applyNight(), FIREWORKS, ARENA, CROWD, MP, QUALITY, applyQuality: (i) => applyQuality(i), MERGED, camera, updatePropActivity: (dt) => updatePropActivity(dt), renderer, scene, spawnFree: (x, z, r) => spawnFree(x, z, r), BULLS, updateBulls: (dt) => updateBulls(dt), updateShells, tilt, setTilt, get CRANE() { return CRANE; }, updateCrane: (dt) => updateCrane(dt), CONCRETE, THREE, craters, shells, pickups, barks, PERSONAS, TUNE, game, cars, S, world, CAR_TYPES, sfx, touch, drawGauge, get player() { return player; }, keys, startMatch, selectCar, setValue, debris, props, platformOf, get simTime() { return simTime; }, set simTime(v) { simTime = v; } }; // console tinkering + tests
 </script>
