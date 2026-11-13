@@ -135,6 +135,8 @@
   .mpshare { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
   .mpshare canvas { width: 140px; height: 140px; background: #fff; border-radius: 6px; padding: 6px; image-rendering: pixelated; }
   .mpshare input { font: 500 12px var(--ui); width: 15em; padding: 6px 8px; background: var(--panel-solid); color: var(--fg); border: 1px solid var(--line); border-radius: 4px; margin-right: 6px; }
+  #perf { position: absolute; right: calc(8px + env(safe-area-inset-right, 0px)); top: calc(232px + env(safe-area-inset-top, 0px)); font: 600 11px var(--ui); color: #c8f0a0; background: rgba(0,0,0,.55); padding: 3px 7px; border-radius: 4px; white-space: pre; text-align: right; }
+  @media (max-height: 500px), (max-width: 500px) { body.touch #perf { top: calc(118px + env(safe-area-inset-top, 0px)); font-size: 10px; } }
   #keys { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(6px + env(safe-area-inset-bottom, 0px)); max-width: min(900px, 70vw); text-align: center; font: 500 12px var(--ui); color: var(--muted); background: rgba(23, 19, 15, 0.55); border: 1px solid var(--line); border-radius: 4px; padding: 4px 10px; line-height: 1.6; white-space: normal; }
   #keys b { color: var(--fg); font-weight: 700; } #keys .sp { color: var(--accent); }
   body.touch #keys { display: none; }
@@ -321,6 +323,7 @@
     <div id="flash"></div>
     <div id="wet"></div>
     <div id="keys" aria-label="Controls"></div>
+    <div id="perf" hidden></div>
     <div id="threats"></div>
     <div id="reticle" hidden></div>
     <div id="subs" aria-live="polite"></div>
@@ -475,6 +478,7 @@ const SETTINGS_DEF = [
   { key: 'antiRoll',            group: 'Suspension', label: 'Anti-roll bars', unit: '',      min: 0,    max: 1,     step: 0.05, def: 0.5 },
   { key: 'damage',              group: 'Match', label: 'Damage multiplier',   unit: '×',     min: 0,    max: 4,     step: 0.1,  def: 1 },
   { key: 'night',               group: 'Match', label: 'Night derby',         unit: '',      min: 0,    max: 1,     step: 1,    def: 0, note: '1 = under the floodlights' },
+  { key: 'perfHud',             group: 'Match', label: 'Show performance',    unit: '',      min: 0,    max: 1,     step: 1,    def: 0, note: 'frames per second, quality step, network delay' },
   { key: 'autoGfx',             group: 'Match', label: 'Auto graphics',       unit: '',      min: 0,    max: 1,     step: 1,    def: 1, note: '1 = lower the detail by itself when the frame rate drops' },
   { key: 'gfx',                 group: 'Match', label: 'Graphics quality',    unit: '',      min: 0,    max: 2,     step: 1,    def: 2, note: '0 = fast, 1 = glow, 2 = full (bloom, reflections, grading)' },
   { key: 'aiCount',             group: 'Match', label: 'Opponents',           unit: '',      min: 1,    max: 12,    step: 1,    def: 6, restart: true },
@@ -2171,6 +2175,7 @@ PMAT.spark.color.setRGB(3.2, 2.7, 1.8); PMAT.sparkHot.color.setRGB(2.8, 1.7, 0.5
 SMAT.fireHot.color.setRGB(1.35, 1.12, 0.72); SMAT.fire.color.setRGB(1.25, 0.6, 0.18); // just over white: a glow, not a white-out SMAT.flame.color.setRGB(1.0, 2.0, 3.0);
 PMAT.glass = new THREE.MeshStandardMaterial({ color: 0xd8e6ee, roughness: 0.05, metalness: 1, emissive: 0x6a8090, emissiveIntensity: 0.6, envMapIntensity: 2.5, transparent: true, opacity: 0.9 });
 function emit(type, x, y, z, vx, vy, vz, life, size, mat) {
+  if (QUALITY.lite && (type === 'smoke' || type === 'dust' || type === 'steam') && Math.random() < 0.5) return;
   let p;
   if (GASSY.has(type)) {
     p = sprites[sIdx];
@@ -5580,7 +5585,7 @@ const touch = { gas: false, brake: false, hb: false, nitro: false, steer: 0, pit
 function enableTouch() {
   el.touch.hidden = false; document.body.classList.add('touch');
   // tablets and phones: render a little lighter to keep the frame rate up
-  QUALITY.dprCap = 1.5; QUALITY.maxPix = 1.6e6; sun.shadow.mapSize.set(1024, 1024); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } resize();
+  QUALITY.dprCap = 1.5; QUALITY.maxPix = 1.6e6; sun.shadow.mapSize.set(1024, 1024); if (S.autoGfx && QUALITY.level < 3 && typeof applyQuality === 'function') setTimeout(() => applyQuality(3), 0); // tablets and phones start light and earn their way up if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } resize();
 }
 function isTouchUI() { return document.body.classList.contains('touch'); }
 if ((window.matchMedia && window.matchMedia('(pointer: coarse)').matches) || (navigator.maxTouchPoints > 0 && window.matchMedia && window.matchMedia('(hover: none)').matches)) enableTouch();
@@ -6154,7 +6159,13 @@ const MP = {
     if (!hp) { if (this.room && this.rt > 3) { toast('HOST LEFT', 'bad'); this.leave(); } this.rt += dt; return; }
     if (hp.roster && hp.rk && hp.rk !== this.builtRk) this.rebuild(hp);
     const s = hp.s;
-    if (s && s.rk === this.builtRk && (!this.snaps.length || this.snaps[this.snaps.length - 1].t !== s.t)) { this.snaps.push(s); if (this.snaps.length > 6) this.snaps.shift(); }
+    if (s && s.rk === this.builtRk && (!this.snaps.length || s.t > this.snaps[this.snaps.length - 1].t)) {
+      const now = performance.now() / 1000, N = this.net || (this.net = { iv: 0.05, jit: 0.01, off: null, lastA: now, lastT: s.t, n: 0 });
+      const gapT = s.t - N.lastT, gapA = now - N.lastA; N.lastA = now; N.lastT = s.t; N.n++;
+      if (gapT > 0 && gapT < 1) { N.iv = lerp(N.iv, gapT, 0.1); N.jit = lerp(N.jit, Math.abs(gapA - gapT), 0.1); }
+      const off = s.t - now; N.off = N.off === null ? off : off > N.off ? off : N.off + (off - N.off) * 0.02; // host clock: jump forward fast, drift back slowly
+      this.snaps.push(s); if (this.snaps.length > 12) this.snaps.shift();
+    }
     if (!this.snaps.length) return;
     const latest = this.snaps[this.snaps.length - 1];
     // game state
@@ -6166,15 +6177,19 @@ const MP = {
     if (latest.cr) { CRUSHER.y = latest.cr[0] / 100; CRUSHER.state = ['idle', 'warn', 'slam', 'hold'][latest.cr[1]] || 'idle'; }
     if (st === 'playing') { const n = Math.ceil(latest.cd / 0.6); if (n !== game.lastCount && n >= 0) { game.lastCount = n; toast(n > 0 ? String(n) : 'GO!', n > 0 ? '' : 'cool'); if (n === 0) sfx.cheer(0.8); } }
     // interpolate 100 ms behind the newest snapshot
-    this.rt += dt; if (this.rt > latest.t || this.rt < latest.t - 0.4) this.rt = latest.t - 0.1;
-    let a = this.snaps[0], b = latest;
-    for (let i = 0; i < this.snaps.length - 1; i++) if (this.snaps[i].t <= this.rt && this.snaps[i + 1].t >= this.rt) { a = this.snaps[i]; b = this.snaps[i + 1]; break; }
+    // render a little in the past, by an amount that adapts to how jittery the network is
+    const N = this.net || { iv: 0.05, jit: 0.01, off: latest.t - performance.now() / 1000 };
+    this.delay = clamp(0.05 + 1.2 * N.iv + 2.5 * N.jit, 0.08, 0.35);
+    this.rt = performance.now() / 1000 + (N.off ?? 0) - this.delay;
+    let a = this.snaps[0], b = latest, ext = 0;
+    if (this.rt >= latest.t) { a = b = latest; ext = Math.min(0.25, this.rt - latest.t); } // data is late: carry on along the last velocity for a moment
+    else for (let i = 0; i < this.snaps.length - 1; i++) if (this.snaps[i].t <= this.rt && this.snaps[i + 1].t >= this.rt) { a = this.snaps[i]; b = this.snaps[i + 1]; break; }
     const k = b.t > a.t ? clamp((this.rt - a.t) / (b.t - a.t), 0, 1) : 1;
     const qa = new THREE.Quaternion(), qb = new THREE.Quaternion();
     cars.forEach((c, i) => {
       const A = a.c[i], B = b.c[i]; if (!A || !B) return;
       const L = (j) => lerp(A[j], B[j], k);
-      c.body.position.set(L(0) / 100, L(1) / 100, L(2) / 100);
+      c.body.position.set(L(0) / 100 + B[7] / 10 * ext, L(1) / 100 + B[8] / 10 * ext * 0.5, L(2) / 100 + B[9] / 10 * ext);
       qa.set(A[3], A[4], A[5], A[6]).normalize(); qb.set(B[3], B[4], B[5], B[6]).normalize(); qa.slerp(qb, k);
       c.body.quaternion.set(qa.x, qa.y, qa.z, qa.w);
       c.body.velocity.set(B[7] / 10, B[8] / 10, B[9] / 10);
@@ -6235,6 +6250,7 @@ function peerRoom(code, isHost) {
     const snapshot = () => Object.freeze([{ peer: me || 'me', by: null, isMe: true, sameTab: true, kind: 'viewer', guest: false, presence: mine, updatedAt: Date.now() }, ...[...others.values()].map((o) => o.p)]);
     const fire = () => { cache = snapshot(); for (const h of hs) try { h({ peers: cache, joined: [], left: [], updated: [] }); } catch (e) {} };
     const sendAll = () => { for (const o of others.values()) if (o.conn.open) try { o.conn.send({ t: 'p', p: mine }); } catch (e) {} };
+    setInterval(sendAll, 250);
     const wire = (conn) => {
       conn.on('open', () => { others.set(conn.peer, { conn, p: { peer: conn.peer, by: null, isMe: false, sameTab: false, kind: 'viewer', guest: false, presence: {}, updatedAt: Date.now() } }); try { conn.send({ t: 'p', p: mine }); } catch (e) {} fire(); if (!isHost && !done) { done = true; resolve(api); } });
       conn.on('data', (d) => { if (!d || d.t !== 'p' || typeof d.p !== 'object') return; const o = others.get(conn.peer); if (!o) return; o.p = { ...o.p, presence: d.p, updatedAt: Date.now() }; fire(); });
@@ -6248,7 +6264,7 @@ function peerRoom(code, isHost) {
       leave() { try { peer.destroy(); } catch (e) {} return Promise.resolve(); },
     };
     let tries = 0;
-    const dial = () => { tries++; MP.info(tries > 1 ? `Still connecting… (try ${tries} of 4)` : 'Connecting to the host…'); const c = peer.connect(PEER_PREFIX + code, { serialization: 'json' }); wire(c);
+    const dial = () => { tries++; MP.info(tries > 1 ? `Still connecting… (try ${tries} of 4)` : 'Connecting to the host…'); const c = peer.connect(PEER_PREFIX + code, { serialization: 'json', reliable: false }); wire(c);
       setTimeout(() => { if (!done && !c.open && tries < 4) { try { c.close(); } catch (e) {} dial(); } }, 7000); };
     peer.on('open', (id) => { me = id; cache = snapshot(); if (isHost) { done = true; resolve(api); } else dial(); });
     // phones pause pages in the background (switching to WhatsApp to send the link): come back and re-register with the server
@@ -6286,6 +6302,7 @@ function nearRoom() {
   const hs = [], others = new Map(); let mine = {}, pending = false, cache = Object.freeze([]); const me = 'n' + Math.random().toString(36).slice(2, 8);
   const snapshot = () => Object.freeze([{ peer: me, by: null, isMe: true, sameTab: true, kind: 'viewer', guest: false, presence: mine, updatedAt: Date.now() }, ...[...others.values()].map((o) => o.p)]);
   const fire = () => { cache = snapshot(); for (const h of hs) try { h({ peers: cache, joined: [], left: [], updated: [] }); } catch (e) {} };
+  setInterval(() => { for (const o of others.values()) if (o.dc.readyState === 'open') try { o.dc.send(JSON.stringify(mine)); } catch (e) {} }, 250); // resend: messages may be dropped, so state is repeated
   const api = {
     name: 'near', presence(patch) { mine = { ...mine }; for (const k in patch) { if (patch[k] === null) delete mine[k]; else mine[k] = patch[k]; } cache = snapshot(); if (!pending) { pending = true; setTimeout(() => { pending = false; for (const o of others.values()) if (o.dc.readyState === 'open') try { o.dc.send(JSON.stringify(mine)); } catch (e) {} }, 33); } return Promise.resolve(); },
     peers() { return cache; }, onPeers(h) { hs.push(h); setTimeout(() => h({ peers: cache, joined: cache, left: [], updated: [] }), 0); return () => hs.splice(hs.indexOf(h), 1); },
@@ -6304,7 +6321,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '31'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '32'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
@@ -6326,7 +6343,7 @@ function relayJoin(code) { // guest: post our offer to the host's topic, wait fo
     const attempt = async () => {
       if (done) return; tries++; MP.info(tries > 1 ? `Knocking again… (try ${tries} of 4)` : 'Finding the host…');
       if (pc) try { pc.close(); } catch (e) {}
-      pc = new RTCPeerConnection(ONLINE_ICE); const dc = pc.createDataChannel('derby', { ordered: true }); room.attach(pc, dc);
+      pc = new RTCPeerConnection(ONLINE_ICE); const dc = pc.createDataChannel('derby', { ordered: false, maxRetransmits: 0 }); room.attach(pc, dc); // each message is a full state: a lost one is simply replaced by the next
       dc.addEventListener('open', () => { if (done) return; done = true; es.close(); const leave = room.leave; room.leave = () => leave(); resolve(room); });
       await pc.setLocalDescription(await pc.createOffer()); await gatheredOnline(pc);
       try { await ntfyPub('sd-' + code + '-h', JSON.stringify({ g, n: tries, o: await packSDP(pc.localDescription) })); } catch (e) { if (!done) { done = true; es.close(); reject({ type: 'network' }); } return; }
@@ -6362,7 +6379,7 @@ function nearClose() { stopScan(); $('near').hidden = true; }
 async function nearHostAdd() { // host: one more phone
   if (MP.role === 'guest') return;
   if (MP.role === 'solo') { MP.room = nearRoom(); MP.role = 'host'; MP.code = 'near'; MP.room.presence({ host: 1, nick: MP.nick() }); MP.room.onPeers(() => { const n = MP.guests().length; MP.info(n ? `Players in your game: ${MP.guests().map((g) => g.presence.nick || 'Player').join(', ')}. Press Start when ready, or add another.` : 'Hosting nearby. Add players, then press Start.'); }); $('btnHost').hidden = true; $('btnLeave').hidden = false; MP.status('hosting nearby'); }
-  const pc = new RTCPeerConnection(NEAR_ICE), dc = pc.createDataChannel('derby', { ordered: true }); MP.room.attach(pc, dc);
+  const pc = new RTCPeerConnection(NEAR_ICE), dc = pc.createDataChannel('derby', { ordered: false, maxRetransmits: 0 }); MP.room.attach(pc, dc);
   nearShow('Add a player · 1 of 2', 'Let your friend scan this', 'On their phone: open this game, tap "Join nearby" and point the camera at this code.', null);
   await pc.setLocalDescription(await pc.createOffer()); await gathered(pc);
   const code = await packSDP(pc.localDescription);
@@ -6438,20 +6455,34 @@ MP.init();
 const QSTEPS = [
   { scale: 1.0, gfx: 2, shadow: 2048 }, { scale: 0.85, gfx: 2, shadow: 2048 }, { scale: 0.72, gfx: 2, shadow: 2048 },
   { scale: 0.72, gfx: 1, shadow: 2048 }, { scale: 0.72, gfx: 0, shadow: 1024 }, { scale: 0.6, gfx: 0, shadow: 1024 },
+  { scale: 0.6, gfx: 0, shadow: 0, lite: true }, { scale: 0.5, gfx: 0, shadow: 0, lite: true }, // last resort: no shadows, half the smoke and dust
 ];
 const govern = { acc: 0, n: 0, t: 0, good: 0, lastDown: -99 };
 function applyQuality(i) {
   QUALITY.level = i; const q = QSTEPS[i];
   QUALITY.scale = q.scale; QUALITY.gfxCap = q.gfx;
   if (sun.shadow.mapSize.x !== Math.min(q.shadow, isTouchUI() ? 1024 : 2048)) { sun.shadow.mapSize.set(Math.min(q.shadow, isTouchUI() ? 1024 : 2048), Math.min(q.shadow, isTouchUI() ? 1024 : 2048)); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
+  const sh = q.shadow > 0; if (sun.castShadow !== sh) { sun.castShadow = sh; renderer.shadowMap.needsUpdate = true; }
+  QUALITY.lite = !!q.lite;
   resize(); QUALITY.log.push(i);
 }
+const PERF = { fps: 60, t: 0 };
+function updatePerfHud(realDt) {
+  PERF.fps = lerp(PERF.fps, 1 / Math.max(1e-3, realDt), 0.05); PERF.t -= realDt;
+  const el2 = $('perf'); if (!S.perfHud) { if (!el2.hidden) el2.hidden = true; return; }
+  if (PERF.t > 0) return; PERF.t = 0.5; el2.hidden = false;
+  let txt = `${Math.round(PERF.fps)} fps · quality ${QSTEPS.length - QUALITY.level}/${QSTEPS.length} · ${Math.round(renderer.getPixelRatio() * 100)}% res`;
+  if (MP.role === 'guest' && MP.net) txt += `\nnet: ${Math.round(1 / MP.net.iv)} upd/s · jitter ${Math.round(MP.net.jit * 1000)} ms · smoothing ${Math.round((MP.delay || 0) * 1000)} ms`;
+  if (MP.role === 'host') txt += `\nhosting ${MP.guests().length} player(s)`;
+  el2.textContent = txt;
+}
 function governQuality(realDt) {
+  updatePerfHud(realDt);
   if (!S.autoGfx || game.state === 'menu' || document.hidden) { govern.acc = govern.n = 0; return; }
   govern.acc += Math.min(realDt, 0.1); govern.n++; govern.t += realDt;
-  if (govern.t < 2) return;
+  if (govern.t < (govern.first ? 2 : 1.2)) return; govern.first = true;
   const avg = govern.acc / govern.n; govern.acc = govern.n = govern.t = 0;
-  if (avg > 1 / 48 && QUALITY.level < QSTEPS.length - 1) { applyQuality(QUALITY.level + 1); govern.good = 0; govern.lastDown = clock; }   // struggling: drop a step
+  if (avg > 1 / 48 && QUALITY.level < QSTEPS.length - 1) { applyQuality(Math.min(QSTEPS.length - 1, QUALITY.level + (avg > 1 / 28 ? 2 : 1))); govern.good = 0; govern.lastDown = clock; }   // struggling: drop a step (two if it's really bad)
   else if (avg < 1 / 57) { govern.good++; if (govern.good >= 5 && QUALITY.level > 0 && clock - govern.lastDown > 25) { applyQuality(QUALITY.level - 1); govern.good = 0; } } // 10 s of headroom: try one step back up
   else govern.good = 0;
 }
