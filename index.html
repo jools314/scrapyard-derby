@@ -70,6 +70,7 @@
     right: calc(12px + env(safe-area-inset-right, 0px));
     display: grid; gap: 8px; justify-items: end; pointer-events: auto;
   }
+  body.nomap #minimap { display: none !important; }
   #minimap { width: 160px; height: 160px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; }
   .btns { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
   button {
@@ -229,6 +230,11 @@
   #rsheet[hidden] { display: none; }
   #netlog { position: fixed; inset: 0; z-index: 45; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(0,0,0,0.35); }
   #netlog[hidden] { display: none; }
+  #perfdlg { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 44; width: min(620px, calc(100vw - 24px)); }
+  #perfdlg[hidden] { display: none; }
+  #perfdlg .nl-card { background: rgba(20, 17, 14, 0.9); }
+  #pfText { margin: 0; font: 12px/1.45 ui-monospace, Menlo, monospace; color: #e8dccb; white-space: pre-wrap; max-height: 52vh; overflow: auto; }
+  #pfVerdict { font-weight: 600; color: #ffd08a; opacity: 1; }
   .nl-card { background: rgba(20, 17, 14, 0.97); border: 1px solid rgba(255, 220, 170, 0.18); border-radius: 14px; padding: 14px 16px; width: min(760px, 100%); max-height: 100%; display: grid; gap: 8px; color: #f3e9dc; }
   #nlText { width: 100%; height: min(52vh, 420px); font: 11px/1.35 ui-monospace, Menlo, monospace; background: #0d0b09; color: #e8dccb; border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; padding: 8px; white-space: pre; resize: vertical; }
   .nl-actions { display: flex; gap: 8px; justify-content: flex-end; }
@@ -310,6 +316,33 @@
     .result { grid-template-columns: 1fr 1fr; }
     .card { padding: 18px; gap: 12px; }
   }
+  /* ---- right-edge rail, settings menu, kid-friendly action buttons ---- */
+  .topright { display: flex !important; flex-direction: row; align-items: flex-start; gap: 8px; }
+  .rail { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
+  .rail .ic { width: 54px; height: 54px; border-radius: 14px; padding: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 22px; line-height: 1; background: rgba(20, 17, 14, 0.62); border: 1px solid var(--line); position: relative; color: var(--fg); }
+  .rail .ic small { font: 600 9px/1 var(--ui); margin-top: 4px; opacity: 0.85; letter-spacing: 0.04em; }
+  .rail .ic.hot { border-color: var(--accent); width: 62px; height: 62px; font-size: 26px; }
+  .rail .ic[aria-pressed="true"] { background: rgba(242, 162, 12, 0.28); }
+  .rail .ic.gear { width: 40px; height: 40px; font-size: 18px; opacity: 0.75; border-radius: 50%; }
+  #netDot { position: absolute; top: 2px; right: 2px; width: 9px; height: 9px; border-radius: 50%; background: #ff7a50; margin: 0; box-shadow: 0 0 0 2px rgba(255, 122, 80, 0.3); }
+  #gearMenu { position: absolute; top: 0; right: 70px; display: grid; gap: 6px; background: rgba(20, 17, 14, 0.96); border: 1px solid var(--line); border-radius: 12px; padding: 10px; min-width: 210px; z-index: 40; }
+  #gearMenu[hidden] { display: none !important; }
+  #gearMenu button { display: flex !important; justify-content: space-between; align-items: center; min-height: 42px; text-align: left; }
+  #gearMenu button[hidden] { display: none !important; }
+  #gearMenu kbd { display: inline-block !important; }
+  #touch .tb { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1; }
+  #touch .tb .ico { font-size: 24px; line-height: 1; }
+  #touch .tb small { font: 700 9px/1 var(--ui); margin-top: 3px; letter-spacing: 0.06em; text-transform: uppercase; }
+  #touch .tb.fire { width: 92px; height: 92px; border-width: 3px; border-color: rgba(255, 120, 60, 0.75); background: rgba(70, 22, 10, 0.55); }
+  #touch .tb.fire .ico { font-size: 40px; }
+  #touch .tb.fire small { font-size: 11px; }
+  #touch .tb.sm { width: 58px; height: 58px; }
+  .siren-only { display: none !important; }
+  body.has-siren #touch .tb.siren-only { display: inline-flex !important; }
+  body.touch .rail .ic { width: 46px; height: 46px; font-size: 19px; }
+  body.touch .rail .ic.hot { width: 54px; height: 54px; font-size: 23px; }
+  body.touch .rail .ic.gear { width: 36px; height: 36px; font-size: 16px; }
+  @media (max-height: 500px) { #touch .tb.fire { width: 76px; height: 76px; } #touch .tb.fire .ico { font-size: 32px; } #touch .tb.sm { width: 48px; height: 48px; } #touch .tb .ico { font-size: 20px; } }
 </style>
 
 <div id="app">
@@ -342,12 +375,17 @@
     </div>
     <div class="topright">
       <canvas id="minimap" width="320" height="320" aria-label="Arena map"></canvas>
-      <div class="btns">
+      <div class="rail"><!-- a slim column on the right edge: nothing over the middle of the screen -->
+        <button id="btnGear" class="ic gear" type="button" title="Settings and debugging" aria-label="Settings" aria-expanded="false">⚙️<span id="netDot" hidden></span></button>
+        <button id="btnMap" class="ic" type="button" title="Map (Tab)" aria-pressed="false">🗺️<small>Map</small></button>
+        <button id="btnPause" class="ic" type="button" title="Pause (P)">⏸️<small>Pause</small></button>
+        <button id="btnRespawn" class="ic hot" type="button" title="Respawn or pick a new car (K)">🔄<small>Respawn</small></button>
+      </div>
+      <div id="gearMenu" hidden>
         <button id="btnTune" type="button">Tune physics<kbd>T</kbd></button>
         <button id="btnNew" type="button">New car<kbd>N</kbd></button>
-        <button id="btnRespawn" type="button">Respawn<kbd>K</kbd></button>
-        <button id="btnNetLog" type="button" hidden>Net log<span id="netDot" hidden></span></button>
-        <button id="btnPause" class="touch-only" type="button">Pause</button>
+        <button id="btnPerf" type="button">Performance<kbd>I</kbd></button>
+        <button id="btnNetLog" type="button" hidden>Network log</button>
         <button id="btnMusic" type="button">Music on<kbd>B</kbd></button>
         <button id="btnMute" type="button">Sound on<kbd>M</kbd></button>
       </div>
@@ -370,16 +408,25 @@
     <div id="stickZone" class="stick-zone"><div id="stick" class="stick"><div id="knob" class="knob"></div></div><span class="tlabel">◀ Steer ▶</span></div>
     <div class="rightpad">
       <div class="small">
-        <button class="tb gun-only" data-k="fire" type="button">FIRE</button>
-        <button class="tb" data-k="jump" type="button">JUMP</button>
-        <button class="tb" data-k="nitro" type="button">NOS</button>
-        <button class="tb" data-k="hb" type="button">DRIFT</button>
-        <button class="tb" id="btnTilt" type="button" aria-pressed="false">TILT</button>
+        <button class="tb sm" id="btnTilt" type="button" aria-pressed="false"><span class="ico">📱</span><small>Tilt</small></button>
+        <button class="tb sm" data-k="hb" type="button"><span class="ico">🌀</span><small>Drift</small></button>
+        <button class="tb sm" data-k="nitro" type="button"><span class="ico">⚡</span><small>Nitro</small></button>
+        <button class="tb sm" data-k="jump" type="button"><span class="ico">⤴️</span><small>Jump</small></button>
+        <button class="tb sm siren-only" data-k="siren" type="button"><span class="ico">🚨</span><small>Siren</small></button>
+        <button class="tb fire gun-only" data-k="fire" type="button"><span class="ico" id="fireIco">💥</span><small id="fireLab">Fire</small></button>
       </div>
     </div>
     <div id="pedalZone" class="pedal-zone"><div id="pedal" class="pedal-track"><span class="pl up">GAS ▲</span><div id="pedalKnob" class="knob"></div><span class="pl dn">▼ BRAKE</span></div></div>
   </div>
 
+  <div id="perfdlg" hidden role="dialog" aria-label="Performance">
+    <div class="nl-card">
+      <div class="rs-title">Performance</div>
+      <div class="rs-sub" id="pfVerdict"></div>
+      <pre id="pfText"></pre>
+      <div class="nl-actions"><button id="pfHud" type="button">Corner readout: off</button><button id="pfSend" type="button">Save report</button><button id="pfCopy" type="button">Copy</button><button id="pfClose" class="primary" type="button">Close</button></div>
+    </div>
+  </div>
   <div id="netlog" hidden role="dialog" aria-label="Network log">
     <div class="nl-card">
       <div class="rs-title">Network log</div>
@@ -529,6 +576,8 @@ const SETTINGS_DEF = [
   { key: 'jumpStrength',        group: 'Car',   label: 'Jump kick',           unit: 'm/s',   min: 0,    max: 20,    step: 0.5,  def: 9 },
   { key: 'airStability',        group: 'Car',   label: 'Air stability',       unit: '',      min: 0,    max: 1,     step: 0.05, def: 0.7 },
   { key: 'airControl',          group: 'Car',   label: 'Air control',         unit: 'rad/s²', min: 0,   max: 12,    step: 0.5,  def: 4 },
+  { key: 'carWeight',           group: 'Suspension', label: 'Car weight',          unit: '×',     min: 1,    max: 2.5,   step: 0.05, def: 1, note: 'extra pull on every other car (not the tank or forklift). Tested: more grip but more lean, so off by default' },
+  { key: 'truckWeight',         group: 'Suspension', label: 'Heavy truck weight',  unit: '×',     min: 1,    max: 2.5,   step: 0.05, def: 1.55, note: 'extra pull on the fire truck, mixer and tanker (1.55 = Jupiter feel)' },
   { key: 'suspensionStiffness', group: 'Suspension', label: 'Spring stiffness', unit: '',    min: 8,    max: 120,   step: 1,    def: 30 },
   { key: 'suspensionDamping',   group: 'Suspension', label: 'Damping',        unit: '',      min: 0.5,  max: 10,    step: 0.1,  def: 2.6 },
   { key: 'rideHeight',          group: 'Suspension', label: 'Ride height (spring length)', unit: 'm', min: 0.2, max: 0.8, step: 0.01, def: 0.46 },
@@ -553,15 +602,15 @@ const CAR_TYPES = {
   outrider: { special: 'harpoon', handling: { steer: 1.0, rate: 1.0, spring: 1.0, damp: 1.0, rear: 0.88, drag: 1.0, roll: 1.0 }, frontDrive: 0.1, name: 'Outrider', blurb: 'Supercharged muscle car with a blower on the hood. Balanced, quick and mean.', style: 'muscle', mass: 1500, L: 4.6, W: 1.96, H: 0.62, wheelR: 0.4, wheelW: 0.34, wb: 2.85, track: 1.72, power: 1.0, grip: 1.0, armor: 1.0, cabin: { l: 2.0, h: 0.56, w: 1.62, x: -0.35 }, color: 0xf2a20c, redline: 7000, idle: 850, cyl: 4 },
   viper: { special: 'rockets', handling: { steer: 1.1, rate: 1.25, spring: 1.45, damp: 1.3, rear: 0.9, drag: 0.8, roll: 0.6 }, frontDrive: 0.2, name: 'Viper', blurb: 'Low wedge with a big wing. Fastest in the yard, but fragile.', style: 'wedge', mass: 1250, L: 4.4, W: 1.98, H: 0.5, wheelR: 0.38, wheelW: 0.36, wb: 2.7, track: 1.74, power: 1.12, grip: 1.12, armor: 1.2, cabin: { l: 1.6, h: 0.46, w: 1.5, x: -0.45 }, color: 0xc8302a, redline: 8200, idle: 1000, cyl: 5 },
   towtruck: { special: 'tow', handling: { steer: 0.85, rate: 0.9, spring: 1.1, damp: 1.15, rear: 1.1, drag: 1.3, roll: 0.8 }, name: 'Tow Truck', blurb: 'Wrecker with a boom and hook. Back up to a car, press F to hook it and drag it nose-up; F again whips it loose.', style: 'pickup', mass: 4200, L: 6.0, W: 2.2, H: 0.85, wheelR: 0.46, wheelW: 0.36, wb: 3.7, track: 1.86, power: 1.35, grip: 1.05, armor: 0.7, cabin: { l: 1.9, h: 0.95, w: 2.0, x: 1.25 }, color: 0xd8761a, redline: 4200, idle: 700, cyl: 4 },
-  forklift: { special: 'lift', forkSteer: true, comBias: 0.02, frontDrive: 1, antiWheelie: true, handling: { steer: 1.3, rate: 1.5, spring: 1.4, damp: 1.4, rear: 1.0, drag: 110, roll: 0.6 }, name: 'Forklift', blurb: 'Warehouse forklift with a 2.5 t counterweight. Drive the forks under a car, press F to hoist it, F again to toss it.', style: 'fork', mass: 2900, L: 3.3, W: 1.35, H: 0.75, wheelR: 0.34, wheelW: 0.3, wb: 1.85, track: 1.12, power: 0.6, grip: 1.15, armor: 0.75, cabin: { l: 1.0, h: 0.42, w: 1.05, x: -0.35 }, color: 0xe0a812, redline: 3600, idle: 800, cyl: 3, noWheelLoss: true },
+  forklift: { noPlant: true, special: 'lift', forkSteer: true, comBias: 0.02, frontDrive: 1, antiWheelie: true, handling: { steer: 1.3, rate: 1.5, spring: 1.4, damp: 1.4, rear: 1.0, drag: 110, roll: 0.6 }, name: 'Forklift', blurb: 'Warehouse forklift with a 2.5 t counterweight. Drive the forks under a car, press F to hoist it, F again to toss it.', style: 'fork', mass: 2900, L: 3.3, W: 1.35, H: 0.75, wheelR: 0.34, wheelW: 0.3, wb: 1.85, track: 1.12, power: 0.6, grip: 1.15, armor: 0.75, cabin: { l: 1.0, h: 0.42, w: 1.05, x: -0.35 }, color: 0xe0a812, redline: 3600, idle: 800, cyl: 3, noWheelLoss: true },
   sandflea: { special: 'flame', handling: { steer: 1.15, rate: 1.35, spring: 0.7, damp: 0.75, rear: 0.95, drag: 1.25, roll: 1.1 }, frontDrive: 0.35, name: 'Sandflea', blurb: 'Light buggy on long-travel springs. Flies far.', style: 'buggy', mass: 850, L: 3.7, W: 1.9, H: 0.45, wheelR: 0.5, wheelW: 0.4, wb: 2.55, track: 1.8, power: 0.75, grip: 1.1, armor: 1.3, cabin: { l: 1.6, h: 0.75, w: 1.4, x: -0.15 }, color: 0x3a8fb0, hullW: 0.72, extraTravel: 0.12, redline: 8500, idle: 1100, cyl: 2 },
   camper: { special: 'bomb', handling: { steer: 0.55, rate: 0.65, spring: 0.85, damp: 0.9, rear: 1.4, drag: 1.5, roll: 1.0 }, name: 'Camper', blurb: 'Rusty old RV. Top-heavy, slow to turn, and a rolling wrecking ball.', style: 'van', mass: 3600, L: 6.6, W: 2.3, H: 0.9, wheelR: 0.47, wheelW: 0.38, wb: 4.0, track: 2.0, power: 1.3, grip: 0.92, armor: 0.7, cabin: { l: 1.3, h: 0.6, w: 2.15, x: 2.5 }, color: 0xe3d6bc, redline: 5000, idle: 700, cyl: 3 },
-  mixer: { handling: { steer: 0.7, rate: 0.6, spring: 1.2, damp: 1.3, rear: 1.15, drag: 3.2, roll: 0.7 }, name: 'Mixer', blurb: 'Concrete mixer: 9.5 tonnes. F or FIRE pours wet concrete that bogs down anyone who drives into it.', style: 'mixer', pour: true, mass: 9500, L: 8.2, W: 2.5, H: 0.8, wheelR: 0.55, wheelW: 0.44, wb: 5.0, axles: [2.9, -1.4, -2.8], track: 2.05, power: 1.45, grip: 0.95, armor: 0.5, cabin: { l: 1.8, h: 1.3, w: 2.3, x: 2.85 }, color: 0xd8a020, redline: 2800, idle: 600, cyl: 3 },
-  firetruck: { special: 'water', handling: { steer: 0.8, rate: 0.75, spring: 1.1, damp: 1.2, rear: 1.15, drag: 1.3, roll: 0.75 }, name: 'Fire Truck', blurb: 'Long ladder, flashing lights, and automatic rear steering for tight turns. G toggles the siren.', style: 'fire', siren: true, rearSteer: true, mass: 8000, L: 9.6, W: 2.5, H: 0.95, wheelR: 0.52, wheelW: 0.42, wb: 6.0, track: 2.05, power: 1.8, grip: 0.95, armor: 0.6, cabin: { l: 2.4, h: 1.15, w: 2.3, x: 3.0 }, color: 0xb81e14, redline: 3200, idle: 650, cyl: 3 },
+  mixer: { heavy: true, handling: { steer: 0.7, rate: 0.6, spring: 1.2, damp: 1.3, rear: 1.15, drag: 3.2, roll: 0.7 }, name: 'Mixer', blurb: 'Concrete mixer: 9.5 tonnes. F or FIRE pours wet concrete that bogs down anyone who drives into it.', style: 'mixer', pour: true, mass: 9500, L: 8.2, W: 2.5, H: 0.8, wheelR: 0.55, wheelW: 0.44, wb: 5.0, axles: [2.9, -1.4, -2.8], track: 2.05, power: 1.45, grip: 0.95, armor: 0.5, cabin: { l: 1.8, h: 1.3, w: 2.3, x: 2.85 }, color: 0xd8a020, redline: 2800, idle: 600, cyl: 3 },
+  firetruck: { heavy: true, special: 'water', handling: { steer: 0.8, rate: 0.75, spring: 1.1, damp: 1.2, rear: 1.15, drag: 1.3, roll: 0.75 }, name: 'Fire Truck', blurb: 'Long ladder, flashing lights, and automatic rear steering for tight turns. G toggles the siren.', style: 'fire', siren: true, rearSteer: true, mass: 8000, L: 9.6, W: 2.5, H: 0.95, wheelR: 0.52, wheelW: 0.42, wb: 6.0, track: 2.05, power: 1.8, grip: 0.95, armor: 0.6, cabin: { l: 2.4, h: 1.15, w: 2.3, x: 3.0 }, color: 0xb81e14, redline: 3200, idle: 650, cyl: 3 },
   hellbender: { special: 'minigun', handling: { steer: 0.95, rate: 1.0, spring: 0.8, damp: 0.85, rear: 1.05, drag: 1.1, roll: 1.1 }, frontDrive: 0.4, name: 'Hellbender', blurb: 'Super truck: 700 hp, giant tires, long-travel suspension. Hold V (or nitro from low speed) to wheelie.', style: 'pickup', superTruck: true, wheelie: true, mass: 2900, L: 5.9, W: 2.2, H: 0.85, wheelR: 0.56, wheelW: 0.42, wb: 3.7, track: 1.95, power: 1.65, grip: 1.1, armor: 0.8, extraTravel: 0.15, cabin: { l: 1.7, h: 0.66, w: 1.95, x: 0.3 }, color: 0x4a4e52, redline: 6200, idle: 750, cyl: 4 },
   cruiser: { special: 'spikes', handling: { steer: 1.05, rate: 1.1, spring: 1.1, damp: 1.1, rear: 1.0, drag: 0.95, roll: 0.9 }, frontDrive: 0.15, name: 'Cruiser', blurb: 'Police cruiser with a light bar and siren. G toggles the siren.', style: 'sedan', police: true, mass: 1650, L: 4.9, W: 1.9, H: 0.62, wheelR: 0.38, wheelW: 0.32, wb: 2.9, track: 1.62, power: 1.05, grip: 1.0, armor: 0.9, cabin: { l: 2.3, h: 0.58, w: 1.62, x: -0.15 }, color: 0x16191e, redline: 6200, idle: 750, cyl: 4 },
-  tiger: { handling: { steer: 0.65, rate: 0.85, spring: 2.2, damp: 2.0, rear: 1.0, drag: 45, roll: 0.02 }, frontDrive: 0.5, name: 'Tiger', blurb: 'Battle tank with an autocannon: each trigger pull fires a 3-round burst. F, click or FIRE to shoot.', style: 'tank', mass: 11000, L: 6.4, W: 3.4, H: 1.0, hullW: 0.62, wheelR: 0.5, wheelW: 0.5, wb: 4.4, axles: [2.2, 0.75, -0.75, -2.2], track: 2.7, power: 1.3, grip: 1.6, armor: 0.3, traction: 11, cabin: { l: 3.0, h: 0.85, w: 2.6, x: -0.3 }, color: 0x8f7d52, redline: 3000, idle: 600, cyl: 6, skid: true, gun: true, noWheelLoss: true },
-  tanker: { pour: 'fuel', handling: { steer: 0.7, rate: 0.6, spring: 1.2, damp: 1.3, rear: 1.15, drag: 1.4, roll: 0.8 }, name: 'Tanker', blurb: 'Fuel truck, 7.5 t on six wheels. F spills gasoline; once the tank is ruptured the trail catches fire. Explodes spectacularly.', style: 'tanker', mass: 7500, L: 9.2, W: 2.5, H: 0.75, wheelR: 0.56, wheelW: 0.46, wb: 5.65, axles: [3.3, -1.6, -3.05], track: 2.1, frontDrive: 0, power: 2.3, grip: 0.95, armor: 0.55, cabin: { l: 2.0, h: 1.35, w: 2.3, x: 3.05 }, color: 0x8c3a22, blast: 22, redline: 3000, idle: 600, cyl: 3 },
+  tiger: { noPlant: true, handling: { steer: 0.65, rate: 0.85, spring: 2.2, damp: 2.0, rear: 1.0, drag: 45, roll: 0.02 }, frontDrive: 0.5, name: 'Tiger', blurb: 'Battle tank with an autocannon: each trigger pull fires a 3-round burst. F, click or FIRE to shoot.', style: 'tank', mass: 11000, L: 6.4, W: 3.4, H: 1.0, hullW: 0.62, wheelR: 0.5, wheelW: 0.5, wb: 4.4, axles: [2.2, 0.75, -0.75, -2.2], track: 2.7, power: 1.3, grip: 1.6, armor: 0.3, traction: 11, cabin: { l: 3.0, h: 0.85, w: 2.6, x: -0.3 }, color: 0x8f7d52, redline: 3000, idle: 600, cyl: 6, skid: true, gun: true, noWheelLoss: true },
+  tanker: { heavy: true, pour: 'fuel', handling: { steer: 0.7, rate: 0.6, spring: 1.2, damp: 1.3, rear: 1.15, drag: 1.4, roll: 0.55 }, name: 'Tanker', blurb: 'Fuel truck, 7.5 t on six wheels. F spills gasoline; once the tank is ruptured the trail catches fire. Explodes spectacularly.', style: 'tanker', mass: 7500, L: 9.2, W: 2.5, H: 0.75, wheelR: 0.56, wheelW: 0.46, wb: 5.65, axles: [3.3, -1.6, -3.05], track: 2.1, frontDrive: 0, power: 2.3, grip: 0.95, armor: 0.55, cabin: { l: 2.0, h: 1.35, w: 2.3, x: 3.05 }, color: 0x8c3a22, blast: 22, redline: 3000, idle: 600, cyl: 3 },
 };
 
 const S = {};
@@ -685,6 +734,7 @@ sun.shadow.normalBias = 0.02; sun.shadow.radius = 3;
 scene.add(sun, sun.target);
 
 /* ---------------- Physics world ---------------- */
+const PILLARS = []; // round concrete pillars (see the backup collision check)
 const world = new CANNON.World({ gravity: new CANNON.Vec3(0, -S.gravity, 0) });
 // Bodies removed from inside a collision callback (a crate splintering, a prop flattened) would corrupt the
 // step that is iterating over them, so removals made during a step wait until it finishes.
@@ -1103,7 +1153,7 @@ function buildArena() {
     scene.add(mesh);
     const band = new THREE.Mesh(new THREE.CylinderGeometry(1.32, 1.32, 0.6, 24), new THREE.MeshStandardMaterial({ map: hazardTex(4) }));
     band.position.set(x, 1.2, z); scene.add(band);
-    mapShapes.push({ kind: 'pillar', x, z, r: 1.3 });
+    mapShapes.push({ kind: 'pillar', x, z, r: 1.3 }); PILLARS.push({ x, z, r: 1.3, h: 6 });
   }
 
   // Kicker + landing pairs on the diagonals: jump gaps
@@ -2777,6 +2827,8 @@ function chamferBox(hx, hy, hz, c, inset, under = 0) { // under: how far the und
   return new CANNON.ConvexPolyhedron({ vertices: V, faces: F });
 }
 
+// how much extra pull keeps a car planted: heavy trucks most, the tank and forklift (already planted, special handling) none
+function plantK(T) { return T.heavy ? S.truckWeight : T.noPlant ? 1 : S.carWeight; }
 class Car {
   constructor({ type, name, color, isPlayer, x, z, yaw, number }) {
     const T = this.T = CAR_TYPES[type];
@@ -3530,10 +3582,10 @@ class Car {
   applyWheelSettings() {
     this.vehicle.wheelInfos.forEach((w, i) => {
       if (this.wheelLost[i]) return;
-      const HD = this.T.handling;
-      w.suspensionStiffness = S.suspensionStiffness * HD.spring;
-      w.dampingRelaxation = S.suspensionDamping * HD.damp;
-      w.dampingCompression = S.suspensionDamping * 1.5 * HD.damp;
+      const HD = this.T.handling, hk = plantK(this.T); // heavy trucks: stiffer springs for their extra pull, so they ride at the same height
+      w.suspensionStiffness = S.suspensionStiffness * HD.spring * hk;
+      w.dampingRelaxation = S.suspensionDamping * HD.damp * Math.sqrt(hk);
+      w.dampingCompression = S.suspensionDamping * 1.5 * HD.damp * Math.sqrt(hk);
       w.suspensionRestLength = S.rideHeight;
       w.maxSuspensionTravel = S.suspensionTravel + (this.T.extraTravel || 0);
     });
@@ -3592,6 +3644,7 @@ class Car {
       if (thrown) { v.setBrake(brakeImp * 0.05, i); w.frictionSlip *= 0.12; } // bare road wheels on the dirt: next to no grip
       if (w.isInContact) contacts++;
     }
+    { const hk = plantK(T); if (hk > 1) b.applyForce(new CANNON.Vec3(0, -b.mass * S.gravity * (hk - 1), 0), new CANNON.Vec3(0, 0, 0)); } // planted like on Jupiter: more grip, less wallow, quicker landings
     // Unstick: wanting to move but going nowhere (high-centred on junk, wheels spinning in the air, nose in a pile). After a moment
     // the car claws its way out: a firm push the way it is trying to go, the belly lifted a little. Never while something holds it.
     {
@@ -4890,6 +4943,25 @@ function platformOf(p) {
 }
 
 world.addEventListener('preStep', () => { for (const c of cars) c.physicsStep(FIXED); });
+// Backup for the round concrete pillars: the physics engine's hull-vs-cylinder test can miss now and then, letting a car slide through.
+// After each step, a car whose footprint overlaps a pillar is pushed back out and loses its speed into the pillar.
+const _pl = new CANNON.Vec3(), _pn = new CANNON.Vec3();
+world.addEventListener('postStep', () => {
+  for (const c of cars) {
+    if (c.ghost) continue; const b = c.body;
+    for (const P of PILLARS) {
+      const dx = P.x - b.position.x, dz = P.z - b.position.z; if (dx * dx + dz * dz > 81 || b.position.y > P.h + 0.5) continue;
+      b.pointToLocalFrame(new CANNON.Vec3(P.x, b.position.y, P.z), _pl);
+      const hx = c.T.L / 2, hz = (c.T.W * (c.T.hullW || 1)) / 2, qx = clamp(_pl.x, -hx, hx), qz = clamp(_pl.z, -hz, hz);
+      let nx = _pl.x - qx, nz = _pl.z - qz, d = Math.hypot(nx, nz), pen;
+      if (d < 1e-4) { const ex = hx - Math.abs(_pl.x), ez = hz - Math.abs(_pl.z); if (ex < ez) { nx = Math.sign(_pl.x) || 1; nz = 0; pen = ex + P.r; } else { nx = 0; nz = Math.sign(_pl.z) || 1; pen = ez + P.r; } d = 1; }
+      else { if (d >= P.r) continue; pen = P.r - d; }
+      _pn.set(nx / d, 0, nz / d); b.quaternion.vmult(_pn, _pn); _pn.y = 0; const nl = Math.hypot(_pn.x, _pn.z) || 1; _pn.x /= nl; _pn.z /= nl; // car → pillar, in the world
+      b.position.x -= _pn.x * pen; b.position.z -= _pn.z * pen;
+      const vn = b.velocity.x * _pn.x + b.velocity.z * _pn.z; if (vn > 0) { b.velocity.x -= _pn.x * vn * 1.25; b.velocity.z -= _pn.z * vn * 1.25; }
+    }
+  }
+});
 
 /* ---------------- HUD ---------------- */
 const $ = (id) => document.getElementById(id);
@@ -5396,6 +5468,127 @@ const COP = { nick: 'Sheriff Buck', style: 'brawler', lang: 'en-US', pitch: 0.8,
     wheel: ["Officer down! Well, wheel down!"], low: ["Requesting backup! Any backup!"], wrecked: ["Tell the captain... I want a desk job."],
     gloat: ["Book 'em!", "You have the right to remain wrecked!"], air: ["Hot pursuit, airborne!"], taunt: ["Pull over! PULL OVER!", "I've got a warrant with your name on it!", "You're in a heap of trouble, boy!", "I'm gonna barbecue your behind in molasses!", "There's no way, no way you came from my loins."], fire: ["Warning shot!"], charge: ["Ramming speed! It's in the manual!"], flee: ["Tactical repositioning!"], crash: ["That wall was resisting arrest!"] } };
 const GENERIC = { flee: ["Nope, nope, nope!", "Not today, maniac!", "Tactical retreat!"], charge: ["Here I come!", "Brace yourself!", "Clear the road!"], hitYou: ["Gotcha!"], gotHit: ["Hey!"], wheel: ["My wheel!"], low: ["I'm hit bad!"], wrecked: ["Noooo!"], gloat: ["Ha!"], air: ["Wheee!"], taunt: ["Come at me!"], start: ["Let's go!"] };
+// ---------- More lines for every character: rivalries (said to another driver by name), comebacks after a respawn, and bragging after a wreck ----------
+// {v} is the other driver's name, {vcar} their car. B| and C| are the second and third voices in a cab.
+const CAST_MORE = {
+  camper: {
+    insult: ['you meth-od actor', 'you lab rat', 'you cheap knock-off', 'you chemistry dropout'],
+    rival: ['{v}! You are a blowfish. Puffed up and harmless.', 'B|Yo {v}, your {vcar} is like... totally sloppy, yo.', '{v}, I watched you drive. Remedial. At best.', 'B|Mr. White, can we ram {v}? Please?', 'Say my name, {v}. Go on. Say it.', '{v}, there is gold in the streets and you\'re driving in the gutter.'],
+    respawn: ['I\'m back. Did you miss me? You did.', 'B|New RV, yo! Same science!', 'You can\'t keep a good cook down.', 'B|Mr. White, they fixed the curtains!'],
+    kill: ['{v}. Out. Exactly as calculated.', 'B|Yeah, science! {v} is toast, yo!', 'That was not luck, {v}. That was chemistry.', 'B|Did you see {v}\'s face?! Magnets would\'ve been cooler, but still!'],
+    taunt: ['B|Yo, you drive like my grandma. And she\'s got a walker!', 'You\'re a problem. I solve problems.', 'B|This is my own private derby, yo!', 'I know who you are. And I know where you park.'],
+    hitYou: ['B|Science, yo! It works, bitches!'.replace('bitches', '#@%!'), 'That is a lesson. You\'re welcome.', 'B|Boom! Right in the bumper!'],
+    gotHit: ['B|Mr. White, they dented the lab! THE LAB!', 'You have no idea how much that RV cost.', 'Wrong move, friend. Wrong RV.'],
+  },
+  tiger: {
+    insult: ['my little Schnitzel', 'you rusty bicycle', 'mein Häschen', 'you badly parked Volkswagen'],
+    rival: ['Ah, {v}. You remind me of a hawk. A hawk who has forgotten how to fly.', '{v}! Your {vcar} is... how do you say... a lovely target.', 'Herr {v}, may I offer you a glass of milk before I flatten you?', 'Do not be shy, {v}. Come closer. I hardly bite.', '{v}, your driving is a crime. And I am the detective.'],
+    respawn: ['Ah, a fresh tank. How delightful.', 'Did you think I would leave? How naïve.', 'Round two. I do love a sequel.'],
+    kill: ['{v} has been... filed away.', 'Ooh, that\'s a bingo, {v}!', 'Auf Wiedersehen, {v}. It was not a pleasure.', 'Flat as an apple strudel, {v}.'],
+    taunt: ['I have time. Eleven tonnes of time.', 'Run, rabbit, run. It makes it more fun for me.', 'You may keep the hubcaps. As a souvenir.', 'Shall we dance? I lead.'],
+    hitYou: ['Bingo!', 'Oh, I am terribly sorry. No, I am not.', 'Precision. Like a Swiss watch. But German.'],
+    gotHit: ['You touched my tank. Nobody touches my tank.', 'Interesting choice. Wrong, but interesting.', 'That was rude. I shall remember it. Forever.'],
+  },
+  firetruck: {
+    insult: ['you smoke detector with no batteries', 'probie', 'you walking fire hazard', 'you hydrant hugger'],
+    rival: ['{v}, you\'re a fire hazard on four wheels!', 'Hey {v}! Somebody call 911 on your driving!', '{v}, I\'ve put out campfires scarier than you.', 'Listen up, {v}! You go, we go... right through you!', '{v}! Your {vcar} smells like burnt toast. I\'ll hose it down.'],
+    respawn: ['New rig, same crew! Engine 17 is back!', 'Back from the station! Who called?', 'Fresh truck, full tank of water. Let\'s ride.'],
+    kill: ['Fire\'s out, {v}! So are you!', 'Rescue complete. Just not for {v}.', 'That\'s one less hazard in the yard. Bye, {v}!'],
+    taunt: ['I\'ve got four hundred gallons with your name on it!', 'Stay low and go! ...Oh wait, that\'s you running away.', 'Smoke showing! Right where you\'re parked!', 'Ladder up! Here comes the cavalry!'],
+    hitYou: ['Two-alarm hit! Make that three!', 'That\'s a code red, buddy!', 'Splash and dash!'],
+    gotHit: ['Assault on a fire truck! I\'m telling the chief!', 'You scratched the chrome! I just polished that!', 'You hit Engine 17?! The whole station felt that!'],
+  },
+  tanker: {
+    insult: ['bear bait', 'chicken coop', 'you four-wheel weekend warrior', 'you plastic pickup'],
+    rival: ['Breaker breaker, {v} drives like a shopping cart!', 'Hey {v}, your {vcar} wouldn\'t last ten minutes on the ice!', '{v}, I\'ve hauled frozen fish with more spine than you!', 'Ten-four, {v}. You\'re next on my run.', '{v}! Get off my road, good buddy!'],
+    respawn: ['Big Hank\'s back on the road! Keep the shiny side up!', 'New rig, same old Hank. Ten-four!', 'Dispatch says I got another load. Of whoop!'],
+    kill: ['{v} just hit an ice patch called Big Hank!', 'Ten-seven for {v}. Out of service!', 'That\'s a big ten-four on {v}!'],
+    taunt: ['Seventy-five hundred kilos say you\'re in my lane.', 'I\'ve driven through blizzards. You\'re a light drizzle.', 'Hammer down! Get outta my way!', 'You can\'t outrun a fuel truck, rookie. Well... you can. But you shouldn\'t.'],
+    hitYou: ['Breaker, we got a fender-bender! On you!', 'Mercy sakes alive!', 'Smokey\'s gonna want a word with you!'],
+    gotHit: ['That\'s a hazmat load, you lunatic!', 'Easy! This thing is basically a rolling bonfire!', 'Who taught you to drive, a moose?'],
+  },
+  hellbender: {
+    insult: ['you chrome-less wretch', 'you guzzoline thief', 'you sand flea', 'you sniveling scav'],
+    rival: ['{v}! You are not worthy of the wasteland!', '{v}... your {vcar} will be my hood ornament.', 'Kneel, {v}! Kneel before the Warlord!', 'I have eaten scavengers like {v} for breakfast.', '{v}, your chrome is dull and your spirit is weak!'],
+    respawn: ['The Warlord rises again!', 'Did you think death could hold me? I am the Warlord!', 'Bring me a new war rig! I return!'],
+    kill: ['{v} has been returned to the dust!', 'Witness the end of {v}!', 'Another trophy for the Citadel: {v}!'],
+    taunt: ['Your engine is mine. Your wheels are mine. Your soul... also mine.', 'Feel the power of seven hundred horses!', 'Run to the edge of the wasteland. I will still find you.', 'The yard trembles when I roll.'],
+    hitYou: ['Bow before the Hellbender!', 'Scrap! You are scrap!', 'My guns hunger!'],
+    gotHit: ['Insolent worm!', 'You will pay for that in guzzoline!', 'The Warlord does not bleed! ...much.'],
+  },
+  sandflea: {
+    insult: ['you mediocre', 'you dull-chrome', 'you sand-in-the-gears', 'you boring half-life'],
+    rival: ['{v}! {v}! Witness meee!', 'Oi {v}, your {vcar} isn\'t even shiny!', '{v} is MEDIOCRE!', 'Hey {v}, race you to Valhalla!', '{v}, you\'ve got more rust than chrome, mate!'],
+    respawn: ['I live again! WHAT A DAY!', 'Back from Valhalla! They didn\'t want me yet!', 'New buggy! Shiny! So shiny!'],
+    kill: ['{v} rides eternal! Ha ha!', 'Did you witness that?! {v} is DONE!', 'Lovely! {v} went to Valhalla!'],
+    taunt: ['Catch me if you can, mediocre!', 'I\'m the fastest flea in the yard!', 'Shiny and chrome, baby!', 'Faster! Faster! FASTER!'],
+    hitYou: ['WITNESS!', 'Lovely smash!', 'Did you see that?! DID YOU SEE THAT?!'],
+    gotHit: ['Oof! Lovely! Again!', 'Hey! You scratched my chrome!', 'I\'m alright! Totally alright! Mostly alright!'],
+  },
+  outrider: {
+    insult: ['scav', 'road rat', 'mate', 'feral'],
+    rival: ['{v}.', 'Stay out of my way, {v}.', '{v}. Turn around.', 'Not you again, {v}.', 'Hm. {v}\'s {vcar}. Looks fragile.'],
+    respawn: ['Back.', 'Still here.', 'Another car. Fine.'],
+    kill: ['{v}\'s done.', 'Mm. {v}.', 'That was {v}.'],
+    taunt: ['Last chance.', 'Go home.', 'You don\'t want this.', 'Walk away.'],
+    hitYou: ['Mm.', 'Move.', 'Told you.'],
+    gotHit: ['Hm.', 'Bad move.', 'That\'s it, then.'],
+  },
+  viper: {
+    insult: ['ten-second wannabe', 'tuner boy', 'you rice rocket', 'busta'],
+    rival: ['{v}, you\'re not family. You\'re just in my way.', 'Yo {v}, I\'ll race you for pinks.', '{v}, your {vcar} is all show and no go.', 'I almost respected you, {v}. Almost.', '{v}! Quarter mile. You and me. Now.'],
+    respawn: ['I\'m back. Family don\'t quit.', 'New ride. Same rules. Ride or die.', 'Never count out the family.'],
+    kill: ['That\'s for family, {v}.', '{v} never had a chance. Never had the car.', 'Winning\'s winning, {v}.'],
+    taunt: ['Five seconds or less, I\'ll catch you.', 'It doesn\'t matter if you win by an inch or a mile.', 'You talk too much. Let the engine talk.', 'Ain\'t nothing like a V8. Except mine.'],
+    hitYou: ['Respect the family.', 'NOS and no mercy!', 'That\'s how we do it on the street.'],
+    gotHit: ['You just made it personal.', 'Bad move, busta.', 'You hit the wrong family.'],
+  },
+  towtruck: {
+    insult: ['ya hubcap', 'ya parking ticket', 'ya flat tire', 'ya busted taillight'],
+    rival: ['Hey {v}! Your {vcar} is parked illegal! On my hook!', '{v}, I seen better drivin\' at the county fair demolition!', 'Shoot, {v}, I\'ll tow ya for free! To the scrapyard!', '{v}, you\'re dumber than a bag of hammers. And I love hammers!', 'Hoo-wee, {v}! That {vcar} needs a tow and a prayer!'],
+    respawn: ['Cletus is back! Git-r-done!', 'New truck! Same hook! Hoo-wee!', 'Couldn\'t keep ol\' Cletus down!'],
+    kill: ['{v} needs a tow! Good thing I\'m here!', 'Hooked and cooked! Bye, {v}!', 'Bless your heart, {v}. You\'re scrap now.'],
+    taunt: ['I got a hook with your name on it, sugar!', 'Ever been towed? It\'s a real ride!', 'Back on up here, darlin\'!', 'I tow cars for a livin\'. You\'re next!'],
+    hitYou: ['Yee-haw!', 'That\'s gonna need a tow!', 'Lordy, that was fun!'],
+    gotHit: ['Dadgummit!', 'Hey! I tow for a livin\'!', 'That\'s gonna cost ya, partner!'],
+  },
+  forklift: {
+    insult: ['you son of a silly person', 'you tiny-brained wiper of other people\'s bottoms', 'you Sir Not-Appearing-In-This-Derby', 'you vile cream-coloured pram'],
+    rival: ['C|{v}! Your mother was a hamster!', 'B|{v}! None shall pass!', 'Halt, {v}! Who goes there? ...Oh. A {vcar}.', 'C|I blow my nose at you, {v}!', 'Tell me, {v}: what is your favourite colour? WRONG!', 'C|{v}, you empty-headed animal food trough wiper!'],
+    respawn: ['I\'m not dead yet! I\'m getting better!', 'B|\'Tis but a respawn!', 'Patsy! The coconuts! We ride again!', 'Camelot! ...No, wait, it\'s only a model.'],
+    kill: ['{v} has been... Ni\'d!', 'B|{v} shall not pass! Ever again!', 'C|I fart in your general direction, {v}!', 'Brave Sir {v} ran away. Bravely ran away.'],
+    taunt: ['Bring me a shrubbery. And your hubcaps.', 'Ni! Ni! Ni!', 'C|Now go away, or I shall taunt you a second time!', 'What is your quest? To lose, apparently.'],
+    hitYou: ['Ni!', 'B|Have at you!', 'Huzzah!'],
+    gotHit: ['B|Just a flesh wound!', 'I\'m not dead!', 'B|Is that all you\'ve got?!'],
+  },
+  mixer: {
+    insult: ['ya stugots', 'ya gabagool', 'ya mortadella', 'ya cement-head'],
+    rival: ['Ay, {v}! You\'re sleepin\' with the rebar tonight!', '{v}, nice {vcar}. Shame if somethin\' happened to it.', 'Fuhgeddaboudit, {v}. You\'re done.', '{v}, I\'m gonna make you an offer you can\'t drive away from.', 'Hey {v}! My cousin Paulie says hi. With a cement truck.'],
+    respawn: ['Tony\'s back. Nobody leaves the family business.', 'New truck. The family takes care of its own.', 'You thought you got rid of me? Fuhgeddaboudit.'],
+    kill: ['{v}\'s been... set in stone.', 'Nothin\' personal, {v}. Strictly business.', 'Pour one out for {v}. Literally.'],
+    taunt: ['I got cement and I got time.', 'You know what I do? Waste management.', 'Hey, I\'m walkin\' here! Well. Drivin\'.', 'Capisce?'],
+    hitYou: ['That\'s from the family!', 'Bada bing!', 'You felt that? That was a message.'],
+    gotHit: ['Ay! What are you, nuts?!', 'You don\'t hit the cement truck. Ever.', 'Big mistake. Huge.'],
+  },
+  cruiser: {
+    insult: ['you sumbitch'.replace('sumbitch', '#@%!'), 'you scofflaw', 'you diesel-sniffin\' delinquent', 'you jaywalker'],
+    rival: ['{v}! You\'re in a heap of trouble, boy!', 'Pull over, {v}! PULL OVER!', '{v}, that {vcar} has been reported stolen. By me. Just now.', 'I got my eye on you, {v}!', '{v}! I\'m gonna barbecue your hubcaps!'],
+    respawn: ['The law is back in town!', 'New cruiser, same badge!', 'You can\'t kill the law! You can only dent it!'],
+    kill: ['{v} is under arrest! Permanently!', 'Book \'em! {v} is done!', 'Case closed, {v}!'],
+    taunt: ['Sirens on! Somebody\'s going to jail!', 'I\'m gonna write you so many tickets!', 'Hands where I can see \'em!', 'You have the right to remain wrecked!'],
+    hitYou: ['That\'s a citation!', 'Resisting arrest, are we?', 'Ten-four, got \'em!'],
+    gotHit: ['Assaulting an officer! That\'s a felony!', 'That\'s city property, son!', 'Oh, you done it now!'],
+  },
+};
+for (const [type, more] of Object.entries(CAST_MORE)) {
+  const P = type === 'cruiser' ? COP : CAR_CAST[type]; if (!P) continue;
+  for (const [ev, list] of Object.entries(more)) {
+    if (ev === 'insult') { P.words.insult = (P.words.insult || []).concat(list); continue; }
+    P.lines[ev] = (P.lines[ev] || []).concat(list);
+  }
+}
+// generic fallbacks so the extras (custom drivers) can join in too
+Object.assign(GENERIC, { rival: ['Hey {v}! Get out of my way!', '{v}, your {vcar} is a joke!', 'I\'m coming for you, {v}!'], respawn: ['I\'m back!', 'Miss me?', 'Round two!'], kill: ['So long, {v}!', 'Got you, {v}!', 'Ha! {v} is out!'] });
 const barks = {
   lastT: -99, el: null, voices: [],
   init() {
@@ -5461,9 +5654,10 @@ const barks = {
     try {
       if (!window.speechSynthesis) { this.speechOK = false; return; }
       this.voices = speechSynthesis.getVoices();
-      const u = new SpeechSynthesisUtterance('Welcome to Scrapyard Derby!');
+      this.tries = (this.tries || 0) + 1; this.unlockT = performance.now();
+      const u = new SpeechSynthesisUtterance(this.tries === 1 ? 'Welcome to Scrapyard Derby!' : 'Here we go!');
       const v = this.pickVoice(ANNOUNCER); if (v) { u.voice = v; u.lang = v.lang; }
-      u.pitch = ANNOUNCER.pitch; u.rate = ANNOUNCER.rate; u.volume = Math.max(0.3, S.voiceVolume);
+      u.pitch = ANNOUNCER.pitch; u.rate = ANNOUNCER.rate; u.volume = this.tries === 1 ? Math.max(0.3, S.voiceVolume) : 0.25;
       u.onstart = () => { this.speechOK = true; };
       speechSynthesis.cancel(); speechSynthesis.resume(); speechSynthesis.speak(u);
       setTimeout(() => { if (this.speechOK !== true) this.speechOK = false; }, 2500);
@@ -5637,6 +5831,7 @@ function drawMapBase() {
 drawMapBase();
 barks.init();
 function drawMinimap() {
+  if (!MAP_ON) return; // hidden: don't spend time drawing it
   const W = mm.width, s = W / (A * 2 + 8);
   mctx.clearRect(0, 0, W, W);
   mctx.drawImage(mmBase, 0, 0);
@@ -5672,7 +5867,8 @@ const game = {
     if (GAME_MODE === 'respawn' && MP.role !== 'guest') { // nobody is out: the wreck comes back in a few seconds
       car.respawnT = car.isPlayer || car.remote ? RESPAWN_HUMAN : RESPAWN_AI;
       if (car.isPlayer) { toast('WRECKED', 'bad'); const g = killer && !killer.wrecked ? killer : null; if (g && Math.random() < 0.6) barks.say(g, 'gloat', true); else barks.announce('youWrecked', {}, true); return; }
-      if (Math.random() < 0.5) barks.say(car, 'wrecked', true); else barks.announce('wreck', { v: car.name, vcar: car.T.name }, true);
+      if (killer && !killer.isPlayer && !killer.remote && Math.random() < 0.55) barks.say(killer, 'kill', true, { v: car.isPlayer ? 'you' : car.name, vcar: car.T.name, target: 'you', car: car.T.name });
+      else if (Math.random() < 0.5) barks.say(car, 'wrecked', true); else barks.announce('wreck', { v: car.name, vcar: car.T.name }, true);
       sfx.cheer(1);
       if (killer === player) { this.score += 1000; toast(`WRECKED ${car.name} +1000`); this.slowmo = 1.1; } else toast(killer ? `${killer.name} wrecked ${car.name}` : `${car.name} is wrecked`);
       return;
@@ -5753,18 +5949,30 @@ function respawnCar(old, type) {
   if (CRANE.held === old) craneRelease(CRANE, false);
   const sp = respawnSpot(old), human = old.isPlayer || old.remote;
   const nc = new Car({ type, name: old.name, color: human ? CAR_TYPES[type].color : old.baseColor.getHex(), number: old.number, isPlayer: old.isPlayer, x: sp.x, z: sp.z, yaw: sp.yaw });
-  nc.remote = old.remote; nc.persona = old.persona; nc.kills = old.kills || 0; nc.deaths = (old.deaths || 0) + (old.wrecked ? 1 : 0); nc.spawnT = simTime;
+  nc.remote = old.remote; nc.origType = old.origType || old.type; nc.persona = !human && type !== old.type ? (type === 'cruiser' ? COP : CAR_CAST[type] || old.persona) : old.persona; if (!human && nc.persona) nc.name = nc.persona.nick; nc.kills = old.kills || 0; nc.deaths = (old.deaths || 0) + (old.wrecked ? 1 : 0); nc.spawnT = simTime;
   const te = threatEls.get(old); if (te) { te.remove(); threatEls.delete(old); }
   old.dispose(); cars[i] = nc;
   if (old === player) { player = nc; setControlsFor(type); document.body.classList.toggle('has-gun', !!(nc.T.gun || nc.T.pour || nc.T.special)); sfx.setStyle(MUSIC_FOR[type] || 'rock'); toast('BACK IN', 'cool'); }
   for (let k = 0; k < 14; k++) emit('dust', sp.x + rand(-2, 2), 0.4, sp.z + rand(-2, 2), rand(-3, 3), rand(1, 4), rand(-3, 3), 1.2, 2.6);
+  if (!nc.isPlayer && !nc.remote && Math.random() < 0.6) setTimeout(() => barks.say(nc, 'respawn', true), 400);
   buildOpponentList();
   if (MP.role === 'host') MP.publishRoster(false);
   return nc;
 }
 function updateRespawns(dt) {
   if (MP.role === 'guest' || game.state !== 'playing' || GAME_MODE !== 'respawn') return;
-  for (const c of cars.slice()) if (c.wrecked) { c.respawnT = (c.respawnT ?? (c.isPlayer || c.remote ? RESPAWN_HUMAN : RESPAWN_AI)) - dt; if (c.respawnT <= 0) respawnCar(c, c.respawnType || c.type); }
+  for (const c of cars.slice()) if (c.wrecked) { c.respawnT = (c.respawnT ?? (c.isPlayer || c.remote ? RESPAWN_HUMAN : RESPAWN_AI)) - dt; if (c.respawnT <= 0) respawnCar(c, c.respawnType || aiRespawnType(c)); }
+}
+// Computer drivers come back in a different car: one that isn't already in the yard (at most one of each kind).
+// The Tiger is strong, so it is picked far less often, and never while another Tiger is out.
+function aiRespawnType(c) {
+  if (c.isPlayer || c.remote) return c.type;
+  const used = new Set(cars.filter((o) => o !== c).map((o) => o.type));
+  const free = Object.keys(CAR_TYPES).filter((k) => !used.has(k));
+  if (!free.length) return c.type === 'tiger' ? Object.keys(CAR_TYPES).find((k) => k !== 'tiger') : c.type;
+  const wt = (k) => (k === 'tiger' ? 0.25 : 1); let sum = 0; for (const k of free) sum += wt(k);
+  let r = Math.random() * sum; for (const k of free) { r -= wt(k); if (r <= 0) return k; }
+  return free[0];
 }
 // the respawn sheet: big buttons, works the same with a finger or a mouse
 const RS = { open: false, lastAsk: -99 };
@@ -5841,7 +6049,10 @@ function setControlsFor(type) {
     if (T0.police || T0.siren) parts.push(kb('G', 'siren'));
     parts.push(kb('H', 'horn'), kb('C', 'camera'), kb('R', 'flip'), kb('N', 'new car'), kb('P', 'pause'));
     $('keys').innerHTML = parts.join(' · ');
-    const fb = document.querySelector('#touch .tb.gun-only'); if (fb) fb.textContent = T0.gun ? 'FIRE' : T0.special === 'lift' ? 'LIFT' : T0.special === 'tow' ? 'HOOK' : T0.pour ? 'POUR' : 'FIRE';
+    const ICON = { harpoon: ['🎯', 'Harpoon'], oil: ['🛢️', 'Oil'], spikes: ['📌', 'Spikes'], flame: ['🔥', 'Flames'], bomb: ['💣', 'Propane'], water: ['💧', 'Water'], minigun: ['🔫', 'Minigun'], rockets: ['🚀', 'Rockets'], lift: ['⬆️', 'Lift'], tow: ['🪝', 'Hook'], ram: ['🚀', 'Ram'] };
+    const [ic, lb] = T0.gun ? ['💥', 'Cannon'] : T0.pour ? (T0.pour === 'fuel' ? ['⛽', 'Fuel'] : ['🧱', 'Concrete']) : ICON[T0.special] || ['💥', 'Fire'];
+    $('fireIco').textContent = ic; $('fireLab').textContent = lb;
+    document.body.classList.toggle('has-siren', !!(T0.police || T0.siren));
   }
   { const T0 = CAR_TYPES[type]; const lab = document.querySelector('.row.gun-only .label'); if (lab) lab.textContent = T0.gun ? 'Cannon' : T0.pour ? (T0.pour === 'fuel' ? 'Fuel' : 'Concrete') : 'Weapon'; }
 }
@@ -5869,6 +6080,9 @@ function resetMatch() {
   spawnCars();
   game.chatT = 14; game.score = 0; game.time = 0; game.overTimer = -1; game.attractReset = -1; game.shake = 0; game.propHits = 0;
 }
+// Speech only works after a tap or key press. Guests never press Start, and iOS sometimes doesn't confirm the first try:
+// so every tap or key press retries (at most every few seconds) until a voice has actually been heard.
+for (const ev of ['pointerdown', 'keydown', 'touchend']) addEventListener(ev, () => { if (barks.speechOK !== true && window.speechSynthesis && performance.now() - (barks.unlockT || -1e9) > 4000) barks.unlock(); }, { capture: true, passive: true });
 function startMatch() {
   if (MP.role === 'guest') { toast('THE HOST STARTS THE ROUND', 'cool'); return; }
   sfx.init();
@@ -5946,7 +6160,7 @@ function applySetting(key) {
     case 'playerMassScale': if (player) player.setMass(player.T.mass * S.playerMassScale); break;
     case 'aiMassScale': for (const c of cars) if (!c.isPlayer) c.setMass(c.T.mass * S.aiMassScale); break;
     case 'frontWeight': for (const c of cars) c.applyBalance(); break;
-    case 'suspensionStiffness': case 'suspensionDamping': case 'rideHeight': case 'suspensionTravel': for (const c of cars) c.applyWheelSettings(); break;
+    case 'carWeight': case 'truckWeight': case 'suspensionStiffness': case 'suspensionDamping': case 'rideHeight': case 'suspensionTravel': for (const c of cars) c.applyWheelSettings(); break;
     case 'enginePower': buildGarage(); break;
     case 'sfxVolume': case 'musicVolume': sfx.setVolumes(); break;
   }
@@ -6012,6 +6226,10 @@ function toggleMusic() {
   btnMusic.firstChild.textContent = sfx.musicOn ? 'Music on' : 'Music off';
 }
 btnMusic.addEventListener('click', (e) => { toggleMusic(); e.currentTarget.blur(); });
+function gearOpen(open) { $('gearMenu').hidden = !open; $('btnGear').setAttribute('aria-expanded', String(open)); }
+$('btnGear').addEventListener('click', (e) => { e.stopPropagation(); e.currentTarget.blur(); gearOpen($('gearMenu').hidden); });
+for (const id of ['btnTune', 'btnNew', 'btnPerf', 'btnNetLog']) $(id).addEventListener('click', () => gearOpen(false));
+document.addEventListener('pointerdown', (e) => { if (!$('gearMenu').hidden && !e.target.closest('#gearMenu, #btnGear')) gearOpen(false); });
 $('btnNew').addEventListener('click', (e) => { e.currentTarget.blur(); if (GAME_MODE === 'respawn' && game.state === 'playing') openRespawnSheet(false); else showMenu(); }); // back to the garage to pick a car
 $('btnPause').addEventListener('click', (e) => { if (game.state === 'playing') game.paused = !game.paused; e.currentTarget.blur(); });
 // Browsers only allow audio after a user gesture
@@ -6041,6 +6259,8 @@ window.addEventListener('keydown', (e) => {
     case 'KeyK': if (game.state === 'playing') { if (RS.open) closeRespawnSheet(); else openRespawnSheet(false); } break;
     case 'KeyC': camMode = (camMode + 1) % 3; break;
     case 'KeyT': togglePanel(); break;
+    case 'KeyI': perfOpen($('perfdlg').hidden); break;
+    case 'Tab': e.preventDefault(); setMap(!MAP_ON); break;
     case 'KeyM': sfx.init(); toggleMute(); break;
     case 'KeyB': toggleMusic(); break;
     case 'KeyP': case 'Escape':
@@ -6170,11 +6390,12 @@ for (const b of el.touch.querySelectorAll('[data-k]')) {
   const on = (e) => {
     e.preventDefault();
     try { b.setPointerCapture(e.pointerId); } catch (err) {}
+    if (k === 'siren') { if (player && (player.T.police || player.T.siren)) { player.sirenOn = !player.sirenOn; b.classList.toggle('on', player.sirenOn); } return; }
     if (k === 'jump' || k === 'fire') { if (player && game.state === 'playing') player.ctrl[k] = true; } else touch[k] = true;
     b.classList.add('on');
     sfx.init();
   };
-  const off = (e) => { e.preventDefault(); touch[k] = false; b.classList.remove('on'); };
+  const off = (e) => { e.preventDefault(); if (k === 'siren') return; touch[k] = false; b.classList.remove('on'); };
   b.addEventListener('pointerdown', on);
   b.addEventListener('pointerup', off);
   b.addEventListener('pointercancel', off);
@@ -6923,7 +7144,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '37'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '38'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
@@ -7146,7 +7367,80 @@ function frame(now) {
    picture had to guess ahead, quality level. Guests send a compact summary to the host; the host adds the round trip, keeps the
    last few minutes in a ring buffer, flags whoever is struggling (everyone sees a small broken-link mark on that name) and can
    export it all as text to paste into a bug report or an AI. */
+// ---------- Performance reports: after every wreck (and every 2 minutes), each device sends how its last ~10 s ran ----------
+// frame time, how much of it was the game step, how much was preparing the drawing, and how long it waited on the graphics chip.
+const SEC = { t: {}, n: 0, // time spent per system, cumulative
+  run(name, fn) { const t0 = performance.now(); fn(); this.t[name] = (this.t[name] || 0) + performance.now() - t0; },
+  add(name, ms) { this.t[name] = (this.t[name] || 0) + ms; },
+  snap() { return { t: { ...this.t }, n: this.n }; },
+  since(ref) { const n = this.n - (ref ? ref.n : 0), out = []; for (const k in this.t) out.push([k, (this.t[k] - (ref ? ref.t[k] || 0 : 0)) / Math.max(1, n)]); return out.sort((a, b) => b[1] - a[1]); },
+};
+const PERFREP = { f: [], max: 900, seq: 0, lastT: 0, r0: 0, render: 0, calls: 0, tris: 0, gpu: null, wreckCar: null,
+  add(frame, busy, sim, draw, render) { this.f.push([frame, busy, sim, draw, render]); if (this.f.length > this.max) this.f.shift(); },
+  device() {
+    if (!this.gpu) { try { const gl = renderer.getContext(), x = gl.getExtension('WEBGL_debug_renderer_info'); this.gpu = String(x ? gl.getParameter(x.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)).slice(0, 80); } catch (e) { this.gpu = '?'; } }
+    const ua = navigator.userAgent, os = /iPad|Macintosh.*Mobile|Macintosh(?=.*Touch)/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) ? 'iPad' : /iPhone/.test(ua) ? 'iPhone' : /Android/.test(ua) ? 'Android' : /Mac/.test(ua) ? 'Mac' : /Windows/.test(ua) ? 'Windows' : 'other';
+    return `${os} · ${navigator.hardwareConcurrency || '?'} cores${navigator.deviceMemory ? ' · ' + navigator.deviceMemory + ' GB' : ''} · ${innerWidth}x${innerHeight}@${devicePixelRatio} · GPU ${this.gpu}`;
+  },
+  summary(why, ref) { // everything over the same frames: since `ref` (a SEC snapshot), at most the last 600
+    const frames = Math.min(600, ref ? SEC.n - ref.n : 600), F = this.f.slice(-Math.max(1, frames)).filter((x) => x[0] < 1000); if (F.length < 4) return null; // (a tab in the background or a page load isn't the game's fault)
+    const parts = SEC.since(ref && SEC.n - ref.n <= 600 ? ref : null);
+    const col = (k) => F.map((x) => x[k]).sort((a, b) => a - b), avg = (a) => a.reduce((s, v) => s + v, 0) / a.length, pc = (a, q) => a[Math.min(a.length - 1, Math.floor(a.length * q))], r1 = (v) => Math.round(v * 10) / 10;
+    const fr = col(0), busy = col(1), sim = col(2), draw = col(3), rend = col(4), fa = avg(fr), ba = avg(busy);
+    const wait = Math.max(0, fa - ba), simA = avg(sim), drawA = avg(draw), rendA = avg(rend);
+    const verdict = fa < 20 ? 'smooth' : wait > ba ? 'waiting on the graphics chip (fewer pixels/effects would help)' : simA > drawA ? 'the game step (physics/AI) is the slow part' : 'preparing the drawing (draw calls) is the slow part';
+    return { why, at: Date.now(), who: MP.role === 'solo' ? 'this device' : MP.nick(), car: player ? player.T.name : '?', secs: Math.round(F.reduce((s, x) => s + x[0], 0) / 1000),
+      fps: Math.round(1000 / fa), frame: r1(fa), frame95: r1(pc(fr, 0.95)), frameMax: Math.round(fr[fr.length - 1]), busy: r1(ba), sim: r1(simA), sim95: r1(pc(sim, 0.95)), draw: r1(drawA), render: r1(rendA), wait: r1(wait), verdict,
+      parts: parts.filter(([, v]) => v >= 0.05).map(([k, v]) => `${k} ${v.toFixed(1)}`).join(', '), q: QUALITY.level, res: Math.round(renderer.getPixelRatio() * 100), calls: this.calls, tris: this.tris, cars: cars.length, role: MP.role, dev: this.device() };
+  },
+  send(why) {
+    const r = this.summary(why, this.secRef); if (!r) return; this.lastT = performance.now(); this.secRef = SEC.snap();
+    if (MP.role === 'guest' && MP.room) { MP.room.presence({ pf: [++this.seq, r] }, true).catch(() => {}); NETLOG.addPerf(r); } // to the host (and kept here)
+    else NETLOG.addPerf(r);
+  },
+  check() { // called every frame: a fresh wreck, or two quiet minutes, sends a report
+    if (!player || game.state !== 'playing') return;
+    if (player.wrecked && this.wreckCar !== player) { this.wreckCar = player; this.send('wrecked'); }
+    else if (performance.now() - this.lastT > 120000 && this.f.length > 300) this.send('every 2 minutes');
+  },
+};
+{ const rr = renderer.render.bind(renderer); renderer.render = function (sc, cam) { rr(sc, cam); if (sc === scene && cam === camera) { PERFREP.calls = renderer.info.render.calls; PERFREP.tris = renderer.info.render.triangles; } }; } // count what the main view draws
+// The Perf panel (button or I key): a live breakdown of the last ~2 seconds, refreshed twice a second
+function perfLiveText() {
+  const now = performance.now(); PF.snaps.push({ at: now, s: SEC.snap() }); while (PF.snaps.length > 1 && now - PF.snaps[1].at > 2000) PF.snaps.shift(); // the last ~2 s
+  const p = PERFREP.summary('live', PF.snaps[0].s); if (!p) return ['Measuring… (needs a couple of seconds of play)', ''];
+  const bar = (v, tot) => '█'.repeat(Math.max(0, Math.min(24, Math.round(24 * v / Math.max(1, tot)))));
+  const L = [`${p.fps} fps · frame ${p.frame} ms avg, ${p.frame95} ms at the slow end (16.7 ms = 60 fps)`, '',
+    'Where each frame goes (ms):',
+    `  game step   ${String(p.sim).padStart(5)}  ${bar(p.sim, p.frame)}`,
+    `  draw prep   ${String(p.draw).padStart(5)}  ${bar(p.draw, p.frame)}`,
+    `  GPU / idle  ${String(p.wait).padStart(5)}  ${bar(p.wait, p.frame)}`, '',
+    'By system (ms per frame):', ...String(p.parts || '').split(', ').filter(Boolean).map((x) => '  ' + x), '',
+    `Quality ${p.q} of ${QSTEPS.length - 1} (0 best) · resolution ${p.res}% · ${p.calls} draw calls · ${p.tris} triangles · ${p.cars} cars`,
+    `${MP.role === 'solo' ? 'Single player' : MP.role === 'host' ? 'Hosting' : 'Guest'}${MP.role === 'guest' && MP.net ? ` · ${Math.round(1 / MP.net.iv)} updates/s, smoothing ${Math.round((MP.delay || 0) * 1000)} ms` : ''}`,
+    p.dev];
+  return [p.verdict, L.join('\n')];
+}
+const PF = { timer: 0, snaps: [] };
+function perfOpen(open) {
+  const d = $('perfdlg'); d.hidden = !open; clearInterval(PF.timer);
+  if (!open) return;
+  const draw = () => { const [v, t] = perfLiveText(); $('pfVerdict').textContent = v; $('pfText').textContent = t; $('pfHud').textContent = 'Corner readout: ' + (S.perfHud ? 'on' : 'off'); $('pfSend').textContent = MP.role === 'guest' ? 'Send to host' : 'Save report'; };
+  PF.snaps = [{ at: performance.now(), s: SEC.snap() }]; setTimeout(draw, 600); PF.timer = setInterval(draw, 500);
+}
+$('btnPerf').addEventListener('click', (e) => { e.currentTarget.blur(); perfOpen($('perfdlg').hidden); });
+$('pfClose').addEventListener('click', () => perfOpen(false));
+$('pfHud').addEventListener('click', () => { S.perfHud = S.perfHud ? 0 : 1; try { saveSettings(); } catch (e) {} $('pfHud').textContent = 'Corner readout: ' + (S.perfHud ? 'on' : 'off'); });
+$('pfSend').addEventListener('click', () => { PERFREP.send('sent by hand'); $('pfSend').textContent = MP.role === 'guest' ? 'Sent' : 'Saved to Net log'; });
+$('pfCopy').addEventListener('click', async () => { const t = $('pfVerdict').textContent + '\n' + $('pfText').textContent; try { await navigator.clipboard.writeText(t); $('pfCopy').textContent = 'Copied'; } catch (e) { $('pfCopy').textContent = 'Copy failed'; } setTimeout(() => { $('pfCopy').textContent = 'Copy'; }, 1500); });
+// the map: off by default, Map button or Tab
+let MAP_ON = false; try { MAP_ON = localStorage.getItem('derby-map') === '1'; } catch (e) {}
+function setMap(on) { MAP_ON = on; document.body.classList.toggle('nomap', !on); $('btnMap').setAttribute('aria-pressed', String(on)); try { localStorage.setItem('derby-map', on ? '1' : '0'); } catch (e) {} }
+setMap(MAP_ON);
+$('btnMap').addEventListener('click', (e) => { e.currentTarget.blur(); setMap(!MAP_ON); });
 const NETLOG = {
+  perf: [], pfSeen: new Map(),
+  addPerf(r) { this.perf.push(r); if (this.perf.length > 40) this.perf.shift(); this.save(); },
   buf: [], max: 1200, inc: [], incMax: 80, unseen: 0, w: null, prev: {}, lastNh: new Map(), bad: {}, sentHH: '',
   reset() { this.w = { t0: performance.now(), frames: 0, worst: 0, snaps: 0, gapMax: 0, ext: 0, gframes: 0, sent: 0, sim: 0, simN: 0, simMax: 0 }; },
   frame(dt) { const w = this.w; if (!w) return; w.frames++; if (dt * 1000 > w.worst) w.worst = dt * 1000; },
@@ -7155,7 +7449,7 @@ const NETLOG = {
   guestFrame(ext) { const w = this.w; if (!w) return; w.gframes++; if (ext) w.ext++; },
   push(e) { this.buf.push(e); if (this.buf.length > this.max) this.buf.shift(); },
   incident(who, what) { this.inc.push({ t: Date.now(), who, what }); if (this.inc.length > this.incMax) this.inc.shift(); this.unseen++; $('netDot').hidden = false; this.save(); },
-  save() { try { localStorage.setItem('derby-netlog', JSON.stringify({ at: Date.now(), build: BUILD, role: MP.role, inc: this.inc, buf: this.buf.slice(-600) })); } catch (e) {} }, // kept on this device: survives closing the page
+  save() { try { localStorage.setItem('derby-netlog', JSON.stringify({ at: Date.now(), build: BUILD, role: MP.role, inc: this.inc, buf: this.buf.slice(-600), perf: this.perf })); } catch (e) {} }, // kept on this device: survives closing the page
   loadPrev() { try { const o = JSON.parse(localStorage.getItem('derby-netlog') || 'null'); if (o && Array.isArray(o.buf)) this.old = o; } catch (e) {} },
   second() {
     const w = this.w; this.reset(); if (!w || MP.role === 'solo' || !MP.room) return;
@@ -7180,6 +7474,7 @@ const NETLOG = {
     if (hbad && !this.prev.host) this.incident('host', `host struggling: ${r(sent)} updates sent/s, game ticks ${r(ticks)}/s, ${r(fps)} fps, game step ${simMs.toFixed(1)} ms (worst ${r(w.simMax)}), quality ${q}`);
     if (!hbad && this.prev.host) this.incident('host', 'host recovered');
     this.prev.host = hbad; const hh = {}; if (hbad) hh.host = 1;
+    for (const g of MP.guests()) { const pf = g.presence.pf; if (Array.isArray(pf) && pf[0] !== this.pfSeen.get(g.peer)) { this.pfSeen.set(g.peer, pf[0]); this.addPerf({ ...pf[1], who: String(g.presence.nick || pf[1].who).slice(0, 14) }); } }
     for (const g of MP.guests()) {
       const nh = g.presence.nh, who = String(g.presence.nick || g.peer).slice(0, 14), last = this.lastNh.get(g.peer);
       let bad, entry;
@@ -7205,6 +7500,8 @@ const NETLOG = {
       `Device: ${navigator.userAgent}`, `Screen ${innerWidth}x${innerHeight} @${devicePixelRatio} · quality now ${QUALITY.level}/${QSTEPS.length - 1} (0 best) · mode ${GAME_MODE}`,
       `Players: ${cars.filter((c) => c.remote || c.netPeer || c.isPlayer).map((c) => (c.isPlayer ? MP.nick() + ' (this device)' : c.name) + ' · ' + c.T.name).join(', ')}`,
       'Host sends 20 snapshots/s; guests should see ~20 updates/s, jitter < 30 ms, smoothing 80-200 ms, gaps < 150 ms.', '',
+      `Performance reports (${this.perf.length}, newest last; sent after each wreck and every 2 minutes; times in ms per frame):`,
+      ...this.perf.map((p) => `  ${ts(p.at)}  ${String(p.who).padEnd(14)} ${p.why}: ${p.fps} fps (frame ${p.frame} avg, ${p.frame95} p95, ${p.frameMax} worst) · game step ${p.sim} (p95 ${p.sim95}) · drawing prep ${p.draw} (draw call ${p.render}) · waiting on GPU ${p.wait} · quality ${p.q}, res ${p.res}%, ${p.calls} draw calls, ${p.tris} triangles, ${p.cars} cars · ${p.car} · ${p.dev}\n      per system (ms/frame): ${p.parts || '?'}\n      → ${p.verdict}`), '',
       `Incidents (${this.inc.length}):`, ...this.inc.map((e) => `  ${ts(e.t)}  ${e.who.padEnd(14)} ${e.what}`), '',
       'Timeline, one line per player per second (newest last):',
       '  time      who            fps worst  upd jitter smooth  gap extrap% q    rtt  | host: ticks sent step(ms) stepMax'];
@@ -7213,14 +7510,14 @@ const NETLOG = {
       else if (e.silent != null) L.push(`  ${ts(e.t)}  ${e.who.padEnd(14)} silent for ${e.silent} s${e.bad ? '  !' : ''}`);
       else L.push(`  ${ts(e.t)}  ${e.who.padEnd(14)}${pad(e.fps, 4)}${pad(e.worst, 6)}${pad(e.upd, 5)}${pad(e.jit, 7)}${pad(e.dly, 7)}${pad(e.gap, 5)}${pad(e.ext, 8)}${pad(e.q, 2)}${pad(e.rtt ?? e.age, 7)}${e.bad ? '  !' : ''}`);
     }
-    if (this.old) { const o = this.old; L.push('', `Previous session on this device (build ${o.build}, ${o.role}, ended ${new Date(o.at).toISOString()}):`, `  incidents (${o.inc.length}):`, ...o.inc.map((e) => `  ${ts(e.t)}  ${String(e.who).padEnd(14)} ${e.what}`), `  last ${Math.min(120, o.buf.length)} timeline lines:`, ...o.buf.slice(-120).map((e) => `  ${ts(e.t)}  ${String(e.who).padEnd(14)} ${JSON.stringify(e)}`)); }
+    if (this.old) { const o = this.old; if (o.perf && o.perf.length) L.push('', 'Previous session performance reports:', ...o.perf.slice(-10).map((p) => `  ${ts(p.at)}  ${String(p.who).padEnd(14)} ${p.why}: ${p.fps} fps · step ${p.sim} · prep ${p.draw} · GPU wait ${p.wait} · q${p.q} · ${p.dev} → ${p.verdict}`)); L.push('', `Previous session on this device (build ${o.build}, ${o.role}, ended ${new Date(o.at).toISOString()}):`, `  incidents (${o.inc.length}):`, ...o.inc.map((e) => `  ${ts(e.t)}  ${String(e.who).padEnd(14)} ${e.what}`), `  last ${Math.min(120, o.buf.length)} timeline lines:`, ...o.buf.slice(-120).map((e) => `  ${ts(e.t)}  ${String(e.who).padEnd(14)} ${JSON.stringify(e)}`)); }
     return L.join('\n');
   },
 };
 NETLOG.reset(); NETLOG.loadPrev();
 addEventListener('pagehide', () => { if (MP.role !== 'solo') NETLOG.save(); });
-setInterval(() => { try { NETLOG.second(); } catch (e) { console.error('netlog', e); } $('btnNetLog').hidden = MP.role === 'solo' && !NETLOG.old; }, 1000);
-$('btnNetLog').addEventListener('click', (e) => { e.currentTarget.blur(); NETLOG.unseen = 0; $('netDot').hidden = true; $('nlText').value = NETLOG.exportText(); const bad = NETLOG.inc.filter((x) => x.what !== 'recovered' && x.what !== 'host recovered').length; $('nlSum').textContent = `${bad} problem${bad === 1 ? '' : 's'} logged · ${NETLOG.buf.length} samples kept (newest few minutes)`; $('netlog').hidden = false; });
+setInterval(() => { try { NETLOG.second(); } catch (e) { console.error('netlog', e); } $('btnNetLog').hidden = MP.role === 'solo' && !NETLOG.old && !NETLOG.perf.length; }, 1000);
+$('btnNetLog').addEventListener('click', (e) => { e.currentTarget.blur(); NETLOG.unseen = 0; $('netDot').hidden = true; $('nlText').value = NETLOG.exportText(); const bad = NETLOG.inc.filter((x) => x.what !== 'recovered' && x.what !== 'host recovered').length; $('nlSum').textContent = `${bad} problem${bad === 1 ? '' : 's'} logged · ${NETLOG.perf.length} performance report${NETLOG.perf.length === 1 ? '' : 's'} · ${NETLOG.buf.length} samples kept`; $('netlog').hidden = false; });
 $('nlClose').addEventListener('click', () => { $('netlog').hidden = true; });
 function renderHandover() { // the host can move hosting to another player (say the game feels laggy because this device is busy)
   const box = $('nlHost'); box.innerHTML = '';
@@ -7239,7 +7536,7 @@ function hostTick() {
   const want = MP.role === 'host' && !window.__noTick;
   if (want && !TICK.on) { TICK.on = true; lastT = performance.now(); }
   if (!want && TICK.on) { TICK.on = false; lastT = performance.now(); }
-  if (TICK.on) { try { const t0 = performance.now(); simBody(t0); NETLOG.sim(performance.now() - t0); TICK.n++; } catch (e) { if (frameErrors++ < 5) console.error('tick error', e); } }
+  if (TICK.on) { try { const t0 = performance.now(); simBody(t0); const ms = performance.now() - t0; NETLOG.sim(ms); TICK.ms = (TICK.ms || 0) + ms; TICK.n++; } catch (e) { if (frameErrors++ < 5) console.error('tick error', e); } }
   setTimeout(hostTick, TICK.on ? Math.max(0, 1000 / 60 - (performance.now() - lastT)) : 250); // not hosting: just check now and then
 }
 setTimeout(hostTick, 100);
@@ -7247,8 +7544,12 @@ let lastDrawT = performance.now();
 function frameBody(now) {
   const rawDt = (now - lastDrawT) / 1000; lastDrawT = now;
   governQuality(rawDt); NETLOG.frame(rawDt);
-  if (!TICK.on) { const t0 = performance.now(); simBody(now); NETLOG.sim(performance.now() - t0); }
+  const t0 = performance.now(); let simMs = TICK.ms || 0; TICK.ms = 0; // (a host's game ticks run between frames: count them too)
+  if (!TICK.on) { simBody(now); const ms = performance.now() - t0; simMs += ms; NETLOG.sim(ms); }
+  const t1 = performance.now(); PERFREP.render = 0;
   drawBody(Math.min(0.05, rawDt));
+  const t2 = performance.now();
+  PERFREP.add(rawDt * 1000, t2 - t0 + (TICK.on ? simMs : 0), simMs, t2 - t1, PERFREP.render); SEC.n++;
 }
 function simBody(now) {
   const rawDt = (now - lastT) / 1000;
@@ -7259,10 +7560,10 @@ function simBody(now) {
   const running = !(game.state === 'playing' && game.paused);
   if (running) {
     if (game.state === 'playing' && player && !player.wrecked) readPlayerInput();
-    if (MP.role === 'guest') MP.guestFrame(dt);
+    if (MP.role === 'guest') SEC.run('net', () => MP.guestFrame(dt));
     else if (game.state === 'menu') { const c = player.ctrl; c.throttle = 0; c.steer = 0; c.nitro = false; c.handbrake = true; }
     if (MP.role === 'host') MP.applyInputs();
-    if (MP.role !== 'guest') for (const c of cars) if ((!c.isPlayer && !c.remote) || (game.state === 'over' && !c.remote)) c.think(dt);
+    if (MP.role !== 'guest') SEC.run('ai', () => { for (const c of cars) if ((!c.isPlayer && !c.remote) || (game.state === 'over' && !c.remote)) c.think(dt); });
     if (MP.role === 'guest') {} // the host counts down
     else if (game.state === 'playing' && game.countdown > 0) { // 3-2-1: everyone holds on the brakes
       game.countdown -= dt;
@@ -7270,18 +7571,17 @@ function simBody(now) {
       if (n !== game.lastCount) { game.lastCount = n; toast(n > 0 ? String(n) : 'GO!', n > 0 ? '' : 'cool'); if (n <= 0) { sfx.cheer(0.8); const c = cars[1 + (Math.random() * (cars.length - 1) | 0)]; setTimeout(() => barks.say(c, 'start', true), 600); } else sfx.clank(0.3); }
       for (const c of cars) { c.ctrl.throttle = 0; c.ctrl.handbrake = true; c.ctrl.nitro = false; c.ctrl.jump = false; }
     } else if (game.state === 'playing') game.grace -= dt;
-    for (const c of cars) c.frameUpdate(dt);
+    SEC.run('cars', () => { for (const c of cars) c.frameUpdate(dt); });
     if (MP.role !== 'guest') unwedge(dt);
-    updateCrane(dt);
-    updateBulls(dt);
-    updatePropActivity(dt);
+    SEC.run('arena', () => { updateCrane(dt); updateBulls(dt); });
+    SEC.run('lod', () => updatePropActivity(dt));
     updateRespawns(dt);
-    updateArena(dt);
+    SEC.run('arena', () => updateArena(dt));
     const sdt = dt * S.timeScale * (game.hitStop > 0 ? 0.22 : game.slowmo > 0 ? 0.35 : 1); // hit-stop on big impacts, slow-mo on your kills
     game.hitStop -= dt; game.slowmo -= dt;
-    world.step(FIXED, sdt, 8);
+    SEC.run('physics', () => world.step(FIXED, sdt, 8));
     simTime += sdt;
-    if (MP.role === 'host') MP.hostFrame(dt);
+    if (MP.role === 'host') SEC.run('net', () => MP.hostFrame(dt));
     if (game.state === 'playing' && MP.role !== 'guest') {
       game.stuckT = player.ctrl.throttle !== 0 && Math.abs(player.speed) < 1 && game.countdown <= 0 && !player.wrecked ? game.stuckT + dt : 0;
       if (game.stuckT > 6) { player.flipUpright(); game.stuckT = 0; toast('RESET', 'cool'); }
@@ -7291,7 +7591,10 @@ function simBody(now) {
         game.chatT = rand(14, 22);
         const alive = cars.filter((c) => !c.wrecked).length;
         if (Math.random() < 0.4) barks.announce('status', { n: alive - 1 });
-        else { const near = cars.filter((c) => !c.isPlayer && !c.wrecked && c.body.position.distanceTo(player.body.position) < 90); if (near.length) barks.say(near[Math.random() * near.length | 0], 'taunt'); }
+        else { const near = cars.filter((c) => !c.isPlayer && !c.wrecked && c.body.position.distanceTo(player.body.position) < 90);
+          const pairs = []; for (const a of near) for (const b of cars) if (a !== b && !b.wrecked && a.body.position.distanceTo(b.body.position) < 45) pairs.push([a, b]);
+          if (pairs.length && Math.random() < 0.55) { const [a, b] = pairs[Math.random() * pairs.length | 0]; barks.say(a, 'rival', false, { v: b.isPlayer ? (MP.role === 'solo' ? 'you' : MP.nick()) : b.name, vcar: b.T.name, target: 'you', car: b.T.name }); } // drivers trash-talk each other by name
+          else if (near.length) barks.say(near[Math.random() * near.length | 0], 'taunt'); }
       }
       if (player.wheelieOn) player.wheelieT = (player.wheelieT || 0) + sdt;
       else if (player.wheelieT > 1) { const pts = Math.round(player.wheelieT * 80); game.addScore(pts, `WHEELIE ${player.wheelieT.toFixed(1)}s`); if (pts < 40) toast(`WHEELIE ${player.wheelieT.toFixed(1)}s`, 'cool'); player.wheelieT = 0; }
@@ -7322,12 +7625,12 @@ function simBody(now) {
     updatePickups(sdt);
     updateShells(sdt);
     updateConcrete(sdt);
-    updateParticles(sdt);
+    SEC.run('effects', () => updateParticles(sdt));
     updateFireLights(clock);
   }
 }
 function drawBody(dt) {
-  updatePropBatches();
+  SEC.run('lod', updatePropBatches);
   const running = !(game.state === 'playing' && game.paused);
   updateCamera(dt);
   sky.position.copy(camera.position);
@@ -7342,14 +7645,16 @@ function drawBody(dt) {
     sfx.horn(live && player.ctrl.horn && !player.wrecked, player.type);
     { const cop = cars.find((c) => (c.T.police || c.T.siren) && c.sirenOn && !c.wrecked); sfx.siren(!!cop && live, cop ? (cop.isPlayer ? 1 : clamp(1 - cop.body.position.distanceTo(pp) / 130, 0.08, 1)) : 0); }
   }
-  updateHUD(dt);
+  SEC.run('hud', () => updateHUD(dt));
   updateRespawnSheet(dt);
-  drawMinimap();
+  PERFREP.check();
+  SEC.run('hud', drawMinimap);
   // a host that is still too slow at the lowest quality draws every other frame: the game and the network come first
   PERF.n = (PERF.n || 0) + 1; PERF.hostSkip = MP.role === 'host' && QUALITY.level === QSTEPS.length - 1 && PERF.fps < 34 && MP.guests().length > 0;
   if (PERF.hostSkip && PERF.n % 2) return;
-  if (!window.__noRender) { const gq = Math.min(S.gfx, S.autoGfx ? (QUALITY.gfxCap ?? 2) : 2); if (gq > 0) { grade.uniforms.uTime.value = clock % 10; grade.enabled = gq > 1; bloom.strength = gq > 1 ? 0.42 : 0.34; composer.render(); } else renderer.render(scene, camera); } // tests can skip drawing to run physics faster
+  PERFREP.r0 = performance.now();
+  if (!window.__noRender) { const gq = Math.min(S.gfx, S.autoGfx ? (QUALITY.gfxCap ?? 2) : 2); if (gq > 0) { grade.uniforms.uTime.value = clock % 10; grade.enabled = gq > 1; bloom.strength = gq > 1 ? 0.42 : 0.34; composer.render(); } else renderer.render(scene, camera); PERFREP.render = performance.now() - PERFREP.r0; SEC.add('render', PERFREP.render); } // tests can skip drawing to run physics faster
 }
 requestAnimationFrame(frame);
-window.__derby = { sfx, CANNON, barks, PERF, shells, NETLOG, nearHostAdd: () => nearHostAdd(), nearJoin: () => nearJoin(), JUMBO, BALL, BOLLARDS, GASQ, updateArenaPub: (dt) => updateArena(dt), CRUSHER, crushNow: () => crushNow(), applyNight: () => applyNight(), FIREWORKS, ARENA, CROWD, MP, QUALITY, applyQuality: (i) => applyQuality(i), MERGED, camera, updatePropActivity: (dt) => updatePropActivity(dt), renderer, scene, spawnFree: (x, z, r) => spawnFree(x, z, r), BULLS, updateBulls: (dt) => updateBulls(dt), updateShells, tilt, setTilt, get CRANE() { return CRANE; }, updateCrane: (dt) => updateCrane(dt), CONCRETE, THREE, craters, shells, pickups, barks, PERSONAS, TUNE, game, cars, S, world, CAR_TYPES, sfx, touch, drawGauge, get player() { return player; }, keys, startMatch, selectCar, setValue, debris, props, platformOf, get simTime() { return simTime; }, set simTime(v) { simTime = v; } }; // console tinkering + tests
+window.__derby = { CAR_TYPES, sfx, CANNON, barks, PERF, shells, NETLOG, nearHostAdd: () => nearHostAdd(), nearJoin: () => nearJoin(), JUMBO, BALL, BOLLARDS, GASQ, updateArenaPub: (dt) => updateArena(dt), CRUSHER, crushNow: () => crushNow(), applyNight: () => applyNight(), FIREWORKS, ARENA, CROWD, MP, QUALITY, applyQuality: (i) => applyQuality(i), MERGED, camera, updatePropActivity: (dt) => updatePropActivity(dt), renderer, scene, spawnFree: (x, z, r) => spawnFree(x, z, r), BULLS, updateBulls: (dt) => updateBulls(dt), updateShells, tilt, setTilt, get CRANE() { return CRANE; }, updateCrane: (dt) => updateCrane(dt), CONCRETE, THREE, craters, shells, pickups, barks, PERSONAS, TUNE, game, cars, S, world, CAR_TYPES, sfx, touch, drawGauge, get player() { return player; }, keys, startMatch, selectCar, setValue, debris, props, platformOf, get simTime() { return simTime; }, set simTime(v) { simTime = v; } }; // console tinkering + tests
 </script>
