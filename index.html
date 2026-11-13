@@ -2039,6 +2039,28 @@ function addSpikeStrip(x, z, yaw, owner) { // a folding police stop-stick laid a
   while (CONCRETE.list.length > 40) scene.remove(CONCRETE.list.shift().mesh);
   sfx.at({ x, y: 0, z }).clank(0.5); if (MP.role === 'host') MP.event && MP.event({ k: 'ss', p: [Math.round(x * 10) / 10, Math.round(z * 10) / 10, Math.round(yaw * 100) / 100] });
 }
+const TOURIST = { nick: 'German tourist (in the back)', lang: 'de-DE', pitch: 1.35, rate: 1.2, words: { voice: ['Anna', 'Markus', 'Google Deutsch', 'Petra', 'Yannick'] } };
+const HORN_LINES = { // what each driver shouts when you lean on the horn (in character)
+  outrider: ['Move.', 'Road\'s mine.', 'Out of the way. I won\'t ask twice.'],
+  viper: ['I live my life a quarter mile at a time. You\'re in it!', 'Move! I got a family to get home to!', 'Ten seconds or less. Get outta my lane!'],
+  towtruck: ['Yee-haw! Comin\' through, y\'all!', 'Honk honk! That\'s the sound of your car gettin\' towed!', 'Git along, little hatchback!'],
+  forklift: ['Make way for the King of the Britons!', 'Ni! Ni! NI!', 'C|Ha! Your mother was a hamster!'],
+  sandflea: ['WITNESS MEEEE!', 'Shiny and chrome, comin\' through!', 'Honk honk! I\'m awaited in Valhalla!'],
+  camper: ['T|Sie fahren wie ein Tourist!', 'T|Achtung! Wir sind im Urlaub!', 'T|Hans! Get ze camera! Zey are crashing again!', 'B|Yo! Beep beep, outta the way!', 'Say my name. Then MOVE.'],
+  mixer: ['Ay! I\'m drivin\' here!', 'Fuhgeddaboudit, move it!', 'Keep standin\' there, see what happens. Cement shoes, that\'s what.'],
+  firetruck: ['Fire department! Clear the way!', 'Make a hole! Make a hole!', 'Pull over! This is an emergency! ...Mostly!'],
+  hellbender: ['Bow before the horn of the Warlord!', 'Make way! The Warlord rides!', 'The horn has spoken!'],
+  cruiser: ['Pull over! Pull over right now!', 'This is the police! Move your vehicle!', 'Step away from the derby!'],
+  tiger: ['Achtung! Panzer! Out of ze way, bitte!', 'Zis is ze panzer. I do not honk. I simply arrive.', 'Funkspruch to all units: kindly move, or be moved.'],
+  tanker: ['Breaker one-nine, big rig comin\' through!', 'Ten-four, little buddy, get off my lane!', 'Seventy-five hundred kilos of fuel says MOVE!'],
+  dozer: ['Move it or lose it!', 'Beep beep beep! That\'s a dozer, and it don\'t care!', 'Clear the job site, folks!'],
+};
+function hornLine(car) { // a horn press gets an in-character shout (not every press: kids lean on the horn)
+  const now = performance.now(); if (now < (car.hornLineT || 0) || game.state !== 'playing') return; car.hornLineT = now + 4500;
+  const pool = HORN_LINES[car.type]; if (!pool) return; let line = pool[Math.random() * pool.length | 0], P = car.type === 'cruiser' ? COP : CAR_CAST[car.type] || ANNOUNCER;
+  if (line.startsWith('T|')) { P = TOURIST; line = line.slice(2); }
+  barks.show(P, car.baseColor || new THREE.Color(0xffffff), line); barks.speak(P, line, car.body.position);
+}
 const MEGA = { // the deputy on the megaphone / police radio
   shoot: ['Pull over! PULL OVER!', 'This is your final warning!', 'Hands where I can see them!', 'Stop resisting!'],
   spikes: ['Deploying spike strip!', 'Stop stick out! Stop stick out!', 'Let\'s see you outrun this!'],
@@ -3024,6 +3046,12 @@ const sfx = {
       const now = performance.now(); if (on && now >= (this.cocoNext || 0)) { this.cocoNext = now + 430; this.coconut(1); }
       return;
     }
+    const now = performance.now(), edge = on && !this.hornWas; this.hornWas = on;
+    if (type === 'tiger') { if (edge) this.radio(); return; } // a tank has no horn: the commander gets on the radio
+    if (type === 'camper') { if (on && now >= (this.hornNext || 0)) { this.hornNext = now + 900; this.aooga(); } return; } // A-OO-GAH
+    if (type === 'cruiser' && on && now >= (this.hornNext || 0)) { this.hornNext = now + 650; this.whoop(); } // whoop-whoop over the steady horn
+    if (type === 'hellbender' && edge) { this.cucaracha(); return; } // a musical horn, naturally
+    if (type === 'dozer' && on && now >= (this.hornNext || 0)) { this.hornNext = now + 520; this.tone('square', 1050, 1050, 0.06, 0.22); } // and the reversing beeper
     const H = HORNS[type] || HORNS.outrider, c = this.ctx, t = c.currentTime;
     if (!this.hornV || this.hornV.type !== type) {
       if (this.hornV) { this.hornV.g.gain.value = 0; this.hornV.oscs.forEach((o) => o.stop()); }
@@ -3040,6 +3068,10 @@ const sfx = {
       if (H.bend) v.oscs.forEach((o, i) => { if (i < H.f.length) o.frequency.exponentialRampToValueAtTime(H.f[i] * H.bend, t + 0.12); });
     }
   },
+  radio() { const c = this.ctx; if (!c) return; this.noiseHit('bandpass', 2200, 1.2, 0.28, 0.18); this.tone('sine', 1200, 1200, 0.07, 0.08, false, 0.2); this.tone('sine', 1200, 1200, 0.07, 0.08, false, 0.36); this.noiseHit('bandpass', 2600, 1.4, 0.12, 0.6, false, 0.45); }, // squelch, beep beep, hiss
+  aooga() { this.tone('sawtooth', 196, 330, 0.14, 0.32); this.tone('square', 98, 165, 0.06, 0.32); this.tone('sawtooth', 330, 262, 0.14, 0.3, false, 0.34); }, // a-oo... -gah
+  whoop() { this.tone('square', 600, 1500, 0.06, 0.28); this.tone('square', 1500, 700, 0.05, 0.25, false, 0.28); },
+  cucaracha() { const n = [392, 392, 392, 523.3, 659.3, 392, 392, 392, 523.3, 659.3]; const d = [0.12, 0.12, 0.12, 0.3, 0.32, 0.12, 0.12, 0.12, 0.3, 0.32]; let t = 0; for (let i = 0; i < n.length; i++) { this.tone('square', n[i], n[i], 0.09, d[i] * 0.9, false, t); this.tone('sawtooth', n[i] / 2, n[i] / 2, 0.04, d[i] * 0.9, false, t); t += d[i] + (i === 4 ? 0.25 : 0.02); } },
   coconut(v) { this.noiseHit('bandpass', 1150, 7, 0.7 * v, 0.05); setTimeout(() => this.noiseHit('bandpass', 880, 7, 0.6 * v, 0.05), 150); }, // clip-clop
   honk(type, vol, dur) { // short honk from another car
     if (!this.ctx || vol < 0.03) return;
@@ -5474,6 +5506,12 @@ world.addEventListener('postStep', () => {
   const guard = (b, who) => { const s = _pv.get(b); if (!s) return; const sp = b.velocity.length(), sp0 = s.v.length(), dw = Math.abs(b.angularVelocity.length() - s.w.length());
     if ((sp > allowed && sp > sp0 + 8) || dw > 15) { PHYS.blowups++; if (PHYS.log.length < 200) PHYS.log.push({ t: +simTime.toFixed(2), kind: 'solver kick undone', who, speed: Math.round(sp), was: Math.round(sp0), spin: Math.round(b.angularVelocity.length()), x: Math.round(b.position.x), y: +b.position.y.toFixed(1), z: Math.round(b.position.z) }); b.velocity.copy(s.v); b.angularVelocity.copy(s.w); } };
   for (const c of cars) if (!c.ghost) guard(c.body, c.T.name); for (const bl of BULLS) guard(bl.body, 'bull');
+  for (const c of cars) { const b = c.body; if (c.ghost || b.position.y > -2.5) continue; // fell through the floor (a deep hit can push a body through it): lift it back out
+    if (PHYS.log.length < 200) PHYS.log.push({ t: +simTime.toFixed(2), kind: 'fell through floor, lifted back', who: c.T.name, x: Math.round(b.position.x), y: +b.position.y.toFixed(1), z: Math.round(b.position.z) });
+    b.position.y = 2.5; b.velocity.set(b.velocity.x * 0.3, 0, b.velocity.z * 0.3); b.angularVelocity.set(0, 0, 0); PHYS.fixes++; }
+  for (const c of cars) { const b = c.body, lim = A - 3; if (c.ghost || (Math.abs(b.position.x) < A + 1.5 && Math.abs(b.position.z) < A + 1.5)) continue; // squeezed through the outer wall: back inside
+    if (PHYS.log.length < 200) PHYS.log.push({ t: +simTime.toFixed(2), kind: 'escaped the arena, put back', who: c.T.name, x: Math.round(b.position.x), z: Math.round(b.position.z) });
+    b.position.x = clamp(b.position.x, -lim, lim); b.position.z = clamp(b.position.z, -lim, lim); b.position.y = Math.max(b.position.y, 2); b.velocity.set(0, 0, 0); b.angularVelocity.set(0, 0, 0); PHYS.fixes++; }
   for (const c of cars) { const k = c.carry; if (!k || !k.c || c.ghost) continue; // a forklift and its load are locked together: they move as one, so the lock can't pump energy into either
     const a = c.body, l = k.c.body, dv = l.velocity.vsub(a.velocity), dw = l.angularVelocity.vsub(a.angularVelocity);
     if (dv.length() > 6 || dw.length() > 4) { l.velocity.copy(a.velocity.vadd(dv.scale(Math.min(1, 6 / Math.max(6, dv.length()))))); l.angularVelocity.copy(a.angularVelocity.vadd(dw.scale(Math.min(1, 4 / Math.max(4, dw.length()))))); PHYS.fixes++; }
@@ -5979,6 +6017,10 @@ const HORNS = {
   viper:    { f: [554, 698], wave: 'square', drive: 2, lp: 3600, gain: 0.08, attack: 0.008 },
   hearse:   { f: [196, 233, 294], wave: 'triangle', drive: 2, lp: 1500, gain: 0.13, attack: 0.06, vibrato: 4.5 },
   towtruck: { f: [233, 294], wave: 'sawtooth', drive: 6, lp: 2000, gain: 0.12, attack: 0.03 },
+  firetruck: { f: [98, 123.5, 146.8], wave: 'sawtooth', drive: 20, lp: 1500, gain: 0.3, attack: 0.12, breath: 0.2 }, // a ship-sized three-tone air horn
+  mixer:    { f: [116.5, 146.8], wave: 'sawtooth', drive: 15, lp: 1700, gain: 0.22, attack: 0.08, breath: 0.12 }, // deep Jersey trucker horn
+  hellbender: { f: [185, 233], wave: 'square', drive: 8, lp: 2600, gain: 0.12, attack: 0.02 },
+  cruiser:  { f: [740], wave: 'square', drive: 4, lp: 3000, gain: 0.08, attack: 0.01 },
   dozer:    { f: [110, 139], wave: 'sawtooth', drive: 16, lp: 1400, gain: 0.2, attack: 0.09, breath: 0.14 }, // big diesel air horn
   forklift: { f: [988, 988], wave: 'square', drive: 1, lp: 4200, gain: 0.06, attack: 0.003 }, // warehouse beeper
   sandflea: { f: [620], wave: 'square', drive: 5, lp: 2600, gain: 0.08, attack: 0.01, bend: 0.65 },             // clown honk
@@ -7914,7 +7956,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '47'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '48'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
@@ -8098,6 +8140,7 @@ const govern = { acc: 0, n: 0, t: 0, good: 0, lastDown: -99 };
 function applyQuality(i) {
   if (QUALITY.level !== i) ptag('quality ' + QUALITY.level + '→' + i);
   QUALITY.level = i; const q = QSTEPS[i];
+  world.solver.iterations = i >= 7 ? 10 : i >= 6 ? 11 : 12; QUALITY.subSteps = i >= 6 ? 3 : i >= 5 ? 5 : 8; // weak devices: a cheaper solver, and never pile up catch-up steps (that spiral is what makes slow devices choke)
   QUALITY.scale = q.scale; QUALITY.gfxCap = q.gfx;
   if (sun.shadow.mapSize.x !== Math.min(q.shadow, isTouchUI() ? 1024 : 2048)) { sun.shadow.mapSize.set(Math.min(q.shadow, isTouchUI() ? 1024 : 2048), Math.min(q.shadow, isTouchUI() ? 1024 : 2048)); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
   const sh = q.shadow > 0; if (sun.castShadow !== sh) { sun.castShadow = sh; renderer.shadowMap.needsUpdate = true; }
@@ -8455,7 +8498,7 @@ function simBody(now) {
     SEC.run('arena', () => updateArena(dt));
     const sdt = dt * S.timeScale * (game.hitStop > 0 ? 0.22 : game.slowmo > 0 ? 0.35 : 1); // hit-stop on big impacts, slow-mo on your kills
     game.hitStop -= dt; game.slowmo -= dt;
-    SEC.run('physics', () => world.step(FIXED, sdt, 8));
+    SEC.run('physics', () => world.step(FIXED, sdt, QUALITY.subSteps || 8));
     simTime += sdt;
     if (MP.role === 'host') SEC.run('net', () => MP.hostFrame(dt));
     if (game.state === 'playing' && MP.role !== 'guest') {
@@ -8518,7 +8561,7 @@ function drawBody(dt) {
     let near = null;
     for (const c of cars) if (!c.isPlayer && !c.wrecked) { const d = c.body.position.distanceTo(pp); if (!near || d < near.dist) near = { car: c, dist: d }; }
     sfx.update(player, near, live);
-    sfx.horn(live && player.ctrl.horn && !player.wrecked, player.type);
+    { const hn = live && player.ctrl.horn && !player.wrecked; if (hn && !player.hornHeld) hornLine(player); player.hornHeld = hn; sfx.horn(hn, player.type); }
     { const cop = cars.find((c) => (c.T.police || c.T.siren) && c.sirenOn && !c.wrecked); sfx.siren(!!cop && live, cop ? (cop.isPlayer ? 1 : clamp(1 - cop.body.position.distanceTo(pp) / 130, 0.08, 1)) : 0); }
   }
   SEC.run('hud', () => updateHUD(dt));
