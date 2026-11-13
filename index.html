@@ -230,7 +230,11 @@
   #rsheet[hidden] { display: none; }
   #netlog { position: fixed; inset: 0; z-index: 45; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(0,0,0,0.35); }
   #netlog[hidden] { display: none; }
-  #perfdlg { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 44; width: min(620px, calc(100vw - 24px)); }
+  #perfdlg { position: fixed; top: calc(250px + env(safe-area-inset-top, 0px)); left: calc(12px + env(safe-area-inset-left, 0px)); z-index: 44; width: min(400px, 42vw); max-height: calc(100vh - 470px); min-height: 160px; overflow: auto; } /* docked on the left under the stats: the middle and your car stay clear */
+  #perfdlg #pfText { font-size: 10.5px; max-height: none; }
+  #perfdlg .nl-card { padding: 10px 12px; background: rgba(20, 17, 14, 0.82); }
+  #perfdlg .nl-actions { flex-wrap: wrap; } #perfdlg .nl-actions button { min-height: 34px; font-size: 12px; padding: 0 8px; }
+  @media (max-height: 500px) { #perfdlg { top: calc(8px + env(safe-area-inset-top, 0px)); width: min(360px, 48vw); max-height: calc(100vh - 16px); } }
   #perfdlg[hidden] { display: none; }
   #note { position: fixed; left: 50%; top: 18%; transform: translateX(-50%); z-index: 60; max-width: min(520px, calc(100vw - 32px)); background: rgba(20, 17, 14, 0.96); color: #f3e9dc; border: 1px solid var(--accent); border-radius: 12px; padding: 12px 16px; font: 500 15px/1.4 system-ui, sans-serif; }
   #note[hidden] { display: none; }
@@ -346,6 +350,9 @@
   body.touch #touch .tb.sm { width: 56px; height: 56px; }
   @media (max-height: 500px) { .rail { display: grid !important; grid-template-columns: repeat(2, auto); gap: 6px; } body.touch .rail .ic { width: 42px; height: 42px; font-size: 17px; } body.touch .rail .ic small { font-size: 8px; } } /* short phone screens: a 2x2 block that stays clear of the action buttons */
   @media (max-height: 500px) { body.touch #touch .tb.fire { width: 76px; height: 76px; } body.touch #touch .tb.sm { width: 46px; height: 46px; } #touch .tb.fire { width: 76px; height: 76px; } #touch .tb.fire .ico { font-size: 32px; } #touch .tb.sm { width: 48px; height: 48px; } #touch .tb .ico { font-size: 20px; } }
+  .nitro-row[hidden] { display: none !important; }
+  body:not(.touch) .stats { transform: scale(0.82); transform-origin: top left; } /* a smaller corner panel */
+  body:not(.touch) #opponents { transform: scale(0.85); transform-origin: top left; }
 </style>
 
 <div id="app">
@@ -356,8 +363,8 @@
       <div class="bars">
         <div class="row"><span class="label">Hull</span><span class="label" id="hpText">100%</span></div>
         <div class="bar"><i id="hpFill"></i></div>
-        <div class="row"><span class="label">Nitro</span><span class="label">Shift</span></div>
-        <div class="bar"><i id="nosFill"></i></div>
+        <div class="row nitro-row" hidden><span class="label">Nitro</span><span class="label">Shift</span></div>
+        <div class="bar nitro-row" hidden><i id="nosFill"></i></div>
         <div class="row gun-only"><span class="label">Cannon</span><span class="label" id="gunState">READY</span></div>
         <div class="bar gun-only"><i id="gunFill"></i></div>
         <div class="row"><span class="label">Score</span><span id="score" class="num">0</span></div>
@@ -949,6 +956,11 @@ const ELEVATED = [];        // platforms the AI can route onto: {x0,x1,z0,z1,y,r
 let groundBody = null;
 const tmpQ = new THREE.Quaternion(), tmpV = new THREE.Vector3();
 
+let _hardBand = null, _heavyBand = null;
+function HARD_BAND() { return _hardBand || (_hardBand = new THREE.MeshStandardMaterial({ map: hazardTex(6), roughness: 0.7 })); }
+function HEAVY_BAND() { // orange and white stripes: HEAVY, it will budge if you hit it hard
+  return _heavyBand || (_heavyBand = new THREE.MeshStandardMaterial({ roughness: 0.55, map: canvasTex(128, (g, s) => { g.fillStyle = '#f4efe6'; g.fillRect(0, 0, s, s); g.fillStyle = '#ff6a14'; for (let i = -s; i < s * 2; i += 32) { g.beginPath(); g.moveTo(i, 0); g.lineTo(i + 16, 0); g.lineTo(i + 16 - s, s); g.lineTo(i - s, s); g.fill(); } }) }));
+}
 function addStaticBox(hx, hy, hz, pos, quat, mat, opts = {}) {
   const body = new CANNON.Body({ type: CANNON.Body.STATIC, material: sceneryMat });
   body.addShape(new CANNON.Box(new CANNON.Vec3(hx, hy, hz)));
@@ -969,6 +981,9 @@ function addStaticBox(hx, hy, hz, pos, quat, mat, opts = {}) {
     const az = new THREE.Vector3(0, 0, 1).applyQuaternion(q);
     const lz = hz * 2 * Math.hypot(az.x, az.z);
     mapShapes.push({ kind: opts.map || 'block', x: pos.x, z: pos.z, yaw, l: lx, w: lz });
+  }
+  if (opts.obstacle && hy >= 0.3 && pos.y - hy < 0.3 && hx < 60 && hz < 60) { // the yard's sign language: a yellow-black band means HARD STOP (it won't move)
+    const band = new THREE.Mesh(new THREE.BoxGeometry(hx * 2 + 0.05, Math.min(0.5, hy), hz * 2 + 0.05), HARD_BAND()); band.position.set(pos.x, pos.y - hy + Math.min(0.5, hy) / 2 + 0.02, pos.z); if (quat) band.quaternion.copy(quat); band.receiveShadow = true; scene.add(band);
   }
   return { body, mesh };
 }
@@ -1647,6 +1662,8 @@ function addProp(shape, geo, mat, mass, x, y, z, yaw = 0, kind = 'metal', shadow
   const mesh = geo.isObject3D ? geo : new THREE.Mesh(geo, mat);
   mesh.traverse((o) => { o.castShadow = shadow && mass > 40; o.receiveShadow = true; if (o.isMesh && mass <= 120) o.material = lightLook(o.material); });
   scene.add(mesh);
+  if (mass >= 380 && mesh.isMesh && (kind === 'concrete' || shape instanceof CANNON.Box)) { const g = mesh.geometry; if (!g.boundingBox) g.computeBoundingBox(); const bb = g.boundingBox, sx = bb.max.x - bb.min.x, sy = bb.max.y - bb.min.y, sz = bb.max.z - bb.min.z;
+    const band = new THREE.Mesh(new THREE.BoxGeometry(sx * (kind === 'concrete' ? 0.8 : 1) + 0.04, Math.min(0.28, sy * 0.3), sz * (kind === 'concrete' ? 0.8 : 1) + 0.04), HEAVY_BAND()); band.position.y = bb.min.y + sy * 0.62; mesh.add(band); } // heavy but movable: orange-white stripes
   const prop = { body, mesh, kind, hp: mass <= 40 ? 1 : 3, id: PROPID.n++ }; PROPID.map.set(prop.id, prop); // id: same on every device (the yard is built the same way)
   body.prop = prop;
   props.push(prop);
@@ -2067,7 +2084,7 @@ const WEAPONS = {
       igniteFuelNear(p.x + f.x * 6, p.z + f.z * 6, 4);
       for (const bl of BULLS) { const l = b.pointToLocalFrame(bl.body.position); if (l.x > 0 && l.x < 11 && Math.abs(l.z) < 1.8 + l.x * 0.3) cookBull(bl, car, dt); }
       for (const pr of props) { const l = b.pointToLocalFrame(pr.body.position); if (l.x > 0 && l.x < 10 && Math.abs(l.z) < 1.6 + l.x * 0.3 && igniteProp(pr) && car.isPlayer && !pr.toasted) { pr.toasted = true; toast('🔥 SET IT ALIGHT', 'cool'); } }
-      for (const c of cars) { if (c === car || c.wrecked) continue; const l = b.pointToLocalFrame(c.body.position); if (l.x > 0 && l.x < 11 && Math.abs(l.z) < 1.5 + l.x * 0.3) { c.applyDamage(16 * dt * S.damage * c.T.armor, car, 'front', null, 0); if (Math.random() < 0.3) emit('fire', c.body.position.x, c.body.position.y + 0.5, c.body.position.z, 0, 2, 0, 0.6, 0.7); } }
+      for (const c of cars) { if (c === car || c.wrecked) continue; const l = b.pointToLocalFrame(c.body.position); if (l.x > 0 && l.x < 11 && Math.abs(l.z) < 1.5 + l.x * 0.3) { c.applyDamage(16 * dt * S.damage * c.T.armor, car, 'front', null, 0); if (Math.random() < 0.3) emit('fire', c.body.position.x, c.body.position.y + 0.5, c.body.position.z, 0, 2, 0, 0.6, 0.7); c.ignite = (c.ignite || 0) + dt; if (c.ignite > 0.45) setCarAlight(c, car); } }
     },
   },
   bomb: { label: 'PROPANE', cd: 5, dur: 0, // lob a hissing propane bottle forward in a high arc, onto whoever is ahead
@@ -2100,7 +2117,7 @@ const WEAPONS = {
       for (const pd of CONCRETE.list) if (pd.burning > 0) { const l = b.pointToLocalFrame(new CANNON.Vec3(pd.x, 0, pd.z)); if (l.x > 0 && l.x < 28 && Math.abs(l.z) < 4) { pd.burning = 0; for (let k = 0; k < 6; k++) emit('steam', pd.x + rand(-1, 1), 0.4, pd.z + rand(-1, 1), 0, rand(1.5, 3), 0, rand(1, 1.8), rand(0.5, 0.9)); } }
       for (const c of cars) { if (c === car) continue; const vx = c.body.position.x - p.x, vz = c.body.position.z - p.z, al = vx * f.x + vz * f.z; if (al > 0 && al < 28 && Math.abs(vx * f.z - vz * f.x) < 2 + al * 0.15) { // hose down burning cars
         if (c.leakT > 0 || c.onFire || c.wrecked || c.health < 15) { if (!(c.douse > 0) && car.isPlayer && game.state === 'playing') toast(`FIRE OUT · ${c.name}`, 'cool'); }
-        c.douse = c.wrecked ? 25 : 8; c.leakT = 0; } }
+        c.douse = c.wrecked ? 25 : 8; c.leakT = 0; if (c.burnT > 0) { c.burnT = 0; if (car.isPlayer) toast(`💧 PUT OUT ${c.name.toUpperCase()}`, 'cool'); } } }
       for (const pr of props) if (pr.fireT > 0) { const l = b.pointToLocalFrame(pr.body.position); if (l.x > 0 && l.x < 30 && Math.abs(l.z) < 2 + l.x * 0.15) { pr.fireT = 0; for (let k = 0; k < 6; k++) emit('steam', pr.body.position.x, pr.body.position.y + 0.6, pr.body.position.z, rand(-1, 1), rand(2, 3), rand(-1, 1), rand(0.6, 1), rand(0.4, 0.7)); if (car.isPlayer) toast('💧 FIRE OUT', 'cool'); } }
       for (const bl of BULLS) { if (bl.state === 'burger') continue; const q = bl.body.position, vx = q.x - p.x, vz = q.z - p.z, al = vx * f.x + vz * f.z; if (al > 0 && al < 30 && Math.abs(vx * f.z - vz * f.x) < 2 + al * 0.15) { bl.cook = 0; bl.body.velocity.x += f.x * 18 * dt; bl.body.velocity.z += f.z * 18 * dt; bl.wet = 2; if (Math.random() < dt * 2) bullMoo(bl, 0.6); } } // a cold shower: no more cooking, and it gets shoved back
       if (car.douse === undefined || car.douse < 1) car.douse = 1; // spray yourself a bit too
@@ -2318,6 +2335,29 @@ function updatePropFires(dt) {
     if (pr.fireT <= 0) charProp(pr);
   }
 }
+// ---------- Cars on fire: the bonnet burns (flames + smoke you can see), it hurts, it spreads to whoever you rub against; water puts it out ----------
+function setCarAlight(c, by) {
+  if (c.wrecked || MP.role === 'guest' || c.douse > 0 || c.burnT > 1) return;
+  const was = c.burnT > 0; c.burnT = 7; c.ignite = 0; c.burnBy = by || null;
+  if (was || game.state !== 'playing') return;
+  if (c.isPlayer) toast("🔥 YOU'RE ON FIRE! FIND WATER", 'bad');
+  else if (by && by.isPlayer) toast(`🔥 ${c.name.toUpperCase()} IS ON FIRE!`, 'cool');
+  if (!c.isPlayer && !c.remote && Math.random() < 0.7) barks.say(c, 'onFire', true); else barks.announce('carFire', { v: c.isPlayer ? 'our hero' : c.name, a: by ? (by.isPlayer ? 'our hero' : by.name) : 'somebody' }, true);
+}
+function burnCar(c, dt) { // every frame on every machine: the flames; the host also does the damage and the spreading
+  if (!(c.burnT > 0)) { if (c.charK > 0 && !c.wrecked) { c.charK = Math.max(0, c.charK - dt * 0.05); c.paint.color.copy(c.baseColor).lerp(_charCol, c.charK); } return; }
+  const b = c.body, T = c.T, hood = b.pointToWorldFrame(new CANNON.Vec3(T.L / 2 - T.L * 0.18 - c.comShift, HULL_Y0 + T.H + 0.1, 0));
+  for (let i = 0; i < (QUALITY.lite ? 2 : 4); i++) emit('fire', hood.x + rand(-0.5, 0.5), hood.y + rand(0, 0.3), hood.z + rand(-0.5, 0.5), b.velocity.x * 0.6 + rand(-0.4, 0.4), rand(2, 4), b.velocity.z * 0.6 + rand(-0.4, 0.4), rand(0.35, 0.7), rand(0.5, 0.9));
+  if (Math.random() < 0.35) emit('smoke', hood.x, hood.y + 1, hood.z, b.velocity.x * 0.5 + rand(-0.5, 0.5), rand(2, 3.5), b.velocity.z * 0.5 + rand(-0.5, 0.5), rand(1.5, 2.6), rand(0.6, 1));
+  c.charK = Math.min(0.55, (c.charK || 0) + dt * 0.08); c.paint.color.copy(c.baseColor).lerp(_charCol, c.charK); // the paint blisters and darkens
+  if (MP.role === 'guest') { c.burnT -= dt; return; }
+  c.burnT -= dt;
+  c.applyDamage(4.5 * dt * S.damage * c.T.armor, c.burnBy, 'top', null, 0);
+  if (c.douse > 0 || c.inWater) { c.burnT = 0; for (let k = 0; k < 8; k++) emit('steam', hood.x, hood.y + 0.5, hood.z, rand(-1, 1), rand(2, 3), rand(-1, 1), rand(0.6, 1), rand(0.4, 0.7)); if (c.isPlayer) toast('💧 FIRE OUT', 'cool'); return; }
+  if (Math.random() < dt * 1.5) for (const o of cars) if (o !== c && !o.wrecked && !(o.burnT > 0) && o.body.position.distanceTo(b.position) < (o.T.L + T.L) * 0.5 + 0.6) { setCarAlight(o, c.burnBy); break; } // rub against someone and they catch too
+  if (c.isPlayer && player && Math.random() < dt * 0.3) toast('🔥 STILL BURNING · FIND WATER', 'bad');
+}
+const _charCol = new THREE.Color(0x1a120c);
 function igniteFuelNear(x, z, R) { for (const c of CONCRETE.list) if (c.kind === 'fuel' && !c.burning && !puddleAt(c.x, c.z, 'water', c.r * 0.5) && (c.x - x) ** 2 + (c.z - z) ** 2 < (R + c.r) ** 2) c.burning = rand(8, 12); }
 
 /* ---------------- Tank shells ---------------- */
@@ -4179,6 +4219,8 @@ class Car {
       pt.mesh.getWorldPosition(tmpV);
       if (tmpV.y < 0.7) { emit('spark', tmpV.x, 0.08, tmpV.z, -this.fwd.x * sp * 0.3 + rand(-1.5, 1.5), rand(0.5, 2.5), -this.fwd.z * sp * 0.3 + rand(-1.5, 1.5), rand(0.2, 0.45), rand(0.05, 0.1)); if (this.isPlayer && Math.random() < 0.08) sfx.scrape(0.5); }
     }
+    burnCar(this, dt);
+    if (this.onFire && !(this.burnT > 0) && Math.random() < dt * 0.8) setCarAlight(this, null); // sitting in burning fuel sets the car itself alight
     if (this.onFire) { // driving through burning fuel
       this.applyDamage(9 * dt * S.damage * this.T.armor, null, 'bottom', null, 0);
       if (Math.random() < 0.5) emit('fire', b.position.x + rand(-1, 1), b.position.y, b.position.z + rand(-1, 1), 0, rand(1, 2), 0, rand(0.3, 0.6), rand(0.4, 0.8));
@@ -5537,6 +5579,7 @@ for (const P of Object.values(CAR_CAST)) PERSONAS.push(P); // (pushed last: gues
 const CAST_SET = new Set(Object.values(CAR_CAST));
 const ANNOUNCER = { nick: 'Announcer', lang: 'en-US', pitch: 0.75, rate: 1.12, words: { voice: ['Ralph', 'Fred', 'Daniel', 'Google US English'] } };
 const ANN_LINES = {
+  carFire: ['{v} is ON FIRE! Somebody get the hose!', '{a} just set {v} alight!', 'Is it hot in here, or is it just {v}?', 'Flame-grilled {v}, coming right up!'],
   delivery: ['{a} has {v} and is heading for {w}!', 'Uh oh, {v}! {a} is taking you to {w}!', 'Special delivery for {w}, courtesy of {a}!'],
   intoCrusher: ['{a} just fed {v} to the crusher! Pancake time!', 'Into the press with {v}! Thank you, {a}!', 'Squish! {v} is going to be a lot flatter!'],
   underBall: ['{a} parked {v} right under the wrecking ball!', 'Ding dong! The ball\'s coming for {v}!', '{v} has a date with the wrecking ball!'],
@@ -5789,7 +5832,7 @@ const BURGER_LINES = { camper: ['B|Yo, Mr. White, we made a burger! Science!', '
   towtruck: ['Hoo-wee! Somebody bring the pickles!', 'Lordy, that\'s the biggest burger in the county!'], forklift: ['C|I made a burger of your bull, English pig-dog!', 'Bring out your... burgers!'], mixer: ['Gabagool! Nah, cheeseburger.', 'Now THAT\'s a family meal.'], cruiser: ['That\'s a barbecue violation, but I\'ll allow it!'] };
 for (const [type, list] of Object.entries(BURGER_LINES)) { const P = type === 'cruiser' ? COP : CAR_CAST[type]; if (P) P.lines.burger = list; }
 // generic fallbacks so the extras (custom drivers) can join in too
-Object.assign(GENERIC, { rodeo: ['Yee-haw! Ride \'em!', 'Gotcha, bull!', 'Rodeo time!'], burger: ['Flame-grilled!', 'Medium rare!', 'Who ordered the bull burger?'], rival: ['Hey {v}! Get out of my way!', '{v}, your {vcar} is a joke!', 'I\'m coming for you, {v}!'], respawn: ['I\'m back!', 'Miss me?', 'Round two!'], kill: ['So long, {v}!', 'Got you, {v}!', 'Ha! {v} is out!'] });
+Object.assign(GENERIC, { onFire: ['I\'m on fire! I\'M ON FIRE!', 'Hot hot hot!', 'Somebody hose me down!', 'My engine is a barbecue!'], rodeo: ['Yee-haw! Ride \'em!', 'Gotcha, bull!', 'Rodeo time!'], burger: ['Flame-grilled!', 'Medium rare!', 'Who ordered the bull burger?'], rival: ['Hey {v}! Get out of my way!', '{v}, your {vcar} is a joke!', 'I\'m coming for you, {v}!'], respawn: ['I\'m back!', 'Miss me?', 'Round two!'], kill: ['So long, {v}!', 'Got you, {v}!', 'Ha! {v} is out!'] });
 const barks = {
   lastT: -99, el: null, voices: [],
   init() {
@@ -5860,8 +5903,9 @@ const barks = {
       const v = this.pickVoice(ANNOUNCER); if (v) { u.voice = v; u.lang = v.lang; }
       u.pitch = ANNOUNCER.pitch; u.rate = ANNOUNCER.rate; u.volume = this.tries === 1 ? Math.max(0.3, S.voiceVolume) : 0.25;
       u.onstart = () => { this.speechOK = true; };
-      speechSynthesis.cancel(); speechSynthesis.resume(); speechSynthesis.speak(u);
-      setTimeout(() => { if (this.speechOK !== true) this.speechOK = false; }, 2500);
+      this.keep = (this.keep || []).concat(u).slice(-6); // (Chrome can drop an utterance nobody holds)
+      if (speechSynthesis.speaking || speechSynthesis.pending) { speechSynthesis.cancel(); setTimeout(() => speechSynthesis.speak(u), 150); } else speechSynthesis.speak(u); // Chrome drops a line spoken in the same instant as a cancel
+      setTimeout(() => { if (this.speechOK !== true) this.speechOK = false; }, 3000);
     } catch (e) { this.speechOK = false; }
   },
   babble(P, line, pos) { // cartoon voice: one formant blip per syllable, pitched per character
@@ -5885,7 +5929,8 @@ const barks = {
   },
   pickVoice(P) { // named voices first (they carry the accent), then any voice of the language, then English
     const vs = this.voices, names = (P.words && P.words.voice) || [];
-    for (const n of names) { const v = vs.find((x) => x.name.toLowerCase().includes(n.toLowerCase())); if (v) return v; }
+    const bad = this.badVoices || new Set();
+    for (const n of names) { const v = vs.find((x) => !bad.has(x.name) && x.name.toLowerCase().includes(n.toLowerCase())); if (v) return v; }
     const lang = P.lang.toLowerCase().replace('_', '-');
     return vs.find((x) => x.lang && x.lang.toLowerCase().replace('_', '-').startsWith(lang)) || vs.find((x) => x.lang && x.lang.toLowerCase().startsWith(lang.slice(0, 2))) || vs.find((x) => x.lang && x.lang.startsWith('en'));
   },
@@ -5903,15 +5948,20 @@ const barks = {
       const d = player && pos ? pos.distanceTo(player.body.position) : 0;
       u.volume = clamp(S.voiceVolume * (1 - d / 220), 0.25, 1);
       // Chrome stalls if speech is cancelled and restarted rapidly: only cut in when a backlog builds up, and keep the engine awake
-      if (speechSynthesis.pending || (speechSynthesis.speaking && this.queued > 1)) { speechSynthesis.cancel(); this.queued = 0; }
-      speechSynthesis.resume();
+      let afterCancel = false; if (speechSynthesis.pending || (speechSynthesis.speaking && this.queued > 1)) { speechSynthesis.cancel(); this.queued = 0; afterCancel = true; }
+      if (speechSynthesis.paused) speechSynthesis.resume();
       this.queued = (this.queued || 0) + 1;
-      u.onstart = () => { this.speechOK = true; this.lastStart = Date.now(); };
+      const sent = performance.now(); this.stats = this.stats || { sent: 0, started: 0, errors: 0, resets: 0, lastVoice: '' }; this.stats.sent++; this.stats.lastVoice = v ? v.name + ' (' + v.lang + (v.localService ? ', on device' : ', online') + ')' : 'default';
+      u.onstart = () => { this.speechOK = true; this.lastStart = Date.now(); this.stats.started++; this.silent = 0; };
+      setTimeout(() => { if (this.stats.started === 0 || performance.now() - sent > 2400 && !this.lastStart) {} if (!u.__started && !VOICES_OFF) { this.silent = (this.silent || 0) + 1; if (this.silent === 3) { NETLOG.incident('me', `voices: 3 lines in a row never started (voice ${this.stats.lastVoice}, ${speechSynthesis.getVoices().length} voices, speaking=${speechSynthesis.speaking}, pending=${speechSynthesis.pending}) - resetting the speech engine`); this.stats.resets++; try { speechSynthesis.cancel(); } catch (e) {} } } }, 2600);
+      u.addEventListener('start', () => { u.__started = true; });
       u.onend = () => { this.queued = Math.max(0, this.queued - 1); };
-      u.onerror = (ev) => { this.queued = Math.max(0, this.queued - 1); this.lastErr = (ev && ev.error) || 'error'; }; // (shown by Test voices)
+      u.onerror = (ev) => { this.queued = Math.max(0, this.queued - 1); this.lastErr = (ev && ev.error) || 'error'; this.stats.errors++; if (this.stats.errors <= 3 && this.lastErr !== 'interrupted' && this.lastErr !== 'canceled') NETLOG.incident('me', `voice error: ${this.lastErr} (voice ${this.stats.lastVoice})`); }; // (shown by Test voices)
       this.keep = (this.keep || []).concat(u).slice(-6); // Chrome can drop an utterance nobody holds on to before it is spoken
       if (this.speechOK !== true) { const id = setTimeout(() => { if (this.speechOK !== true) { this.speechOK = false; this.babble(P, line, pos); } }, 1500); u.addEventListener('start', () => clearTimeout(id)); }
-      speechSynthesis.speak(u);
+      // a voice that fails gets one retry with the device's default voice (some named voices are online-only or broken)
+      u.addEventListener('error', (ev) => { const er = ev && ev.error; if (u.voice && !u.__retried && er !== 'interrupted' && er !== 'canceled') { const u2 = new SpeechSynthesisUtterance(u.text); u2.__retried = true; u2.pitch = u.pitch; u2.rate = u.rate; u2.volume = u.volume; u2.onstart = u.onstart; this.keep = (this.keep || []).concat(u2).slice(-6); this.badVoices = (this.badVoices || new Set()).add(u.voice.name); setTimeout(() => speechSynthesis.speak(u2), 60); } });
+      if (afterCancel) setTimeout(() => speechSynthesis.speak(u), 150); else speechSynthesis.speak(u);
     } catch (e) {}
   },
 };
@@ -6417,6 +6467,9 @@ $('btnTune').addEventListener('click', (e) => { togglePanel(); e.currentTarget.b
 $('btnClose').addEventListener('click', () => togglePanel(false));
 $('btnRestart').addEventListener('click', (e) => { e.currentTarget.blur(); startMatch(); togglePanel(false); });
 $('btnDefaults').addEventListener('click', (e) => { e.currentTarget.blur(); for (const d of SETTINGS_DEF) setValue(d.key, d.def); });
+setInterval(() => { // Chrome sometimes sits 'speaking' forever and says nothing more: unstick it
+  try { const ss = window.speechSynthesis; if (!ss) return; if (ss.speaking && barks.lastStart && Date.now() - barks.lastStart > 15000) { ss.cancel(); barks.lastStart = Date.now(); if (barks.stats) barks.stats.resets++; } } catch (e) {}
+}, 3000);
 let VOICES_OFF = false; try { VOICES_OFF = localStorage.getItem('derby-voices') === 'off'; } catch (e) {}
 function setVoices(off) { VOICES_OFF = off; $('btnVoices').firstChild.textContent = off ? 'Voices off' : 'Voices on'; try { localStorage.setItem('derby-voices', off ? 'off' : 'on'); } catch (e) {} if (off) try { speechSynthesis.cancel(); } catch (e) {} }
 setVoices(VOICES_OFF);
@@ -6430,14 +6483,18 @@ setTimeout(applySong, 0);
 $('btnVoiceTest').addEventListener('click', () => { // speaks a line now and says what is going on, so a silent device can be diagnosed
   const ss = window.speechSynthesis, vs = ss ? ss.getVoices() : [];
   if (VOICES_OFF) setVoices(false);
-  barks.speechOK = null; barks.unlock();
+  barks.speechOK = null; barks.tries = Math.max(barks.tries || 0, 1); // (the test speaks its own lines below)
   setTimeout(() => {
-    const P = CAR_CAST.forklift, u = ss ? new SpeechSynthesisUtterance('Testing, testing. I am Arthur, King of the Britons!') : null;
-    if (u) { const v = barks.pickVoice(P); if (v) { u.voice = v; u.lang = v.lang; } u.volume = Math.max(0.6, S.voiceVolume); u.onerror = (ev) => { barks.lastErr = (ev && ev.error) || 'error'; }; u.onstart = () => { barks.speechOK = true; }; barks.keep = (barks.keep || []).concat(u).slice(-6); ss.speak(u); }
+    const P = CAR_CAST.forklift, res = { plain: 'no', character: 'no' };
+    if (ss) { if (ss.speaking || ss.pending) ss.cancel();
+      const u0 = new SpeechSynthesisUtterance('Testing, testing.'); u0.volume = 1; u0.onstart = () => { res.plain = 'yes'; barks.speechOK = true; }; u0.onerror = (ev) => { res.plain = 'error ' + (ev && ev.error); };
+      const u = new SpeechSynthesisUtterance('I am Arthur, King of the Britons!'); const v = barks.pickVoice(P); if (v) { u.voice = v; u.lang = v.lang; } u.volume = 1; u.onerror = (ev) => { barks.lastErr = (ev && ev.error) || 'error'; res.character = 'error ' + barks.lastErr; }; u.onstart = () => { res.character = 'yes (' + (v ? v.name : 'default') + ')'; barks.speechOK = true; };
+      barks.keep = (barks.keep || []).concat(u0, u).slice(-6); setTimeout(() => { ss.speak(u0); ss.speak(u); }, 200); barks.testRes = res; }
     setTimeout(() => {
-      const msg = !ss ? 'This browser has no speech. You will hear the cartoon babble instead.' : barks.speechOK ? `Speech works (${vs.length} voices). If you heard nothing, check the device volume and silent switch.` : `Speech did not start${barks.lastErr ? ' (' + barks.lastErr + ')' : ''}. ${vs.length} voices on this device. ${sfx.muted ? 'Sound is OFF in the menu. ' : ''}${S.voiceVolume <= 0 ? 'Voice volume is 0 in Tune physics. ' : ''}Inside the Claude app speech can be blocked: try the GitHub Pages link.`;
-      toast(barks.speechOK ? '🔊 VOICES WORK' : '🔇 NO VOICES', barks.speechOK ? 'cool' : 'bad'); NETLOG.incident('me', 'voice test: ' + msg); showNote(msg);
-    }, 1600);
+      const st = barks.stats || {}; const extra = ` Test: plain voice started ${barks.testRes ? barks.testRes.plain : '?'}, character voice ${barks.testRes ? barks.testRes.character : '?'}. Lines so far: ${st.sent || 0} sent, ${st.started || 0} spoken, ${st.errors || 0} errors, ${st.resets || 0} engine resets. Voice: ${st.lastVoice || '-'}.`;
+      const msg0 = !ss ? 'This browser has no speech. You will hear the cartoon babble instead.' : barks.speechOK ? `Speech works (${vs.length} voices). If you heard nothing, check the device volume and silent switch.` : `Speech did not start${barks.lastErr ? ' (' + barks.lastErr + ')' : ''}. ${vs.length} voices on this device. ${sfx.muted ? 'Sound is OFF in the menu. ' : ''}${S.voiceVolume <= 0 ? 'Voice volume is 0 in Tune physics. ' : ''}Inside the Claude app speech can be blocked: try the GitHub Pages link.`, msg = msg0 + extra;
+      toast(barks.speechOK ? '🔊 VOICES WORK' : '🔇 NO VOICES', barks.speechOK ? 'cool' : 'bad'); NETLOG.incident('me', 'voice test: ' + msg); showNote(msg); // (the result also goes into the Network log)
+    }, 4200);
   }, 300);
 });
 const btnMute = $('btnMute');
@@ -7137,7 +7194,7 @@ const MP = {
     const r = (v, k = 100) => Math.round(v * k);
     const cs = cars.map((c) => { const b = c.body, p = b.position, q = b.quaternion, v = b.velocity, z = c.zones;
       return [r(p.x), r(p.y), r(p.z), r(q.x, 1e4), r(q.y, 1e4), r(q.z, 1e4), r(q.w, 1e4), r(v.x, 10), r(v.y, 10), r(v.z, 10), Math.round(c.health),
-        (c.wrecked ? 1 : 0) | (c.boosting ? 2 : 0) | (c.braking ? 4 : 0) | (c.sirenOn ? 8 : 0) | (c.turretGone ? 16 : 0),
+        (c.wrecked ? 1 : 0) | (c.boosting ? 2 : 0) | (c.braking ? 4 : 0) | (c.sirenOn ? 8 : 0) | (c.turretGone ? 16 : 0) | (c.burnT > 0 ? 32 : 0),
         [z.front, z.rear, z.left, z.right, z.top].map((x) => Math.round(x)).join('.'),
         c.parts.reduce((a, pt, i) => (pt.detached ? a.concat(i) : a), []), c.wheelLost.reduce((a, l, i) => a | (l ? 1 << i : 0), 0),
         r(c.rpm || 0, 0.01), r(c.steerVal || 0), r(c.turretYaw || 0), r(c.forkH || 0), c.kills || 0]; });
@@ -7290,7 +7347,7 @@ const MP = {
       c.body.velocity.set(B[7] / 10, B[8] / 10, B[9] / 10);
       c.body.quaternion.vmult(AX_X, c.fwd); c.body.quaternion.vmult(AX_Y, c.up);
       c.speed = c.body.velocity.dot(c.fwd); c.kills = B[19] | 0; c.rpm = B[15] * 100; c.steerVal = B[16] / 100; c.turretYaw = B[17] / 100; c.forkH = B[18] / 100;
-      c.boosting = !!(B[11] & 2); c.braking = !!(B[11] & 4); c.sirenOn = !!(B[11] & 8);
+      c.boosting = !!(B[11] & 2); c.braking = !!(B[11] & 4); c.sirenOn = !!(B[11] & 8); if (B[11] & 32) c.burnT = Math.max(c.burnT || 0, 0.3); // burning: the flames are drawn here
       for (let w = 0; w < c.nW; w++) c.vehicle.setSteeringValue(w < 2 ? c.steerVal : 0, w);
       // damage follows the host: crumple stages, panels off, wheels off, the wreck itself
       const zs = String(B[12]).split('.').map(Number), zn = ['front', 'rear', 'left', 'right', 'top'];
@@ -7419,7 +7476,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '41'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '42'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
@@ -7723,13 +7780,13 @@ const PF = { timer: 0, snaps: [] };
 function perfOpen(open) {
   const d = $('perfdlg'); d.hidden = !open; clearInterval(PF.timer);
   if (!open) return;
-  const draw = () => { const [v, t] = perfLiveText(); $('pfVerdict').textContent = v; $('pfText').textContent = t; $('pfHud').textContent = 'Corner readout: ' + (S.perfHud ? 'on' : 'off'); $('pfSend').textContent = MP.role === 'guest' ? 'Send to host' : 'Save report'; };
+  const draw = () => { const [v, t] = perfLiveText(); $('pfVerdict').textContent = v; $('pfText').textContent = t; $('pfHud').textContent = 'Corner readout: ' + (S.perfHud ? 'on' : 'off'); $('pfSend').textContent = MP.role === 'guest' ? 'Send to host + save' : 'Save to Net log'; };
   PF.snaps = [{ at: performance.now(), s: SEC.snap() }]; setTimeout(draw, 600); PF.timer = setInterval(draw, 500);
 }
 $('btnPerf').addEventListener('click', (e) => { e.currentTarget.blur(); perfOpen($('perfdlg').hidden); });
 $('pfClose').addEventListener('click', () => perfOpen(false));
 $('pfHud').addEventListener('click', () => { S.perfHud = S.perfHud ? 0 : 1; try { saveSettings(); } catch (e) {} $('pfHud').textContent = 'Corner readout: ' + (S.perfHud ? 'on' : 'off'); });
-$('pfSend').addEventListener('click', () => { PERFREP.send('sent by hand'); $('pfSend').textContent = MP.role === 'guest' ? 'Sent' : 'Saved to Net log'; });
+$('pfSend').addEventListener('click', () => { PERFREP.send('sent by hand'); $('pfSend').textContent = MP.role === 'guest' ? 'Sent to the host · saved on this device' : 'Saved on this device · see gear ▸ Network log'; }); // kept in the browser's storage (survives closing the page) and in the Net log export
 $('pfCopy').addEventListener('click', async () => { const t = $('pfVerdict').textContent + '\n' + $('pfText').textContent; try { await navigator.clipboard.writeText(t); $('pfCopy').textContent = 'Copied'; } catch (e) { $('pfCopy').textContent = 'Copy failed'; } setTimeout(() => { $('pfCopy').textContent = 'Copy'; }, 1500); });
 // the map: off by default, Map button or Tab
 let MAP_ON = false; try { MAP_ON = localStorage.getItem('derby-map') === '1'; } catch (e) {}
@@ -7795,7 +7852,7 @@ const NETLOG = {
   exportText() {
     const pad = (v, n) => String(v ?? '').padStart(n), ts = (t) => new Date(t).toISOString().slice(11, 19);
     const L = [`Scrapyard Derby network log · build ${BUILD} · ${MP.role} · via ${MP.via || MP.transport || '?'} · ${new Date().toISOString()}`,
-      `Device: ${navigator.userAgent}`, `Screen ${innerWidth}x${innerHeight} @${devicePixelRatio} · quality now ${QUALITY.level}/${QSTEPS.length - 1} (0 best) · mode ${GAME_MODE}`,
+      `Device: ${navigator.userAgent}`, `Voices: ${VOICES_OFF ? 'OFF in menu' : 'on'} · sound ${sfx.muted ? 'OFF' : 'on'} · voice volume ${S.voiceVolume} · speech ${window.speechSynthesis ? speechSynthesis.getVoices().length + ' voices' : 'none'} · ${JSON.stringify(barks.stats || {})} · engine ok=${barks.speechOK} lastErr=${barks.lastErr || '-'}`, `Screen ${innerWidth}x${innerHeight} @${devicePixelRatio} · quality now ${QUALITY.level}/${QSTEPS.length - 1} (0 best) · mode ${GAME_MODE}`,
       `Players: ${cars.filter((c) => c.remote || c.netPeer || c.isPlayer).map((c) => (c.isPlayer ? MP.nick() + ' (this device)' : c.name) + ' · ' + c.T.name).join(', ')}`,
       'Host sends 20 snapshots/s; guests should see ~20 updates/s, jitter < 30 ms, smoothing 80-200 ms, gaps < 150 ms.', '',
       `Performance reports (${this.perf.length}, newest last; sent after each wreck and every 2 minutes; times in ms per frame):`,
