@@ -2562,6 +2562,10 @@ const sfx = {
   },
   horn(on, type) { // held horn for the player
     if (!this.ctx) return;
+    if (type === 'forklift') { // no horn: Patsy bangs two coconut halves together
+      const now = performance.now(); if (on && now >= (this.cocoNext || 0)) { this.cocoNext = now + 430; this.coconut(1); }
+      return;
+    }
     const H = HORNS[type] || HORNS.outrider, c = this.ctx, t = c.currentTime;
     if (!this.hornV || this.hornV.type !== type) {
       if (this.hornV) { this.hornV.g.gain.value = 0; this.hornV.oscs.forEach((o) => o.stop()); }
@@ -2578,8 +2582,10 @@ const sfx = {
       if (H.bend) v.oscs.forEach((o, i) => { if (i < H.f.length) o.frequency.exponentialRampToValueAtTime(H.f[i] * H.bend, t + 0.12); });
     }
   },
+  coconut(v) { this.noiseHit('bandpass', 1150, 7, 0.7 * v, 0.05); setTimeout(() => this.noiseHit('bandpass', 880, 7, 0.6 * v, 0.05), 150); }, // clip-clop
   honk(type, vol, dur) { // short honk from another car
     if (!this.ctx || vol < 0.03) return;
+    if (type === 'forklift') { this.coconut(vol); return; }
     const H = HORNS[type] || HORNS.outrider, c = this.ctx, t = c.currentTime;
     const out = c.createGain(); out.gain.value = vol; out.connect(this.bus);
     const v = this.hornChain(H, out);
@@ -5206,21 +5212,23 @@ const CAR_CAST = {
       charge: ['Yee-haw!', 'Hold onto yer hats!'],
       flee: ['Feet don\'t fail me now!', 'Nope! Gone fishin\'!'],
     } },
-  forklift: { nick: 'Nigel', hand: 0.75, style: 'vulture', from: 'Health and safety officer, forklift certified', lang: 'en-GB', pitch: 1.05, rate: 1.0, color: '#e2b51c',
-    words: { ex: ['Right', 'Oh, for goodness sake', 'Hazard', 'Hi-vis on'], insult: ['you liability', 'you walking incident report', 'you unqualified operator'], kin: ['line manager', 'mum', 'union rep'], thing: ['hi-vis vest', 'clipboard', 'hard hat'], boast: ['Lifted with correct technique!', 'Forklift certified!'], voice: ['Daniel', 'Arthur', 'Google UK English Male'] },
+  forklift: { nick: 'King Arthur', hand: 0.85, style: 'vulture', from: 'King of the Britons, seeking the Holy Grail (by forklift)', lang: 'en-GB', pitch: 0.95, rate: 0.95, color: '#e2b51c',
+    duo: { nick: 'Black Knight', lang: 'en-GB', pitch: 0.6, rate: 0.9, words: { voice: ['Daniel', 'Arthur', 'Google UK English Male'] } },
+    trio: { nick: 'French Taunter', lang: 'fr-FR', pitch: 1.15, rate: 1.05, words: { voice: ['Thomas', 'Amélie', 'Google français'] } },
+    words: { ex: ['By the grace of God', 'Ni', 'Run away', 'Most noble'], insult: ['you silly person', 'you empty-headed animal', 'you scruffy peasant'], kin: ['Sir Robin', 'Patsy', 'the Knights of the Round Table'], thing: ['coconuts', 'shrubbery', 'Holy Hand Grenade'], boast: ['And there was much rejoicing.', 'It is a silly place. But it is ours.'], voice: ['Daniel', 'Arthur', 'Google UK English Male'] },
     lines: {
-      start: ['I am fully forklift certified, and I am not afraid to use it.', 'Has everyone signed the risk assessment? No? Wonderful.', 'Hard hats on. This is a live site.'],
-      hitYou: ['That was a controlled lift!', 'Forklift certified!', 'Correct lifting technique: bend the car, not the back.', 'I\'ll be filing that under "incident".'],
-      gotHit: ['That is a reportable injury!', 'You cannot strike a moving forklift! It\'s in the handbook!', 'Where is your hi-vis?!'],
-      wheel: ['Wheel detached. I\'ll need a form for that.', 'Oh, brilliant. Another near miss.'],
-      low: ['This forklift is no longer fit for purpose.', 'Structural integrity is... outside tolerance.'],
-      wrecked: ['I\'d like to speak to the site manager.', 'Nobody signed off on this!'],
-      gloat: ['Stacked and racked.', 'Load secured. Lovely.', 'And that\'s why we train.'],
-      air: ['This is NOT a safe working height!', 'Forks up! Forks UP!'],
-      taunt: ['I will lift you, and I will put you on a high shelf.', 'Your driving violates at least four regulations.', 'Mind the forks, sunshine.'],
-      fire: ['Lifting! Stand clear!', 'Forks up!'],
-      charge: ['Reversing! Beep beep!', 'Clear the aisle!'],
-      flee: ['Taking my mandatory break!', 'Health and safety says: run!'],
+      start: ['I am Arthur, King of the Britons! And this... is a forklift.', 'Patsy! The coconuts! We ride!', 'On second thought, let us not go to the yard. It is a silly place.', 'We are the knights who say... NI!', 'C|You don\'t frighten us, English pig-dogs!'],
+      hitYou: ['Ni! Ni! NI!', 'And there was much rejoicing.', 'C|Your mother was a hamster!', 'One, two, five! Three, sir! THREE!', 'Bring out your dead!', 'B|None shall pass!'],
+      gotHit: ['B|\'Tis but a scratch!', 'B|It\'s just a flesh wound.', 'B|I\'ve had worse.', 'C|Now go away or I shall taunt you a second time!', 'Help! Help! I\'m being repressed!'],
+      wheel: ['B|A wheel? Merely a flesh wound!', 'B|I\'m invincible! ...Mostly.', 'Patsy, fetch the wheel. And the coconuts.'],
+      low: ['B|Come back here! I\'ll bite your bumpers off!', 'B|Right, I\'ll call it a draw.', 'I\'m not dead yet! I feel happy!'],
+      wrecked: ['I\'m not dead yet! ...Oh. I am.', 'B|All right, we\'ll call it a draw.', 'Brave Sir Robin ran away. Bravely ran away.', 'Run away! Run away!'],
+      gloat: ['And there was much rejoicing. Yaaay.', 'C|I fart in your general direction!', 'C|Your father smelt of elderberries!', 'It is a silly place, and you are the silliest thing in it.', 'Now we see the violence inherent in the system!'],
+      air: ['What is the airspeed velocity of an unladen forklift?', 'African or European swallow?!', 'Patsy! We are... flying?'],
+      taunt: ['Bring us... a shrubbery!', 'C|I don\'t want to talk to you no more, you empty-headed animal!', 'Tell me. What is your quest?', 'What... is your favourite colour?', 'B|None shall pass!', 'C|Fetchez la vache!'],
+      fire: ['Fetchez la forklift!', 'Count to three. No more, no less. LIFT!', 'Behold! The Holy Hand... Forks!'],
+      charge: ['Charge! For the Grail!', 'Camelot!', 'Onward, Patsy! Clop faster!'],
+      flee: ['Run away! Run away!', 'Brave Sir Robin ran away...', 'We shall use... a tactical retreat!'],
     } },
   mixer: { nick: 'Tony Cement', hand: 0.7, style: 'brawler', from: 'New Jersey "waste management"', lang: 'en-US', pitch: 0.75, rate: 1.0, color: '#d0a030',
     words: { ex: ['Fuhgeddaboudit', 'Ay', 'Madone', 'Whaddaya'], insult: ['ya mook', 'ya gavone', 'ya stunad'], kin: ['ma', 'cousin Paulie', 'uncle Junior'], thing: ['gabagool', 'cement shoes', 'tracksuit'], boast: ['Fuhgeddaboudit!', 'You\'re sleepin\' with the rebar now.'], voice: ['Fred', 'Ralph', 'Google US English'] },
@@ -5378,7 +5386,7 @@ const barks = {
     this.show(P, car.baseColor, line);
     this.speak(P, line, car.body.position);
   },
-  who(P, line) { return P.duo && String(line).startsWith('B|') ? [{ ...P, ...P.duo }, line.slice(2)] : [P, String(line).replace(/^B\|/, '')]; }, // the camper's second voice
+  who(P, line) { line = String(line); const m = line.match(/^([BC])\|/); if (!m) return [P, line]; const alt = m[1] === 'B' ? P.duo : P.trio; return [alt ? { ...P, ...alt } : P, line.slice(2)]; }, // extra voices in the cab (B| and C|)
   used: new Set(),
   fill(tpl, P, vars) {
     const w = P.words || {};
@@ -6869,7 +6877,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '35'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '36'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
@@ -7284,5 +7292,5 @@ function drawBody(dt) {
   if (!window.__noRender) { const gq = Math.min(S.gfx, S.autoGfx ? (QUALITY.gfxCap ?? 2) : 2); if (gq > 0) { grade.uniforms.uTime.value = clock % 10; grade.enabled = gq > 1; bloom.strength = gq > 1 ? 0.42 : 0.34; composer.render(); } else renderer.render(scene, camera); } // tests can skip drawing to run physics faster
 }
 requestAnimationFrame(frame);
-window.__derby = { CANNON, barks, PERF, shells, NETLOG, nearHostAdd: () => nearHostAdd(), nearJoin: () => nearJoin(), JUMBO, BALL, BOLLARDS, GASQ, updateArenaPub: (dt) => updateArena(dt), CRUSHER, crushNow: () => crushNow(), applyNight: () => applyNight(), FIREWORKS, ARENA, CROWD, MP, QUALITY, applyQuality: (i) => applyQuality(i), MERGED, camera, updatePropActivity: (dt) => updatePropActivity(dt), renderer, scene, spawnFree: (x, z, r) => spawnFree(x, z, r), BULLS, updateBulls: (dt) => updateBulls(dt), updateShells, tilt, setTilt, get CRANE() { return CRANE; }, updateCrane: (dt) => updateCrane(dt), CONCRETE, THREE, craters, shells, pickups, barks, PERSONAS, TUNE, game, cars, S, world, CAR_TYPES, sfx, touch, drawGauge, get player() { return player; }, keys, startMatch, selectCar, setValue, debris, props, platformOf, get simTime() { return simTime; }, set simTime(v) { simTime = v; } }; // console tinkering + tests
+window.__derby = { sfx, CANNON, barks, PERF, shells, NETLOG, nearHostAdd: () => nearHostAdd(), nearJoin: () => nearJoin(), JUMBO, BALL, BOLLARDS, GASQ, updateArenaPub: (dt) => updateArena(dt), CRUSHER, crushNow: () => crushNow(), applyNight: () => applyNight(), FIREWORKS, ARENA, CROWD, MP, QUALITY, applyQuality: (i) => applyQuality(i), MERGED, camera, updatePropActivity: (dt) => updatePropActivity(dt), renderer, scene, spawnFree: (x, z, r) => spawnFree(x, z, r), BULLS, updateBulls: (dt) => updateBulls(dt), updateShells, tilt, setTilt, get CRANE() { return CRANE; }, updateCrane: (dt) => updateCrane(dt), CONCRETE, THREE, craters, shells, pickups, barks, PERSONAS, TUNE, game, cars, S, world, CAR_TYPES, sfx, touch, drawGauge, get player() { return player; }, keys, startMatch, selectCar, setValue, debris, props, platformOf, get simTime() { return simTime; }, set simTime(v) { simTime = v; } }; // console tinkering + tests
 </script>
