@@ -367,7 +367,7 @@
         <div class="mprow" id="nearRow" hidden><button id="btnNearHost" type="button">Add nearby player</button><button id="btnNearJoin" type="button">Join nearby</button><span class="quiet">No internet service: the phones scan each other's screens, then talk over your Wi-Fi.</span></div>
         <div id="mpGames" class="mprow"></div>
         <p id="mpInfo" class="quiet" style="margin:0"></p>
-        <div id="mpShare" class="mpshare" hidden><canvas id="mpQR" width="180" height="180" aria-label="QR code to join"></canvas><div><p class="quiet" style="margin:0 0 6px">Scan to join, or send this link:</p><input id="mpLink" readonly aria-label="Join link"><button id="btnCopyLink" type="button">Copy link</button></div></div>
+        <div id="mpShare" class="mpshare" hidden><canvas id="mpQR" width="180" height="180" aria-label="QR code to join"></canvas><div><p class="quiet" style="margin:0 0 6px">Scan to join, or send this link:</p><input id="mpLink" readonly aria-label="Join link"><button id="btnShareLink" type="button" class="primary" hidden>Share link</button> <button id="btnCopyLink" type="button">Copy link</button></div></div>
       </div>
       <div>
         <p class="label" style="margin:0 0 8px">Pick your car</p>
@@ -6321,7 +6321,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '32'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '33'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
@@ -6446,6 +6446,8 @@ $('btnNearJoin').addEventListener('click', () => nearJoin());
 $('nearClose').addEventListener('click', () => nearClose());
 $('btnCopyLink').addEventListener('click', () => { const v = $('mpLink').value; (navigator.clipboard ? navigator.clipboard.writeText(v) : Promise.reject()).then(() => toast('LINK COPIED', 'cool')).catch(() => { $('mpLink').select(); }); });
 $('mpLink').addEventListener('focus', (e) => e.target.select());
+if (navigator.share) $('btnShareLink').hidden = false; // phones and tablets: straight into Messages / WhatsApp
+$('btnShareLink').addEventListener('click', () => { const url = $('mpLink').value; navigator.share({ title: 'Scrapyard Derby', text: `Join my Scrapyard Derby game! Tap to drive:`, url }).catch(() => {}); });
 $('mpNick').addEventListener('change', () => { MP.nick(); if (MP.role === 'host' && MP.lobby) MP.lobby.presence({ nick: MP.nick() }); if (MP.role === 'guest') MP.sendWant(); });
 $('mpNick').addEventListener('keydown', (e) => e.stopPropagation()); // typing a name isn't driving
 MP.init();
