@@ -389,6 +389,8 @@
   .tonly { display: none; }
   body.touch #gearMenu kbd { display: none; }
   #btnFull[hidden] { display: none !important; }
+  #btnVR[hidden], #codeRow[hidden], #mpCodeShow[hidden] { display: none !important; }
+  #mpCode { width: 9em; text-transform: lowercase; }
   body.touch #gearMenu .tonly { display: flex; }
   body.touch #btnMap, body.touch #btnCam, body.touch #btnTilt { display: none !important; }
   body.touch .rail { display: flex !important; flex-direction: row !important; gap: 6px; }
@@ -475,6 +477,7 @@
         <button id="btnRespawn" class="ic hot" type="button" title="Respawn or pick a new car (K)">🔄<small>Respawn</small></button>
       </div>
       <div id="gearMenu" hidden>
+        <button id="gmVR" type="button" hidden>🥽 Enter VR</button>
         <button id="gmCam" class="tonly" type="button">🎥 Camera view<kbd>C</kbd></button>
         <button id="gmMap" class="tonly" type="button">🗺️ Map</button>
         <button id="gmScore" type="button">🏆 Scoreboard<kbd>L</kbd></button>
@@ -589,10 +592,14 @@
       <p>Wreck every opponent in the yard. Hit them nose first: your front bumper takes half damage. Knock off bumpers, doors and wheels. Every car has real mass, suspension and momentum.</p>
       <div id="mpBox" class="mp">
         <p class="label" style="margin:0">Multiplayer <span id="mpStatus" class="quiet"></span></p>
-        <div class="mprow"><input id="mpNick" maxlength="14" placeholder="Your name" aria-label="Your name"><button id="btnHost" type="button">Host a game</button><button id="btnLeave" type="button" hidden>Leave</button></div>
+        <div class="mprow"><input id="mpNick" maxlength="14" placeholder="Your name" aria-label="Your name"><button id="btnFamily" type="button" class="join">Play together</button><button id="btnHost" type="button">Host with a link</button><button id="btnLeave" type="button" hidden>Leave</button></div>
+        <p id="famWho" class="quiet" style="margin:0" aria-live="polite"></p>
         <div class="mprow" id="nearRow" hidden><button id="btnNearHost" type="button">Add nearby player</button><button id="btnNearJoin" type="button">Join nearby</button><span class="quiet">No internet service: the phones scan each other's screens, then talk over your Wi-Fi.</span></div>
         <div id="mpGames" class="mprow"></div>
+        <div class="mprow" id="codeRow"><input id="mpCode" maxlength="40" placeholder="Game code" aria-label="Game code" autocomplete="off" autocapitalize="off" spellcheck="false"><button id="btnJoinCode" type="button">Join with code</button></div>
+        <p id="mpCodeShow" class="quiet" style="margin:0" hidden></p>
         <p id="mpInfo" class="quiet" style="margin:0"></p>
+        <details id="famSet"><summary class="quiet">Family yard name</summary><div class="mprow" style="margin-top:6px"><input id="famName" maxlength="40" aria-label="Family yard name" style="width:14em"><button id="btnFamName" type="button">Save</button></div><p class="quiet" style="margin:4px 0 0">Everyone whose game has the same name here lands in the same yard when they tap Play together. Pick something only your family knows.</p></details>
         <div id="mpShare" class="mpshare" hidden><canvas id="mpQR" width="180" height="180" aria-label="QR code to join"></canvas><div><p class="quiet" style="margin:0 0 6px">Scan to join, or send this link:</p><input id="mpLink" readonly aria-label="Join link"><button id="btnShareLink" type="button" class="primary" hidden>Share link</button> <button id="btnCopyLink" type="button">Copy link</button></div></div>
       </div>
       <div>
@@ -625,6 +632,7 @@
       <div class="actions">
         <span class="modes" role="group" aria-label="Game mode"><button type="button" class="mode" data-mode="respawn" aria-pressed="true">Respawn</button><button type="button" class="mode" data-mode="elim" aria-pressed="false">Elimination</button></span>
         <button id="btnStart" class="primary" type="button">Start derby</button>
+        <button id="btnVR" type="button" hidden>🥽 Enter VR</button>
         <button id="btnAutoplay" type="button" title="The computer drives every car, match after match, and logs how the game runs (fps, physics glitches, stuck cars, balance). Any key or tap stops it.">🤖 Autoplay (learn)</button>
         <button id="btnApReport2" type="button" class="quiet" title="What the play log has measured so far">Report</button>
         <button id="btnFull" class="touch-only" type="button">⛶ Full screen</button>
@@ -782,6 +790,8 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.18;
+renderer.xr.enabled = true; // WebXR (Meta Quest): only does anything while a VR session is presenting
+const XRS = { on: false }; // true while the headset is presenting (see VR MODE near the end)
 const scene = new THREE.Scene();
 const FOG = 0xa48d7e; // dusty rose-grey haze: warm, but not the whole world in sepia
 scene.fog = new THREE.Fog(FOG, 110, 560);
@@ -817,6 +827,7 @@ const grade = new ShaderPass({
 });
 composer.addPass(grade);
 function resize() {
+  if (renderer.xr.isPresenting) return; // the headset owns the framebuffer size while in VR
   const w = canvas.clientWidth || window.innerWidth, h = canvas.clientHeight || window.innerHeight;
   renderer.setPixelRatio(renderPixelRatio()); renderer.setSize(w, h, false);
   composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(w, h);
@@ -1780,7 +1791,7 @@ function updateJumbo(dt) {
   if (JUMBO.recT <= 0) { JUMBO.recT = 0.05; JUMBO.rec.push({ t: clock, cars: cars.slice(), p: cars.map(snapCar) }); while (JUMBO.rec.length && JUMBO.rec[0].t < clock - 4.5) JUMBO.rec.shift(); }
   JUMBO.tick++;
   const gq = Math.min(S.gfx, S.autoGfx ? (QUALITY.gfxCap ?? 2) : 2);
-  if (window.__noRender || gq === 0 || JUMBO.tick % 6) return; // a second full scene render: 10 a second is plenty for a big screen
+  if (window.__noRender || gq === 0 || XRS.on || JUMBO.tick % 6) return; // a second full scene render: 10 a second is plenty for a big screen
   // only bother when the screen is in view
   const fr = new THREE.Frustum().setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
   if (!fr.intersectsSphere(new THREE.Sphere(JUMBO.screen.position, 18)) || camera.position.distanceTo(JUMBO.screen.position) > 330) return;
@@ -2281,7 +2292,7 @@ const MEGA = { // the deputy on the megaphone / police radio
   backup: ['Dispatch, I need backup! All units to the scrapyard!', 'Ten-thirty-three! Officer needs assistance!', 'Requesting air support! ...What do you mean we don\'t have any?'],
   chase: ['Suspect is fleeing! In pursuit!', 'You have the right to remain wrecked!', 'Step out of the vehicle! ...Or what\'s left of it!'],
 };
-function megaphone(car, kind) { const P = car.persona || COP, pool = MEGA[kind]; if (!pool) return; const line = pool[Math.random() * pool.length | 0]; barks.show(P, new THREE.Color(0x4a7aff), '📢 ' + line); barks.speak(P, line, car.body.position); }
+function megaphone(car, kind) { const P = car.persona || COP, pool = MEGA[kind]; if (!pool) return; const line = pool[Math.random() * pool.length | 0]; barks.show(P, new THREE.Color(0x4a7aff), '📢 ' + line); barks.speak(P, line, car.body.position, { fx: 'megaphone' }); }
 function roundHit(car, res, dir, k) { // what a bullet or pellet does to whatever it hits
   if (!res.hasHit) return;
   const hp = res.hitPointWorld, o = res.body;
@@ -6725,19 +6736,20 @@ const barks = {
   who(P, line) { line = String(line); const m = line.match(/^([BC])\|/); if (!m) return [P, line]; const alt = m[1] === 'B' ? P.duo : P.trio; return [alt ? { ...P, ...alt } : P, line.slice(2)]; }, // extra voices in the cab (B| and C|)
   used: new Set(),
   fill(tpl, P, vars) {
-    const w = P.words || {};
-    return tpl.replace(/\{(\w+)\}/g, (m, k) => vars[k] !== undefined ? vars[k] : w[k] ? w[k][Math.random() * w[k].length | 0] : '');
+    const w = P.words || {}, parts = []; let at = 0; // parts: the template's fixed text and the values it got, so VCLIP can splice recorded pieces
+    const out = tpl.replace(/\{(\w+)\}/g, (m, k, i) => { const val = vars[k] !== undefined ? vars[k] : w[k] ? w[k][Math.random() * w[k].length | 0] : ''; parts.push(tpl.slice(at, i), [k, String(val)]); at = i + m.length; return val; });
+    parts.push(tpl.slice(at)); this.lastParts = parts; return out;
   },
   compose(P, ev, vars) { // a fresh line every time: mix handwritten lines and templates, skip anything said this match
     const hand = (P.lines && P.lines[ev]) || [], tpls = TEMPLATES[ev] || GENERIC[ev] || [];
-    for (let i = 0; i < 14; i++) {
+    const r = VCLIP.pick(14, () => { // (prefers lines that have a recorded clip, when there are clips)
       const useHand = hand.length && Math.random() < (P.hand ?? 0.35);
       const src = useHand ? hand : tpls;
-      if (!src.length) continue;
-      let line = this.fill(src[Math.random() * src.length | 0], P, vars);
-      line = line.charAt(0).toUpperCase() + line.slice(1);
-      if (!this.used.has(line)) { this.remember(line); return line; }
-    }
+      if (!src.length) return null;
+      const line = this.fill(src[Math.random() * src.length | 0], P, vars);
+      return line.charAt(0).toUpperCase() + line.slice(1);
+    }, P, this.used);
+    if (r) { this.remember(r.line); VCLIP.note(r); return r.line; }
     return this.reuse(hand.length ? hand : tpls, P, vars); // every line already said: the respawn match never ends, so repeat one rather than go quiet for the rest of the session
   },
   remember(line) { this.used.delete(line); this.used.add(line); if (this.used.size > 600) this.used.delete(this.used.values().next().value); }, // (the oldest lines become sayable again)
@@ -6746,9 +6758,9 @@ const barks = {
     const now = performance.now() / 1000;
     if (game.state !== 'playing' || (!force && now - (this.annT || -99) < 4) || now - this.lastT < 1.2) return;
     const pool = ANN_LINES[ev]; if (!pool) return;
-    for (let i = 0; i < 8; i++) {
-      const line = this.fill(pool[Math.random() * pool.length | 0], ANNOUNCER, vars);
-      if (this.used.has(line) && i < 7) continue; // (the last try may repeat: a long match uses up the announcer's pool)
+    for (let i = 0; i < 1; i++) {
+      const r = VCLIP.pick(8, () => this.fill(pool[Math.random() * pool.length | 0], ANNOUNCER, vars), ANNOUNCER, this.used); // (prefers recorded lines)
+      const line = r ? r.line : this.fill(pool[Math.random() * pool.length | 0], ANNOUNCER, vars); if (r) VCLIP.note(r); // (nothing fresh left: repeat one; a long match uses up the announcer's pool)
       this.remember(line); this.annT = now; this.lastT = now;
       this.show(ANNOUNCER, new THREE.Color(0xf2a20c), line);
       this.speak(ANNOUNCER, line, null);
@@ -6894,8 +6906,9 @@ const barks = {
     const lang = P.lang.toLowerCase().replace('_', '-');
     return vs.find((x) => x.lang && x.lang.toLowerCase().replace('_', '-').startsWith(lang)) || vs.find((x) => x.lang && x.lang.toLowerCase().startsWith(lang.slice(0, 2))) || vs.find((x) => x.lang && x.lang.startsWith('en'));
   },
-  speak(P0, line0, pos) {
+  speak(P0, line0, pos, opt) { // opt: { fx: 'megaphone' } for the in-game sound of a recorded clip, { noClip: true } = Web Speech only
     if (VOICES_OFF) return; // the subtitles still show
+    if (!(opt && opt.noClip) && VCLIP.speak(P0, line0, pos, opt)) return; // a recorded clip (voices/manifest.json) when there is one
     ptag('voice line');
     const [P, line] = this.who(P0, line0);
     if (typeof document !== 'undefined' && document.hidden) return; // a hidden tab's speech is paused: don't pile lines up behind it
@@ -6943,6 +6956,156 @@ const barks = {
     } catch (e) {}
   },
 };
+
+/* ---------------- Pre-rendered voices: real recorded-style clips from voices/manifest.json, Web Speech for anything without one ----------------
+   voices/ sits next to index.html (made by voices/render.mjs). No manifest (the single-file build, a local file, an old deploy): every line
+   uses Web Speech exactly as before. A line plays as one whole clip when there is one; a template line that names another driver, a car or a
+   speed is spliced from fragment + name clips; otherwise, or if a clip fails to load or decode, that one line goes to Web Speech. */
+const VCLIP = {
+  clips: null, byChar: new Map(), fx: { 'crash-cam-kev': 'pa', 'big-hank': 'radio', 'german-tourist-in-the-back': 'muffled' },
+  bufs: new Map(), raw: new Map(), loading: new Map(), bytes: 0, rawBytes: 0, MAX_BYTES: 40e6, MAX_RAW: 12e6, // decoded audio is ~10x the mp3: cap both
+  parts: new Map(), q: null, cur: null, seen: new WeakSet(), log: [],
+  stats: { clips: 0, spliced: 0, speech: 0, failed: 0, fetched: 0, decoded: 0, started: 0 },
+  // (hash, ids and keys must match voices/extract.mjs)
+  hash(str) { let h1 = 0xdeadbeef, h2 = 0x41c6ce57; for (let i = 0; i < str.length; i++) { const ch = str.charCodeAt(i); h1 = Math.imul(h1 ^ ch, 2654435761); h2 = Math.imul(h2 ^ ch, 1597334677); } h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909); h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909); return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36); },
+  slug(nick) { return String(nick).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 32); },
+  key(s) { return String(s).replace(/^[\s.,!?;:…\-]+/, '').replace(/\s+$/, '').toLowerCase(); },
+  base: 'voices/',
+  load() {
+    try {
+      const q = new URLSearchParams(location.search).get('clips'); if (q === 'off' || q === '0') return;
+      if (!/^https?:$/.test(location.protocol) || /(^|\.)(claude\.ai|claudeusercontent\.com|anthropic\.com)$/.test(location.hostname)) return; // the single-file artifact has no voices/ folder
+      this.base = window.DERBY_VOICES_BASE || new URL('voices/', location.href).href;
+      fetch(this.base + 'manifest.json', { cache: 'no-cache' }).then((r) => (r.ok ? r.json() : null)).then((m) => {
+        if (!m || !m.clips || typeof m.clips !== 'object') return;
+        this.clips = m.clips; if (m.fx) Object.assign(this.fx, m.fx);
+        for (const [id, [p]] of Object.entries(m.clips)) { const ch = String(p).split('/').slice(-2)[0]; let a = this.byChar.get(ch); if (!a) this.byChar.set(ch, (a = [])); a.push(id); }
+        try { NETLOG.incident('me', `voices: ${Object.keys(m.clips).length} recorded clips loaded (${this.byChar.size} voices)`); } catch (e) {}
+      }).catch(() => {});
+    } catch (e) {}
+  },
+  // the clip ids for a line: [id] for a whole line, [ids...] for a spliced one, null = no clip (Web Speech)
+  idsFor(P0, line0, parts) {
+    if (!this.clips) return null;
+    const [P, line] = barks.who(P0, line0), ch = this.slug(P.nick), id = this.hash(ch + '|' + line);
+    if (this.clips[id]) return [id];
+    if (!parts) return null;
+    const ids = [];
+    for (let i = 0; i < parts.length; i++) {
+      const p = parts[i], txt = i === 0 ? String(p).replace(/^[BC]\|/, '') : p; // (B|/C| = said by the second/third voice in the cab, like the line)
+      if (typeof txt === 'string') { if (this.key(txt)) ids.push(this.hash(ch + '|§' + this.key(txt))); }
+      else if (this.key(txt[1])) ids.push(this.hash(ch + '|¤' + this.key(txt[1])));
+    }
+    return ids.length && ids.every((x) => this.clips[x]) ? ids : null;
+  },
+  // pick a line: one with a whole clip first, then one that can be spliced, else the first unused one (Web Speech), as before
+  pick(n, gen, P, used) {
+    let first = null, spliced = null;
+    for (let i = 0; i < (this.clips ? n * 3 : n); i++) {
+      barks.lastParts = null; const line = gen(); if (line == null || used.has(line)) continue;
+      const r = { line, parts: barks.lastParts };
+      if (!this.clips) return r;
+      const ids = this.idsFor(P, line, r.parts);
+      if (ids && ids.length === 1) return r;
+      if (ids && !spliced) spliced = r; if (!first) first = r;
+    }
+    return spliced || first;
+  },
+  note(r) { if (r && r.parts) { this.parts.set(r.line, r.parts); if (this.parts.size > 24) this.parts.delete(this.parts.keys().next().value); } },
+  // called by barks.speak: true = this line is ours (a clip will play, or Web Speech takes over if it can't load)
+  speak(P0, line0, pos, opt) {
+    if (!this.clips || !sfx.ctx || sfx.muted || S.voiceVolume <= 0) return false;
+    const ids = this.idsFor(P0, line0, this.parts.get(line0));
+    if (!ids) { this.stats.speech++; return false; }
+    const [P] = barks.who(P0, line0);
+    const it = { P0, line0, pos, ids, fx: (opt && opt.fx) || this.fx[this.slug(P.nick)] || '', t: performance.now() };
+    if (this.cur) { if (this.q) this.stats.dropped = (this.stats.dropped || 0) + 1; this.q = it; } // one line waits; a newer one replaces it (like the speech backlog rule)
+    else this.play(it);
+    return true;
+  },
+  fetchRaw(id) {
+    if (this.raw.has(id)) return Promise.resolve(this.raw.get(id));
+    if (this.loading.has(id)) return this.loading.get(id);
+    const p = fetch(this.base + this.clips[id][0]).then((r) => { if (!r.ok) throw new Error('clip ' + r.status); return r.arrayBuffer(); }).then((ab) => {
+      this.loading.delete(id); this.stats.fetched++;
+      this.raw.set(id, ab); this.rawBytes += ab.byteLength;
+      for (const [k, v] of this.raw) { if (this.rawBytes <= this.MAX_RAW) break; this.raw.delete(k); this.rawBytes -= v.byteLength; } // oldest first
+      return ab;
+    }, (e) => { this.loading.delete(id); throw e; });
+    this.loading.set(id, p); return p;
+  },
+  get(id) { // decoded AudioBuffer, cached (least recently used goes first)
+    const b = this.bufs.get(id); if (b) { this.bufs.delete(id); this.bufs.set(id, b); return Promise.resolve(b); }
+    if (!sfx.ctx) return Promise.reject(new Error('no audio'));
+    return this.fetchRaw(id).then((ab) => this.bufs.get(id) || new Promise((res, rej) => sfx.ctx.decodeAudioData(ab.slice(0), res, rej)).then((buf) => {
+      this.stats.decoded++; if (this.raw.delete(id)) this.rawBytes -= ab.byteLength;
+      if (!this.bufs.has(id)) { this.bufs.set(id, buf); this.bytes += buf.length * buf.numberOfChannels * 4; }
+      for (const [k, v] of this.bufs) { if (this.bytes <= this.MAX_BYTES) break; this.bufs.delete(k); this.bytes -= v.length * v.numberOfChannels * 4; }
+      return buf;
+    }));
+  },
+  preload(P, n) { // fetch (not decode) a few of a character's clips when their car shows up, so the first lines start at once
+    if (!this.clips || !P || !P.nick) return; const ids = this.byChar.get(this.slug(P.nick)); if (!ids) return;
+    for (let i = 0; i < (n || 6); i++) { const id = ids[Math.random() * ids.length | 0]; if (!this.bufs.has(id)) this.fetchRaw(id).catch(() => {}); }
+  },
+  tick() { // every couple of seconds: preload for drivers who just arrived (new match, respawn as another car)
+    if (!this.clips) return;
+    if (!this.kevDone) { this.kevDone = true; this.preload(ANNOUNCER, 10); }
+    for (const c of cars) { const P = c.persona; if (!P || c.isPlayer || this.seen.has(P)) continue; this.seen.add(P); this.preload(P, 6); if (P.duo) this.preload({ nick: P.duo.nick }, 2); }
+  },
+  bus() {
+    const c = sfx.ctx; if (this._bus && this._bus.context === c) return this._bus;
+    this._bus = c.createGain(); this._bus.gain.value = 1; this._bus.connect(sfx.master); return this._bus; // voices skip the effects volume; master mute still applies
+  },
+  chain(fx, dest) { // the in-game sound of a voice: PA for Kev, CB radio, police megaphone, muffled from the back of the RV
+    const c = sfx.ctx, bq = (type, f, q) => { const n = c.createBiquadFilter(); n.type = type; n.frequency.value = f; if (q) n.Q.value = q; return n; };
+    const link = (...ns) => { for (let i = 0; i < ns.length - 1; i++) ns[i].connect(ns[i + 1]); return ns[0]; };
+    if (fx === 'radio' || fx === 'megaphone') {
+      const sh = c.createWaveShaper(); sh.curve = sfx.curve(fx === 'radio' ? 3 : 7);
+      const g = c.createGain(); g.gain.value = fx === 'radio' ? 0.55 : 0.5;
+      const head = link(bq('highpass', fx === 'radio' ? 320 : 450, 0.7), sh, bq('peaking', 1800, 1.2), bq('lowpass', fx === 'radio' ? 3000 : 3800, 0.9), g, dest);
+      if (fx === 'megaphone' && sfx.verbIn) g.connect(sfx.verbIn);
+      return head;
+    }
+    if (fx === 'muffled') return link(bq('lowpass', 1600, 0.7), dest);
+    if (fx === 'pa') { const hp = link(bq('highpass', 110, 0.7), dest); if (sfx.verbIn) { const s = c.createGain(); s.gain.value = 0.22; hp.connect(s); s.connect(sfx.verbIn); } return hp; }
+    return dest;
+  },
+  play(it) {
+    this.cur = it;
+    const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('slow')), 2500));
+    Promise.race([Promise.all(it.ids.map((id) => this.get(id))), timeout]).then((bufs) => {
+      if (this.cur !== it) return; // stopped meanwhile
+      if (VOICES_OFF || sfx.muted || S.voiceVolume <= 0 || performance.now() - it.t > 4000) { this.next(); return; } // switched off, or the caption is long gone
+      const c = sfx.ctx, t0 = c.currentTime + 0.03;
+      const d = player && it.pos ? it.pos.distanceTo(player.body.position) : 0;
+      const g = c.createGain(); g.gain.value = clamp(S.voiceVolume * (1 - d / 220), 0.25, 1); // same loudness rule as the Web Speech voices
+      let out = this.bus();
+      if (it.pos && c.createStereoPanner) { const pn = c.createStereoPanner(); pn.pan.value = sfx.panOf(it.pos) * 0.7; pn.connect(out); out = pn; }
+      g.connect(this.chain(it.fx, out));
+      let t = t0; const srcs = [];
+      for (let i = 0; i < bufs.length; i++) { const s = c.createBufferSource(); s.buffer = bufs[i]; s.connect(g); s.start(t); srcs.push(s); t += bufs[i].duration - (bufs.length > 1 ? 0.04 : 0); } // spliced pieces overlap a hair (ElevenLabs pads each clip)
+      if (it.fx === 'radio') { const n = c.createBufferSource(); n.buffer = sfx.noise; const ng = c.createGain(); ng.gain.setValueAtTime(0.0001, t); ng.gain.exponentialRampToValueAtTime(0.12 * g.gain.value, t + 0.01); ng.gain.exponentialRampToValueAtTime(0.0001, t + 0.12); const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 1500; n.connect(hp); hp.connect(ng); ng.connect(out); n.start(t, Math.random()); n.stop(t + 0.14); } // squelch tail
+      it.srcs = srcs; it.end = t; this.stats.started++; this.stats[bufs.length > 1 ? 'spliced' : 'clips']++;
+      this.log.push({ who: barks.who(it.P0, it.line0)[0].nick, line: barks.who(it.P0, it.line0)[1], pieces: bufs.length, fx: it.fx }); if (this.log.length > 30) this.log.shift(); // (shown in tests / console)
+      this.duck(t0, t);
+      srcs[srcs.length - 1].onended = () => { if (this.cur === it) this.next(); };
+    }).catch(() => { // couldn't fetch or decode: this one line goes to Web Speech
+      if (this.cur !== it) return; this.stats.failed++;
+      if (!VOICES_OFF && performance.now() - it.t < 3500) try { barks.speak(it.P0, it.line0, it.pos, { noClip: true }); } catch (e) {}
+      this.next();
+    });
+  },
+  next() { this.cur = null; const q = this.q; this.q = null; if (q && performance.now() - q.t < 3000) this.play(q); },
+  duck(t0, t1) { // music dips under a voice and comes back after
+    if (!sfx.mbus) return; const full = S.musicVolume * 0.8, gn = sfx.mbus.gain;
+    gn.cancelScheduledValues(t0); gn.setTargetAtTime(full * 0.45, t0, 0.06); gn.setTargetAtTime(full, t1 + 0.1, 0.35);
+    clearTimeout(this.duckT); this.duckT = setTimeout(() => { try { gn.cancelScheduledValues(0); gn.value = S.musicVolume * 0.8; } catch (e) {} }, (t1 - t0) * 1000 + 2500); // and never stays ducked
+  },
+  stopAll() { const it = this.cur; this.cur = null; this.q = null; if (it && it.srcs) for (const s of it.srcs) try { s.onended = null; s.stop(); } catch (e) {} },
+};
+VCLIP.load();
+setInterval(() => { try { VCLIP.tick(); } catch (e) {} }, 2000);
 
 /* ---------------- Off-screen opponent arrows ---------------- */
 const threatHost = $('threats');
@@ -7184,7 +7347,7 @@ function respawnCar0(old, type) {
   if (CRANE.held === old) craneRelease(CRANE, false);
   const sp = respawnSpot(old), human = old.isPlayer || old.remote;
   const nc = new Car({ type, name: old.name, color: human ? CAR_TYPES[type].color : old.baseColor.getHex(), number: old.number, isPlayer: old.isPlayer, x: sp.x, z: sp.z, yaw: sp.yaw });
-  nc.remote = old.remote; nc.origType = old.origType || old.type; nc.persona = !human && type !== old.type ? (type === 'cruiser' ? COP : CAR_CAST[type] || old.persona) : old.persona; if (!human && nc.persona) nc.name = nc.persona.nick; nc.kills = old.kills || 0; nc.deaths = (old.deaths || 0) + (old.wrecked ? 1 : 0); nc.spawnT = simTime;
+  nc.remote = old.remote; nc.did = old.did || null; nc.origType = old.origType || old.type; nc.persona = !human && type !== old.type ? (type === 'cruiser' ? COP : CAR_CAST[type] || old.persona) : old.persona; if (!human && nc.persona) nc.name = nc.persona.nick; nc.kills = old.kills || 0; nc.deaths = (old.deaths || 0) + (old.wrecked ? 1 : 0); nc.spawnT = simTime;
   const te = threatEls.get(old); if (te) { te.remove(); threatEls.delete(old); }
   old.dispose(); cars[i] = nc;
   if (old === player) { player = nc; setControlsFor(type); document.body.classList.toggle('has-gun', !!(nc.T.gun || nc.T.pour || nc.T.special)); sfx.setStyle(MUSIC_FOR[type] || 'rock'); toast('BACK IN', 'cool'); }
@@ -7329,18 +7492,18 @@ function spawnCars() {
   const n = Math.min(Math.round(S.aiCount), types.length);
   // You start on the south side; the pack starts across the yard on the north side, ~190 m away
   const ps = findSpawn(30, 100);
-  player = new Car({ type: playerType, name: 'You', color: CAR_TYPES[playerType].color, number: 1, isPlayer: true, x: ps.x, z: ps.z, yaw: Math.PI / 2 });
+  player = new Car({ type: playerType, name: 'You', color: CAR_TYPES[playerType].color, number: 1, isPlayer: true, x: ps.x, z: ps.z, yaw: Math.PI / 2 }); player.did = MY_DID;
   cars.push(player);
   const castOrder = PERSONAS.filter((P) => !CAST_SET.has(P)).sort(() => Math.random() - 0.5); // extras, for cars without their own character
   let nAI = n;
   if (MP.role === 'host') { // human players take the next slots, each in the car they picked (or the nearest free one)
     const taken = new Set([playerType]);
-    for (const g of MP.guests().slice(0, 11)) { // every car in the yard can be a person: one of each type, 12 in all
+    for (const g of MP.players().slice(0, 11)) { // every car in the yard can be a person: one of each type, 12 in all
       let type = g.presence.want && CAR_TYPES[g.presence.want] && !taken.has(g.presence.want) ? g.presence.want : Object.keys(CAR_TYPES).find((k) => !taken.has(k));
       if (!type) break; taken.add(type);
       const k = cars.length, a = (-165 + k * 37) * D2R, sp = findSpawn(Math.cos(a) * 112, Math.sin(a) * 105);
       const car = new Car({ type, name: String(g.presence.nick || 'Player').slice(0, 14), color: CAR_TYPES[type].color, number: 1 + k, isPlayer: false, x: sp.x, z: sp.z, yaw: Math.atan2(sp.z, -sp.x) });
-      car.remote = g.peer; cars.push(car);
+      car.remote = g.peer; car.did = g.presence.did || null; cars.push(car);
     }
     const left = Object.keys(CAR_TYPES).filter((k) => !taken.has(k)).sort(() => Math.random() - 0.5);
     types.length = 0; types.push(...left); nAI = Math.min(n, left.length, Math.max(0, 11 - cars.length));
@@ -7391,7 +7554,7 @@ function resetMatch() {
   for (const c of CONCRETE.list) scene.remove(c.mesh); CONCRETE.list.length = 0;
   for (const c of cars) if (c.cable) WEAPONS.harpoon.end(c);
   for (const e of threatEls.values()) e.remove();
-  barks.safeCancel();
+  barks.safeCancel(); VCLIP.stopAll();
   barks.used.clear();
   threatEls.clear();
   clearSkids();
@@ -7536,7 +7699,7 @@ $('btnRestart').addEventListener('click', (e) => { e.currentTarget.blur(); start
 $('btnDefaults').addEventListener('click', (e) => { e.currentTarget.blur(); for (const d of SETTINGS_DEF) setValue(d.key, d.def); });
 // (Chrome sometimes sits 'speaking' forever and says nothing more: barks.doctor() unsticks it, at a moment when a cancel is safe)
 let VOICES_OFF = false; try { VOICES_OFF = localStorage.getItem('derby-voices') === 'off'; } catch (e) {}
-function setVoices(off) { VOICES_OFF = off; $('btnVoices').firstChild.textContent = off ? 'Voices off' : 'Voices on'; try { localStorage.setItem('derby-voices', off ? 'off' : 'on'); } catch (e) {} if (off) try { speechSynthesis.cancel(); } catch (e) {} }
+function setVoices(off) { VOICES_OFF = off; $('btnVoices').firstChild.textContent = off ? 'Voices off' : 'Voices on'; try { localStorage.setItem('derby-voices', off ? 'off' : 'on'); } catch (e) {} if (off) try { speechSynthesis.cancel(); } catch (e) {} if (off) VCLIP.stopAll(); }
 setVoices(VOICES_OFF);
 $('btnVoices').addEventListener('click', (e) => { e.currentTarget.blur(); setVoices(!VOICES_OFF); });
 function showNote(t) { let n = $('note'); if (!n) { n = document.createElement('div'); n.id = 'note'; n.addEventListener('click', () => { n.hidden = true; }); document.body.appendChild(n); } n.textContent = t + '  (tap to close)'; n.hidden = false; clearTimeout(n.tm); n.tm = setTimeout(() => { n.hidden = true; }, 12000); }
@@ -7822,7 +7985,7 @@ function readPlayerInput() {
   c.steer = ks !== 0 ? ks : touch.steer !== 0 ? touch.steer : tilt.on ? tilt.steer : 0;
   c.handbrake = k('Space', 'KeyX') || touch.hb; // rear-wheel handbrake: brakes and lets the back slide
   c.brake = false;
-  c.horn = k('KeyH');
+  c.horn = k('KeyH') || !!touch.horn;
   c.wheelie = k('KeyV');
   c.nitro = k('ShiftLeft', 'ShiftRight') || touch.nitro;
   const kp = (k('KeyE') ? 1 : 0) - (k('KeyQ') ? 1 : 0);
@@ -7837,6 +8000,7 @@ let clock = 0;
 let camRoll = 0;
 function camTarget() { const c = AUTO.on && AUTO.camCar; return c && !c.wrecked && cars.includes(c) ? c : player; }
 function updateCamera(dt) {
+  if (XRS.on) { VR.update(dt); return; } // VR: the seated cockpit rig (yaw only, no shake, no crash cam, no FOV changes)
   const player = camTarget(); // (autoplay can follow another car for a while)
   if (window.__camHold) return; // (tests frame their own shots)
   if (window.__camOverride) { const o = window.__camOverride; camera.position.set(o.pos[0], o.pos[1], o.pos[2]); camera.lookAt(o.look[0], o.look[1], o.look[2]); if (camera.view && camera.view.enabled) camera.clearViewOffset(); return; }
@@ -8216,11 +8380,46 @@ function updateBulls(dt) {
    and drive it. The host runs all the physics and AI, and publishes a compact snapshot ~20 times a second in its
    presence; guests send their stick and buttons in theirs, and draw the host's world, interpolated 100 ms behind. */
 // every snapshot that arrives is kept and stamped with its arrival time: a slow frame on the guest must not look like network jitter, and two arriving in one frame must not lose one
+// ---------- The family yard: one standing session everyone lands in with one tap ----------
+// The session name (Settings: "Family yard name") hashes to a fixed game code, so its relay topic is the same on every device.
+// Whoever arrives first hosts; the next ones find that host by asking on the topic; a dropped or reloaded device rejoins by itself.
+const FAM_DEFAULT = 'scrapyard-family-yard-q7k2m9';
+function famName() { try { return localStorage.getItem('derby-famname') || FAM_DEFAULT; } catch (e) { return FAM_DEFAULT; } }
+function famCode(name) { // 12 characters, a-z0-9: also a valid join code
+  const t = String(name || '').trim().toLowerCase(); let a = 0x811c9dc5, b = 0x9e3779b9;
+  for (const ch of t) { const c = ch.codePointAt(0); a = Math.imul(a ^ c, 16777619); b = Math.imul(b ^ c, 2246822519); b ^= b >>> 13; }
+  return ('f' + (a >>> 0).toString(36).padStart(7, '0') + (b >>> 0).toString(36).padStart(7, '0')).slice(0, 12);
+}
+function famOn() { try { return localStorage.getItem('derby-family') === '1'; } catch (e) { return false; } } // "I'm in the family yard": rejoin on reload
+function famSet(on) { try { localStorage.setItem('derby-family', on ? '1' : '0'); } catch (e) {} }
+// MY_DID: this player, across reloads (the host gives a returning player their own car back and hangs up on their old connection).
+// Kept in localStorage (survives closing the tab), and in this tab's sessionStorage (survives a reload); a second tab of the same
+// browser that is open at the same time is a different player: it gets an id of its own instead of kicking the first one out.
+const MY_DID = (() => {
+  const mk = () => 'd' + Math.random().toString(36).slice(2, 10), tab = (() => { try { let t = sessionStorage.getItem('derby-tab'); if (!t) { t = mk(); sessionStorage.setItem('derby-tab', t); } return t; } catch (e) { return mk(); } })();
+  let d = null;
+  try { d = sessionStorage.getItem('derby-did-tab'); } catch (e) {}
+  try { if (!d) { d = localStorage.getItem('derby-did'); const L = (localStorage.getItem('derby-live-' + d) || '').split(':'); if (!d) { d = mk(); localStorage.setItem('derby-did', d); } else if (L[0] && L[0] !== tab && Date.now() - (+L[1] || 0) < 6000) d = mk(); } } catch (e) { d = d || mk(); }
+  try { sessionStorage.setItem('derby-did-tab', d); } catch (e) {}
+  const live = () => { try { localStorage.setItem('derby-live-' + d, tab + ':' + Date.now()); } catch (e) {} }; live(); setInterval(live, 2000);
+  addEventListener('pagehide', () => { try { if ((localStorage.getItem('derby-live-' + d) || '').startsWith(tab + ':')) localStorage.removeItem('derby-live-' + d); } catch (e) {} });
+  return d;
+})();
+function famCmp(a, b) { for (let i = 0; i < 4; i++) if (a[i] !== b[i]) return a[i] > b[i] ? 1 : -1; return 0; } // which of two hosts keeps the yard: more players, newer epoch, older game, then id
+function famPing(code, key, wait = 2500) { // ask on the family topic who is hosting; resolves with the hosts' answers ([] = nobody), or null when the relay is unreachable
+  return new Promise((res) => {
+    const g = 'q' + Math.random().toString(36).slice(2, 10), got = []; MP.famProbes.add(g); let done = false, sent = false;
+    const fin = (v) => { if (done) return; done = true; try { es.close(); } catch (e) {} res(v); };
+    const es = ntfySub('sd-' + code + '-g' + g, (txt) => { try { const m = JSON.parse(txt); if (m && Array.isArray(m.fz) && m.fz.length === 4) got.push(m); } catch (e) {} });
+    const send = () => { if (sent || done) return; sent = true; ntfyPub('sd-' + code + '-h', JSON.stringify(key ? { fq: g, k: key, nick: MP.nick() } : { fq: g })).then(() => setTimeout(() => fin(got), wait), () => fin(null)); };
+    es.onopen = send; setTimeout(send, 2000); es.onerror = () => { if (!sent && es.readyState === 2) fin(null); };
+  });
+}
 function netIn(pr) { if (!pr || !pr.s || typeof MP === 'undefined' || MP.role !== 'guest') return; pr.s.a = performance.now() / 1000; MP.inbox.push(pr.s); if (MP.inbox.length > 24) MP.inbox.shift(); }
 const MP = {
   inbox: [], role: 'solo', api: null, lobby: null, room: null, code: '', snaps: [], rt: 0, ev: [], evSeq: 0, seen: 0, rk: '', builtRk: '',
   inN: { fire: 0, jump: 0 }, rsSeen: new Map(), sidN: 0, slotRv: [], sentIn: '', snapT: 0, lastFire: new Map(), lastJump: new Map(), statusTxt: '',
-  dummy: { isPlayer: false, name: '', T: {} },
+  dummy: { isPlayer: false, name: '', T: {} }, family: false, famProbes: new Set(), famT0: 0,
   async init() {
     let api = null;
     if (!window.__mpShim) try { if (window.claude && window.claude.use) api = await window.claude.use('room'); } catch (e) { api = null; }
@@ -8228,6 +8427,7 @@ const MP = {
       this.transport = 'peer'; this.api = { peer: true }; this.lobby = null; this.status(`online · build ${BUILD}`); $('nearRow').hidden = !window.__nearUI; // two-way scan pairing stays off unless asked for
       try { const n = localStorage.getItem('derby-nick'); if (n) $('mpNick').value = n; } catch (e) {}
       const m = location.hash.match(/^#join-((?:p-)?[a-z0-9]{3,12})$/); if (m) setTimeout(() => this.join(m[1]), 300);
+      else if (famOn()) setTimeout(() => this.famJoin(), 300); // was in the family yard last time (and didn't leave): straight back in
       this.renderGames(); return;
     }
     let local = false;
@@ -8237,6 +8437,7 @@ const MP = {
     this.status(local ? 'tabs in this browser only' : 'online');
     api.onPeers(() => this.renderGames());
     try { const n = localStorage.getItem('derby-nick'); if (n) $('mpNick').value = n; } catch (e) {}
+    if (famOn()) setTimeout(() => this.famJoin(), 1500); // (the lobby needs a moment to list who is hosting)
   },
   info(t) { $('mpInfo').textContent = t; },
   explain(t) { return ({ 'peer-unavailable': "couldn't find the host's game. Ask the host to keep the game open on screen (not in the background), then scan again.",
@@ -8259,50 +8460,139 @@ const MP = {
     }
     if (!games.length) { const p = document.createElement('span'); p.className = 'quiet'; p.textContent = 'No open games yet. Host one, then send the link to a friend.'; box.appendChild(p); }
   },
-  async host() {
+  async host(fixed) {
     if (!(this.lobby || this.transport === 'peer') || this.role !== 'solo') return;
-    this.code = Math.random().toString(36).slice(2, this.transport === 'peer' ? 10 : 7);
+    this.code = typeof fixed === 'string' ? fixed : Math.random().toString(36).slice(2, this.transport === 'peer' ? 10 : 7); const fam = this.code === fixed;
+    if (!fam) { this.family = false; famSet(false); }
     try {
-      if (this.transport === 'peer') { this.status('opening a game…'); try { this.room = await relayHost(this.code); this.via = 'relay'; } catch (e) { this.info('The relay was unreachable, using the backup server…'); await loadPeerJS(); this.room = await peerRoom(this.code, true); this.via = 'peerjs'; } }
+      if (this.transport === 'peer') { this.status('opening a game…'); try { this.room = await relayHost(this.code); this.via = 'relay'; } catch (e) { if (fam) throw e; this.info('The relay was unreachable, using the backup server…'); await loadPeerJS(); this.room = await peerRoom(this.code, true); this.via = 'peerjs'; } }
       else this.room = await this.lobby.join('derby-' + this.code);
     } catch (e) { this.status('could not open a game'); this.info('Could not open a game: ' + this.explain(e.type || e.message || 'error')); return; }
     this.role = 'host';
     if (this.lobby) this.lobby.presence({ host: this.code, nick: this.nick(), n: 0 });
-    if (this.transport === 'peer') { const url = location.origin + location.pathname + '?v=' + BUILD + '#join-' + (this.via === 'peerjs' ? 'p-' : '') + this.code; $('mpLink').value = url; $('mpShare').hidden = false; drawQR(url); MP.info(`Your game is live (${this.via === 'peerjs' ? 'backup server' : 'relay'}). Friends scan the QR code.`); this.status(`hosting · build ${BUILD} · ${this.via}`); }
+    if (this.transport === 'peer' && !fam) { const url = location.origin + location.pathname + '?v=' + BUILD + '#join-' + (this.via === 'peerjs' ? 'p-' : '') + this.code; $('mpLink').value = url; $('mpShare').hidden = false; drawQR(url); MP.info(`Your game is live (${this.via === 'peerjs' ? 'backup server' : 'relay'}). Friends scan the QR code.`); this.status(`hosting · build ${BUILD} · ${this.via}`); }
     this.epoch = 1; this.room.presence({ host: 1, nick: this.nick() });
     this.room.onPeers(() => { const n = this.guests().length; if (this.lobby) this.lobby.presence({ n }); $('mpInfo').textContent = n ? `Players in your game: ${this.guests().map((g) => g.presence.nick || 'Player').join(', ')}. Press Start when ready.` : 'Waiting for players… share this page link. Press Start to play anyway.'; });
-    $('btnHost').hidden = true; $('btnLeave').hidden = false; this.status(this.transport === "peer" ? `hosting · build ${BUILD} · ${this.via}` : `hosting game ${this.code}`); this.renderGames();
-    $('mpInfo').textContent = 'Waiting for players… share this page link. Press Start to play anyway.';
+    $('btnHost').hidden = true; $('btnFamily').hidden = true; $('btnLeave').hidden = false; this.status(fam ? `hosting the family yard · build ${BUILD}` : this.transport === "peer" ? `hosting · build ${BUILD} · ${this.via}` : `hosting game ${this.code}`); this.renderGames();
+    $('mpInfo').textContent = fam ? 'You are hosting the family yard. Everyone else taps Play together. Press Start when ready.' : 'Waiting for players… share this page link. Press Start to play anyway.';
+    if (fam) { this.famT0 = Date.now(); this.famNextProbe = 0; }
   },
   async join(code) {
     if (!(this.lobby || this.transport === 'peer') || this.role !== 'solo') return;
+    if (code !== famCode(famName())) { this.family = false; famSet(false); } // a friend's link: an ordinary game
     try {
       if (this.transport === 'peer') { const pj = /^p-/.test(code); this.status(`joining ${code} · build ${BUILD} · ${pj ? 'peerjs' : 'relay'}…`); if (pj) { await loadPeerJS(); this.room = await peerRoom(code.slice(2), false); } else this.room = await relayJoin(code); }
       else this.room = await this.lobby.join('derby-' + code);
     } catch (e) { this.status('could not join'); this.info('Could not join: ' + this.explain(e.type || e.message || 'error')); return; }
-    this.role = 'guest'; this.code = code; this.snaps = []; this.builtRk = ''; this.rt = 0; this.seen = 0;
+    this.role = 'guest'; this.code = code; this.snaps = []; this.builtRk = ''; this.rt = 0; this.seen = 0; this.joinT = Date.now();
     if (this.lobby) this.lobby.presence({ host: null });
     this.sendWant();
-    $('btnHost').hidden = true; $('btnLeave').hidden = false; $('btnStart').hidden = true; this.status(`in game ${code}`); this.renderGames();
+    $('btnHost').hidden = true; $('btnFamily').hidden = true; $('btnLeave').hidden = false; $('btnStart').hidden = true; this.status(this.family && code === famCode(famName()) ? 'in the family yard' : `in game ${code}`); this.renderGames();
     $('mpInfo').textContent = 'Joined! Pick your car; the host starts the round.';
   },
-  async leave() {
+  async leave(keepFamily) { // the Leave button: back to playing alone (and stay out of the family yard on reload)
+    if (keepFamily !== true) { this.family = false; famSet(false); clearTimeout(this.famRT); }
     if (this.room) { try { await this.room.leave(); } catch (e) {} }
     meshStop(); this.lost = null; $('hostlost').hidden = true; this.hostPeer = null;
     this.room = null; const was = this.role; this.role = 'solo'; this.code = '';
     if (this.lobby) this.lobby.presence({ host: null });
     $('mpShare').hidden = true; if (location.hash.startsWith('#join-')) history.replaceState(null, '', location.pathname);
-    $('btnHost').hidden = false; $('btnLeave').hidden = true; $('btnStart').hidden = false; $('mpInfo').textContent = ''; this.status('online'); this.renderGames();
+    $('btnHost').hidden = false; $('btnFamily').hidden = false; $('btnLeave').hidden = true; $('btnStart').hidden = false; $('mpInfo').textContent = ''; this.status('online'); this.renderGames(); this.renderFam();
     if (was === 'guest') { game.state = 'menu'; resetMatch(); el.menu.hidden = false; }
   },
   guests() { return this.room ? this.room.peers().filter((p) => !p.sameTab && p.presence && !p.presence.host) : []; },
-  sendWant() { if (this.room) this.room.presence({ nick: this.nick(), want: playerType }); },
+  players(list) { // guests, one connection per player: after a reload the old connection can linger a while, the newest one is the player
+    const out = [], newest = new Map();
+    for (const g of list || this.guests()) { const d = g.presence.did; if (!d) { out.push(g); continue; } const o = newest.get(d); if (!o || (g.presence.jt || 0) > (o.presence.jt || 0)) newest.set(d, g); }
+    return out.concat([...newest.values()]);
+  },
+  sendWant() { if (this.room) this.room.presence({ nick: this.nick(), want: playerType, did: MY_DID, jt: this.joinT || 0 }); }, // did: this device (survives reloads); jt: when this connection joined (newest wins)
+  dropStale() { // (host) a player who reloaded is back on a new connection: hang up on the old one, so nobody counts, meshes with or elects a ghost
+    if (this.role !== 'host' || !this.room || !this.room.drop) return; const keep = new Set(this.players().map((g) => g.peer));
+    for (const g of this.guests()) if (g.presence.did && !keep.has(g.peer)) { NETLOG.incident('host', `${g.presence.nick || 'a player'} is back on a new connection: closing the old one`); this.room.drop(g.peer); }
+  },
+  // ---------- the family yard ----------
+  async famJoin() { // find whoever hosts the family yard and join them; nobody there: host it
+    if (this.role !== 'solo' || this.famBusy || !(this.lobby || this.transport === 'peer')) return;
+    this.famBusy = true; this.family = true; famSet(true); clearTimeout(this.famRT); const code = famCode(famName()); this.renderFam(); this.status('looking for the family yard…');
+    try {
+      if (this.lobby) { const g = this.lobby.peers().find((p) => !p.sameTab && p.presence && p.presence.host === code); this.famBusy = false; if (g) await this.join(code); else await this.host(code); } // in Claude: the room lists the host (two at once: the newer steps down by itself)
+      else {
+        const found = await famPing(code, null); this.famBusy = false;
+        if (!this.family || this.role !== 'solo') return;
+        if (found === null) throw { type: 'network' };
+        NETLOG.incident('me', found.length ? `family yard: ${found.map((m) => m.nick || '?').join(', ')} hosting, joining` : 'family yard: nobody hosting, hosting it'); if (found.length) await this.join(code); else await this.host(code);
+        if (this.role === 'host') setTimeout(() => this.famProbe(), 1200 + Math.random() * 1800); // two arriving at once both host: the check settles who keeps it
+      }
+    } catch (e) { this.famBusy = false; this.status('family yard unreachable'); this.info('Could not reach the family yard: ' + this.explain(e.type || e.message || 'error') + ' Trying again…'); }
+    this.famBusy = false; if (this.role === 'solo' && this.family) this.famRetry(); this.renderFam();
+  },
+  famRetry() { clearTimeout(this.famRT); this.famRT = setTimeout(() => { if (this.role === 'solo' && this.family && famOn()) this.famJoin(); }, 3000 + Math.random() * 3000); },
+  famKey() { return [this.guests().length, this.epoch || 1, -(this.famT0 || Date.now()), String((this.room && this.room.me) || '')]; },
+  async famProbe() { // a family host checks nobody else hosts the same yard (two arrived at once, or a host came back from the background)
+    if (this.role !== 'host' || !this.family || !this.room || !this.room.code || this.lobby) return;
+    const r = await famPing(this.room.code, this.famKey(), 3000); if (!r || this.role !== 'host') return;
+    const st = r.find((m) => famCmp(m.fz, this.famKey()) > 0); if (st) this.famYield(st.nick);
+  },
+  famHeard(m, code) { // (host) someone asked on the family topic
+    if (!this.family || this.role !== 'host' || this.famProbes.has(m.fq)) return;
+    const mine = this.famKey();
+    if (Array.isArray(m.k) && m.k.length === 4 && famCmp(m.k, mine) > 0) { this.famYield(m.nick); return; } // another host, stronger claim: we go to them
+    ntfyPub('sd-' + code + '-g' + m.fq, JSON.stringify({ fz: mine, nick: this.nick() })).catch(() => {});
+  },
+  famYield(who) { // another device hosts the family yard: take our players along and join it
+    if (this.famYielding || this.role !== 'host') return; this.famYielding = true;
+    NETLOG.incident('me', `${who || 'another device'} also hosts the family yard: joining it`); toast('JOINING THE FAMILY YARD', 'cool');
+    this.room.presence({ fy: 1 }, true).catch(() => {});
+    setTimeout(async () => { this.famYielding = false; if (this.role !== 'host') return; await this.leave(true); this.famJoin(); }, 600);
+  },
+  famMove(why) { // (guest) our host told us it's moving to the other family host
+    if (this.famMoving) return; this.famMoving = true; NETLOG.incident('me', 'family yard: looking for the host again (' + (why || 'host moved') + ')');
+    setTimeout(async () => { this.famMoving = false; if (this.role !== 'guest' || !this.family) return; await this.leave(true); this.famJoin(); }, 700 + Math.random() * 1200);
+  },
+  famTick() {
+    this.renderFam(); if (!this.family) return;
+    if (this.role === 'guest' && !this.famMoving) { // nobody hosting any more and no take-over happening: look for the yard again
+      const hp = this.hostPresence(); this.famNoHost = (!hp && !this.lost) || (this.lost && this.lost.t > 25) ? (this.famNoHost || 0) + 1 : 0;
+      if (this.famNoHost > 7) { this.famNoHost = 0; this.famMove(this.lost ? 'take-over stalled' : 'no host'); }
+    } else if (this.role === 'host') { const now = performance.now(); if (now > (this.famNextProbe || 0)) { if (this.famNextProbe) this.famProbe(); this.famNextProbe = now + 45000 + Math.random() * 30000; } }
+  },
+  renderFam() {
+    const w = $('famWho'); if (!w) return; let t = '';
+    if (this.family && this.role !== 'solo' && this.room) {
+      const hp = this.role === 'guest' ? this.hostPresence() : null, L = [];
+      const now = Date.now(), newest = new Set(this.players(this.room.peers().filter((p) => !p.sameTab && p.presence && !p.presence.host)).map((p) => p.peer));
+      for (const p of this.room.peers()) { const pr = p.presence || {}, isH = p.sameTab ? this.role === 'host' : this.role === 'guest' && !!pr.host && pr === hp;
+        if (!p.sameTab && (!pr.nick || (!isH && now - (p.updatedAt || now) > 6000) || (!pr.host && !newest.has(p.peer)))) continue; // a device that went quiet (closed, or the old connection of one that reloaded) isn't listed
+        L.push([isH, p.sameTab ? this.nick() + ' (you' + (isH ? ', hosting' : '') + ')' : pr.nick + (isH ? ' (hosting)' : '')]); }
+      L.sort((a, b) => b[0] - a[0]); t = `In the family yard “${famName()}”: ` + L.map((x) => x[1]).join(', ');
+    } else if (this.family) t = 'Looking for the family yard…';
+    else t = `Play together joins everyone in the family yard “${famName()}”.`;
+    if (w.textContent !== t) w.textContent = t; $('btnFamily').disabled = this.family && this.role === 'solo';
+    if (this.role === 'solo') $('btnLeave').hidden = !this.family; // (still looking: Leave stops it)
+  },
+  lateJoin() { // (host, mid-round) players who arrive or come back get a car: their own one if it's still here, else a computer driver's
+    if (this.role !== 'host' || game.state !== 'playing' || !this.room) return;
+    // a device that reloads comes back as a new connection; the old one can linger a while: per device only the newest connection counts
+    const gs = this.players().filter((g) => g.presence.nick && g.presence.did), live = new Set(gs.map((g) => g.peer)); let ch = false;
+    for (const g of gs) {
+      if (cars.some((c) => c.remote === g.peer)) continue;
+      const nick = String(g.presence.nick).slice(0, 14), did = g.presence.did;
+      const own = cars.find((c) => !c.isPlayer && c.did === did && !(c.remote && live.has(c.remote))); // its car, even if the stale connection still holds it
+      if (own) { if (own.remote) { this.lastFire.delete(own); this.lastJump.delete(own); } own.remote = g.peer; own.persona = null; own.name = nick; ch = true; NETLOG.incident('host', `${nick} is back in their car`); continue; }
+      const ai = cars.filter((c) => !c.isPlayer && !c.remote && !c.did && c.persona !== COP); if (!ai.length) continue;
+      const old = ai.find((c) => c.type === g.presence.want) || ai.find((c) => !c.wrecked) || ai[0];
+      old.remote = g.peer; old.name = nick; const nc = respawnCar(old, old.type);
+      if (nc) { nc.persona = null; nc.name = nick; nc.did = did; nc.kills = 0; nc.deaths = 0; ch = true; NETLOG.incident('host', `${nick} joined mid-round`); }
+    }
+    if (ch) this.publishRoster(false);
+  },
   // ---------- host ----------
   publishRoster(full = true) {
     if (full || !this.rk) this.rk = Math.random().toString(36).slice(2, 8); // a new field; otherwise just some cars swapped (respawns)
     this.rv = (this.rv || 0) + 1;
     const ri = (c) => c.persona === COP ? -2 : c.persona ? PERSONAS.indexOf(c.persona) : -1;
-    const roster = cars.map((c) => [c.type, c.remote || (c.isPlayer ? 'host' : ''), c.isPlayer ? String(this.nick() || 'Host').slice(0, 14) : c.name, c.baseColor.getHex(), c.number | 0, ri(c), c.sid || (c.sid = ++this.sidN)]); // sid: which spawn this is
+    const roster = cars.map((c) => [c.type, c.remote || (c.isPlayer ? 'host' : ''), c.isPlayer ? String(this.nick() || 'Host').slice(0, 14) : c.name, c.baseColor.getHex(), c.number | 0, ri(c), c.sid || (c.sid = ++this.sidN), c.did || '']); // sid: which spawn this is; did: whose device (to give a returning player their car)
     this.room.presence({ rk: this.rk, rv: this.rv, roster, md: GAME_MODE });
   },
   applyInputs() {
@@ -8382,7 +8672,7 @@ const MP = {
     }
     if (L.t < 5) { $('hlN').textContent = Math.ceil(5 - L.t); $('hlS').textContent = 'Waiting for the host to come back. If they don\'t, the strongest device here takes over.'; return; }
     const me = this.myPeer();
-    const pool = [{ peer: me, ps: this.psSent ?? perfScore() }, /* published scores: everyone ranks alike */ ...this.room.peers().filter((p) => !p.sameTab && p.presence && !p.presence.host && !L.excl.has(p.peer) && p.presence.nick).map((p) => ({ peer: p.peer, ps: p.presence.ps || 0 }))];
+    const pool = [{ peer: me, ps: this.psSent ?? perfScore() }, /* published scores: everyone ranks alike */ ...this.players(this.room.peers().filter((p) => !p.sameTab && p.presence && !p.presence.host && !L.excl.has(p.peer) && p.presence.nick && p.presence.did !== MY_DID)).map((p) => ({ peer: p.peer, ps: p.presence.ps || 0 }))];
     pool.sort((a, b) => (b.ps - a.ps) || (a.peer < b.peer ? -1 : 1)); const pick = pool[0];
     if (pick.peer === me) { this.becomeHost((this.epoch || 1) + 1, null); return; }
     if (!L.wait || L.wait.peer !== pick.peer) L.wait = { peer: pick.peer, t: L.t };
@@ -8396,14 +8686,15 @@ const MP = {
     this.role = 'host'; this.epoch = epoch; this.hostBack(); this.hostPeer = null;
     cars.forEach((c, i) => {
       const e = roster[i] || [], peer = e[1];
-      c.ghost = false; c.netPeer = null; c.sid = e[6] || c.sid; c.body.type = CANNON.Body.DYNAMIC; c.body.updateMassProperties(); c.body.angularVelocity.set(0, 0, 0); c.body.wakeUp();
+      c.ghost = false; c.netPeer = null; c.sid = e[6] || c.sid; c.did = e[7] || c.did || null; c.body.type = CANNON.Body.DYNAMIC; c.body.updateMassProperties(); c.body.angularVelocity.set(0, 0, 0); c.body.wakeUp();
       c.remote = c.isPlayer ? null : peer === 'host' ? (from || null) : peer || null;
       if (!c.isPlayer && !c.remote && !c.persona) c.persona = PERSONAS[(Math.random() * PERSONAS.length) | 0]; // the old host's car drives itself now
     });
     SCORE.migrate(me, roster);
     this.rk = this.builtRk; this.rv = this.builtRv || 1; this.sidN = Math.max(0, ...cars.map((c) => c.sid || 0)); this.nextSnap = 0;
     this.lastFire.clear(); this.lastJump.clear(); this.rsSeen.clear(); this.snaps = []; this.net = null;
-    this.room.presence({ host: epoch, nick: this.nick(), in: null, rs: null, nh: null, handoff: null }, true).catch(() => {});
+    this.room.presence({ host: epoch, nick: this.nick(), in: null, rs: null, nh: null, handoff: null, fy: null }, true).catch(() => {});
+    if (this.family) { this.famT0 = Date.now(); this.famNextProbe = performance.now() + 45000; setTimeout(() => this.famProbe(), 2000 + Math.random() * 1500); }
     this.publishRoster(false);
     if (this.room.code && this.room.attach) hostListen(this.room, this.room.code);
     NETLOG.incident('me', from ? 'hosting handed to this device' : 'took over as host after the host was lost');
@@ -8412,7 +8703,7 @@ const MP = {
   },
   stepDown() { // someone else hosts now: become a player in their game
     this.role = 'guest'; try { this.room.es && this.room.es.close(); } catch (e) {} this.room.es = null;
-    this.room.presence({ host: null, s: null, roster: null, rk: null, rv: null, hh: null, mem: null, md: null, handoff: null }, true).catch(() => {});
+    this.room.presence({ host: null, s: null, roster: null, rk: null, rv: null, hh: null, mem: null, md: null, handoff: null, fy: null }, true).catch(() => {}); if (this.lobby) this.lobby.presence({ host: null });
     this.builtRk = ''; this.builtRoster = null; this.snaps = []; this.net = null; this.hostPeer = null; this.lost = null; MESH.memK = '';
     this.sendWant(); $('btnStart').hidden = true; NETLOG.incident('me', 'stopped hosting: another device is host now'); toast('HOSTING MOVED', 'cool'); this.status(`in game · build ${BUILD}`);
   },
@@ -8426,12 +8717,12 @@ const MP = {
       const [type, peer, name, color, number, pi] = e; if (!CAR_TYPES[type]) return;
       const st = first && first[i];
       const c = new Car({ type, name: String(name).slice(0, 14), color, number, isPlayer: peer === me, x: st ? st[0] / 100 : 0, z: st ? st[2] / 100 : 0, yaw: 0 });
-      c.ghost = true; c.persona = pi === -2 ? COP : pi >= 0 ? PERSONAS[pi] : null; c.netPeer = peer || null;
+      c.ghost = true; c.persona = pi === -2 ? COP : pi >= 0 ? PERSONAS[pi] : null; c.netPeer = peer || null; c.did = e[7] || null;
       c.body.type = CANNON.Body.KINEMATIC; c.body.updateMassProperties();
       cars.push(c);
     });
     player = cars.find((c) => c.isPlayer) || cars[0];
-    if (!cars.some((c) => c.isPlayer)) toast('YOU JOIN NEXT ROUND · SPECTATING', 'cool');
+    if (!cars.some((c) => c.isPlayer)) toast(hp.s && hp.s.st === 1 ? 'GETTING YOUR CAR…' : 'YOU JOIN NEXT ROUND · SPECTATING', 'cool'); // mid-round the host hands us a car (our own one when we come back) within a second
     else { sfx.setStyle(MUSIC_FOR[player.type] || 'rock'); setControlsFor(player.type); }
     buildOpponentList(); this.lastRoster = hp.roster; this.lastSnapAt = performance.now() / 1000; this.slotRv = []; this.builtRk = hp.rk; this.builtRv = hp.rv; this.builtRoster = hp.roster.map((e) => JSON.stringify(e)); this.snaps = []; game.lastCount = 9;
   },
@@ -8442,7 +8733,7 @@ const MP = {
       const [type, peer, name, color, number, pi] = e; if (!CAR_TYPES[type]) return;
       const old = cars[i], st = last && last.c[i];
       const c = new Car({ type, name: String(name).slice(0, 14), color, number, isPlayer: peer === me, x: st ? st[0] / 100 : 0, z: st ? st[2] / 100 : 0, yaw: 0 });
-      c.ghost = true; c.persona = pi === -2 ? COP : pi >= 0 ? PERSONAS[pi] : null; c.netPeer = peer || null; c.body.type = CANNON.Body.KINEMATIC; c.body.updateMassProperties();
+      c.ghost = true; c.persona = pi === -2 ? COP : pi >= 0 ? PERSONAS[pi] : null; c.netPeer = peer || null; c.did = e[7] || null; c.body.type = CANNON.Body.KINEMATIC; c.body.updateMassProperties();
       if (old) { const te = threatEls.get(old); if (te) { te.remove(); threatEls.delete(old); } old.dispose(); }
       cars[i] = c; this.slotRv[i] = hp.rv;
       if (c.isPlayer) { player = c; setControlsFor(type); document.body.classList.toggle('has-gun', !!(c.T.gun || c.T.pour || c.T.special)); toast('BACK IN', 'cool'); }
@@ -8459,6 +8750,7 @@ const MP = {
     if ((crawling || hiddenHost) && !this.crawlSaid) { this.crawlSaid = true; NETLOG.incident('me', crawling ? `host is crawling (${this.snapHist ? this.snapHist.length : 0} updates in 6 s): taking over` : 'host page is in the background: taking over'); }
     const stale = (this.lastSnapAt && nowS - this.lastSnapAt > 2 && game.state === 'playing') || crawling || hiddenHost;
     if (!hp || stale) { if (this.builtRk) this.hostLost(dt, crawling || hiddenHost); if (this.role !== 'guest' || !hp) return; } else if (this.lost) this.hostBack();
+    if (hp.fy && this.family) { this.famMove('our host joined another'); return; }
     if (hp.handoff && hp.handoff[0] === this.myPeer() && this.builtRk) { this.becomeHost(hp.handoff[1], this.hostPeer); return; }
     if (hp.md) GAME_MODE = hp.md;
     if (hp.hh) { const h = {}; for (const k in hp.hh) h[k === 'host' ? 'host' : k] = { bad: true }; this.health = h; } else this.health = {};
@@ -8580,6 +8872,7 @@ function peerRoom(code, isHost) {
       peers() { return cache; }, onPeers(h) { hs.push(h); setTimeout(() => h({ peers: cache, joined: cache, left: [], updated: [] }), 0); return () => hs.splice(hs.indexOf(h), 1); },
       emit() { return Promise.resolve(); }, on() { return () => {}; }, connected() { return !peer.disconnected; }, onConnection(h) { setTimeout(() => h(true), 0); return () => {}; },
       leave() { try { peer.destroy(); } catch (e) {} return Promise.resolve(); },
+      drop(id) { const o = others.get(id); if (o) { try { o.conn.close(); } catch (e) {} others.delete(id); fire(); } },
       get me() { return me; }, connectTo(id) { if (others.has(id)) return; wire(peer.connect(id, { serialization: 'json', reliable: false })); }, // mesh: straight to another player
     };
     let tries = 0;
@@ -8627,6 +8920,7 @@ function nearRoom() {
     peers() { return cache; }, onPeers(h) { hs.push(h); setTimeout(() => h({ peers: cache, joined: cache, left: [], updated: [] }), 0); return () => hs.splice(hs.indexOf(h), 1); },
     emit() { return Promise.resolve(); }, on() { return () => {}; }, connected() { return true; }, onConnection(h) { setTimeout(() => h(true), 0); return () => {}; },
     leave() { for (const o of others.values()) try { o.pc.close(); } catch (e) {} others.clear(); return Promise.resolve(); },
+    drop(peer) { for (const [k, o] of others) if (o.p.peer === peer) { try { o.pc.close(); } catch (e) {} others.delete(k); } fire(); }, // (host) hang up on one connection: a reloaded phone's old one
     attach(pc, dc) { // a channel to one more phone
       const id = 'n' + Math.random().toString(36).slice(2, 8);
       const opened = () => { if (others.has(id)) return; others.set(id, { pc, dc, p: { peer: id, by: null, isMe: false, sameTab: false, kind: 'viewer', guest: false, presence: {}, updatedAt: Date.now() } }); try { dc.send(JSON.stringify({ __id: me })); dc.send(JSON.stringify(mine)); } catch (e) {} fire(); };
@@ -8640,7 +8934,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '64'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '65'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
@@ -8656,7 +8950,8 @@ function hostListen(room, code) { // whoever is host answers the knocks on the g
   const seen = new Set();
   room.es = ntfySub('sd-' + code + '-h', async (txt) => {
     if (MP.room !== room || MP.role !== 'host') return;
-    let m; try { m = JSON.parse(txt); } catch (e) { return; } if (!m || !m.g || !m.o || seen.has(m.g + m.n)) return; seen.add(m.g + m.n);
+    let m; try { m = JSON.parse(txt); } catch (e) { return; } if (m && typeof m.fq === 'string') { MP.famHeard(m, code); return; }
+    if (!m || !m.g || !m.o || seen.has(m.g + m.n)) return; seen.add(m.g + m.n);
     const pc = new RTCPeerConnection(ONLINE_ICE); pc.ondatachannel = (ev) => room.attach(pc, ev.channel);
     try { await pc.setRemoteDescription(await unpackSDP(m.o)); await pc.setLocalDescription(await pc.createAnswer()); await gatheredOnline(pc); await ntfyPub('sd-' + code + '-g' + m.g, JSON.stringify({ a: await packSDP(pc.localDescription), n: m.n })); } catch (e) { MP.info('A player tried to join but the handshake failed: ' + (e.message || e.type || 'error')); }
   });
@@ -8713,7 +9008,7 @@ async function onMeshMsg(txt) {
 function meshStop() { try { MESH.es && MESH.es.close(); } catch (e) {} MESH.es = null; MESH.code = ''; MESH.memK = ''; MESH.tried.clear(); MESH.pend.clear(); }
 // how strong this device is right now, so the group can pick the best stand-in host
 function perfScore() { return Math.round(clamp(PERF.fps, 0, 60) * 10 + (navigator.hardwareConcurrency || 4) * 5 - QUALITY.level * 25 + (isTouchUI() ? 0 : 40)); }
-setInterval(() => { try { meshTick(); if (MP.room && MP.role !== 'solo') { const ps = perfScore(); if (Math.abs(ps - (MP.psSent || 0)) > 15) { MP.psSent = ps; MP.room.presence({ ps }).catch(() => {}); } MP.checkHosts(); } } catch (e) { console.error('mesh', e); } }, 1000);
+setInterval(() => { try { meshTick(); if (MP.room && MP.role !== 'solo') { const ps = perfScore(); if (Math.abs(ps - (MP.psSent || 0)) > 15) { MP.psSent = ps; MP.room.presence({ ps }).catch(() => {}); } MP.checkHosts(); } MP.lateJoin(); MP.dropStale(); MP.famTick(); } catch (e) { console.error('mesh', e); } }, 1000);
 // camera QR scanner (jsQR), with a test hook
 const NEAR = { stream: null, scanning: false };
 async function scanQR(onText) {
@@ -8801,6 +9096,11 @@ function mpShim() {
   return mk('lobby');
 }
 $('btnHost').addEventListener('click', () => MP.host());
+$('btnFamily').addEventListener('click', () => MP.famJoin());
+$('famName').value = famName(); $('famName').addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter') $('btnFamName').click(); });
+$('btnFamName').addEventListener('click', async () => { const v = $('famName').value.trim().slice(0, 40); try { if (!v || v === FAM_DEFAULT) localStorage.removeItem('derby-famname'); else localStorage.setItem('derby-famname', v); } catch (e) {} $('famName').value = famName();
+  toast('FAMILY YARD NAME SAVED', 'cool'); if (MP.family && MP.role !== 'solo' && MP.code !== famCode(famName())) { await MP.leave(true); MP.famJoin(); } else MP.renderFam(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden || !MP.family) return; if (MP.role === 'host') setTimeout(() => MP.famProbe(), 800); else if (MP.role === 'solo' && famOn()) MP.famRetry(); }); // back from the background: make sure we're still in the one yard
 $('btnLeave').addEventListener('click', () => MP.leave());
 $('btnNearHost').addEventListener('click', () => nearHostAdd());
 $('btnNearJoin').addEventListener('click', () => nearJoin());
@@ -8844,6 +9144,7 @@ function updatePerfHud(realDt) {
 }
 function governQuality(realDt) {
   updatePerfHud(realDt);
+  if (XRS.on) { VR.govern(realDt); return; } // VR has its own, rebased on the headset's frame rate
   if (!S.autoGfx || game.state === 'menu' || document.hidden) { govern.acc = govern.n = 0; return; }
   (govern.fr || (govern.fr = [])).push(realDt); govern.acc += Math.min(realDt, 0.1); govern.n++; govern.t += realDt;
   if (govern.t < (govern.first ? 2 : 1.2)) return; govern.first = true;
@@ -8861,6 +9162,7 @@ resetMatch();
 let lastT = performance.now();
 let frameErrors = 0;
 function frame(now) {
+  if (XRS.on) { VR.rafIdle = true; return; } // in VR the headset's own frame loop calls frameBody (VR.loop); this one restarts when VR ends
   requestAnimationFrame(frame); // schedule first: an error below must never freeze the game
   try { frameBody(now); } catch (e) { if (frameErrors++ < 5) console.error('frame error', e); }
 }
@@ -9328,10 +9630,435 @@ function drawBody(dt) {
   SEC.run('hud', drawMinimap);
   // a host that is still too slow at the lowest quality draws every other frame: the game and the network come first
   PERF.n = (PERF.n || 0) + 1; PERF.hostSkip = MP.role === 'host' && QUALITY.level === QSTEPS.length - 1 && PERF.fps < 34 && MP.guests().length > 0;
-  if (PERF.hostSkip && PERF.n % 2) return;
+  if (PERF.hostSkip && PERF.n % 2 && !XRS.on) return; // (never skip a headset frame)
   PERFREP.r0 = performance.now();
-  if (!window.__noRender) { const gq = Math.min(S.gfx, S.autoGfx ? (QUALITY.gfxCap ?? 2) : 2); if (gq > 0) { grade.uniforms.uTime.value = clock % 10; sunGlare(); grade.enabled = gq > 1; bloom.strength = gq > 1 ? 0.42 : 0.34; composer.render(); } else renderer.render(scene, camera); PERFREP.render = performance.now() - PERFREP.r0; SEC.add('render', PERFREP.render); } // tests can skip drawing to run physics faster
+  if (!window.__noRender) { const gq = Math.min(S.gfx, S.autoGfx ? (QUALITY.gfxCap ?? 2) : 2); if (XRS.on) renderer.render(scene, VR.cam); /* VR: straight into the headset, no post chain */ else if (gq > 0) { grade.uniforms.uTime.value = clock % 10; sunGlare(); grade.enabled = gq > 1; bloom.strength = gq > 1 ? 0.42 : 0.34; composer.render(); } else renderer.render(scene, camera); PERFREP.render = performance.now() - PERFREP.r0; SEC.add('render', PERFREP.render); } // tests can skip drawing to run physics faster
 }
+/* =====================================================================
+   VR MODE (WebXR: Meta Quest 2 / 3 / 3S in the Quest Browser)
+   Seated cockpit rig that follows the car's heading only (the horizon never tilts), Touch controllers
+   fed into the same `touch` inputs the phone controls use, a dashboard HUD and a laser-pointer menu
+   drawn on canvas textures, a comfort vignette and fades. Outside a VR session none of this runs.
+   ===================================================================== */
+const VR = (() => {
+  const UA = navigator.userAgent || '';
+  const PAGES_URL = 'https://jools314.github.io/scrapyard-derby/';
+  const V = { supported: false, session: null, ref: null, n: 0, hz: 72, q2: /Quest 2/.test(UA), rafIdle: false,
+    set: { vig: 2, view: 0, height: 0, haptics: 1 }, page: 'main', code: '', hover: null, hand: 'right', menuOpen: false,
+    fade: 1, motion: 0, acc: 0, lastSpeed: 0, lastPlayer: null, lastShake: 0, lastHp: 100, yaw: 0, anchor: null, snap: true,
+    btn: { left: [], right: [] }, yHold: 0, yDone: false, drove: false, menuT: 0, menuSig: '', hudT: 0, saved: null, ft: [], gt: 0, slow: 0,
+    recenterAt: 0, inT: 0, stats: { clicks: 0, buzz: 0, hudDraws: 0, menuDraws: 0 } };
+  try { Object.assign(V.set, JSON.parse(localStorage.getItem('derby-vr') || '{}')); } catch (e) {}
+  const saveSet = () => { try { localStorage.setItem('derby-vr', JSON.stringify(V.set)); } catch (e) {} };
+  const Y = new THREE.Vector3(0, 1, 0), _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _q = new THREE.Quaternion(), _s = new THREE.Vector3(), _m = new THREE.Matrix4(), _cv = new CANNON.Vec3();
+  // rig (car frame: position + yaw) -> seat (recenter offset) -> headset camera and controllers
+  const rig = new THREE.Group(); rig.name = 'vrRig'; rig.visible = false; scene.add(rig);
+  const seat = new THREE.Group(); rig.add(seat);
+  const cam = new THREE.PerspectiveCamera(70, 1, camera.near, camera.far); seat.add(cam);
+  // ---- canvas panels ----
+  function panel(pw, ph, w, h, order) {
+    const cv = document.createElement('canvas'); cv.width = pw; cv.height = ph;
+    const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false, toneMapped: false, fog: false }));
+    mesh.renderOrder = order; mesh.frustumCulled = false;
+    return { cv, g: cv.getContext('2d'), tex, mesh, W: pw, H: ph, w, h, rects: [] };
+  }
+  const hud = panel(1024, 512, 0.5, 0.25, 990); hud.mesh.position.set(0, -0.2, -0.82); hud.mesh.rotation.x = -0.32; rig.add(hud.mesh);
+  const menu = panel(1024, 830, 1.25, 1.25 * 830 / 1024, 1010); menu.mesh.position.set(0, -0.06, -1.5); menu.mesh.rotation.x = -0.06; menu.mesh.visible = false; rig.add(menu.mesh);
+  const cursor = new THREE.Mesh(new THREE.RingGeometry(0.008, 0.016, 20), new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false, depthWrite: false, transparent: true, toneMapped: false, fog: false }));
+  cursor.renderOrder = 1012; cursor.position.z = 0.002; cursor.visible = false; menu.mesh.add(cursor);
+  // steering wheel: a fixed cockpit reference in front of you, turns with your steering
+  const wheelT = new THREE.Group(); wheelT.position.set(0, -0.46, -0.44); wheelT.rotation.x = -0.55; rig.add(wheelT);
+  const wheel = new THREE.Group(); wheelT.add(wheel);
+  { const wm = new THREE.MeshBasicMaterial({ color: 0x2a2622, depthTest: false, depthWrite: false, transparent: true, opacity: 0.95, toneMapped: false, fog: false }), am = new THREE.MeshBasicMaterial({ color: 0xf2a20c, depthTest: false, depthWrite: false, transparent: true, toneMapped: false, fog: false });
+    const add = (geo, m, x, y, rz) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, 0); o.rotation.z = rz || 0; o.renderOrder = 985; o.frustumCulled = false; wheel.add(o); };
+    add(new THREE.TorusGeometry(0.16, 0.017, 8, 32), wm, 0, 0);
+    for (const a of [0, 2.1, -2.1]) add(new THREE.BoxGeometry(0.15, 0.018, 0.012), wm, Math.cos(a + Math.PI / 2) * 0.075, Math.sin(a + Math.PI / 2) * 0.075, a + Math.PI / 2);
+    add(new THREE.CircleGeometry(0.035, 16), wm, 0, 0); add(new THREE.BoxGeometry(0.02, 0.03, 0.02), am, 0, 0.16); }
+  // comfort vignette + fade: a sphere around your head, dark outside a circle that narrows when you turn or accelerate
+  const vig = new THREE.Mesh(new THREE.SphereGeometry(0.5, 32, 16), new THREE.ShaderMaterial({
+    uniforms: { uInner: { value: 3.2 }, uFade: { value: 1 } }, side: THREE.BackSide, transparent: true, depthTest: false, depthWrite: false, fog: false,
+    vertexShader: 'varying vec3 vP; void main(){ vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: 'uniform float uInner, uFade; varying vec3 vP; void main(){ float a = acos(clamp(-normalize(vP).z, -1.0, 1.0)); float v = smoothstep(uInner, uInner + 0.32, a); gl_FragColor = vec4(0.0, 0.0, 0.0, clamp(max(v, uFade), 0.0, 1.0)); }' }));
+  vig.renderOrder = 1000; vig.frustumCulled = false; cam.add(vig);
+  // Touch controllers: a small body and a laser for the menu
+  const ctrl = {};
+  for (const h of ['left', 'right']) {
+    const g = new THREE.Group(); g.matrixAutoUpdate = false; g.visible = false; seat.add(g);
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.03, 0.1), new THREE.MeshStandardMaterial({ color: 0x24211e, roughness: 0.5 })); body.position.z = 0.05; g.add(body);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.035, 0.006, 6, 20), new THREE.MeshBasicMaterial({ color: h === 'right' ? 0xf2a20c : 0x5ab4ff, toneMapped: false })); ring.position.set(0, 0.012, 0.02); g.add(ring);
+    const ray = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -1)]), new THREE.LineBasicMaterial({ color: 0xffc46a, transparent: true, opacity: 0.85, depthTest: false, toneMapped: false, fog: false }));
+    ray.renderOrder = 1011; ray.frustumCulled = false; ray.visible = false; g.add(ray);
+    ctrl[h] = { g, ray, src: null, ok: false };
+  }
+  const rc = new THREE.Raycaster();
+
+  // ---- helpers ----
+  function rr(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
+  function wrap(g, text, maxW) { const out = []; let line = ''; for (const w of String(text).split(/\s+/)) { const t = line ? line + ' ' + w : w; if (g.measureText(t).width > maxW && line) { out.push(line); line = w; } else line = t; } if (line) out.push(line); return out; }
+  function buzz(hand, v, ms) {
+    if (!V.set.haptics || !V.session) return;
+    for (const src of V.session.inputSources) {
+      if (!src.gamepad || (hand !== 'both' && src.handedness !== hand)) continue;
+      const gp = src.gamepad, a = gp.hapticActuators && gp.hapticActuators[0];
+      try { if (a && a.pulse) a.pulse(clamp(v, 0, 1), ms); else if (gp.vibrationEffect) gp.vibrationEffect.playEffect('dual-rumble', { duration: ms, strongMagnitude: clamp(v, 0, 1), weakMagnitude: clamp(v, 0, 1) }); V.stats.buzz++; } catch (e) {}
+    }
+  }
+  const hasWeapon = () => !!(player && (player.T.gun || player.T.pour || player.T.special));
+  const carKeys = Object.keys(CAR_TYPES);
+  const joinCodeOf = () => MP.code ? (MP.transport === 'peer' && MP.via === 'peerjs' ? 'p-' : '') + MP.code : '';
+  function normCode(raw) { let c = String(raw || '').trim().toLowerCase(); const m = c.match(/#join-((?:p-)?[a-z0-9]{3,12})/); if (m) c = m[1]; c = c.replace(/\s+/g, ''); return /^(?:p-)?[a-z0-9]{3,12}$/.test(c) ? c : null; }
+  function joinCode(raw) {
+    const c = normCode(raw); if (!c) { toast('TYPE THE GAME CODE FROM THE HOST\'S SCREEN', 'bad'); return false; }
+    if (MP.role !== 'solo') { toast('LEAVE THIS GAME FIRST', 'bad'); return false; }
+    MP.join(c).then(syncDom, syncDom); return true;
+  }
+  function syncDom() {
+    const cr = $('codeRow'); if (cr) cr.hidden = MP.role !== 'solo' || !MP.api;
+    const cs = $('mpCodeShow'); if (cs) { const code = MP.role === 'host' && MP.code && MP.code !== 'near' ? joinCodeOf() : ''; cs.hidden = !code; cs.textContent = code ? `Game code: ${code} · type it into "Join with code" on a VR headset or another device` : ''; }
+  }
+  for (const k of ['host', 'join', 'leave']) { const f = MP[k]; if (typeof f === 'function') MP[k] = async function (...a) { try { return await f.apply(this, a); } finally { syncDom(); } }; }
+
+  // ---- entering and leaving ----
+  async function detect() {
+    const show = (on, label) => { for (const id of ['btnVR', 'gmVR']) { const b = $(id); if (b) { b.hidden = !on; if (label) b.textContent = label; } } };
+    const linkOut = () => { if (/OculusBrowser|Quest/.test(UA) && window.top !== window) { V.linkOut = true; show(true, '🥽 Open in VR ↗'); } else show(false); }; // an embedded viewer can't enter VR: offer the real page
+    if (!navigator.xr || !navigator.xr.isSessionSupported) { linkOut(); return; }
+    try { V.supported = !!(await navigator.xr.isSessionSupported('immersive-vr')); } catch (e) { V.supported = false; }
+    if (V.supported) { V.linkOut = false; show(true, '🥽 Enter VR'); } else linkOut();
+  }
+  async function enter() {
+    if (V.linkOut && !V.supported) { window.open(PAGES_URL, '_blank'); return; }
+    if (V.session || !navigator.xr || renderer.xr.isPresenting) return;
+    sfx.init(); if (sfx.ctx && sfx.ctx.state === 'suspended') sfx.ctx.resume();
+    try { if (barks.speechOK !== true) barks.unlock(); } catch (e) {}
+    renderer.xr.setReferenceSpaceType('local'); // seated: the origin is where your head is when VR starts
+    renderer.xr.setFramebufferScaleFactor(V.q2 ? 0.85 : 1);
+    renderer.xr.setFoveation(1);
+    let s;
+    try { s = await navigator.xr.requestSession('immersive-vr', { optionalFeatures: ['local-floor', 'hand-tracking'] }); }
+    catch (e) { toast('COULD NOT START VR · ' + String(e && (e.message || e.name) || e).slice(0, 60).toUpperCase(), 'bad'); return; }
+    V.session = s;
+    try { await renderer.xr.setSession(s); } catch (e) { console.error('VR session setup failed', e); V.session = null; try { s.end(); } catch (e2) {} toast('VR FAILED TO START', 'bad'); }
+  }
+  function exit() { if (V.session) V.session.end().catch(() => {}); }
+  renderer.xr.addEventListener('sessionstart', () => {
+    const s = renderer.xr.getSession(); V.session = s; V.ref = renderer.xr.getReferenceSpace(); V.n = 0;
+    XRS.on = true;
+    V.saved = { level: QUALITY.level, camMode };
+    applyQuality(V.q2 ? 6 : 5); QUALITY.lite = true; // Quest preset: no post chain, 1024 shadows (none on Quest 2), fewer particles, lighter physics
+    camMode = V.set.view ? 0 : 2; game.crashCam = null; game.shake = 0; game.fovPunch = 0; V.lastShake = 0;
+    const fr = s.supportedFrameRates ? Array.from(s.supportedFrameRates) : [];
+    V.hz = s.frameRate || 72;
+    if (s.updateTargetFrameRate && fr.length) { const want = !V.q2 && fr.includes(90) ? 90 : 72; if (fr.includes(want)) { V.hz = want; try { const p = s.updateTargetFrameRate(want); if (p && p.catch) p.catch(() => {}); } catch (e) {} } }
+    rig.visible = true; V.fade = 1; V.blackT = 0.2; V.lastPlayer = null; V.anchor = null; V.snap = true; V.page = 'main'; V.menuSig = ''; V.recenterAt = 3; V.ft = []; V.gt = 0; V.slow = 0;
+    s.addEventListener('visibilitychange', () => { if (s.visibilityState !== 'visible' && game.state === 'playing') game.paused = true; }); // the Quest menu opened over the game
+    s.addEventListener('select', (e) => { const src = e.inputSource; if (!src || src.gamepad || !V.menuOpen || !e.frame) return; const p = e.frame.getPose(src.targetRaySpace, V.ref); if (p) clickAt(_m.fromArray(p.transform.matrix)); }); // hand tracking: pinch to click
+    if (V.ref && V.ref.addEventListener) V.ref.addEventListener('reset', () => { V.recenterAt = V.n + 2; }); // the headset's own recenter
+    renderer.xr.setAnimationLoop(loop); // the headset now drives the game loop (window.requestAnimationFrame doesn't run for XR frames)
+    ptag && ptag('vr: session started ' + V.hz + ' Hz');
+  });
+  renderer.xr.addEventListener('sessionend', () => {
+    XRS.on = false; V.session = null; V.ref = null; V.menuOpen = false;
+    renderer.setAnimationLoop(null); // (stops three's own empty loop too)
+    rig.visible = false; releaseVR();
+    if (V.saved) { applyQuality(V.saved.level); camMode = V.saved.camMode; V.saved = null; }
+    game.camSnap = true; resize();
+    if (V.rafIdle) { V.rafIdle = false; requestAnimationFrame(frame); }
+    ptag && ptag('vr: session ended');
+  });
+  function loop(time, xf) {
+    V.n++;
+    try { input(xf); frameBody(performance.now()); } catch (e) { if (frameErrors++ < 5) console.error('frame error', e); }
+  }
+  function releaseVR() { touch.throttle = 0; touch.steer = 0; touch.pitch = 0; touch.hb = false; touch.nitro = false; touch.fire = false; touch.horn = false; }
+  function recenter() { // put your head at the driver's eye, facing the way the car faces
+    _v.set(0, 0, -1).applyQuaternion(cam.quaternion); const yaw = Math.atan2(-_v.x, -_v.z);
+    seat.quaternion.setFromAxisAngle(Y, -yaw); seat.position.copy(cam.position).applyQuaternion(seat.quaternion).negate();
+  }
+
+  // ---- controllers ----
+  const rd = (src, i) => { const b = src && src.gamepad && src.gamepad.buttons[i]; return b ? (b.value || (b.pressed ? 1 : 0)) : 0; };
+  const pr = (src, i) => { const b = src && src.gamepad && src.gamepad.buttons[i]; return !!(b && b.pressed); };
+  const axes = (src) => { const a = src && src.gamepad ? src.gamepad.axes : null; if (!a) return [0, 0]; return a.length >= 4 ? [a[2] || 0, a[3] || 0] : [a[0] || 0, a[1] || 0]; };
+  const curve = (x, dz) => { const m = Math.abs(x); return m < dz ? 0 : Math.sign(x) * Math.pow((m - dz) / (1 - dz), 1.35); };
+  function input(xf) {
+    const s = V.session; if (!s) return;
+    const now = performance.now() / 1000, dt = clamp(now - (V.inT || now), 0, 0.1); V.inT = now;
+    const st = { left: null, right: null };
+    for (const src of s.inputSources) if (src.gamepad && (src.handedness === 'left' || src.handedness === 'right')) st[src.handedness] = src;
+    for (const h of ['left', 'right']) { const c = ctrl[h], src = st[h]; c.src = src; c.ok = false;
+      if (src && xf && V.ref) { const p = xf.getPose(src.targetRaySpace, V.ref); if (p) { c.g.matrix.fromArray(p.transform.matrix); c.g.matrixWorldNeedsUpdate = true; c.ok = true; } }
+      c.g.visible = c.ok; }
+    const L = st.left, R = st.right;
+    const edge = (h, i, on) => { const was = !!V.btn[h][i]; V.btn[h][i] = on; return on && !was; };
+    const lt = rd(L, 0), rt = rd(R, 0), lg = rd(L, 1), rg = rd(R, 1), la = axes(L), ra = axes(R);
+    const eLT = edge('left', 0, lt > 0.55), eRT = edge('right', 0, rt > 0.55);
+    const A = pr(R, 4), B = pr(R, 5), Xb = pr(L, 4), Yb = pr(L, 5), LS = pr(L, 3), RS = pr(R, 3);
+    const eA = edge('right', 4, A), eX = edge('left', 4, Xb), eLS = edge('left', 3, LS), eRS = edge('right', 3, RS);
+    if (eRT) V.hand = 'right'; else if (eLT) V.hand = 'left';
+    if (V.menuOpen && (eRT || eLT)) click(eRT ? 'right' : 'left');
+    if (eRS) togglePause(); // right stick click: pause menu (the Quest's own menu button belongs to the system)
+    if (Yb) { V.yHold += dt; if (V.yHold > 0.7 && !V.yDone) { V.yDone = true; setView(V.set.view ? 0 : 1); } } // hold Y: cockpit / chase view
+    else { if (V.yHold > 0 && !V.yDone) { recenter(); toast('RECENTERED', 'cool'); } V.yHold = 0; V.yDone = false; } // tap Y: recenter
+    const driving = game.state === 'playing' && player && !player.wrecked && !game.paused && !V.menuOpen;
+    if (driving) {
+      const dz = (v) => (v < 0.04 ? 0 : v);
+      touch.throttle = clamp(dz(rt) - dz(lt), -1, 1);      // right trigger gas, left trigger brake / reverse (analogue)
+      const sx = Math.abs(la[0]) >= Math.abs(ra[0]) ? la[0] : ra[0];
+      touch.steer = -curve(sx, 0.12);                       // left stick (or right) steers
+      touch.pitch = curve(ra[1], 0.3);                      // right stick up/down: nose down/up in the air
+      touch.hb = lg > 0.5 || rg > 0.5;                      // either grip: handbrake / drift
+      touch.nitro = B;                                      // B: nitro
+      touch.fire = A;                                       // A held: minigun, flamethrower...
+      touch.horn = LS && !(player.T.police || player.T.siren);
+      if (eA) { player.ctrl.fire = true; if (hasWeapon()) buzz('right', 0.4, 45); }   // A: fire / special
+      if (eX) { player.ctrl.jump = true; buzz('left', 0.3, 40); }                       // X: jump
+      if (eLS && (player.T.police || player.T.siren)) { player.sirenOn = !player.sirenOn; toast(player.sirenOn ? 'SIREN ON' : 'SIREN OFF', 'cool'); }
+      V.drove = true;
+    } else if (V.drove) { releaseVR(); V.drove = false; }
+  }
+  function togglePause() { if (game.state !== 'playing') return; game.paused = !game.paused; V.page = 'main'; V.menuSig = ''; }
+  function setView(v) { V.set.view = v; saveSet(); camMode = v ? 0 : 2; V.snap = true; V.fade = Math.max(V.fade, 0.9); toast(v ? 'CHASE VIEW (less comfortable)' : 'COCKPIT VIEW', 'cool'); }
+  function rayFrom(m) { _m2.multiplyMatrices(seat.matrixWorld, m); rc.ray.origin.setFromMatrixPosition(_m2); rc.ray.direction.set(0, 0, -1).transformDirection(_m2); return rc; }
+  const _m2 = new THREE.Matrix4();
+  function hitMenu(m) {
+    if (!menu.mesh.visible) return null;
+    rayFrom(m); menu.mesh.updateMatrixWorld();
+    const h = rc.intersectObject(menu.mesh, false)[0]; if (!h || !h.uv) return null;
+    const x = h.uv.x * menu.W, y = (1 - h.uv.y) * menu.H;
+    const b = menu.rects.find((r) => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h && !r.dis);
+    return { d: h.distance, pt: h.point, b, x, y };
+  }
+  function clickAt(m) {
+    const h = hitMenu(m); if (!h || !h.b) return false;
+    V.stats.clicks++; sfx.init(); try { sfx.tone('square', 900, 900, 0.03, 0.05); } catch (e) {}
+    try { h.b.fn(); } catch (e) { console.error('vr menu', e); }
+    V.menuSig = ''; V.menuT = 0; return true;
+  }
+  function click(hand) { const c = ctrl[hand]; if (!c.ok) return false; const ok = clickAt(c.g.matrix); if (ok) buzz(hand, 0.25, 20); return ok; }
+
+  // ---- the world menu ----
+  const B = (label, fn, o) => Object.assign({ label, fn }, o || {});
+  function cycleCar(d) { const i = carKeys.indexOf(playerType); selectCar(carKeys[(i + d + carKeys.length) % carKeys.length]); V.anchor = null; }
+  function setMode(m) { const b = document.querySelector(`.modes .mode[data-mode="${m}"]`); if (b) b.click(); }
+  function respawnAs(k) { game.paused = false; V.page = 'main'; if (player && game.state === 'playing') { if (GAME_MODE !== 'respawn' && MP.role !== 'guest') { if (k && k !== player.type) { playerType = k; try { localStorage.setItem(CAR_KEY, k); } catch (e) {} startMatch(); } else player.flipUpright(); } else askRespawn(k); } }
+  function carGrid(pick, cur) { const rows = []; for (let i = 0; i < carKeys.length; i += 3) rows.push({ t: 'row', h: 64, b: carKeys.slice(i, i + 3).map((k) => B(CAR_TYPES[k].name, () => pick(k), { on: k === cur, sw: CAR_TYPES[k].color })) }); return rows; }
+  function pageItems() {
+    if (!player) return null;
+    const st = game.state, guest = MP.role === 'guest';
+    if (V.page === 'settings') return [{ t: 'title', s: 'VR SETTINGS' },
+      { t: 'label', s: 'Comfort vignette (darkens the edges when you turn or speed up)' },
+      { t: 'row', b: ['Off', 'Low', 'High'].map((n, i) => B(n, () => { V.set.vig = i; saveSet(); }, { on: V.set.vig === i })) },
+      { t: 'label', s: 'View' },
+      { t: 'row', b: [B('Cockpit (comfortable)', () => setView(0), { on: !V.set.view }), B('Chase (less comfortable)', () => setView(1), { on: !!V.set.view })] },
+      { t: 'label', s: `Seat height: ${V.set.height >= 0 ? '+' : ''}${Math.round(V.set.height * 100)} cm` },
+      { t: 'row', b: [B('Lower', () => { V.set.height = clamp(V.set.height - 0.05, -0.4, 0.6); saveSet(); }), B('Recenter (Y)', () => recenter()), B('Higher', () => { V.set.height = clamp(V.set.height + 0.05, -0.4, 0.6); saveSet(); })] },
+      { t: 'row', b: [B(V.set.haptics ? 'Rumble: on' : 'Rumble: off', () => { V.set.haptics = V.set.haptics ? 0 : 1; saveSet(); if (V.set.haptics) buzz('both', 0.5, 80); }), B(sfx.musicOn ? 'Music: on' : 'Music: off', () => toggleMusic()), B(VOICES_OFF ? 'Voices: off' : 'Voices: on', () => setVoices(!VOICES_OFF))] },
+      { t: 'row', b: [B('Back', () => { V.page = 'main'; }, { primary: true })] }];
+    if (V.page === 'join') {
+      const ok = !!normCode(V.code), keys = ['1234567890', 'abcdefghij', 'klmnopqrst', 'uvwxyz-'];
+      return [{ t: 'title', s: 'JOIN WITH CODE' }, { t: 'text', s: 'Type the game code shown under the host\'s QR code (Game code: …).' },
+        { t: 'code', s: V.code || ' ' },
+        ...keys.map((r, i) => ({ t: 'row', h: 66, b: r.split('').map((ch) => B(ch, () => { if (V.code.length < 12) V.code += ch; })).concat(i === 3 ? [B('⌫', () => { V.code = V.code.slice(0, -1); }), B('Clear', () => { V.code = ''; })] : []) })),
+        { t: 'text', s: MP.statusTxt ? 'Multiplayer ' + MP.statusTxt + (($('mpInfo') || {}).textContent ? ' · ' + $('mpInfo').textContent : '') : '' },
+        { t: 'row', b: [B('Back', () => { V.page = 'main'; }), B('JOIN', () => { if (joinCode(V.code)) V.page = 'main'; }, { primary: true, dis: !ok })] }];
+    }
+    if (V.page === 'cars') return [{ t: 'title', s: st === 'playing' ? 'RESPAWN IN…' : 'PICK YOUR CAR' }, ...carGrid((k) => { if (st === 'playing') respawnAs(k); else { selectCar(k); V.anchor = null; V.page = 'main'; } }, st === 'playing' ? player.type : playerType), { t: 'row', b: [B('Back', () => { V.page = 'main'; })] }];
+    if (st === 'playing' && player.wrecked && GAME_MODE === 'respawn' && !game.paused) {
+      const left = Math.max(0, player.respawnT ?? RESPAWN_HUMAN);
+      return [{ t: 'title', s: 'WRECKED!' }, { t: 'text', s: `Back in the same car in ${Math.ceil(left)}… or pick one now.` },
+        { t: 'row', h: 96, b: [B('RESPAWN NOW', () => respawnAs(null), { primary: true })] }, ...carGrid((k) => respawnAs(k), player.type)];
+    }
+    if (st === 'playing' && game.paused) return [{ t: 'title', s: 'PAUSED' },
+      { t: 'row', h: 100, b: [B('RESUME', () => { game.paused = false; }, { primary: true })] },
+      { t: 'row', b: [B('Reset car (flip upright)', () => { game.paused = false; if (!player.wrecked) player.flipUpright(); }), B(GAME_MODE === 'respawn' ? 'Respawn / new car' : 'New car (restart)', () => { V.page = 'cars'; })] },
+      { t: 'row', b: [B('Restart match', () => startMatch(), { dis: guest }), B(guest ? 'Leave game' : 'Quit to garage', () => { if (guest) MP.leave(); else showMenu(); })] },
+      { t: 'row', b: [B('VR settings', () => { V.page = 'settings'; }), B('Recenter', () => recenter()), B('Exit VR', exit)] },
+      { t: 'help', s: 'R trigger gas · L trigger brake/reverse · L stick steer · grip drift · A fire · B nitro · X jump · Y recenter (hold: view) · R stick click pause' }];
+    if (st === 'playing') return null; // driving: no menu
+    if (st === 'over') return [{ t: 'title', s: ($('overTitle').textContent || 'MATCH OVER').toUpperCase() },
+      { t: 'text', s: `Score ${game.score.toLocaleString()} · time ${Math.floor(game.time / 60)}:${String(Math.floor(game.time) % 60).padStart(2, '0')} · wrecked ${cars.filter((c) => !c.isPlayer && c.wrecked).length}` },
+      { t: 'row', h: 100, b: [B('DRIVE AGAIN', () => startMatch(), { primary: true, dis: guest })] },
+      { t: 'row', b: [B('Change car', () => { showMenu(); V.page = 'cars'; }), B('Exit VR', exit)] }];
+    const T = CAR_TYPES[playerType] || player.T, mp = [];
+    if (MP.api && MP.role === 'solo') mp.push({ t: 'row', b: [B('Host a game', () => { MP.host(); }), B('Join with code', () => { V.page = 'join'; })] });
+    else if (MP.role !== 'solo') mp.push({ t: 'row', b: [B('Leave game', () => MP.leave())] });
+    const code = MP.role === 'host' && MP.code !== 'near' ? joinCodeOf() : '';
+    if (code) mp.push({ t: 'text', s: `Game code: ${code}  ·  friends type it in Join with code (or scan the QR on your 2D screen)` });
+    else if (MP.role !== 'solo') mp.push({ t: 'text', s: (MP.statusTxt || '') + ' · ' + (($('mpInfo') || {}).textContent || '') });
+    return [{ t: 'title', s: 'SCRAPYARD DERBY' },
+      guest ? { t: 'text', s: 'You are in a friend\'s game: the host starts the round. Pick your car meanwhile.' } : { t: 'row', h: 104, b: [B('START DERBY', () => startMatch(), { primary: true })] },
+      { t: 'row', b: [B('◀', () => cycleCar(-1), { w: 0.16 }), B(`${T.name} · ${T.mass.toLocaleString()} kg`, () => { V.page = 'cars'; }, { sw: T.color }), B('▶', () => cycleCar(1), { w: 0.16 })] },
+      { t: 'small', s: T.blurb },
+      { t: 'row', b: [B('Respawn mode', () => setMode('respawn'), { on: GAME_MODE === 'respawn' }), B('Elimination', () => setMode('elim'), { on: GAME_MODE === 'elim' })] },
+      ...mp,
+      { t: 'row', b: [B('VR settings', () => { V.page = 'settings'; }), B('Recenter', () => recenter()), B('Exit VR', exit)] },
+      { t: 'help', s: 'Point and pull a trigger to choose. Driving: R trigger gas · L trigger brake · L stick steer · A fire · B nitro · X jump · R stick click: pause' }];
+  }
+  function drawMenu(items) {
+    const g = menu.g, W = menu.W, H = menu.H; menu.rects = [];
+    g.clearRect(0, 0, W, H); rr(g, 4, 4, W - 8, H - 8, 34); g.fillStyle = 'rgba(20,17,14,0.93)'; g.fill(); g.lineWidth = 4; g.strokeStyle = 'rgba(242,162,12,0.6)'; g.stroke();
+    let y = 34; const X0 = 40, IW = W - 80;
+    g.textBaseline = 'middle';
+    items.forEach((it, ri) => {
+      if (it.t === 'title') { g.font = '800 58px system-ui, sans-serif'; g.fillStyle = '#f2a20c'; g.textAlign = 'center'; g.fillText(it.s, W / 2, y + 34); y += 84; return; }
+      if (it.t === 'code') { rr(g, X0 + 160, y, IW - 320, 80, 14); g.fillStyle = '#0d0b09'; g.fill(); g.strokeStyle = '#f2a20c'; g.lineWidth = 3; g.stroke(); g.font = '700 54px ui-monospace, monospace'; g.fillStyle = '#fff'; g.textAlign = 'center'; g.fillText(it.s, W / 2, y + 42); y += 96; return; }
+      if (it.t === 'text' || it.t === 'label' || it.t === 'small' || it.t === 'help') {
+        if (!it.s) return; const sz = it.t === 'text' ? 30 : it.t === 'label' ? 28 : 25;
+        g.font = `${it.t === 'label' ? 700 : 500} ${sz}px system-ui, sans-serif`; g.fillStyle = it.t === 'help' ? '#9d9284' : it.t === 'label' ? '#e8dccb' : '#cbbfae'; g.textAlign = it.t === 'label' ? 'left' : 'center';
+        for (const ln of wrap(g, it.s, IW).slice(0, it.t === 'small' ? 2 : 3)) { g.fillText(ln, it.t === 'label' ? X0 : W / 2, y + sz * 0.6); y += sz * 1.3; } y += 10; return;
+      }
+      const h = it.h || 76, gap = 14, fixed = it.b.reduce((a, b) => a + (b.w ? b.w * IW : 0), 0), flex = it.b.filter((b) => !b.w).length;
+      const fw = (IW - fixed - gap * (it.b.length - 1)) / Math.max(1, flex); let x = X0;
+      it.b.forEach((b, bi) => {
+        const w = b.w ? b.w * IW : fw, id = ri + ':' + bi, hov = V.hover === id && !b.dis;
+        rr(g, x, y, w, h, 16); g.fillStyle = b.dis ? 'rgba(60,54,48,0.6)' : b.primary ? (hov ? '#ffb733' : '#f2a20c') : b.on ? (hov ? '#6b5a3c' : '#54462f') : hov ? '#4a423a' : '#2e2924'; g.fill();
+        g.lineWidth = hov ? 5 : 2; g.strokeStyle = hov ? '#fff' : b.on ? '#f2a20c' : 'rgba(255,255,255,0.18)'; g.stroke();
+        let tx = x + w / 2; if (b.sw !== undefined) { g.fillStyle = '#' + new THREE.Color(b.sw).getHexString(); g.beginPath(); g.arc(x + 26, y + h / 2, 11, 0, Math.PI * 2); g.fill(); tx += 12; }
+        g.fillStyle = b.dis ? '#7a7066' : b.primary ? '#1a140c' : '#f4eadb'; g.textAlign = 'center';
+        let fs = h > 90 ? 44 : 32; g.font = `700 ${fs}px system-ui, sans-serif`; while (fs > 18 && g.measureText(b.label).width > w - (b.sw !== undefined ? 52 : 20)) { fs -= 2; g.font = `700 ${fs}px system-ui, sans-serif`; }
+        g.fillText(b.label, tx, y + h / 2 + 1);
+        menu.rects.push({ x, y, w, h, id, fn: b.fn, dis: !!b.dis, label: b.label });
+        x += w + gap;
+      });
+      y += h + 14;
+    });
+    V.menuBottom = y;
+    const tl = el.toasts.lastElementChild; if (tl && tl.textContent) { g.font = '700 28px system-ui, sans-serif'; g.fillStyle = '#ffd27a'; g.textAlign = 'center'; g.fillText(tl.textContent.slice(0, 60), W / 2, H - 34); }
+    menu.tex.needsUpdate = true; V.stats.menuDraws++;
+  }
+  function updateMenu(dt) {
+    V.menuT -= dt;
+    const items = pageItems();
+    V.menuOpen = !!items; menu.mesh.visible = V.menuOpen;
+    if (!items) { if (V.page !== 'main' && game.state === 'playing' && !game.paused && !player.wrecked) V.page = 'main'; for (const h in ctrl) ctrl[h].ray.visible = false; cursor.visible = false; V.hover = null; return; }
+    // laser + hover from the hand you last pulled the trigger with
+    let hov = null; cursor.visible = false;
+    for (const h of ['left', 'right']) { const c = ctrl[h]; c.ray.visible = c.ok; if (!c.ok) continue;
+      const hit = hitMenu(c.g.matrix); c.ray.scale.z = hit ? hit.d / Math.max(1e-3, rig.scale.x) : 2.5;
+      if (hit && (h === V.hand || !cursor.visible)) { menu.mesh.worldToLocal(_v.copy(hit.pt)); cursor.position.set(_v.x, _v.y, 0.002); cursor.visible = true; if (h === V.hand || !hov) hov = hit.b ? hit.b.id : null; } }
+    if (hov !== V.hover) { V.hover = hov; V.menuSig = ''; }
+    if (V.menuT > 0 && V.menuSig) return;
+    V.menuT = 0.15;
+    const sig = JSON.stringify(items, (k, v) => (typeof v === 'function' ? undefined : v)) + '|' + V.hover + '|' + (el.toasts.lastElementChild ? el.toasts.lastElementChild.textContent : '');
+    if (sig !== V.menuSig) { V.menuSig = sig; drawMenu(items); }
+  }
+
+  // ---- dashboard HUD ----
+  function bar(g, x, y, w, label, frac, col, right) {
+    g.font = '700 30px system-ui, sans-serif'; g.textAlign = 'left'; g.fillStyle = '#cbbfae'; g.fillText(label, x, y);
+    g.textAlign = 'right'; g.fillStyle = '#f4eadb'; g.fillText(right, x + w, y);
+    rr(g, x, y + 18, w, 20, 10); g.fillStyle = 'rgba(255,255,255,0.12)'; g.fill();
+    if (frac > 0.005) { rr(g, x, y + 18, Math.max(20, w * clamp(frac, 0, 1)), 20, 10); g.fillStyle = col; g.fill(); }
+  }
+  function drawHud() {
+    const g = hud.g, W = hud.W, H = hud.H; g.clearRect(0, 0, W, H);
+    rr(g, 4, 4, W - 8, H - 8, 30); g.fillStyle = 'rgba(16,13,11,0.8)'; g.fill(); g.lineWidth = 3; g.strokeStyle = 'rgba(242,162,12,0.5)'; g.stroke();
+    g.textBaseline = 'middle';
+    if (gauge.width > 0 && gauge.height > 0) { const s = Math.min(340 / gauge.width, 340 / gauge.height); g.drawImage(gauge, 18 + (340 - gauge.width * s) / 2, 14 + (340 - gauge.height * s) / 2, gauge.width * s, gauge.height * s); }
+    else { g.font = '800 96px system-ui, sans-serif'; g.textAlign = 'center'; g.fillStyle = '#fff'; g.fillText(String(Math.round(Math.abs(player.speed) * 3.6)), 190, 160); g.font = '700 30px system-ui'; g.fillText('KM/H', 190, 240); }
+    const x = 390, w = 600, hp = Math.max(0, player.health);
+    bar(g, x, 40, w, 'HULL', hp / 100, hp < 30 ? '#e4472c' : hp < 60 ? '#f2a20c' : '#8cc76f', Math.ceil(hp) + '%');
+    let y = 112;
+    if (hasWeapon()) { const fr = parseFloat(($('gunFill').style.width || '0')) / 100, gs = $('gunState').textContent || ''; bar(g, x, y, w, player.T.special ? (WEAPONS[player.T.special] && WEAPONS[player.T.special].label || 'WEAPON').toString().toUpperCase().slice(0, 14) : player.T.gun ? 'CANNON' : 'LOAD', fr, gs === 'READY' || /READY|FUEL|CONCRETE|MINIGUN/.test(gs) ? '#ff7a3c' : '#a8653a', gs.slice(0, 16)); y += 72; }
+    bar(g, x, y, w, 'NITRO  (B)', player.nitro, '#5ab4ff', Math.round(player.nitro * 100) + '%'); y += 76;
+    g.font = '800 40px system-ui, sans-serif'; g.textAlign = 'left'; g.fillStyle = '#f2a20c'; g.fillText(game.score.toLocaleString(), x, y + 8);
+    g.font = '600 26px system-ui, sans-serif'; g.fillStyle = '#cbbfae'; g.fillText('SCORE', x, y + 42);
+    const ai = cars.filter((c) => !c.isPlayer), wr = GAME_MODE === 'respawn' ? String(player.kills || 0) : `${ai.filter((c) => c.wrecked).length}/${ai.length}`;
+    g.font = '800 40px system-ui, sans-serif'; g.textAlign = 'right'; g.fillStyle = '#f4eadb'; g.fillText(wr, x + w, y + 8);
+    g.font = '600 26px system-ui, sans-serif'; g.fillStyle = '#cbbfae'; g.fillText('WRECKED', x + w, y + 42);
+    // the latest voice caption, or the latest message
+    const sub = $('subs').lastElementChild, tl = el.toasts.lastElementChild, hint = el.hint.textContent;
+    rr(g, 18, 372, W - 36, 120, 18); g.fillStyle = 'rgba(0,0,0,0.45)'; g.fill();
+    g.textAlign = 'left';
+    if (sub && sub.firstChild && sub.lastChild) {
+      g.font = '800 30px system-ui, sans-serif'; g.fillStyle = sub.firstChild.style.color || '#f2a20c'; const nick = sub.firstChild.textContent + ': '; g.fillText(nick, 36, 404); const nw = g.measureText(nick).width;
+      g.font = '500 30px system-ui, sans-serif'; g.fillStyle = '#f4eadb'; const ls = wrap(g, sub.lastChild.textContent, W - 90 - nw); g.fillText(ls[0] || '', 36 + nw, 404); if (ls[1]) g.fillText(ls.slice(1).join(' ').slice(0, 70), 36, 450);
+    } else if (tl || hint) { g.font = '800 40px system-ui, sans-serif'; g.fillStyle = tl && tl.classList.contains('bad') ? '#ff7a50' : '#ffd27a'; g.textAlign = 'center'; g.fillText((tl ? tl.textContent : hint).slice(0, 44), W / 2, 432); }
+    hud.tex.needsUpdate = true; V.stats.hudDraws++;
+  }
+
+  // ---- per frame (from updateCamera) ----
+  function setAnchor() { // the garage: stand beside your car, a little way off, facing it
+    const p = player.body.position, fl = Math.hypot(player.fwd.x, player.fwd.z) || 1, fx = player.fwd.x / fl, fz = player.fwd.z / fl, rx = -fz, rz = fx, d = player.T.L * 0.9 + 4.5;
+    const pos = new THREE.Vector3(p.x + rx * d + fx * 1.2, Math.max(p.y, 0.5) + 0.9 + V.set.height, p.z + rz * d + fz * 1.2);
+    const yaw = Math.atan2(-(p.x - pos.x), -(p.z - pos.z)) - 0.32; // the car sits off to the left of the menu
+    V.anchor = { car: player, p: pos, q: new THREE.Quaternion().setFromAxisAngle(Y, yaw), h: V.set.height };
+  }
+  function placeRig(dt) {
+    const st = game.state;
+    if (st === 'menu') { if (!V.anchor || V.anchor.car !== player || V.anchor.h !== V.set.height) { if (V.anchor) V.fade = Math.max(V.fade, 0.8); setAnchor(); } rig.position.copy(V.anchor.p); rig.quaternion.copy(V.anchor.q); V.snap = true; return; }
+    V.anchor = null;
+    const follow = st === 'playing' && !player.wrecked;
+    if (!follow && !V.snap) return; // wrecked, match over: the view holds still (no tumbling with the wreck)
+    const b = player.body, p = b.position;
+    const fl = Math.hypot(player.fwd.x, player.fwd.z); if (fl > 0.25) V.yaw = Math.atan2(-player.fwd.z / fl, player.fwd.x / fl);
+    const cy = Math.cos(V.yaw), sy = Math.sin(V.yaw);
+    if (V.set.view === 1) { // chase: behind and above, smoothed, still level
+      const d = player.T.L * 1.3 + 4, tx = p.x - cy * d, tz = p.z + sy * d, ty = p.y + player.T.H + 2.6;
+      if (V.snap) { rig.position.set(tx, ty, tz); V.cyaw = V.yaw; } else { const k = 1 - Math.exp(-dt * 4); rig.position.x += (tx - rig.position.x) * k; rig.position.y += (ty - rig.position.y) * k; rig.position.z += (tz - rig.position.z) * k; let da = V.yaw - V.cyaw; while (da > Math.PI) da -= Math.PI * 2; while (da < -Math.PI) da += Math.PI * 2; V.cyaw += da * (1 - Math.exp(-dt * 2.5)); }
+      rig.position.y += V.set.height; rig.quaternion.setFromAxisAngle(Y, V.cyaw - Math.PI / 2); V.snap = false; return;
+    }
+    const E = player.eye || (player.eye = cockpitEye(player));
+    _cv.set(E.x, E.y, 0); const t = b.pointToWorldFrame(_cv);
+    const up = clamp((player.up.y - 0.35) / 0.3, 0, 1); // upright: the real driver's eye; rolling over: straight above the car, never under it
+    _v.set(lerp(p.x + cy * E.x, t.x, up), lerp(p.y + E.y, t.y, up) + V.set.height, lerp(p.z - sy * E.x, t.z, up));
+    if (!V.snap && _v.distanceToSquared(rig.position) > 16) { V.fade = 1; V.blackT = 0.2; } // a teleport (reset, crane drop): black, then fade in
+    rig.position.copy(_v); rig.quaternion.setFromAxisAngle(Y, V.yaw - Math.PI / 2); // yaw only: pitch and roll of the car never reach your head
+    V.snap = false;
+  }
+  function update(dt) {
+    cam.matrixWorld.decompose(camera.position, camera.quaternion, _s); camera.updateMatrixWorld(true); // the head, in the world: sound panning, detail levels, the sky
+    game.crashCam = null; game.fovPunch = 0; // no crash cam, no FOV punch in VR
+    if (game.shake > V.lastShake + 0.04 && game.state === 'playing') { const d = game.shake - V.lastShake; buzz('both', 0.15 + d * 0.5, 40 + d * 70); } // camera shake becomes rumble
+    game.shake *= Math.exp(-dt * 6); V.lastShake = game.shake;
+    if (!player) return;
+    if (player !== V.lastPlayer) { if (V.lastPlayer && game.state === 'playing') { V.fade = 1; V.blackT = 0.2; buzz('both', 0.3, 60); } V.lastPlayer = player; V.lastHp = player.health; V.snap = true; }
+    if (game.state === 'playing' && player.health < V.lastHp - 1.5) buzz('both', clamp(0.2 + (V.lastHp - player.health) / 25, 0, 1), 60);
+    V.lastHp = player.health;
+    placeRig(dt); rig.updateMatrixWorld(true); // (also when tests skip drawing: the laser needs it)
+    if (V.recenterAt && V.n >= V.recenterAt) { V.recenterAt = 0; recenter(); }
+    // fades and the comfort vignette
+    const live = game.state === 'playing' && !game.paused;
+    let ft = 0;
+    if (game.state === 'playing' && player.wrecked) ft = GAME_MODE === 'respawn' && (player.respawnT ?? 9) < 0.4 ? 1 : 0.72;
+    else if (live) { const w = player.body.angularVelocity; ft = clamp((Math.hypot(w.x, w.z) - 2.5) / 5, 0, 0.6); } // tumbling: dim the world
+    if (V.blackT > 0) { V.blackT -= dt; V.fade = 1; } // hold black a moment over a teleport, then fade in
+    else V.fade += (ft - V.fade) * (1 - Math.exp(-dt * (ft > V.fade ? 7 : 2.2)));
+    const sp = player.speed || 0; V.acc += (Math.abs(sp - V.lastSpeed) / Math.max(dt, 1e-3) - V.acc) * (1 - Math.exp(-dt * 6)); V.lastSpeed = sp;
+    const m = live && !player.wrecked ? clamp(Math.abs(player.body.angularVelocity.y) / 1.8 + V.acc / 16 - 0.08, 0, 1) : 0;
+    V.motion += (m - V.motion) * (1 - Math.exp(-dt * (m > V.motion ? 8 : 2.5)));
+    vig.material.uniforms.uInner.value = V.set.vig ? lerp(1.05, V.set.vig === 2 ? 0.5 : 0.72, V.motion) : 3.2;
+    vig.material.uniforms.uFade.value = V.fade;
+    // cockpit furniture
+    const cockpit = !V.set.view && game.state !== 'menu';
+    wheelT.visible = cockpit; wheel.rotation.z = (player.ctrl.steer || 0) * 2.0;
+    hud.mesh.visible = game.state === 'playing' && !player.wrecked;
+    V.hudT -= dt; if (hud.mesh.visible && V.hudT <= 0) { V.hudT = 0.12; drawHud(); }
+    updateMenu(dt);
+  }
+  function govern(dt) { // the headset sets the frame rate: drop detail when frames run long
+    if (game.state === 'menu') { V.ft.length = 0; V.gt = 0; return; }
+    V.ft.push(dt); V.gt += dt; if (V.gt < 2) return;
+    const f = V.ft.sort((a, b) => a - b), p70 = f[Math.floor(f.length * 0.7)] || 0; V.ft = []; V.gt = 0;
+    V.slow = p70 > 1.3 / V.hz ? V.slow + 1 : 0;
+    if (V.slow >= 2 && QUALITY.level < QSTEPS.length - 1) { applyQuality(QUALITY.level + 1); QUALITY.lite = true; V.slow = 0; }
+  }
+
+  // ---- buttons on the 2D page ----
+  for (const id of ['btnVR', 'gmVR']) { const b = $(id); if (b) b.addEventListener('click', (e) => { e.stopPropagation(); gearOpen(false); enter(); }); }
+  $('btnJoinCode').addEventListener('click', () => joinCode($('mpCode').value));
+  $('mpCode').addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter') joinCode($('mpCode').value); });
+  if (navigator.xr && navigator.xr.addEventListener) navigator.xr.addEventListener('devicechange', detect);
+  detect(); setTimeout(syncDom, 0);
+  return Object.assign(V, { cam, rig, seat, hud, menu, vig, wheel, ctrl, enter, exit, update, govern, recenter, detect, joinCode, pageItems,
+    buttonLocal(label) { // (tests) where a menu button is, in the controllers' space
+      const r = menu.rects.find((x) => x.label === label); if (!r) return null;
+      const u = (r.x + r.w / 2) / menu.W, v = 1 - (r.y + r.h / 2) / menu.H;
+      rig.updateMatrixWorld(true); const p = new THREE.Vector3((u - 0.5) * menu.w, (v - 0.5) * menu.h, 0); menu.mesh.localToWorld(p); return seat.worldToLocal(p).toArray();
+    } });
+})();
 /* ---------------- Play log: every match on this device (you, autoplay, hosting or as a guest) is written down ----------------
    One record per match: build, start/end time, session, mode, role, device, the cars you drove, quality changes, fps, slow moments and
    what caused them, physics safety-net hits, stuck cars, kills/deaths/damage per vehicle, weapon use, voice failures, network trouble,
@@ -9726,4 +10453,6 @@ if (/[?&]autoplay=1\b/.test(location.search) || /^#autoplay\b/.test(location.has
 window.__derby = { AUTO, PLAYLOG, BOULDERS, get mapShapes() { return mapShapes; }, respawnCar: (o, t) => respawnCar(o, t), PHYS, cockpitEye: (c) => cockpitEye(c), wakeProp: (pr) => wakeProp(pr), addConcrete: (x, z, r, k) => addConcrete(x, z, r, k), igniteProp: (pr, t) => igniteProp(pr, t), cookBull: (bl, by, dt) => cookBull(bl, by, dt), tankerBoom: (p, c) => tankerBoom(p, c), CAR_TYPES, sfx, CANNON, barks, PERF, shells, NETLOG, nearHostAdd: () => nearHostAdd(), nearJoin: () => nearJoin(), JUMBO, BALL, BOLLARDS, GASQ, updateArenaPub: (dt) => updateArena(dt), CRUSHER, crushNow: () => crushNow(), applyNight: () => applyNight(), FIREWORKS, ARENA, CROWD, MP, QUALITY, applyQuality: (i) => applyQuality(i), MERGED, camera, updatePropActivity: (dt) => updatePropActivity(dt), renderer, scene, spawnFree: (x, z, r) => spawnFree(x, z, r), BULLS, updateBulls: (dt) => updateBulls(dt), updateShells, tilt, setTilt, get CRANE() { return CRANE; }, updateCrane: (dt) => updateCrane(dt), CONCRETE, THREE, craters, shells, pickups, barks, PERSONAS, TUNE, game, cars, S, world, CAR_TYPES, sfx, touch, drawGauge, get player() { return player; }, keys, startMatch, selectCar, setValue, debris, props, platformOf, get simTime() { return simTime; }, set simTime(v) { simTime = v; } }; // console tinkering + tests
 requestAnimationFrame(frame);
 window.__derby.SCORE = SCORE; // (the scoreboard's test hook)
+window.__derby.VR = VR; window.__derby.XRS = XRS; window.__derby.composer = composer;
+window.__derby.VCLIP = VCLIP; window.__derby.ANNOUNCER = ANNOUNCER; window.__derby.COP = COP; window.__derby.megaphone = megaphone; window.__derby.hornLine = hornLine;
 </script>
