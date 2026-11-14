@@ -2177,6 +2177,13 @@ const WEAPONS = {
     },
   },
   flame: { label: 'FLAMER', cd: 5, dur: 2,
+    update(car, dt) { // handbrake drift at speed: the buggy's hot exhaust lights a trail of fire behind it
+      const vb = car.body.velocity, lat = Math.abs(vb.x * -car.fwd.z + vb.z * car.fwd.x); // sliding sideways = drifting
+      if (car.wrecked || lat < 3 || Math.hypot(vb.x, vb.z) < 5 || !(car.contacts > 0) || game.state !== 'playing') return;
+      car.trailT = (car.trailT || 0) - dt; const b = car.body, rp = b.pointToWorldFrame(new CANNON.Vec3(-car.T.L / 2 - car.comShift, 0.2, 0));
+      if (Math.random() < 0.7) emit('fire', rp.x + rand(-0.4, 0.4), 0.4, rp.z + rand(-0.4, 0.4), b.velocity.x * 0.2, rand(1, 2), b.velocity.z * 0.2, rand(0.3, 0.5), rand(0.35, 0.6));
+      if (car.trailT <= 0) { car.trailT = 0.3; addConcrete(rp.x, rp.z, rand(1.2, 1.7), 'fuel'); const pd = CONCRETE.list[CONCRETE.list.length - 1]; pd.burning = rand(3, 5); pd.owner = car; if (car.isPlayer && !car.trailSaid) { car.trailSaid = true; toast('🔥 FIRE DRIFT!', 'cool'); } }
+    },
     start(car) { sfx.at(car.body.position).noiseHit('bandpass', 600, 0.6, 0.4 * wv(car), 0.6); },
     tick(car, dt) {
       car.roarT = (car.roarT || 0) - dt; if (car.roarT <= 0) { car.roarT = 0.28; sfx.at(car.body.position).roar(wv(car)); }
@@ -2211,7 +2218,7 @@ const WEAPONS = {
       for (let i = 0; i < (QUALITY.lite ? 3 : 6); i++) emit('steam', p.x, p.y, p.z, f.x * rand(24, 34) + rand(-1, 1), rand(1, 4), f.z * rand(24, 34) + rand(-1, 1), rand(0.6, 1.1), rand(0.2, 0.42)); // a fat, high-pressure stream
       for (const c of cars) { if (c === car) continue; const vx = c.body.position.x - p.x, vz = c.body.position.z - p.z, al = vx * f.x + vz * f.z, lat = Math.abs(vx * f.z - vz * f.x);
         if (al > 0 && al < 34 && lat < 1.8 + al * 0.15) {
-          if (!c.wrecked) { const k = Math.min(c.body.mass, 7000) * 30 * (1 - al / 40); c.body.applyForce(new CANNON.Vec3(f.x * k, k * 0.15, f.z * k)); c.body.wakeUp(); } // ~3 g up close: shoves a car off its line, even nudges a tank
+          if (!c.wrecked) { const k = Math.min(c.body.mass, 7000) * 30 * (1 - al / 40); c.body.applyForce(new CANNON.Vec3(f.x * k, k * 0.15, f.z * k)); c.body.wakeUp(); if (c.body.mass < 2200 && al < 18) { const tq = c.body.mass * 16 * (1 - al / 18); c.body.applyTorque(new CANNON.Vec3(f.z * tq, 0, -f.x * tq)); } } // light cars get rolled over by the jet // ~3 g up close: shoves a car off its line, even nudges a tank
           c.leakT = 0; c.wet = Math.min(1, (c.wet || 0) + dt * 2.5); // a windscreen full of water: can't see a thing
           if (Math.random() < 0.4) emit('steam', c.body.position.x + rand(-1, 1), c.body.position.y + 1, c.body.position.z + rand(-1, 1), rand(-3, 3), rand(1, 3), rand(-3, 3), rand(0.4, 0.8), rand(0.4, 0.7));
         } }
@@ -2782,8 +2789,8 @@ function updateCrawlerCrush(dt) { // a tank or dozer sitting on a car squashes i
       c.crumple(zn, 0.45); c.crumple(far, 0.3); c.applyDamage(12 * S.damage, t, zn, null, 10); sparks(c.body.position, 10); if (player) sfx.at(c.body.position).crash(wv(t) * 0.7, 9);
       if (game.state === 'playing' && !c.compactSaid) { c.compactSaid = true; if (c.isPlayer) toast(`${t.name} IS COMPACTING YOU!`, 'bad'); else if (t.isPlayer) toast(`COMPACTING ${c.name}!`, 'cool'); barks.announce('crushed', { a: t.isPlayer ? 'Our hero' : t.name, v: c.isPlayer ? 'our hero' : c.name }, true); }
     } }
-  for (const t of cars) { if (!t.T.skid || t.wrecked || t.ghost) continue;
-    for (const c of cars) { if (c === t || c.T.skid || c.wrecked) continue;
+  for (const t of cars) { if (!(t.T.skid || t.T.superTruck || t.T.style === 'dump') || t.wrecked || t.ghost) continue; // crawlers, the monster truck and Big Bertha squash what they sit on
+    for (const c of cars) { if (c === t || c.T.skid || c.wrecked || c.body.mass > t.body.mass * 0.9) continue;
       const l = c.body.pointToLocalFrame(t.body.position); if (Math.abs(l.x) > c.T.L / 2 + 0.6 || Math.abs(l.z) > c.T.W / 2 + 0.6 || t.body.position.y - c.body.position.y < 0.55) continue;
       c.onTopT = (c.onTopT || 0) + dt; if (c.onTopT > 0.25 && simTime - (c.crushT0 || -9) > 0.7) crushCar(c, t, 0.6);
       if (Math.random() < dt * 8) sfx.at(c.body.position).scrape(wv(t) * 0.7);
@@ -2807,6 +2814,17 @@ function updateBoulders(dt) {
     if (o.t <= 0 || o.body.position.y < -5) { world.removeBody(o.body); scene.remove(o.mesh); BOULDERS.splice(i, 1); } }
 }
 const BALE_MAT = new THREE.MeshStandardMaterial({ color: 0xd8b85a, roughness: 0.95 }), baleGeo = new THREE.BoxGeometry(1.0, 0.5, 0.55); baleGeo.userData.shared = true;
+function landingBlast(car) { const p = car.body.position;
+  for (let i = 0; i < 26; i++) { const a = i / 26 * Math.PI * 2; emit('fire', p.x + Math.cos(a) * 1.5, 0.5, p.z + Math.sin(a) * 1.5, Math.cos(a) * rand(5, 9), rand(1, 3), Math.sin(a) * rand(5, 9), rand(0.4, 0.7), rand(0.6, 1)); }
+  for (const c of cars) { if (c === car || c.wrecked) continue; const d = c.body.position.distanceTo(p); if (d < 7) { c.applyDamage((7 - d) * 2.5 * S.damage, car, null, null, 0); setCarAlight(c, car); } }
+  for (const pr of props) if (pr.body.position.distanceTo(p) < 6) igniteProp(pr, 6);
+  sfx.at(p).explosion && sfx.at(p).explosion(0.6); game.shake = Math.max(game.shake, 0.8); toast('🔥 FIREBALL LANDING!', 'cool'); ptag('landing fireball');
+}
+function smokeScreen(c) { const p = c.body.position; // the tank pops its smoke dischargers
+  for (let i = 0; i < 40; i++) { const a = rand(0, Math.PI * 2), r = rand(2, 9); emit('smoke', p.x + Math.cos(a) * r, rand(0.5, 3), p.z + Math.sin(a) * r, Math.cos(a) * rand(1, 3), rand(0.2, 1), Math.sin(a) * rand(1, 3), rand(5, 9), rand(2.5, 4.5)); }
+  for (const o of cars) if (o.target === c) { o.target = null; o.retarget = 3; } // lost sight of it
+  sfx.at(p).noiseHit('lowpass', 500, 0.7, 0.4 * wv(c), 0.5); if (game.state === 'playing') { if (c.isPlayer) toast('💨 SMOKE SCREEN!', 'cool'); else if (Math.random() < 0.6) barks.say(c, 'flee', true); }
+}
 function harvestProp(car, pr) { // into the reel it goes; out the back comes a straw bale
   const i = props.indexOf(pr); if (i < 0) return; props.splice(i, 1); propGone(pr); const p = pr.body.position.clone(); setTimeout(() => world.removeBody(pr.body), 0); if (pr.mesh) { pr.mesh.visible = false; scene.remove(pr.mesh); }
   for (let k = 0; k < 10; k++) emit('dust', p.x, p.y + 0.5, p.z, rand(-2, 2), rand(1, 4), rand(-2, 2), rand(0.8, 1.4), rand(0.3, 0.6));
@@ -5063,6 +5081,7 @@ class Car {
     if (this.wrecked) return;
     if (by && !by.body) by = null; // blasts from scenery (gas cylinders, crane drops) have no driver to credit
     if (this.trackHp && (zone === 'left' || zone === 'right') && dmg > 3 && !by) this.hurtTrack(zone === 'left' ? 0 : 1, dmg * 2, by); // blasts beside the tank
+    if (this.T.gun && dmg >= 10 && !this.wrecked && simTime - (this.smokeScrT ?? -99) > 18 && MP.role !== 'guest') { this.smokeScrT = simTime; smokeScreen(this); } // a big hit: the Tiger pops smoke
     if (this.T.flimsy && (zone === 'left' || zone === 'right' || zone === 'rear')) { dmg *= 1.6; if (dmg >= 1.5) this.shedJunk(zone, dmg); } // RV walls are plywood and staples: they cave in and spill the contents
     dmg = Math.min(dmg, this.health);
     this.health -= dmg;
@@ -8136,7 +8155,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '52'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '53'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
@@ -8722,6 +8741,7 @@ function simBody(now) {
       else player.wheelieT = 0;
       if (player.contacts === 0 && !player.wrecked) player.airTime += sdt;
       else {
+        if (player.airTime > 1.0 && player.type === 'sandflea' && !player.wrecked) landingBlast(player); // the buggy lands in a fireball
         if (player.airTime > 0.8) {
           const pts = Math.round(player.airTime * 100);
           player.nitro = Math.min(1, player.nitro + player.airTime * 0.12);
