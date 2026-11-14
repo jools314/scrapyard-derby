@@ -722,6 +722,8 @@ const SETTINGS_DEF = [
   { key: 'perfHud',             group: 'Match', label: 'Show performance',    unit: '',      min: 0,    max: 1,     step: 1,    def: 0, note: 'frames per second, quality step, network delay' },
   { key: 'autoGfx',             group: 'Match', label: 'Auto graphics',       unit: '',      min: 0,    max: 1,     step: 1,    def: 1, note: '1 = lower the detail by itself when the frame rate drops' },
   { key: 'gfx',                 group: 'Match', label: 'Graphics quality',    unit: '',      min: 0,    max: 2,     step: 1,    def: 2, note: '0 = fast, 1 = glow, 2 = full (bloom, reflections, grading)' },
+  { key: 'sharp',               group: 'Match', label: 'Retina sharpness',    unit: '',      min: 0,    max: 1,     step: 1,    def: 0, note: '1 = draw more than one pixel per screen point on high-DPI screens (sharper, hotter, more battery)' },
+  { key: 'fpsCap',              group: 'Match', label: 'Frame rate cap',      unit: 'fps',   min: 30,   max: 120,   step: 30,   def: 60, note: '60 = smooth, and a 120 Hz screen does half the work; 30 = cool mode for phones (less heat, longer battery); 120 = no cap' },
   { key: 'aiCount',             group: 'Match', label: 'Opponents',           unit: '',      min: 1,    max: 12,    step: 1,    def: 6, restart: true },
   { key: 'aiSkill',             group: 'Match', label: 'Opponent aggression', unit: '',      min: 0,    max: 1,     step: 0.05, def: 0.8 },
   { key: 'sfxVolume',           group: 'Audio', label: 'Effects volume',      unit: '',      min: 0,    max: 1,     step: 0.05, def: 0.85 },
@@ -781,11 +783,16 @@ const canvas = document.getElementById('gl');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
 // Render resolution: big external monitors at 2x would mean 4-8 million shaded pixels a frame, bloom included.
 // Cap the pixel count, and let the auto-quality governor scale it further.
-const QUALITY = { scale: 1, maxPix: 2.3e6, dprCap: 2, level: 0, log: [] };
+const QUALITY = { scale: 1, maxPix: 2.3e6, dprCap: 2, prCap: 1, level: 0, log: [] };
 const AUTO = { on: false }; // autoplay (learn) mode: filled in near the end of the script
 const PLAYLOG = { m: null }; // the play log (every match): filled in near the end of the script
-function renderPixelRatio() { const w = canvas.clientWidth || window.innerWidth, h = canvas.clientHeight || window.innerHeight; return Math.max(0.5, Math.min(window.devicePixelRatio || 1, QUALITY.dprCap, Math.sqrt(QUALITY.maxPix / Math.max(1, w * h))) * QUALITY.scale); }
+// And never more than one drawn pixel per CSS pixel unless the player asks for it (gear ▸ Retina sharpness): a 2x Mac or iPad at 155 % shaded
+// 2.4x the pixels of 100 % (scene, shadows' lookups, bloom and grading, all of it) for a difference you only see standing still. MSAA keeps edges clean.
+function renderPixelRatio() { const w = canvas.clientWidth || window.innerWidth, h = canvas.clientHeight || window.innerHeight; return Math.max(0.5, Math.min(S.sharp ? 9 : QUALITY.prCap, Math.min(window.devicePixelRatio || 1, QUALITY.dprCap, Math.sqrt(QUALITY.maxPix / Math.max(1, w * h))) * QUALITY.scale)); }
 renderer.setPixelRatio(renderPixelRatio());
+// three.js draws a transparent double-sided material twice (back faces, then front), flipping material.side and needsUpdate around each draw:
+// that re-resolved the shader program (getParameters, ~100 KB of garbage) for every pickup and glow ring, twice a frame. One pass is plenty for these.
+THREE.Material.prototype.onBeforeRender = function () { if (this.transparent && this.side === THREE.DoubleSide && !this.forceSinglePass) this.forceSinglePass = true; };
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -802,13 +809,21 @@ const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(1, 1, 
 composer.addPass(new RenderPass(scene, camera));
 const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.42, 0.5, 1.0);
 composer.addPass(bloom);
-composer.addPass(new OutputPass());
+const outPass = new OutputPass(); outPass.needsSwap = false; composer.addPass(outPass); // (only ever the last pass when it's on). With no swaps at all, the scene always renders into the same MSAA buffer and the second buffer is never even allocated
+// Bloom works on a quarter-size copy (three's default is half): the blur is wide anyway, and it saves most of a full-screen pass of fill.
+{ const bs = bloom.setSize.bind(bloom); bloom.setSize = (w, h) => bs(Math.max(2, w / 2), Math.max(2, h / 2)); }
 const grade = new ShaderPass({
   uniforms: { tDiffuse: { value: null }, uVig: { value: 0.42 }, uSat: { value: 1.16 }, uCon: { value: 1.12 }, uWarm: { value: 0.012 }, uTime: { value: 0 }, uSun: { value: new THREE.Vector3(0, 0, 0) }, uAsp: { value: 1 } },
   vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
   fragmentShader: `uniform sampler2D tDiffuse; uniform float uVig, uSat, uCon, uWarm, uTime, uAsp; uniform vec3 uSun; varying vec2 vUv;
-    float vis(vec2 p){ return smoothstep(0.88, 0.99, dot(texture2D(tDiffuse, p).rgb, vec3(0.333))); }
-    void main(){ vec4 c = texture2D(tDiffuse, vUv); vec3 col = c.rgb;
+    // the tone map + sRGB step of OutputPass, done here instead: one full-screen pass (and its read + write of every pixel) fewer
+    vec3 outp(vec3 c){
+      #ifdef TONE_MAPPING
+      c = toneMapping(c);
+      #endif
+      return linearToOutputTexel(vec4(c, 1.0)).rgb; }
+    float vis(vec2 p){ return smoothstep(0.88, 0.99, dot(outp(texture2D(tDiffuse, p).rgb), vec3(0.333))); }
+    void main(){ vec4 c = texture2D(tDiffuse, vUv); vec3 col = outp(c.rgb);
       if (uSun.z > 0.0) { // sun glare: only as much as the sun itself is uncovered (five taps on the sun disc), a warm halo and faint lens ghosts
         vec2 sp = uSun.xy, o = vec2(0.006, 0.006 * uAsp);
         float v = (vis(sp) + vis(sp + vec2(o.x, 0.0)) + vis(sp - vec2(o.x, 0.0)) + vis(sp + vec2(0.0, o.y)) + vis(sp - vec2(0.0, o.y))) * 0.2 * uSun.z;
@@ -825,12 +840,13 @@ const grade = new ShaderPass({
       col += (fract(sin(dot(vUv * 913.0 + uTime, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) * 0.018; // film grain hides banding
       gl_FragColor = vec4(clamp(col, 0.0, 1.0), c.a); }`,
 });
-composer.addPass(grade);
+composer.addPass(grade); grade.needsSwap = false; // always the last pass: writes the screen
 function resize() {
   if (renderer.xr.isPresenting) return; // the headset owns the framebuffer size while in VR
   const w = canvas.clientWidth || window.innerWidth, h = canvas.clientHeight || window.innerHeight;
   renderer.setPixelRatio(renderPixelRatio()); renderer.setSize(w, h, false);
   composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(w, h);
+  { const ms = renderer.getPixelRatio() >= 1.5 ? 0 : 4, rt = composer.readBuffer; if (rt.samples !== ms) { rt.samples = ms; rt.dispose(); } } // dense enough already (retina at 150 %+): MSAA would be 4x the memory traffic for nothing
   bloom.resolution.set(w / 2, h / 2);
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
@@ -895,13 +911,110 @@ const world = new CANNON.World({ gravity: new CANNON.Vec3(0, -S.gravity, 0) });
   world.step = (...a) => { inStep = true; try { st(...a); } finally { inStep = false; while (rmQ.length) { const b = rmQ.pop(); if (world.bodies.includes(b)) rm(b); } } };
 }
 world.broadphase = new CANNON.SAPBroadphase(world);
+// Pair culling: SAP's bounding-sphere test lets the 1200 m ground slab and the 48 m bump fields pair with every awake body, so every crate,
+// panel, bull and car went through the (expensive, empty) narrowphase against them each step. A pair that passes the sphere test now also has to
+// pass a box test. The boxes are our own, made fresh from the current pose and shapes (cannon's body.aabb is left alone: many static bodies
+// keep a box from before they were placed, and wheel rays have always used those, so changing them would change how cars ride the speed bumps).
+// A box holds its shapes exactly, so this only drops pairs that could never touch: the same contacts, about half the narrowphase.
+{ const bp = world.broadphase, DYN_KIN = CANNON.Body.DYNAMIC | CANNON.Body.KINEMATIC, SLEEPING = CANNON.Body.SLEEPING;
+  const off = new CANNON.Vec3(), ori = new CANNON.Quaternion(), sa = new CANNON.AABB();
+  const fresh = (b) => { // b's box right now (once a step for movers; for resting bodies only when they've been moved by hand)
+    let c = b._pose; if (!c) { c = b._pose = [NaN, 0, 0, 0, 0, 0, 0, -1, -1]; b._box = new CANNON.AABB(); }
+    if (c[7] === world.stepnumber) return b._box;
+    const p = b.position, q = b.quaternion;
+    if ((b.type & DYN_KIN) && b.sleepState !== SLEEPING || b.aabbNeedsUpdate || c[8] !== b.shapes.length || p.x !== c[0] || p.y !== c[1] || p.z !== c[2] || q.x !== c[3] || q.y !== c[4] || q.z !== c[5] || q.w !== c[6]) {
+      const box = b._box;
+      for (let i = 0; i < b.shapes.length; i++) { q.vmult(b.shapeOffsets[i], off); off.vadd(p, off); q.mult(b.shapeOrientations[i], ori); b.shapes[i].calculateWorldAABB(off, ori, sa.lowerBound, sa.upperBound); if (i === 0) box.copy(sa); else box.extend(sa); }
+      c[0] = p.x; c[1] = p.y; c[2] = p.z; c[3] = q.x; c[4] = q.y; c[5] = q.z; c[6] = q.w; c[8] = b.shapes.length;
+    }
+    c[7] = world.stepnumber; return b._box;
+  };
+  bp.intersectionTest = function (bi, bj, p1, p2) {
+    const dx = bj.position.x - bi.position.x, dy = bj.position.y - bi.position.y, dz = bj.position.z - bi.position.z; // cannon's sphere test, as before
+    if (!(dx * dx + dy * dy + dz * dz < (bi.boundingRadius + bj.boundingRadius) ** 2)) return;
+    if (fresh(bi).overlaps(fresh(bj))) { p1.push(bi); p2.push(bj); }
+  };
+  if (bp.useBoundingBoxes) throw new Error('broadphase: expected sphere culling');
+}
+// SAP pair search, same pairs in the same order: cannon walks every body against every later body until one is out of reach, but a static or
+// sleeping body can only pair with an awake mover, and with ~160 static and ~100 sleeping bodies most of that walk was skipping them one by one.
+// Here a resting body jumps straight from mover to mover (the walk still stops at the same place: only skipped bodies are left out).
+{ const bp = world.broadphase, act = [], STATIC = CANNON.Body.STATIC, SLEEPING = CANNON.Body.SLEEPING, base = Object.getPrototypeOf(bp).collisionPairs;
+  bp.collisionPairs = function (wo, p1, p2) {
+    if (this.axisIndex !== 0) return base.call(this, wo, p1, p2);
+    if (this.dirty) { this.sortList(); this.dirty = false; }
+    const L = this.axisList, N = L.length; act.length = 0;
+    for (let i = 0; i < N; i++) { const b = L[i]; if ((b.type & STATIC) === 0 && b.sleepState !== SLEEPING) act.push(i); }
+    for (let i = 0, p = 0; i < N; i++) {
+      const bi = L[i], xi = bi.position.x + bi.boundingRadius;
+      if ((bi.type & STATIC) !== 0 || bi.sleepState === SLEEPING) {
+        while (p < act.length && act[p] <= i) p++;
+        const gi = bi.collisionFilterGroup, mi = bi.collisionFilterMask;
+        for (let q = p; q < act.length; q++) { const bj = L[act[q]]; if ((gi & bj.collisionFilterMask) === 0 || (bj.collisionFilterGroup & mi) === 0) continue; if (!(bj.position.x - bj.boundingRadius < xi)) break; this.intersectionTest(bi, bj, p1, p2); }
+      } else {
+        for (let j = i + 1; j < N; j++) { const bj = L[j]; if (!this.needBroadphaseCollision(bi, bj)) continue; if (!(bj.position.x - bj.boundingRadius < xi)) break; this.intersectionTest(bi, bj, p1, p2); }
+      }
+    }
+  };
+}
+// cannon remembers which pairs touched last step in an array with a slot for every pair of bodies (~55,000 for this yard) and zeroes all of it
+// every step. Same array, same lookups, but only the slots that were actually set get cleared.
+class SparseCollisionMatrix {
+  constructor() { this.matrix = []; this.set1 = []; }
+  get(bi, bj) { let i = bi.index, j = bj.index; if (j > i) { const t = j; j = i; i = t; } return this.matrix[(i * (i + 1) >> 1) + j - 1]; }
+  set(bi, bj, value) { let i = bi.index, j = bj.index; if (j > i) { const t = j; j = i; i = t; } const k = (i * (i + 1) >> 1) + j - 1; if (value && !this.matrix[k]) this.set1.push(k); this.matrix[k] = value ? 1 : 0; }
+  reset() { const m = this.matrix, s = this.set1; for (let n = 0; n < s.length; n++) if (s[n] < m.length) m[s[n]] = 0; s.length = 0; }
+  setNumObjects(n) { this.matrix.length = n * (n - 1) >> 1; }
+}
+world.collisionMatrix = new SparseCollisionMatrix(); world.collisionMatrixPrevious = new SparseCollisionMatrix();
+// Ray queries (every wheel, every step; shells; AI eyes) asked the broadphase for every body whose box the ray's box touches, and SAP answers that
+// by walking all ~300 bodies. The ~160 static bodies never move, so they're binned once into an 8 m grid (rebinned whenever one is added, removed
+// or its box changes); the movers are few and are still checked one by one. Same bodies, same boxes test: the same hits.
+{ const bp = world.broadphase, CELL = 8, grid = new Map(), huge = [], movers = [], statics = [], snap = []; let listDirty = true, checkedAt = -1, stamp = 0, qMask = -1;
+  { const rc = world.raycastClosest; world.raycastClosest = function (from, to, opt, res) { qMask = opt && opt.collisionFilterMask !== undefined ? opt.collisionFilterMask : -1; try { return rc.call(this, from, to, opt, res); } finally { qMask = -1; } }; } // a body the ray's mask filters out is never hit: don't box-test it
+  const STATIC = CANNON.Body.STATIC, key = (ix, iz) => (ix + 512) * 1024 + (iz + 512);
+  world.addEventListener('addBody', (e) => { if (listDirty) return; if (e.body.type === STATIC) listDirty = true; else movers.push(e.body); }); // (props and debris come and go all the time: only a new static body needs the grid rebuilt)
+  world.addEventListener('removeBody', (e) => { if (listDirty) return; if (e.body.type === STATIC) { listDirty = true; return; } const i = movers.indexOf(e.body); if (i >= 0) movers.splice(i, 1); });
+  const rebuild = () => {
+    grid.clear(); huge.length = movers.length = statics.length = snap.length = 0;
+    for (const b of world.bodies) {
+      if (b.type !== STATIC) { movers.push(b); continue; }
+      if (b.aabbNeedsUpdate) b.updateAABB();
+      const lo = b.aabb.lowerBound, up = b.aabb.upperBound; statics.push(b); snap.push(lo.x, lo.y, lo.z, up.x, up.y, up.z);
+      const x0 = Math.floor(lo.x / CELL), x1 = Math.floor(up.x / CELL), z0 = Math.floor(lo.z / CELL), z1 = Math.floor(up.z / CELL);
+      if (!(x1 - x0 < 4 && z1 - z0 < 4)) { huge.push(b); continue; } // the ground, fences, bump fields: always tested (also catches NaN/infinite boxes)
+      for (let ix = x0; ix <= x1; ix++) for (let iz = z0; iz <= z1; iz++) { const k = key(ix, iz); let c = grid.get(k); if (!c) grid.set(k, (c = [])); c.push(b); }
+    }
+    listDirty = false; checkedAt = world.stepnumber;
+  };
+  const check = () => { // once a step: has any static body been moved, resized or turned into something else?
+    checkedAt = world.stepnumber;
+    for (let i = 0, j = 0; i < statics.length; i++, j += 6) { const b = statics[i]; if (b.type !== STATIC || b.aabbNeedsUpdate) return rebuild();
+      const lo = b.aabb.lowerBound, up = b.aabb.upperBound; if (lo.x !== snap[j] || lo.y !== snap[j + 1] || lo.z !== snap[j + 2] || up.x !== snap[j + 3] || up.y !== snap[j + 4] || up.z !== snap[j + 5]) return rebuild(); }
+  };
+  { const so = bp.sortList; bp.sortList = function () { so.call(this); const L = this.axisList; for (let i = 0; i < L.length; i++) L[i]._ax = i; }; } // each body's place in SAP's list, for the order below
+  const ordered = (r, n0) => { for (let i = n0 + 1; i < r.length; i++) { const b = r[i]; let j = i - 1; while (j >= n0 && r[j]._ax > b._ax) { r[j + 1] = r[j]; j--; } r[j + 1] = b; } return r; }; // results in SAP's order, as cannon gives them: a ray that hits two surfaces at exactly the same distance reports the same one
+  bp.aabbQuery = function (wo, aabb, result = []) {
+    if (this.dirty) { this.sortList(); this.dirty = false; }
+    if (listDirty || wo !== world) rebuild(); else if (checkedAt !== world.stepnumber) check();
+    const n0 = result.length, lo = aabb.lowerBound, up = aabb.upperBound, x0 = Math.floor(lo.x / CELL), x1 = Math.floor(up.x / CELL), z0 = Math.floor(lo.z / CELL), z1 = Math.floor(up.z / CELL);
+    for (let i = 0; i < movers.length; i++) { const b = movers[i]; if ((b.collisionFilterGroup & qMask) === 0) continue; if (b.aabbNeedsUpdate) b.updateAABB(); if (b.aabb.overlaps(aabb)) result.push(b); }
+    if (!((x1 - x0 + 1) * (z1 - z0 + 1) <= 64)) { for (let i = 0; i < statics.length; i++) if (statics[i].aabb.overlaps(aabb)) result.push(statics[i]); return ordered(result, n0); } // a long ray: just walk them
+    for (let i = 0; i < huge.length; i++) if (huge[i].aabb.overlaps(aabb)) result.push(huge[i]);
+    const st = ++stamp;
+    for (let ix = x0; ix <= x1; ix++) for (let iz = z0; iz <= z1; iz++) { const c = grid.get(key(ix, iz)); if (!c) continue;
+      for (let i = 0; i < c.length; i++) { const b = c[i]; if (b._rq === st) continue; b._rq = st; if (b.aabb.overlaps(aabb)) result.push(b); } }
+    return ordered(result, n0);
+  };
+}
 world.allowSleep = true;
 world.solver.iterations = 12;
 world.defaultContactMaterial.friction = 0.32;
 world.defaultContactMaterial.restitution = S.restitution;
 const LIGHT = 2; // collision group for small props and debris: the car body hits them, wheel rays roll through them
 const CARG = 4;  // cars: wheel rays ignore other cars, so nobody gets beached on a roof
-world.rayTest = function (from, to, result) { this.raycastClosest(from, to, { skipBackfaces: true, collisionFilterMask: ~(LIGHT | CARG) }, result); };
+const _noop = () => {}, _wheelRay = { skipBackfaces: true, collisionFilterMask: ~(LIGHT | CARG), callback: _noop }; // (reused: raycastClosest only overwrites its from/to/result/mode)
+world.rayTest = function (from, to, result) { this.raycastClosest(from, to, _wheelRay, result); };
 const carMat = new CANNON.Material('car');
 const sceneryMat = new CANNON.Material('scenery');
 world.addContactMaterial(new CANNON.ContactMaterial(carMat, sceneryMat, { friction: 0.06, restitution: 0.12 })); // glance off walls and terrain instead of snagging
@@ -1791,10 +1904,12 @@ function updateJumbo(dt) {
   if (JUMBO.recT <= 0) { JUMBO.recT = 0.05; JUMBO.rec.push({ t: clock, cars: cars.slice(), p: cars.map(snapCar) }); while (JUMBO.rec.length && JUMBO.rec[0].t < clock - 4.5) JUMBO.rec.shift(); }
   JUMBO.tick++;
   const gq = Math.min(S.gfx, S.autoGfx ? (QUALITY.gfxCap ?? 2) : 2);
-  if (window.__noRender || gq === 0 || XRS.on || JUMBO.tick % 6) return; // a second full scene render: 10 a second is plenty for a big screen
+  JUMBO.due = (JUMBO.due || 0) - dt; // a second full scene render: 10 a second is plenty for a big screen (by the clock: a 120 Hz screen or the host's tick must not make it 20), 6 on the lighter steps
+  if (window.__noRender || gq === 0 || XRS.on || JUMBO.due > 0) return; JUMBO.due = QUALITY.level >= 3 ? 1 / 6 : 0.1;
   // only bother when the screen is in view
-  const fr = new THREE.Frustum().setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
-  if (!fr.intersectsSphere(new THREE.Sphere(JUMBO.screen.position, 18)) || camera.position.distanceTo(JUMBO.screen.position) > 330) return;
+  const fr = JUMBO.fr || (JUMBO.fr = new THREE.Frustum()), m4 = JUMBO.m4 || (JUMBO.m4 = new THREE.Matrix4()), sp = JUMBO.sp || (JUMBO.sp = new THREE.Sphere(JUMBO.screen.position, 18));
+  fr.setFromProjectionMatrix(m4.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
+  if (!fr.intersectsSphere(sp) || camera.position.distanceTo(JUMBO.screen.position) > 330) return;
   const R = JUMBO.replay, cam = JUMBO.cam;
   let restore = null;
   if (R) { // replay: put every car back where it was, slow motion, orbiting the crash
@@ -1804,13 +1919,15 @@ function updateJumbo(dt) {
     restore = []; fr0.cars.forEach((c, i) => { if (!cars.includes(c)) return; restore.push(c); poseCar(c, fr0.p[i]); });
     const a = (R.t - R.t0) * 0.6; cam.position.set(R.at.x + Math.cos(a) * 11, R.at.y + 4.5, R.at.z + Math.sin(a) * 11); cam.lookAt(R.at.x, R.at.y + 0.5, R.at.z);
   } else { // live drone: high and wide over whoever is in front of the player, or the player
-    const f = player ? player.body.position : new CANNON.Vec3(0, 0, 0); JUMBO.focus = JUMBO.focus || new THREE.Vector3(f.x, f.y, f.z); JUMBO.focus.lerp(new THREE.Vector3(f.x, f.y, f.z), 0.15);
+    const f = player ? player.body.position : CANNON.Vec3.ZERO; JUMBO.focus = JUMBO.focus || new THREE.Vector3(f.x, f.y, f.z); JUMBO.focus.lerp(tv3.set(f.x, f.y, f.z), 0.15);
     const a = clock * 0.15; cam.position.set(JUMBO.focus.x + Math.cos(a) * 26, JUMBO.focus.y + 14, JUMBO.focus.z + Math.sin(a) * 26); cam.lookAt(JUMBO.focus);
   }
   JUMBO.screen.visible = false; JUMBO.tag.visible = JUMBO.tag.visible && false;
-  const fog = scene.fog; scene.fog = null;
-  { const t0 = performance.now(); renderer.setRenderTarget(JUMBO.rt); renderer.render(scene, cam); renderer.setRenderTarget(null); if (typeof SEC !== 'undefined') SEC.add('jumbotron', performance.now() - t0); }
-  scene.fog = fog; JUMBO.screen.visible = true; if (R) JUMBO.tag.visible = (clock * 2) % 1 < 0.7;
+  // Keep the fog (it starts 110 m out, the drone is ~30 m from its subject): switching it off and on made three.js re-check every material's
+  // shader twice per jumbo frame. And reuse the main view's shadow map (it's centred on the player, which is what the drone films) instead of
+  // rendering every shadow caster again.
+  { const t0 = performance.now(), au = renderer.shadowMap.autoUpdate; renderer.shadowMap.autoUpdate = au && sun.castShadow && !sun.shadow.map; /* (only rendered here if the main view hasn't made one yet) */ renderer.setRenderTarget(JUMBO.rt); renderer.render(scene, cam); renderer.setRenderTarget(null); renderer.shadowMap.autoUpdate = au; if (typeof SEC !== 'undefined') SEC.add('jumbotron', performance.now() - t0); }
+  JUMBO.screen.visible = true; if (R) JUMBO.tag.visible = (clock * 2) % 1 < 0.7;
   if (restore) for (const c of restore) { c.group.position.copy(c.body.position); c.group.quaternion.copy(c.body.quaternion); for (let i = 0; i < c.nW; i++) { if (!c.wheelMeshes[i] || c.wheelLost[i]) continue; c.vehicle.updateWheelTransform(i); const t = c.vehicle.wheelInfos[i].worldTransform; c.wheelMeshes[i].position.copy(t.position); c.wheelMeshes[i].quaternion.copy(t.quaternion); } }
 }
 
@@ -1854,6 +1971,10 @@ function mergeStatic() {
     gr.list.push(o);
   });
   let before = 0, after = 0;
+  // Everything that qualified here is static by this function's own rule (it gets baked in world space), and so is every group above it:
+  // stop three.js recomposing their matrices every frame. (The ones that merge are removed below; this matters for the singletons and the groups.)
+  const frozen = new Set();
+  for (const gr of groups.values()) for (const o of gr.list) for (let p = o; p && p !== scene && !frozen.has(p); p = p.parent) { frozen.add(p); p.updateMatrix(); p.matrixAutoUpdate = false; }
   for (const gr of groups.values()) {
     before += gr.list.length;
     if (gr.list.length < 2) { after += gr.list.length; continue; }
@@ -2940,7 +3061,10 @@ const PBATCH = (() => {
     b.onBeforeCompile = (sh) => { sh.vertexShader = sh.vertexShader.replace('#include <project_vertex>', 'vec4 mvPosition = modelViewMatrix * vec4(instanceMatrix[3].xyz, 1.0); mvPosition.xy += position.xy * length(instanceMatrix[0].xyz); gl_Position = projectionMatrix * mvPosition;'); };
     b.customProgramCacheKey = () => 'billboard'; return b; };
   const get = (mat, sprite) => { let b = batches.get(mat); if (b) return b;
-    const cap = sprite ? SMAX : PMAX, im = new THREE.InstancedMesh(sprite ? quad : pGeo, sprite ? billboard(mat) : mat, cap);
+    // chips get their own copy of the material: sharing one between this instanced batch and the ordinary meshes it came from made three.js
+    // switch its shader program (instanced <-> plain) twice every frame, re-resolving it each time (~3 materials, ~100 KB garbage a frame)
+    const inst = () => { const c = mat.clone(); c.onBeforeCompile = mat.onBeforeCompile; c.customProgramCacheKey = mat.customProgramCacheKey; return c; };
+    const cap = sprite ? SMAX : PMAX, im = new THREE.InstancedMesh(sprite ? quad : pGeo, sprite ? billboard(mat) : inst(), cap);
     im.frustumCulled = false; im.count = 0; im.instanceMatrix.setUsage(THREE.DynamicDrawUsage); im.renderOrder = sprite ? 2 : 0;
     im.castShadow = !sprite && !mat.blending; scene.add(im); b = { im, n: 0, idle: 0, sprite }; batches.set(mat, b); return b; };
   for (const k in SMAT) { STANDING.add(SMAT[k]); get(SMAT[k], true); } for (const k in PMAT) { STANDING.add(PMAT[k]); get(PMAT[k], false); } // made up front so their shaders compile during the countdown
@@ -2949,7 +3073,7 @@ const PBATCH = (() => {
     for (const p of parts) { if (!p || !p.mesh.visible) continue; const b = get(p.mesh.material, false); if (b.n >= PMAX) continue; p.mesh.updateMatrix(); b.im.setMatrixAt(b.n++, p.mesh.matrix); }
     for (const p of sprites) { if (!p || !p.mesh.visible) continue; const b = get(p.mesh.material, true); if (b.n >= SMAX) continue; m4.compose(p.mesh.position, q0, p.mesh.scale); b.im.setMatrixAt(b.n++, m4); }
     for (const [mat, b] of batches) { b.im.count = b.n; if (b.n) { b.im.instanceMatrix.needsUpdate = true; b.idle = 0; }
-      else if (!STANDING.has(mat) && (b.idle += dt) > 8) { scene.remove(b.im); b.im.dispose(); if (b.sprite) b.im.material.dispose(); batches.delete(mat); } } // one-off materials (a car's paint) are let go
+      else if (!STANDING.has(mat) && (b.idle += dt) > 8) { scene.remove(b.im); b.im.dispose(); b.im.material.dispose(); batches.delete(mat); } } // one-off materials (a car's paint) are let go
   } };
 })();
 // Firelight: up to three flickering lights follow the burning cars nearest to you
@@ -3605,6 +3729,30 @@ function chamferBox(hx, hy, hz, c, inset, under = 0) { // under: how far the und
 
 // how much extra pull keeps a car planted: heavy trucks most, the tank and forklift (already planted, special handling) none
 function plantK(T) { return T.heavy ? S.truckWeight : T.noPlant ? 1 : S.carWeight; }
+// Materials that differ only in colour, roughness, metalness and glow share one draw: those move into the vertices (colour, pbr, emi)
+// and a folded material reads them back per pixel, so every pixel comes out the same. Only plain MeshStandardMaterials nothing changes
+// at runtime are folded; one folded material per look (maps, env strength...), shared by every car (never disposed).
+const FOLD = new Map(), FOLD_LIVE = new WeakSet();
+function foldCompile(sh) {
+  sh.vertexShader = sh.vertexShader.replace('#include <color_pars_vertex>', '#include <color_pars_vertex>\nattribute vec2 pbr; attribute vec3 emi; varying vec2 vPbr; varying vec3 vEmi;')
+    .replace('#include <color_vertex>', '#include <color_vertex>\nvPbr = pbr; vEmi = emi;');
+  sh.fragmentShader = sh.fragmentShader.replace('#include <color_pars_fragment>', '#include <color_pars_fragment>\nvarying vec2 vPbr; varying vec3 vEmi;')
+    .replace('#include <roughnessmap_fragment>', 'float roughnessFactor = vPbr.x;').replace('#include <metalnessmap_fragment>', 'float metalnessFactor = vPbr.y;')
+    .replace('vec3 totalEmissiveRadiance = emissive;', 'vec3 totalEmissiveRadiance = vEmi;');
+}
+function foldClone() { const c = THREE.MeshStandardMaterial.prototype.clone.call(this); c.onBeforeCompile = foldCompile; c.customProgramCacheKey = this.customProgramCacheKey; c.clone = foldClone; return c; } // (a scorched turret's clone still reads its vertices)
+let FOLD_MAPS = null; // textures the shared materials use: a material with any other map is one car's own and folds into that car's cache
+function foldMat(m, local) {
+  if (!m || m.userData.folded) return m;
+  if (m.type !== 'MeshStandardMaterial' || m.vertexColors || m.transparent || m.roughnessMap || m.metalnessMap || m.emissiveMap || m.onBeforeCompile !== THREE.Material.prototype.onBeforeCompile || FOLD_LIVE.has(m) || (m.map && m.map.userData.own)) return null; // (a car's own number plate is one of a kind anyway)
+  const id = (t) => (t ? t.uuid : '-');
+  const key = [id(m.map), id(m.normalMap), id(m.bumpMap), m.bumpScale, id(m.aoMap), id(m.alphaMap), id(m.lightMap), id(m.envMap), id(m.displacementMap), m.envMapIntensity, m.flatShading, m.side, m.shadowSide, m.opacity, m.alphaTest,
+    m.fog, m.wireframe, m.depthTest, m.depthWrite, m.colorWrite, m.toneMapped, m.blending, m.polygonOffset, m.polygonOffsetFactor, m.polygonOffsetUnits, m.dithering, m.visible, m.normalScale && m.normalScale.x].join('|');
+  if (!FOLD_MAPS) { FOLD_MAPS = new Set(); for (const o of [M, DET, DET2()]) for (const v of Object.values(o)) for (const x of [].concat(v)) if (x && x.isMaterial && x.map) FOLD_MAPS.add(x.map); FOLD_MAPS.add(grimeTex); }
+  const cache = !m.map || FOLD_MAPS.has(m.map) ? FOLD : local;
+  let f = cache.get(key); if (!f) { f = m.clone(); f.color.setRGB(1, 1, 1); f.emissive.setRGB(0, 0, 0); f.vertexColors = true; f.userData = { folded: true }; f.onBeforeCompile = foldCompile; f.customProgramCacheKey = () => 'carfold'; f.clone = foldClone; cache.set(key, f); }
+  return f;
+}
 class Car {
   constructor({ type, name, color, isPlayer, x, z, yaw, number }) {
     const T = this.T = CAR_TYPES[type];
@@ -4150,7 +4298,7 @@ class Car {
     const R = T.wheelR, WW = T.wheelW;
     const tireGeo = new THREE.CylinderGeometry(R, R, WW, 22); tireGeo.rotateX(Math.PI / 2);
     const rimGeo = new THREE.CylinderGeometry(R * 0.62, R * 0.62, WW + 0.02, 16); rimGeo.rotateX(Math.PI / 2);
-    const spokeGeo = new THREE.BoxGeometry(R * 1.15, 0.07, WW + 0.04);
+    const spokeGeo = mergeGeometries([0, 1, 2].map((k) => new THREE.BoxGeometry(R * 1.15, 0.07, WW + 0.04).rotateZ(k * Math.PI / 3)), false); // the three spokes are one mesh: one draw call
     const discGeo = new THREE.CylinderGeometry(R * 0.5, R * 0.5, 0.04, 16); discGeo.rotateX(Math.PI / 2);
     this.wheelMeshes = [];
     for (let i = 0; i < this.nW; i++) {
@@ -4158,12 +4306,13 @@ class Car {
       const t = new THREE.Mesh(tireGeo, M.tire); t.castShadow = true;
       const rim = new THREE.Mesh(rimGeo, M.rim);
       w.add(t, rim);
-      for (let k = 0; k < 3; k++) { const sp = new THREE.Mesh(spokeGeo, M.steel); sp.rotation.z = k * Math.PI / 3; w.add(sp); }
+      w.add(new THREE.Mesh(spokeGeo, M.steel));
       w.visible = !T.skid; // tanks show tracks instead
       scene.add(w);
       this.wheelMeshes.push(w);
       // brake disc + spring live in the car frame (they don't spin)
     }
+    if (!T.skid) this.skinWheels([[tireGeo, M.tire, true], [rimGeo, M.rim, false], [spokeGeo, M.steel, false]], R);
     // Suspension: coil-over struts, visible in the wheel wells
     this.springs = [];
     for (let i = 0; i < this.nW; i++) {
@@ -4176,6 +4325,33 @@ class Car {
       root.add(disc);
       this.springs.push({ group: s, disc });
     }
+  }
+
+  // All of a car's wheels drawn by one skinned mesh per material (3 draw calls, not 3 per wheel): each wheel group is the bone its copy rides on,
+  // so everything that moves, wobbles, poses or replays a wheel group still does. The wheel's own meshes stay in its group, hidden (no layer),
+  // for when it comes off (loseWheel) and flies as debris.
+  skinWheels(list, R) {
+    const bones = this.wheelMeshes.slice(), skel = this.wheelSkel = new THREE.Skeleton(bones, bones.map(() => new THREE.Matrix4())), id = new THREE.Matrix4();
+    for (const w of bones) w.traverse((o) => { if (o.isMesh) o.layers.mask = 0; });
+    const sph = new THREE.Sphere(), v = new THREE.Vector3();
+    const fit = () => { // the wheels' bounding sphere, for frustum and shadow culling
+      let n = 0; sph.center.set(0, 0, 0);
+      for (const b of skel.bones) if (b.parent) { sph.center.add(v.setFromMatrixPosition(b.matrixWorld)); n++; }
+      if (this.wheelSkin) for (const m of this.wheelSkin) m.visible = n > 0; if (!n) return; sph.center.divideScalar(n); let r = 0;
+      for (const b of skel.bones) if (b.parent) r = Math.max(r, v.setFromMatrixPosition(b.matrixWorld).distanceTo(sph.center)); sph.radius = r + R * 1.3;
+    };
+    this.wheelSkin = list.map(([geo, mat, cast]) => {
+      const gs = bones.map((_, i) => { const g = geo.clone(), n = g.attributes.position.count, si = new Uint16Array(n * 4), sw = new Float32Array(n * 4); for (let k = 0; k < n; k++) { si[k * 4] = i; sw[k * 4] = 1; }
+        g.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4)); g.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw, 4)); return g; });
+      const m = new THREE.SkinnedMesh(mergeGeometries(gs, false), mat); gs.forEach((g) => g.dispose());
+      m.castShadow = cast; m.bindMode = 'detached'; m.bind(skel, id); m.boundingSphere = sph;
+      m.updateMatrixWorld = function (force) { THREE.SkinnedMesh.prototype.updateMatrixWorld.call(this, force); fit(); };
+      scene.add(m); return m;
+    });
+  }
+  dropWheelSkin(i) { // wheel i left the car: its copy in the skinned meshes collapses to a point, its own meshes are drawn again
+    if (!this.wheelSkel) return; const z = this._zeroBone || (this._zeroBone = new THREE.Object3D()); z.scale.setScalar(0); z.updateMatrixWorld(true);
+    const w = this.wheelSkel.bones[i]; if (w && w !== z) w.traverse((o) => { if (o.isMesh) o.layers.mask = 1; }); this.wheelSkel.bones[i] = z;
   }
 
   // Cosmetic detail kit: the small stuff that makes a box read as a real, used, beaten-up vehicle
@@ -4366,36 +4542,101 @@ class Car {
     }
   }
 
-  // Bake the trim that never moves or comes off (grilles, bolts, stripes, rails...) into one mesh per material.
-  // Anything that dents, detaches, lights up, animates or is referenced by name stays a separate object.
+  // Draw calls are what a car costs the CPU, so the whole car is baked into a few meshes per material:
+  // - trim that never moves (grilles, bolts, stripes, rails...) is merged for good;
+  // - panels that can come off (this.parts) are baked too, but stay in the scene graph, hidden (layer mask 0): the moment one moves, swings,
+  //   changes material or tears off, its triangles are cut out of the merged mesh and the real panel is drawn again (unbake);
+  // - anything that dents, animates, lights up or is reached by name keeps its own mesh; the static bits riding on it merge inside it;
+  // - small details merge by size class with userData.lodR, so the distance LOD (carLOD) still drops them as a unit.
   mergeStaticParts() {
-    const keep = new Set();
-    const mark = (o) => { if (o && o.isObject3D) o.traverse((x) => keep.add(x)); };
-    for (const pt of this.parts) mark(pt.mesh);
-    for (const d of this.deform) keep.add(d.mesh);
-    for (const m of this.lampMeshes || []) mark(m);
-    for (const v of Object.values(this)) { if (v && v.isObject3D && v !== this.group && v !== this.root) mark(v); else if (Array.isArray(v)) for (const x of v) if (x && x.isObject3D) mark(x); else if (x && x.mesh && x.mesh.isObject3D) mark(x.mesh); }
-    const root = this.root; root.updateMatrixWorld(true);
-    const inv = new THREE.Matrix4().copy(root.matrixWorld).invert();
-    const groups = new Map();
-    root.traverse((o) => {
-      if (!o.isMesh || keep.has(o) || o.isInstancedMesh || Array.isArray(o.material) || o.material.transparent) return;
-      for (let p = o.parent; p && p !== root; p = p.parent) if (keep.has(p)) return; // inside something that moves
-      const g = o.geometry; const key = o.material.uuid + '|' + (o.castShadow ? 1 : 0) + '|' + Object.keys(g.attributes).sort().join(',') + '|' + (g.index ? 'i' : 'n');
-      let gr = groups.get(key); if (!gr) groups.set(key, gr = { mat: o.material, cast: o.castShadow, list: [] }); gr.list.push(o);
-    });
+    const root = this.root, pin = new Set(), partRec = new Map(), fold = new Map();
+    const addPin = (o) => { if (o && o.isObject3D) pin.add(o); };
+    for (const d of this.deform) pin.add(d.mesh);
+    for (const [k, v] of Object.entries(this)) { if (k === 'group' || k === 'root' || k === 'parts' || k === 'wheelMeshes' || k === 'lampMeshes' || k === 'exhaust') continue; if (v && v.isObject3D) addPin(v); else if (Array.isArray(v)) for (const x of v) { if (x && x.isObject3D) addPin(x); else if (x && x.mesh && x.mesh.isObject3D) addPin(x.mesh); } } // (spring struts and road wheels are merged as before)
+    if (this.hood) { addPin(this.hood.mesh); addPin(this.hood.hinge); }
+    if (this.freshener) addPin(this.freshener.piv);
+    if (this.trackMeshes) for (const tm of this.trackMeshes) addPin(tm[0]); // a broken track's belt is hidden on its own
+    for (const v of Object.values(this)) if (v && v.isMaterial) FOLD_LIVE.add(v); for (const m of [M.glass, M.lamp, M.lampBroken]) if (m) FOLD_LIVE.add(m); // (materials that blink, crack, darken or glow keep their own draw)
+    for (const pt of this.parts) if (!pin.has(pt.mesh) && !pt.own) { const rec = { pt, o: pt.mesh, members: [], ranges: [], kids: [], baked: false }; partRec.set(pt.mesh, rec); }
+    for (const l of this.lampMeshes || []) if (!pin.has(l) && !partRec.has(l)) partRec.set(l, { pt: null, o: l, members: [], ranges: [], kids: [], baked: false }); // headlights too: drawn by themselves again once one is smashed or shoved
+    const anchor = new Set(this.exhaust || []); // exhaust tips only mark where the flames come out: baked, but kept (hidden) for their position
+    for (const o of [...pin]) { let q = o.parent; while (q && q !== root) q = q.parent; if (!q) pin.delete(o); } // (only what rides on the car body)
+    const isUnitA = (o) => pin.has(o) || partRec.has(o);
+    const v3 = new THREE.Vector3();
+    const radius = (o) => { if (o.userData.lodR !== undefined) return o.userData.lodR; const g = o.geometry; if (!g.boundingSphere) g.computeBoundingSphere(); const s = o.getWorldScale(v3); return g.boundingSphere.radius * Math.max(s.x, s.y, s.z); };
+    const cls = (r) => (r < 0.3 ? 0 : 3); // bits under 0.3 m (no shadow) go in a detail mesh that carLOD drops as one; hiding bigger merged bits saves no draw call
+    const okMat = (m) => m && !m.transparent;
+    const eligible = (o) => { if (!o.isMesh || o.isInstancedMesh || !o.visible || !o.geometry || !o.geometry.attributes.position) return false; const g = o.geometry; for (const a of Object.values(g.attributes)) if (a.isInterleavedBufferAttribute) return false; if (g.morphAttributes && Object.keys(g.morphAttributes).length) return false;
+      if (Array.isArray(o.material)) return !!g.index && g.groups.length > 0 && g.groups.every((gr) => okMat(o.material[gr.materialIndex])); return okMat(o.material); };
+    // one draw call per material for multi-material boxes (doors, cabs): sort the triangles by material
+    root.traverse((o) => { if (!o.isMesh || !Array.isArray(o.material) || !o.geometry.index || !o.geometry.groups.length) return; const g = o.geometry, mats = o.material, idx = g.index.array, first = new Map(), order = [];
+      for (const gr of g.groups) { const mi = mats.indexOf(mats[gr.materialIndex]); if (!first.has(mi)) { first.set(mi, []); order.push(mi); } first.get(mi).push(gr); }
+      if (order.length === g.groups.length) return; const ni = new (idx.constructor)(idx.length); let p = 0; g.clearGroups();
+      for (const mi of order) { const s = p; for (const gr of first.get(mi)) { ni.set(idx.subarray(gr.start, Math.min(idx.length, gr.start + gr.count)), p); p += Math.min(gr.count, idx.length - gr.start); } g.addGroup(s, p - s, mi); }
+      g.setIndex(new THREE.BufferAttribute(ni.subarray(0, p), 1)); });
+    const subGeo = (g, start, count) => { const idx = g.index.array, map = new Map(), ni = []; for (let i = start; i < Math.min(idx.length, start + count); i++) { const v = idx[i]; let n = map.get(v); if (n === undefined) { n = map.size; map.set(v, n); } ni.push(n); }
+      const out = new THREE.BufferGeometry(); for (const [name, a] of Object.entries(g.attributes)) { const s = a.itemSize, arr = new a.array.constructor(map.size * s); for (const [v, n] of map) for (let k = 0; k < s; k++) arr[n * s + k] = a.array[v * s + k]; out.setAttribute(name, new THREE.BufferAttribute(arr, s, a.normalized)); }
+      out.setIndex(ni); return out; };
+    const pieces = (o, unit) => { // the mesh's triangles in the unit's space, one piece per material
+      unit.updateWorldMatrix(true, false); o.updateWorldMatrix(true, false);
+      const rel = new THREE.Matrix4().copy(unit.matrixWorld).invert().multiply(o.matrixWorld), g = o.geometry, r = radius(o), cast = o.castShadow && r >= 0.3, out = [];
+      const fin = (pg, mat0) => { const fm = foldMat(mat0, fold), mat = fm || mat0;
+        if (fm && fm !== mat0) { const n = pg.attributes.position.count, ca = new Float32Array(n * 3), pa = new Float32Array(n * 2), ea = new Float32Array(n * 3), cc = mat0.color, ec = mat0.emissive, ei = mat0.emissiveIntensity;
+          for (let i = 0; i < n; i++) { ca[i * 3] = cc.r; ca[i * 3 + 1] = cc.g; ca[i * 3 + 2] = cc.b; pa[i * 2] = mat0.roughness; pa[i * 2 + 1] = mat0.metalness; ea[i * 3] = ec.r * ei; ea[i * 3 + 1] = ec.g * ei; ea[i * 3 + 2] = ec.b * ei; }
+          pg.setAttribute('color', new THREE.BufferAttribute(ca, 3)); pg.setAttribute('pbr', new THREE.BufferAttribute(pa, 2)); pg.setAttribute('emi', new THREE.BufferAttribute(ea, 3)); }
+        if (!pg.index) { const n = pg.attributes.position.count, ix = []; for (let i = 0; i < n; i++) ix.push(i); pg.setIndex(ix); } pg.clearGroups(); pg.applyMatrix4(rel);
+        if (rel.determinant() < 0) { const a = pg.index.array; for (let i = 0; i < a.length; i += 3) { const t = a[i + 1]; a[i + 1] = a[i + 2]; a[i + 2] = t; } }
+        out.push({ geo: pg, mat, cast, r, o }); };
+      if (Array.isArray(o.material)) for (const gr of g.groups) fin(subGeo(g, gr.start, gr.count), o.material[gr.materialIndex]); else fin(g.clone(), o.material);
+      return out; };
+    const sig = (g) => Object.keys(g.attributes).sort().map((k) => k + g.attributes[k].itemSize).join(',');
     let saved = 0;
-    for (const gr of groups.values()) {
-      if (gr.list.length < 2) continue;
-      const geos = gr.list.map((o) => { const g = o.geometry.clone(); g.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld)); return g; });
-      const merged = mergeGeometries(geos, false); geos.forEach((g) => g.dispose());
-      if (!merged) continue;
-      const m = new THREE.Mesh(merged, gr.mat); m.castShadow = gr.cast; m.receiveShadow = true; root.add(m);
-      for (const o of gr.list) o.parent.remove(o);
-      saved += gr.list.length - 1;
-    }
+    const bake = (unit, list) => { // list: [{ geo, mat, cast, r, o, rec }]
+      const groups = new Map();
+      for (const p of list) { const c = cls(p.r), key = p.mat.uuid + '|' + (p.cast ? 1 : 0) + '|' + c + '|' + sig(p.geo); let gr = groups.get(key); if (!gr) groups.set(key, gr = { mat: p.mat, cast: p.cast, c, list: [] }); gr.list.push(p); }
+      const gone = new Set();
+      for (const gr of groups.values()) {
+        const L = gr.list;
+        if (L.length === 1 && !Array.isArray(L[0].o.material)) { L[0].geo.dispose(); continue; } // a lone bit stays as it is
+        const merged = mergeGeometries(L.map((p) => p.geo), false); if (!merged) { for (const p of L) p.geo.dispose(); continue; }
+        const m = new THREE.Mesh(merged, gr.mat); m.castShadow = gr.cast; m.receiveShadow = true; m.userData.merged = true; m.userData.live = L.length;
+        if (gr.c < 3) m.userData.lodR = Math.max(...L.map((p) => p.r));
+        let v0 = 0; for (const p of L) { const n = p.geo.attributes.position.count; if (p.rec) { p.rec.ranges.push({ m, v0, n }); if (!p.rec.members.includes(p.o)) p.rec.members.push(p.o); } v0 += n; p.geo.dispose(); if (!p.rec) gone.add(p.o); }
+        unit.add(m); saved += L.length - 1;
+      }
+      for (const o of gone) if (anchor.has(o)) { o.userData.baked = true; o.layers.mask = 0; } else o.removeFromParent(); // (as before, whatever hung on a merged bit goes with it: the tail-light glow sprites)
+    };
+    // pass A: inside each detachable panel and each moving unit, merge the static bits that ride on it
+    const collect = (u, out, stop) => { for (const ch of u.children) { if (stop(ch)) continue; if (eligible(ch)) out.push(ch); collect(ch, out, stop); } };
+    root.updateMatrixWorld(true);
+    for (const u of [...partRec.keys(), ...pin]) { const L = []; collect(u, L, isUnitA); const P = []; for (const o of L) P.push(...pieces(o, u)); bake(u, P); }
+    // pass B: the car body (and each moving unit) takes its trim plus every intact panel riding on it
+    const isUnitB = (o) => pin.has(o);
+    const units = [root, ...pin];
+    this.bakedParts = [];
+    for (const u of units) { const P = [];
+      const walk = (o, rec) => { for (const ch of o.children.slice()) { if (isUnitB(ch)) continue; let r = rec; const pr = partRec.get(ch);
+          if (pr) { pr.parentRec = rec; if (rec) rec.kids.push(pr); r = pr; pr.unit = u; }
+          if (eligible(ch) && !ch.userData.baked) for (const p of pieces(ch, u)) { p.rec = r; P.push(p); }
+          walk(ch, r); } };
+      walk(u, null); bake(u, P); }
+    const holds = (rec) => rec.ranges.length > 0 || rec.kids.some(holds); // (a panel that isn't merged itself but carries one that is must be watched too)
+    for (const rec of partRec.values()) if (holds(rec)) { const o = rec.o; rec.baked = true; rec.parent = o.parent; rec.mat = o.material; rec.pos = o.position.clone(); rec.quat = o.quaternion.clone(); rec.scl = o.scale.clone(); if (rec.pt) rec.pt.bake = rec;
+      for (const m of rec.members) { m.userData.baked = true; m.layers.mask = 0; } this.bakedParts.push(rec); } // (layer mask 0: no camera draws it, a WebXR eye included, and rays skip it)
     this.mergedSaved = saved;
-    root.traverse((o) => { if (o.isMesh && o.castShadow) { if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere(); if (o.geometry.boundingSphere.radius < 0.3) o.castShadow = false; } }); // bolts and lamps don't need shadows
+    root.traverse((o) => { if (o.isMesh && o.castShadow && !o.userData.merged) { if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere(); if (o.geometry.boundingSphere.radius < 0.3) o.castShadow = false; } }); // bolts and lamps don't need shadows
+  }
+  unbake(rec) { // a baked panel is about to move on its own: cut its triangles out of the merged meshes and draw the real one
+    if (!rec || !rec.baked) return; rec.baked = false;
+    for (const { m, v0, n } of rec.ranges) { const a = m.geometry.attributes.position, arr = a.array; for (let i = v0 * 3; i < (v0 + n) * 3; i++) arr[i] = 0; a.needsUpdate = true; if (--m.userData.live <= 0) m.visible = false; }
+    for (const m of rec.members) { m.userData.baked = false; m.layers.mask = 1; }
+    for (const k of rec.kids) this.unbake(k);
+  }
+  checkBaked() { // any baked panel that was moved, hidden, re-skinned or taken off since it was baked
+    let any = false;
+    for (const r of this.bakedParts) { if (!r.baked) continue; any = true; const o = r.o;
+      if (o.parent !== r.parent || !o.visible || o.material !== r.mat || !o.position.equals(r.pos) || !o.quaternion.equals(r.quat) || !o.scale.equals(r.scl)) this.unbake(r); }
+    if (!any) this.bakedParts = [];
   }
 
   dispose() {
@@ -4405,6 +4646,7 @@ class Car {
     this.vehicle.removeFromWorld(world);
     scene.remove(this.group);
     for (const w of this.wheelMeshes) if (w) scene.remove(w);
+    if (this.wheelSkin) { for (const m of this.wheelSkin) { scene.remove(m); m.geometry.dispose(); } this.wheelSkel.dispose(); }
     for (const d of this.deform) d.mesh.geometry.dispose();
     freeObject(this.group, [this.paint, this.glassMat]); for (const w of this.wheelMeshes) if (w) freeObject(w, []); // every part's GPU buffers go with it (this leaked a whole car per respawn)
   }
@@ -4993,6 +5235,7 @@ class Car {
       }
     }
     this.skidAmt = lerp(this.skidAmt, skid / this.nW * clamp(Math.abs(this.speed) / 8, 0, 1), 0.2);
+    if (this.bakedParts && this.bakedParts.length) this.checkBaked(); // a panel that started to swing, sag or got shoved this frame is drawn by itself from now on
   }
 
   updateGun(dt) {
@@ -5435,6 +5678,7 @@ class Car {
   }
 
   detach(p, by) {
+    if (p.bake) this.unbake(p.bake); // a baked panel is drawn by itself again before it flies
     p.detached = true;
     const m = p.mesh; m.traverse((o) => { o.layers.mask = 1; }); // debris is always drawn, however far the car was
     m.updateWorldMatrix(true, true);
@@ -5484,7 +5728,7 @@ class Car {
     const w = this.vehicle.wheelInfos[i];
     w.radius = 0.08; w.suspensionRestLength = 0.05; w.maxSuspensionTravel = 0.05; w.suspensionStiffness = 60;
     const wm = this.wheelMeshes[i];
-    this.wheelMeshes[i] = null;
+    this.wheelMeshes[i] = null; this.dropWheelSkin(i);
     const bv = this.body.velocity;
     const side = this.wheelBase[i][1] > 0 ? 1 : -1;
     const sideW = this.body.vectorToWorldFrame(new CANNON.Vec3(0, 0, side));
@@ -6014,6 +6258,9 @@ function buildOpponentList() {
   }
 }
 let hudT = 0;
+const _hudW = new WeakMap(); // last value written per element, so a frame that changes nothing touches nothing
+function hudTxt(e, v) { if (_hudW.get(e) !== v) { _hudW.set(e, v); e.textContent = v; } }
+function hudWidth(e, v) { const k = 'w' + v; if (_hudW.get(e.style) !== k) { _hudW.set(e.style, k); e.style.width = v; } }
 function updateHUD(dt) {
   if (!player) return;
   hudT -= dt;
@@ -6022,18 +6269,18 @@ function updateHUD(dt) {
   updateTags();
   if (player.T.special) { // special weapon cooldown
     const W = WEAPONS[player.T.special], cd = player.specialCd || 0;
-    if (player.T.special === 'minigun') { const a = player.mgAmmo ?? W.ammo; $('gunFill').style.width = (player.mgReload > 0 ? (1 - player.mgReload / 4) * 100 : a / W.ammo * 100).toFixed(0) + '%'; $('gunState').textContent = player.mgReload > 0 ? 'RELOADING' : player.mgOn ? `${Math.round(a)} ROUNDS` : `MINIGUN ${Math.round(a)}`; }
-    else { $('gunFill').style.width = ((1 - cd / W.cd) * 100).toFixed(0) + '%';
-    $('gunState').textContent = player.specialT > 0 ? 'ACTIVE' : cd > 0 ? 'RECHARGING' : W.label; }
+    if (player.T.special === 'minigun') { const a = player.mgAmmo ?? W.ammo; hudWidth($('gunFill'), (player.mgReload > 0 ? (1 - player.mgReload / 4) * 100 : a / W.ammo * 100).toFixed(0) + '%'); hudTxt($('gunState'), player.mgReload > 0 ? 'RELOADING' : player.mgOn ? `${Math.round(a)} ROUNDS` : `MINIGUN ${Math.round(a)}`); }
+    else { hudWidth($('gunFill'), ((1 - cd / W.cd) * 100).toFixed(0) + '%');
+    hudTxt($('gunState'), player.specialT > 0 ? 'ACTIVE' : cd > 0 ? 'RECHARGING' : W.label); }
     const rt = $('reticle'), lockT = player.T.special === 'rockets' && game.state === 'playing' ? frontTarget(player, 110, 0.6) : null; // the Viper's rockets lock on: show who they'll chase
     if (lockT) { tv3.set(lockT.body.position.x, lockT.body.position.y + 0.8, lockT.body.position.z).project(camera); rt.hidden = tv3.z > 1; rt.style.transform = `translate(${((tv3.x + 1) / 2 * canvas.clientWidth).toFixed(0)}px, ${((1 - tv3.y) / 2 * canvas.clientHeight).toFixed(0)}px)`; rt.classList.toggle('lock', cd <= 0); if (cd <= 0 && player.lockOn !== lockT) { player.lockOn = lockT; sfx.tone('square', 1400, 1400, 0.05, 0.06); sfx.tone('square', 1800, 1800, 0.05, 0.06, false, 0.08); } } else { rt.hidden = true; player.lockOn = null; }
   } else if (player.T.pour) { // concrete load
-    $('gunFill').style.width = (player.load * 100).toFixed(0) + '%';
-    $('gunState').textContent = player.pourT > 0 ? (player.T.pour === 'fuel' ? 'SPILLING' : 'POURING') : player.load < 0.2 ? 'REFILLING' : player.T.pour === 'fuel' ? 'FUEL' : 'CONCRETE';
+    hudWidth($('gunFill'), (player.load * 100).toFixed(0) + '%');
+    hudTxt($('gunState'), player.pourT > 0 ? (player.T.pour === 'fuel' ? 'SPILLING' : 'POURING') : player.load < 0.2 ? 'REFILLING' : player.T.pour === 'fuel' ? 'FUEL' : 'CONCRETE');
     $('reticle').hidden = true;
   } else if (player.T.gun) { // cannon reload + target reticle
-    $('gunFill').style.width = (player.burst ? player.burst / BURST * 100 : (1 - player.reload / RELOAD) * 100).toFixed(0) + '%';
-    $('gunState').textContent = player.burst ? 'FIRING' : player.reload > 0 ? 'RELOADING' : `READY ×${BURST}`;
+    hudWidth($('gunFill'), (player.burst ? player.burst / BURST * 100 : (1 - player.reload / RELOAD) * 100).toFixed(0) + '%');
+    hudTxt($('gunState'), player.burst ? 'FIRING' : player.reload > 0 ? 'RELOADING' : `READY ×${BURST}`);
     const rt = $('reticle'), tg = player.gunTarget;
     if (tg && game.state === 'playing') {
       tv3.set(tg.body.position.x, tg.body.position.y + 0.6, tg.body.position.z).project(camera);
@@ -6042,28 +6289,28 @@ function updateHUD(dt) {
       rt.classList.toggle('lock', player.aimErr < 0.05);
     } else rt.hidden = true;
   } else $('reticle').hidden = true;
-  el.nosFill.style.width = (player.nitro * 100).toFixed(1) + '%';
+  hudWidth(el.nosFill, (player.nitro * 100).toFixed(1) + '%');
   game.flash = Math.max(0, game.flash - dt * 2);
   { const f = game.flash.toFixed(2); if (f !== el.flashO) { el.flashO = f; el.flash.style.opacity = f; el.flash.style.display = f > 0 ? '' : 'none'; } } // full-screen layers leave the page when unused: tablets pay for them every frame
   { const w = player ? Math.min(1, (player.wet || 0) * 1.3) : 0; if (w !== el.wetO) { el.wetO = w; $('wet').style.opacity = w.toFixed(2); $('wet').style.display = w > 0.01 ? '' : 'none'; } }
   if (hudT > 0) return;
   hudT = 0.1;
-  el.gforce.textContent = `${player.gforce.toFixed(1)} g · ${Math.round(player.mass).toLocaleString()} kg · ${Math.round(S.frontWeight)}/${Math.round(100 - S.frontWeight)} balance`;
+  hudTxt(el.gforce, `${player.gforce.toFixed(1)} g · ${Math.round(player.mass).toLocaleString()} kg · ${Math.round(S.frontWeight)}/${Math.round(100 - S.frontWeight)} balance`);
   const hp = Math.max(0, player.health);
-  el.hpFill.style.width = hp + '%';
-  el.hpFill.className = hp < 30 ? 'crit' : hp < 60 ? 'warn' : '';
-  el.hpText.textContent = Math.ceil(hp) + '%';
+  hudWidth(el.hpFill, hp + '%');
+  { const k = hp < 30 ? 'crit' : hp < 60 ? 'warn' : ''; if (el.hpFill.className !== k) el.hpFill.className = k; }
+  hudTxt(el.hpText, Math.ceil(hp) + '%');
   ZONES.forEach((z, i) => { zoneEls[i].style.fill = dmgColor(player.zones[z]); });
   wheelEls.forEach((e, c) => { // circles: FL, FR, then the worst wheel on each rear side
     const idx = c < 2 ? [c] : player.wheelBase.map((_, i) => i).filter((i) => i >= 2 && i % 2 === c % 2);
     const lost = idx.some((i) => player.wheelLost[i]), dmg = Math.max(...idx.map((i) => player.wheelDmg[i]));
     e.style.fill = lost ? '#17130f' : dmgColor(Math.min(100, dmg)); e.style.stroke = lost ? '#e4472c' : 'rgba(0,0,0,.5)';
   });
-  el.score.textContent = game.score.toLocaleString();
+  hudTxt(el.score, game.score.toLocaleString());
   SCORE.render();
   const ai = cars.filter((c) => !c.isPlayer);
-  el.wrecks.textContent = GAME_MODE === 'respawn' ? String(player.kills || 0) : `${ai.filter((c) => c.wrecked).length} / ${ai.length}`; // respawn mode: how many you've wrecked
-  for (const c of ai) { c.liBar.style.width = Math.max(0, c.health) + '%'; c.li.classList.toggle('dead', c.wrecked); }
+  hudTxt(el.wrecks, GAME_MODE === 'respawn' ? String(player.kills || 0) : `${ai.filter((c) => c.wrecked).length} / ${ai.length}`); // respawn mode: how many you've wrecked
+  for (const c of ai) { hudWidth(c.liBar, Math.max(0, c.health) + '%'); c.li.classList.toggle('dead', c.wrecked); }
   let hint = '';
   if (game.state === 'playing') {
     if (game.paused) hint = 'Paused · press P to resume';
@@ -6097,7 +6344,7 @@ const PERSONAS = [
     gotHit: ["How dreadfully rude.", "You bloody vandal!"],
     wheel: ["One wheel fewer. How fitting."], low: ["I feel... rather ready for my own services."],
     wrecked: ["Ashes to ashes, rust to rust.", "Oh, bother."], gloat: ["Another satisfied customer."], air: ["I appear to be ascending. Unusual."], taunt: ["I offer a very reasonable funeral package."] } },
-  { nick: 'Billy-Ray', words: { ex:['Well shoot','Hot dang','Sweet tea and biscuits','Lord have mercy'], insult:['ya varmint','city boy','ya polecat'], kin:['mama','cousin Bubba','granpappy'], thing:['lucky hat','gun rack','belt buckle'], boast:['Yee-haw, that\'s a rodeo!','Git rolled, partner!'], voice:['Fred','Ralph','Google US English'] }, style: 'brawler', car: 'Bonecrusher', from: 'Texan', lang: 'en-US', pitch: 0.85, rate: 0.92, color: '#c9b28a', lines: {
+  { nick: 'Billy-Ray', words: { ex:['Well shoot','Hot dang','Sweet tea and biscuits','Lord have mercy'], insult:['ya varmint','city slicker','ya polecat'], kin:['mama','cousin Bubba','granpappy'], thing:['lucky hat','gun rack','belt buckle'], boast:['Yee-haw, that\'s a rodeo!','Git rolled, partner!'], voice:['Fred','Ralph','Google US English'] }, style: 'brawler', car: 'Bonecrusher', from: 'Texan', lang: 'en-US', pitch: 0.85, rate: 0.92, color: '#c9b28a', lines: {
     start: ["Yeehaw! Y'all ready to get stomped?"],
     hitYou: ["Ride 'em, cowboy!", "Everything's bigger in Texas, includin' your repair bill!"],
     gotHit: ["Well I'll be #@%!!", "Dagnabbit, that's my good truck!"],
@@ -6114,20 +6361,20 @@ const PERSONAS = [
     hitYou: ["Voilà! A little kiss from Paris.", "Oh la la, you crumple so easily."],
     gotHit: ["Sacrebleu! Imbécile!", "You scratched my paint, you #@%! peasant!"],
     wheel: ["Non, non, non! My wheel!"], low: ["This is, how you say, très mauvais."],
-    wrecked: ["C'est la vie... merde."], gloat: ["Au revoir, loser."], air: ["I fly with style, naturellement."], taunt: ["Your driving is an insult to cheese."] } },
+    wrecked: ["C'est la vie... zut."], gloat: ["Au revoir, loser."], air: ["I fly with style, naturellement."], taunt: ["Your driving is an insult to cheese."] } },
   { nick: 'Angus', words: { ex:['Och','Jings','Crivvens','Ach, away'], insult:['ye numpty','ye bampot','ye wee scunner'], kin:['maw','granny Morag'], thing:['kilt','bagpipes','haggis supper'], boast:['That\'s how we do it in Glasgae!','Ye\'ve been Scotched!'], voice:['Fiona','Google UK English Male','Daniel'] }, style: 'brawler', car: 'Scrapjack', from: 'Scottish', lang: 'en-GB', pitch: 0.9, rate: 1.05, color: '#a06a2c', lines: {
     start: ["Right, ye wee numpty, let's see what ye've got!"],
     hitYou: ["Och aye, that'll leave a mark!", "Get it right up ye!"],
     gotHit: ["Ye daft #@%! eejit!", "Away an' bile yer heid!"],
     wheel: ["Ma wheel's away tae Glasgow!"], low: ["She's no' gonnae make it, captain!"],
-    wrecked: ["Ach, for #@%! sake!"], gloat: ["Haud yer wheesht now, laddie."], air: ["Freedoooom!"], taunt: ["Ma granny's tractor's quicker than you!"] } },
+    wrecked: ["Ach, for #@%! sake!"], gloat: ["Haud yer wheesht now, ye wee numpty."], air: ["Freedoooom!"], taunt: ["Ma granny's tractor's quicker than you!"] } },
   { nick: 'Klaus', words: { ex:['Ach','Donnerwetter','Mein Gott','Unglaublich'], insult:['dummkopf','you sausage','you chaos goblin'], kin:['mutti','engineering professor'], thing:['spreadsheet','lederhosen','perfect parking'], boast:['Ja! Deutsche Präzision!','That was 98 percent efficient.'], voice:['Anna','Markus','Helena','Google Deutsch'] }, style: 'runup', car: 'Tetanus', from: 'German', lang: 'de', pitch: 0.8, rate: 1.0, color: '#5d6e80', lines: {
     start: ["I have calculated your destruction. It is very efficient."],
     hitYou: ["Precision engineering!", "Ja! That is how it is done!"],
     gotHit: ["Was ist das?! Dummkopf!", "This is NOT according to the plan!"],
     wheel: ["My wheel has left without permission!"], low: ["Warning. Structural integrity... not good."],
-    wrecked: ["Scheisse!", "I demand a refund!"], gloat: ["Efficient. As expected."], air: ["Flight is not in the schedule!"], taunt: ["Your lane discipline is a disgrace."] } },
-  { nick: 'Grandma Edna', words: { ex:['Oh my stars','Goodness gracious','Land sakes','Heavens to Betsy'], insult:['you rascal','young man','you little heathen'], kin:['late husband Harold','bridge club','cat Mr. Whiskers'], thing:['knitting','dentures','casserole dish'], boast:['That\'s for being rude to waitresses!','Grandma still has it!'], voice:['Samantha','Victoria','Google US English'] }, style: 'vulture', car: 'Crankshaft', from: 'Grandma', lang: 'en-US', pitch: 1.5, rate: 0.85, color: '#b04a6a', lines: {
+    wrecked: ["Ach, nein!", "I demand a refund!"], gloat: ["Efficient. As expected."], air: ["Flight is not in the schedule!"], taunt: ["Your lane discipline is a disgrace."] } },
+  { nick: 'Grandma Edna', words: { ex:['Oh my stars','Goodness gracious','Land sakes','Heavens to Betsy'], insult:['you rascal','young whippersnapper','you little heathen'], kin:['late husband Harold','bridge club','cat Mr. Whiskers'], thing:['knitting','dentures','casserole dish'], boast:['That\'s for being rude to waitresses!','Grandma still has it!'], voice:['Samantha','Victoria','Google US English'] }, style: 'vulture', car: 'Crankshaft', from: 'Grandma', lang: 'en-US', pitch: 1.5, rate: 0.85, color: '#b04a6a', lines: {
     start: ["I've been driving since before your daddy was born, sweetie."],
     hitYou: ["That's for not calling your mother!", "Oops! Did grandma do that?"],
     gotHit: ["Well I never! You little #@%!!", "I'll wash your mouth out with motor oil!"],
@@ -6139,16 +6386,16 @@ const PERSONAS = [
     gotHit: ["Whoa, harsh, man! Not cool!", "Bro, you totally harshed my #@%! vibe!"],
     wheel: ["Dude, where's my wheel?"], low: ["Gnarly... like, really gnarly."],
     wrecked: ["Bummer, dude.", "Totally bogus!"], gloat: ["Later, kook!"], air: ["Catching some sick air, bro!"], taunt: ["You drive like a total kook, dude."] } },
-  { nick: 'Boris', words: { ex:['Blin','Oy','Bozhe moi','Is problem'], insult:['little potato','tiny man','comrade clown'], kin:['babushka','brother Dmitri','pet bear'], thing:['vodka','fur hat','tractor'], boast:['Is good hit, da?','You are now modern art.'], voice:['Milena','Yuri','Google русский','Irina'] }, style: 'brawler', car: 'Old Yeller', from: 'Russian', lang: 'ru', pitch: 0.7, rate: 0.95, color: '#4a4f2a', lines: {
+  { nick: 'Boris', words: { ex:['Blin','Oy','Bozhe moi','Is problem'], insult:['little potato','tiny comrade','comrade clown'], kin:['babushka','brother Dmitri','pet bear'], thing:['vodka','fur hat','tractor'], boast:['Is good hit, da?','You are now modern art.'], voice:['Milena','Yuri','Google русский','Irina'] }, style: 'brawler', car: 'Old Yeller', from: 'Russian', lang: 'ru', pitch: 0.7, rate: 0.95, color: '#4a4f2a', lines: {
     start: ["In my country, this is how we go to shop."],
     hitYou: ["Ha! Like tractor hitting chicken!", "You feel that? That is Siberian love."],
-    gotHit: ["You are dead man! Is joke. Not joke.", "Blyat! Stupid #@%!!"],
+    gotHit: ["You are dead meat! Is joke. Not joke.", "Bozhe moi! Stupid #@%!!"],
     wheel: ["Wheel is gone. Is fine. I have three."], low: ["Engine is crying vodka tears."],
     wrecked: ["Is only flesh wound!"], gloat: ["Too weak. Eat more potatoes."], air: ["Boris is cosmonaut now!"], taunt: ["My babushka hits harder."] } },
   { nick: 'Seamus', words: { ex:['Jaysus','Ah, would ye stop','Holy God','Janey Mac'], insult:['ye eejit','ye gobdaw','ye langer'], kin:['mammy','auld fella','cousin Paddy'], thing:['pint','lucky shamrock','tractor'], boast:['Grand job, grand job!','That\'ll learn ye!'], voice:['Moira','Google UK English Male','Daniel'] }, style: 'coward', car: 'Junkernaut', from: 'Irish', lang: 'en-IE', pitch: 1.0, rate: 1.1, color: '#9aa4ad', lines: {
     start: ["Ah sure, it's a grand day for a bit of a scrap!"],
     hitYou: ["Ye walked right into that one, ye eejit!", "Top of the mornin' to yer bumper!"],
-    gotHit: ["Ah, feck off!", "Ye absolute #@%! gobshite!"],
+    gotHit: ["Ah, get away outta that!", "Ye absolute #@%! eejit!"],
     wheel: ["Me wheel's gone off to the pub!"], low: ["She's on her last pint, lads."],
     wrecked: ["Ah, would ye look at that. Banjaxed."], gloat: ["Go 'way outta that!"], air: ["Up, up and away with the fairies!"], taunt: ["Ye couldn't hit a barn with a bus!"] } },
   { nick: 'Lars', style: 'vulture', car: 'Lingonberry', from: 'Swedish', lang: 'sv', pitch: 1.0, rate: 0.95, color: '#4a8ad0',
@@ -6191,20 +6438,20 @@ const TEMPLATES = {
 // A line starting "B|" is said by the second person in the cab (the camper has two).
 const CAR_CAST = {
   camper: { nick: 'Mr. White', duo: { nick: 'Jesse', lang: 'en-US', pitch: 1.2, rate: 1.15, words: { voice: ['Alex', 'Tom', 'Google US English'] } }, hand: 0.8,
-    style: 'runup', from: 'Chemistry teacher in a rolling lab', lang: 'en-US', pitch: 0.82, rate: 0.95, color: '#e8e0c8',
-    words: { ex: ['Remarkable', 'Listen to me', 'Jesse, focus', 'Apply yourself'], insult: ['amateur', 'you sloppy cook', 'you D-minus student'], kin: ['family', 'partner', 'brother-in-law at the DEA'], thing: ['RV', 'beakers', 'pork-pie hat'], boast: ['That is chemistry.', 'Ninety-nine point one percent pure destruction.'], voice: ['Fred', 'Daniel', 'Ralph', 'Google US English'] },
+    style: 'runup', from: 'Chemistry teacher turned cold, proud kingpin of a rolling lab', lang: 'en-US', pitch: 0.75, rate: 0.92, color: '#e8e0c8',
+    words: { ex: ['Remarkable', 'Listen to me', 'Jesse, focus', 'Careful now'], insult: ['amateur', 'you sloppy cook', 'you D-minus student'], kin: ['family', 'partner', 'brother-in-law at the DEA'], thing: ['RV', 'beakers', 'pork-pie hat'], boast: ['That is chemistry.', 'Ninety-nine point one percent pure destruction.'], voice: ['Fred', 'Daniel', 'Ralph', 'Google US English'] },
     lines: {
-      start: ['Say my name.', 'B|Yeah, Mr. White! Yeah, science!', 'We are not in the derby business. We are in the empire business.', 'B|This RV is our lab, yo. Do NOT scratch it.'],
-      hitYou: ['I am the one who rams.', 'B|Yeah, #@%!! Propane!', 'Chemistry is the study of change. You just changed shape.', 'B|Science, yo! Applied science!', 'You clearly don\'t know who you\'re dealing with.'],
-      gotHit: ['B|Mr. White, he hit the lab! He hit the LAB!', 'That was a mistake. A very large one.', 'B|Yo, not cool! We just got the curtains fixed!', 'I am not in danger. I AM the danger.'],
+      start: ['Say my name.', 'B|Yeah, Mr. White! Yeah, science!', 'This yard has a new owner. It just doesn\'t know it yet.', 'B|This RV is our lab, yo. Do NOT scratch it.'],
+      hitYou: ['I am the one who rams.', 'B|Yeah, baby! Propane!', 'Chemistry is the study of change. You just changed shape.', 'B|Science, yo! Applied science!', 'You have no idea who just hit you.'],
+      gotHit: ['B|Mr. White, they hit the lab! They hit the LAB!', 'That was a mistake. A very large one.', 'B|Yo, not cool! We just got the curtains fixed!', 'You just made the worst decision of your life.'],
       wheel: ['B|Mr. White, the wheel! The wheel is gone, yo!', 'A wheel. We have three more. Stay focused.'],
-      low: ['B|We are so totally screwed, Mr. White.', 'We need to cook... I mean, we need to fix this.'],
-      wrecked: ['B|I told you we should have bought a minivan!', 'I did it for me. I liked it.', 'B|Aw, man! The whole lab!'],
-      gloat: ['You\'re #@%! right.', 'B|Magnets... no, propane! Propane, #@%!!', 'Tread lightly.', 'Stay out of my territory.'],
+      low: ['B|We are so totally screwed, Mr. White.', 'Damaged. Not finished.'],
+      wrecked: ['B|I told you we should have bought a minivan!', 'This changes nothing. I will be back, and I will be worse.', 'B|Aw, man! The whole lab!'],
+      gloat: ['Remember this feeling. It is called losing.', 'B|Magnets... no, propane! Propane, yo!', 'Tread lightly.', 'Everything in this yard belongs to me. Including you.'],
       air: ['B|Mr. White, we are FLYING!', 'This was not part of the formula!'],
-      taunt: ['Jesse, we have to ram.', 'B|You\'re a dead man, yo!', 'Run. And keep running.', 'Your driving is as sloppy as your chemistry.'],
+      taunt: ['Jesse, we have to ram.', 'B|You\'re dead meat, yo!', 'Run. And keep running.', 'I built an empire out of a mobile home. What have you built?'],
       fire: ['B|Propane! Catch, yo!', 'Exothermic reaction, incoming.', 'B|Fire in the hole, yo!'],
-      charge: ['B|Hold on to something!', 'Full throttle. Remarkable.'],
+      charge: ['B|Hold on to something!', 'Full throttle. No mercy.'],
       flee: ['B|Mr. White, we gotta bounce!', 'Tactical withdrawal. It\'s just good chemistry.'],
     } },
   tiger: { nick: 'Oberst Klaus', hand: 0.75, style: 'runup', from: 'Polite panzer commander', lang: 'de-DE', pitch: 0.92, rate: 0.92, color: '#7b7a52',
@@ -6223,8 +6470,8 @@ const CAR_CAST = {
       charge: ['Panzer, forward!', 'Make way for eleven tonnes of manners!'],
       flee: ['A strategic pause, nothing more.', 'I am not retreating. I am advancing elsewhere.'],
     } },
-  firetruck: { nick: 'Captain McCaffrey', hand: 0.7, style: 'brawler', from: 'Chicago fire captain', lang: 'en-IE', pitch: 0.85, rate: 1.0, color: '#d33a2c',
-    words: { ex: ['Holy smoke', 'Jaysus', 'Hold the line', 'Mother of God'], insult: ['probie', 'you firebug', 'you hot-head'], kin: ['brother', 'old man', 'Engine 17'], thing: ['helmet', 'hose', 'axe'], boast: ['Fire\'s out. So are you.', 'Hosed!'], voice: ['Moira', 'Google UK English Male', 'Daniel'] },
+  firetruck: { nick: 'Captain McCaffrey', hand: 0.7, style: 'brawler', from: 'Captain Maeve McCaffrey, a Dublin-born Chicago fire captain', lang: 'en-IE', pitch: 1.1, rate: 1.0, color: '#d33a2c',
+    words: { ex: ['Holy smoke', 'Jaysus', 'Hold the line', 'Mother of God'], insult: ['probie', 'you firebug', 'you hot-head'], kin: ['brother', 'old man', 'Engine 17'], thing: ['helmet', 'hose', 'axe'], boast: ['Fire\'s out. So are you.', 'Hosed!'], voice: ['Moira', 'Karen', 'Google UK English Female', 'Samantha'] },
     lines: {
       start: ['You go, we go. Let\'s ride, Engine 17!', 'Somebody\'s gonna get burned today. Not on my watch.', 'Suit up. It\'s a big one.'],
       hitYou: ['Hosed!', 'That\'s a two-alarm hit, probie!', 'Stop, drop, and get wrecked!', 'Pressure\'s up, pal!'],
@@ -6287,8 +6534,8 @@ const CAR_CAST = {
       charge: ['Witness meeee!', 'Full chrome, full speed!'],
       flee: ['Not today, Valhalla!', 'Live to ride another day!'],
     } },
-  outrider: { nick: 'Max', hand: 0.7, style: 'hunter', from: 'Road warrior of few words', lang: 'en-AU', pitch: 0.8, rate: 0.9, color: '#e0a020',
-    words: { ex: ['Mm', 'Right', 'Hm', 'Fine'], insult: ['scav', 'mate', 'road rat'], kin: ['nobody', 'the dog'], thing: ['interceptor', 'blower', 'jacket'], boast: ['Mm.', 'Drive on.'], voice: ['Lee', 'Karen', 'Daniel'] },
+  outrider: { nick: 'Max', hand: 0.7, style: 'hunter', from: 'Max (Maxine), a road warrior of few words', lang: 'en-AU', pitch: 0.95, rate: 0.9, color: '#e0a020',
+    words: { ex: ['Mm', 'Right', 'Hm', 'Fine'], insult: ['scav', 'mate', 'road rat'], kin: ['nobody', 'the dog'], thing: ['interceptor', 'blower', 'jacket'], boast: ['Mm.', 'Drive on.'], voice: ['Karen', 'Catherine', 'Google UK English Female'] },
     lines: {
       start: ['My name is Max. My world is fire, and blood.', 'Here they come.', 'Last of the V8s.'],
       hitYou: ['Mm.', 'Out of my way.', 'Drive on.', 'That\'s for the dog.'],
@@ -6304,10 +6551,10 @@ const CAR_CAST = {
       flee: ['Not here.', 'Later.'],
     } },
   viper: { nick: 'Dom', hand: 0.7, style: 'runup', from: 'Street racer who lives for family', lang: 'en-US', pitch: 0.6, rate: 0.88, color: '#c02a2a',
-    words: { ex: ['Family', 'Listen', 'Ride or die', 'Nah'], insult: ['buster', 'two-bit racer', 'boy'], kin: ['family', 'crew', 'sister'], thing: ['NOS', 'Charger', 'cold beer'], boast: ['That\'s for family.', 'Ride or die.'], voice: ['Fred', 'Ralph', 'Google US English'] },
+    words: { ex: ['Family', 'Listen', 'Ride or die', 'Nah'], insult: ['buster', 'two-bit racer', 'kid'], kin: ['family', 'crew', 'sister'], thing: ['NOS', 'Charger', 'cold beer'], boast: ['That\'s for family.', 'Ride or die.'], voice: ['Fred', 'Ralph', 'Google US English'] },
     lines: {
       start: ['I live my life a quarter mile at a time.', 'This ain\'t about the cars. It\'s about family.', 'You almost had me? You never had me.'],
-      hitYou: ['That\'s for family.', 'Ride or die.', 'Won by a car length, boy.', 'You never had me. You never had your car.'],
+      hitYou: ['That\'s for family.', 'Ride or die.', 'Won by a car length, kid.', 'You never had me. You never had your car.'],
       gotHit: ['Nobody touches the Viper.', 'You don\'t turn your back on family. Or my car.', 'Now it\'s personal.'],
       wheel: ['Ten-second car, nine wheels... I mean, three.', 'Lost a wheel. Doesn\'t matter if you win by an inch or a mile.'],
       low: ['Hold together, girl. Hold together.', 'Gonna need a new engine. And a beer.'],
@@ -6370,12 +6617,12 @@ const CAR_CAST = {
       flee: ['Back to the barn!', 'Gotta go feed the pigs.'],
     } },
   bertha: { nick: 'Big Bertha', hand: 0.65, style: 'brawler', from: 'a Southern grandma who drives a 300-ton mine truck', lang: 'en-US', pitch: 1.0, rate: 0.95, color: '#e0607a',
-    words: { ex: ['Well butter my biscuit', 'Lord have mercy', 'Sweet tea and sunshine', 'Oh, sugar'], insult: ['sweetie', 'sugar plum', 'little fella', 'darlin\''], kin: ['my grandbabies', 'my late husband Earl', 'the church ladies'], thing: ['peach cobbler', 'a hard hat', 'my reading glasses'], boast: ['Bless your heart!', 'That there\'s called a haul, sugar.'], voice: ['Samantha', 'Karen', 'Victoria', 'Google US English'] },
+    words: { ex: ['Well butter my biscuit', 'Lord have mercy', 'Sweet tea and sunshine', 'Oh, sugar'], insult: ['sweetie', 'sugar plum', 'little critter', 'darlin\''], kin: ['my grandbabies', 'my late husband Earl', 'the church ladies'], thing: ['peach cobbler', 'a hard hat', 'my reading glasses'], boast: ['Bless your heart!', 'That there\'s called a haul, sugar.'], voice: ['Samantha', 'Karen', 'Victoria', 'Google US English'] },
     lines: {
       start: ['Alright, darlin\'s, Grandma\'s here to haul some trash.', 'Two hundred tons of payload and a thermos of coffee. Let\'s go.', 'Y\'all mind the big pink truck now.'],
       hitYou: ['Bless your heart!', 'Oops! Did Grandma bump you, sweetie?', 'That\'s what you get for tailgatin\', sugar.', 'Flatter than my peach cobbler!'],
       gotHit: ['Was that you, sugar? I barely felt it.', 'Honey, my tyres are taller than you.', 'Oh, now you\'ve made Grandma cross.'],
-      wheel: ['Lost a tyre! That\'s eight grand, mister!', 'Somebody call the tyre crew!'],
+      wheel: ['Lost a tyre! That\'s eight grand, sugar!', 'Somebody call the tyre crew!'],
       low: ['She\'s smokin\' worse than Earl on a Sunday.', 'Grandma needs a little sit-down.'],
       wrecked: ['Well, I never!', 'Tell the grandbabies Grandma went down haulin\'.'],
       gloat: ['Dinner\'s at six, and you\'re not invited.', 'Load it up and haul it out!', 'Now that\'s what I call a delivery.'],
@@ -6389,7 +6636,7 @@ const CAR_CAST = {
     words: { ex: ['Well shoot', 'Lord have mercy', 'Hoo-wee', 'Dadgum'], insult: ['you tin can', 'you speed bump', 'you lawn ornament', 'you little hubcap'], kin: ['my mama', 'Uncle Earl', 'my ex-wife'], thing: ['brisket', 'diesel', 'a pothole'], boast: ['Hoo-wee!', 'That there is called grading.'], voice: ['Ralph', 'Fred', 'Google US English'] },
     lines: {
       start: ['Alright, y\'all are on my job site now.', 'Fourteen tonnes of diesel and bad attitude. Let\'s level this yard.', 'Hard hats on. Not that it\'ll help.'],
-      hitYou: ['Moved ya. That\'s what I do.', 'Hoo-wee! Flipped like a flapjack!', 'You just got graded, son.', 'Earthmover, meet earth.'],
+      hitYou: ['Moved ya. That\'s what I do.', 'Hoo-wee! Flipped like a flapjack!', 'You just got graded, partner.', 'Earthmover, meet earth.'],
       gotHit: ['That tickled.', 'Son, I\'ve hit rocks that hit harder.', 'You dented my paint. I\'m gonna dent your future.'],
       wheel: ['Threw a track! Dadgum it!', 'Lost a track pin. Earl, get the hammer!'],
       low: ['She\'s smokin\' like a brisket pit.', 'Engine\'s knockin\' like the tax man.'],
@@ -6420,11 +6667,11 @@ const CAR_CAST = {
 };
 for (const P of Object.values(CAR_CAST)) PERSONAS.push(P); // (pushed last: guests look characters up by index)
 const CAST_SET = new Set(Object.values(CAR_CAST));
-const ANNOUNCER = { nick: 'Crash Cam Kev', lang: 'en-AU', pitch: 0.95, rate: 1.18, words: { voice: ['Lee', 'Gordon', 'Karen', 'Catherine', 'Google UK English Male', 'Daniel', 'Ralph'] } }; // an over-the-top Aussie play-by-play caller
+const ANNOUNCER = { nick: 'Crash Cam Kev', caller: true, lang: 'en-AU', pitch: 0.95, rate: 1.18, words: { voice: ['Lee', 'Gordon', 'Karen', 'Catherine', 'Google UK English Male', 'Daniel', 'Ralph'] } }; // an over-the-top Aussie play-by-play caller
 const ANN_LINES = {
   harvest: ['{a} is HARVESTING {v}! Straw bales out the back, folks!', 'Oh no, {v} has gone into the combine! Bit of a rough cut there!', 'That\'s not wheat, {a}! That\'s {v}!', 'Old MacDonald had a {v}, and now he has a bale!'],
   crushed: ['{a} just PANCAKED {v}! Flat as a tack!', 'Oh, {v} has been squashed like a bug on a windscreen!', '{a} parks fourteen tonnes on {v}. Rude!', 'That\'s not a car anymore, that\'s a sandwich press special!'],
-  followUp: ['And ANOTHER one, just for good measure!', 'Oh, he\'s gone back for seconds! Cheeky!', 'Hit him again! A little top-up for {v}!', 'Double tap! {v} did not need that, but {a} gave it anyway!', 'One for the road! Absolutely unnecessary, absolutely beautiful!'],
+  followUp: ['And ANOTHER one, just for good measure!', 'Oh, they\'ve gone back for seconds! Cheeky!', 'Hit \'em again! A little top-up for {v}!', 'Double tap! {v} did not need that, but {a} gave it anyway!', 'One for the road! Absolutely unnecessary, absolutely beautiful!'],
   aiHit: ['OHHH! {a} has absolutely cleaned up {v}!', 'Bang! {a} into {v} at {kmh} k\'s! Lovely!', '{v} never saw {a} coming. Classic!', 'And {a} sends {v} for a little spin! Round and round she goes!', 'Crunch! {a} and {v}, the worst first date in history!'],
   carFire: ['{v} is ON FIRE! Somebody get the hose!', '{a} just set {v} alight!', 'Is it hot in here, or is it just {v}?', 'Flame-grilled {v}, coming right up!'],
   delivery: ['{a} has {v} and is heading for {w}!', 'Uh oh, {v}! {a} is taking you to {w}!', 'Special delivery for {w}, courtesy of {a}!'],
@@ -6464,6 +6711,20 @@ const ANN_LINES = {
   barrelBurst: ['KABOOM! {a} fired a bent gun and it peeled open like a banana!', 'The gun just blew up in {a}\'s face! That is going to sting!', 'Note to {a}: never fire a bent barrel!'],
   sandwich: ['It\'s a {v} sandwich! Hold the mayo!', 'Squished in the middle like the last biscuit in the packet!', 'SANDWICH! {v} just got pressed like a panini!', 'Ooh, {v} caught in the middle! That is a club sandwich!'],
 };
+// Kev's co-commentator: Shazza takes every other call (the odd-numbered lines of each pool, plus her own below)
+const SHAZZA = { nick: 'Shazza', caller: true, lang: 'en-AU', pitch: 1.3, rate: 1.2, words: { voice: ['Karen', 'Catherine', 'Google UK English Female', 'Samantha'] } };
+const SHAZZA_LINES = {
+  bigHit: ['Oh my GOSH! Did you see that?! Absolute carnage!', 'What a ripper! I felt that one up in the commentary box!', 'Kev! KEV! Did you see that?!'],
+  wreck: ['And they are COOKED! Done like a dinner!', 'Bye bye, birdie! That car is finished!'],
+  youCrash: ['Oof! Our hero has met the wall, and the wall says g\'day!', 'Somebody give that wall a medal!'],
+  headOn: ['Nose to nose! That is going to need a LOT of panel beating!'],
+  carFire: ['Fire! Fire! Somebody grab the extinguisher, Kev!'],
+  youWrecked: ['Our hero is down! Get up, get up! ...Oh, they\'re not getting up.'],
+  tankerBoom: ['Kev, I can feel the heat from up here! My eyebrows are gone!'],
+  status: ['{n} cars left and I have already lost my voice screaming!'],
+  aiHit: ['Ooh, that is gonna leave a mark! Several marks!'],
+};
+function annPool(A, ev) { const all = ANN_LINES[ev] || []; return A === SHAZZA ? all.filter((_, i) => i % 2).concat(SHAZZA_LINES[ev] || []) : all.filter((_, i) => i % 2 === 0); }
 const HORNS = {
   tanker:   { f: [146.8, 185, 220], wave: 'sawtooth', drive: 14, lp: 1900, gain: 0.2, attack: 0.07, breath: 0.12 }, // three-chime truck air horn
   mule:     { f: [207.7, 261.6], wave: 'sawtooth', drive: 8, lp: 2100, gain: 0.13, attack: 0.04, breath: 0.05 },
@@ -6554,24 +6815,24 @@ const PLAN_WEIGHTS = { // relative odds of each tactic per personality
   chaos:   { hunt: 2, flank: 2, runup: 2, circle: 2, ambush: 1 },
   coward:  { ambush: 3, flank: 3, circle: 2, hunt: 1, runup: 1 },
 };
-const COP = { nick: 'Sheriff Buck', style: 'brawler', lang: 'en-US', pitch: 0.8, rate: 1.0, color: '#2f6fd0',
-  words: { ex: ['Freeze', 'Hold it right there', 'Dagnabbit', 'Ten-four'], insult: ['punk', 'scofflaw', 'hotshot', 'perp'], kin: ['deputy', 'captain', 'donut guy'], thing: ['badge', 'donut', 'clipboard', 'sunglasses'], boast: ['You have the right to remain wrecked!', 'Case closed!'], voice: ['Ralph', 'Fred', 'Google US English'] },
+const COP = { nick: 'Sheriff Buck', from: 'Sheriff Dolly Mae Buck, a loud Deep South county sheriff', style: 'brawler', lang: 'en-US', pitch: 1.1, rate: 1.0, color: '#2f6fd0',
+  words: { ex: ['Freeze', 'Hold it right there', 'Dagnabbit', 'Ten-four'], insult: ['punk', 'scofflaw', 'hotshot', 'perp'], kin: ['deputy', 'captain', 'donut guy'], thing: ['badge', 'donut', 'clipboard', 'sunglasses'], boast: ['You have the right to remain wrecked!', 'Case closed!'], voice: ['Samantha', 'Victoria', 'Google US English'] },
   lines: {
     start: ["This is the police. Nobody leaves this yard in one piece."], hitYou: ["License and registration!", "That's a moving violation, punk!", "Resisting arrest, are we?"],
-    gotHit: ["Assaulting an officer! That's a felony!", "You just bought yourself a #@%! ticket!", "Hey! That's city property!"],
+    gotHit: ["Assaulting an officer! That's a felony!", "You just bought yourself a big fat ticket!", "Hey! That's city property!"],
     wheel: ["Officer down! Well, wheel down!"], low: ["Requesting backup! Any backup!"], wrecked: ["Tell the captain... I want a desk job."],
-    gloat: ["Book 'em!", "You have the right to remain wrecked!"], air: ["Hot pursuit, airborne!"], taunt: ["Pull over! PULL OVER!", "I've got a warrant with your name on it!", "You're in a heap of trouble, boy!", "I'm gonna barbecue your behind in molasses!", "There's no way, no way you came from my loins."], fire: ["Warning shot!"], charge: ["Ramming speed! It's in the manual!"], flee: ["Tactical repositioning!"], crash: ["That wall was resisting arrest!"] } };
+    gloat: ["Book 'em!", "You have the right to remain wrecked!"], air: ["Hot pursuit, airborne!"], taunt: ["Pull over! PULL OVER!", "I've got a warrant with your name on it!", "You're in a heap of trouble, hotshot!", "I'm gonna barbecue your behind in molasses!", "There's no way, no way you came from my loins."], fire: ["Warning shot!"], charge: ["Ramming speed! It's in the manual!"], flee: ["Tactical repositioning!"], crash: ["That wall was resisting arrest!"] } };
 const GENERIC = { flee: ["Nope, nope, nope!", "Not today, maniac!", "Tactical retreat!"], charge: ["Here I come!", "Brace yourself!", "Clear the road!"], hitYou: ["Gotcha!"], gotHit: ["Hey!"], wheel: ["My wheel!"], low: ["I'm hit bad!"], wrecked: ["Noooo!"], gloat: ["Ha!"], air: ["Wheee!"], taunt: ["Come at me!"], start: ["Let's go!"] };
 // ---------- More lines for every character: rivalries (said to another driver by name), comebacks after a respawn, and bragging after a wreck ----------
 // {v} is the other driver's name, {vcar} their car. B| and C| are the second and third voices in a cab.
 const CAST_MORE = {
   camper: {
     insult: ['you meth-od actor', 'you lab rat', 'you cheap knock-off', 'you chemistry dropout'],
-    rival: ['{v}! You are a blowfish. Puffed up and harmless.', 'B|Yo {v}, your {vcar} is like... totally sloppy, yo.', '{v}, I watched you drive. Remedial. At best.', 'B|Mr. White, can we ram {v}? Please?', 'Say my name, {v}. Go on. Say it.', '{v}, there is gold in the streets and you\'re driving in the gutter.'],
-    respawn: ['I\'m back. Did you miss me? You did.', 'B|New RV, yo! Same science!', 'You can\'t keep a good cook down.', 'B|Mr. White, they fixed the curtains!'],
+    rival: ['{v}! You are a blowfish. Puffed up and harmless.', 'B|Yo {v}, your {vcar} is like... totally sloppy, yo.', '{v}, I watched you drive. Remedial. At best.', 'B|Mr. White, can we ram {v}? Please?', 'Say my name, {v}. Go on. Say it.', '{v}, you are a rounding error in my plans.'],
+    respawn: ['I\'m back. Did you miss me? You did.', 'B|New RV, yo! Same science!', 'Wreck the lab, and I simply build another.', 'B|Mr. White, they fixed the curtains!'],
     kill: ['{v}. Out. Exactly as calculated.', 'B|Yeah, science! {v} is toast, yo!', 'That was not luck, {v}. That was chemistry.', 'B|Did you see {v}\'s face?! Magnets would\'ve been cooler, but still!'],
     taunt: ['B|Yo, you drive like my grandma. And she\'s got a walker!', 'You\'re a problem. I solve problems.', 'B|This is my own private derby, yo!', 'I know who you are. And I know where you park.'],
-    hitYou: ['B|Science, yo! It works, bitches!'.replace('bitches', '#@%!'), 'That is a lesson. You\'re welcome.', 'B|Boom! Right in the bumper!'],
+    hitYou: ['B|Science, yo! It works, yo!', 'That is a lesson. You\'re welcome.', 'B|Boom! Right in the bumper!'],
     gotHit: ['B|Mr. White, they dented the lab! THE LAB!', 'You have no idea how much that RV cost.', 'Wrong move, friend. Wrong RV.'],
   },
   tiger: {
@@ -6629,7 +6890,7 @@ const CAST_MORE = {
     gotHit: ['Hm.', 'Bad move.', 'That\'s it, then.'],
   },
   viper: {
-    insult: ['ten-second wannabe', 'tuner boy', 'you rice rocket', 'busta'],
+    insult: ['ten-second wannabe', 'tuner kid', 'you rice rocket', 'busta'],
     rival: ['{v}, you\'re not family. You\'re just in my way.', 'Yo {v}, I\'ll race you for pinks.', '{v}, your {vcar} is all show and no go.', 'I almost respected you, {v}. Almost.', '{v}! Quarter mile. You and me. Now.'],
     respawn: ['I\'m back. Family don\'t quit.', 'New ride. Same rules. Ride or die.', 'Never count out the family.'],
     kill: ['That\'s for family, {v}.', '{v} never had a chance. Never had the car.', 'Winning\'s winning, {v}.'],
@@ -6665,7 +6926,7 @@ const CAST_MORE = {
     gotHit: ['Mind the header!', 'You\'ll pay for that weldin\'.'],
   },
   bertha: {
-    insult: ['sweetie', 'sugar', 'darlin\'', 'little fella'],
+    insult: ['sweetie', 'sugar', 'darlin\'', 'little critter'],
     rival: ['{v}, sugar, you are in Grandma\'s mirror!', 'Bless your heart, {v}. That {vcar} is cute.', '{v}, Grandma\'s got a load with your name on it.'],
     respawn: ['Grandma\'s back, and she brought rocks.', 'New truck, same Grandma.', 'Y\'all thought Grandma was done? Bless your hearts.'],
     kill: ['{v} just got delivered.', 'Bury {v} under the gravel, boys.', 'Bless {v}\'s heart. Bless what\'s left of it.'],
@@ -6675,7 +6936,7 @@ const CAST_MORE = {
   },
   dozer: {
     insult: ['you hubcap', 'you speed bump', 'you lawn dart', 'you city slicker'],
-    rival: ['{v}! I\'m fixin\' to grade you flat!', 'Hey {v}, nice {vcar}. Be a shame if it turned into gravel.', '{v}, you\'re in my work zone, son.', 'Somebody tell {v} this ain\'t a parkin\' lot.'],
+    rival: ['{v}! I\'m fixin\' to grade you flat!', 'Hey {v}, nice {vcar}. Be a shame if it turned into gravel.', '{v}, you\'re in my work zone, partner.', 'Somebody tell {v} this ain\'t a parkin\' lot.'],
     respawn: ['Bob\'s back on the clock.', 'New dozer, same attitude.', 'You can\'t fire me, I\'m union.'],
     kill: ['{v} just got paved.', 'Put {v} on the scrap pile, boys.', 'Moved {v} where {v} belongs. The ditch.'],
     taunt: ['I eat potholes for breakfast.', 'Slow and steady pushes the race.', 'My blade\'s older than you and twice as sharp.'],
@@ -6692,13 +6953,13 @@ const CAST_MORE = {
     gotHit: ['Ay! What are you, nuts?!', 'You don\'t hit the cement truck. Ever.', 'Big mistake. Huge.'],
   },
   cruiser: {
-    insult: ['you sumbitch'.replace('sumbitch', '#@%!'), 'you scofflaw', 'you diesel-sniffin\' delinquent', 'you jaywalker'],
-    rival: ['{v}! You\'re in a heap of trouble, boy!', 'Pull over, {v}! PULL OVER!', '{v}, that {vcar} has been reported stolen. By me. Just now.', 'I got my eye on you, {v}!', '{v}! I\'m gonna barbecue your hubcaps!'],
+    insult: ['you varmint', 'you scofflaw', 'you diesel-sniffin\' delinquent', 'you jaywalker'],
+    rival: ['{v}! You\'re in a heap of trouble, hotshot!', 'Pull over, {v}! PULL OVER!', '{v}, that {vcar} has been reported stolen. By me. Just now.', 'I got my eye on you, {v}!', '{v}! I\'m gonna barbecue your hubcaps!'],
     respawn: ['The law is back in town!', 'New cruiser, same badge!', 'You can\'t kill the law! You can only dent it!'],
     kill: ['{v} is under arrest! Permanently!', 'Book \'em! {v} is done!', 'Case closed, {v}!'],
     taunt: ['Sirens on! Somebody\'s going to jail!', 'I\'m gonna write you so many tickets!', 'Hands where I can see \'em!', 'You have the right to remain wrecked!'],
     hitYou: ['That\'s a citation!', 'Resisting arrest, are we?', 'Ten-four, got \'em!'],
-    gotHit: ['Assaulting an officer! That\'s a felony!', 'That\'s city property, son!', 'Oh, you done it now!'],
+    gotHit: ['Assaulting an officer! That\'s a felony!', 'That\'s city property, sugar!', 'Oh, you done it now!'],
   },
 };
 for (const [type, more] of Object.entries(CAST_MORE)) {
@@ -6713,6 +6974,242 @@ const BURGER_LINES = { camper: ['B|Yo, Mr. White, we made a burger! Science!', '
   towtruck: ['Hoo-wee! Somebody bring the pickles!', 'Lordy, that\'s the biggest burger in the county!'], forklift: ['C|I made a burger of your bull, English pig-dog!', 'Bring out your... burgers!'], mixer: ['Gabagool! Nah, cheeseburger.', 'Now THAT\'s a family meal.'], cruiser: ['That\'s a barbecue violation, but I\'ll allow it!'] };
 for (const [type, list] of Object.entries(BURGER_LINES)) { const P = type === 'cruiser' ? COP : CAR_CAST[type]; if (P) P.lines.burger = list; }
 // generic fallbacks so the extras (custom drivers) can join in too
+// ---------- Even more lines for the car characters (so a long match doesn't wear them out), and roasts aimed at each other by name ----------
+// Family-friendly: cheeky, no swearing. B| = Jesse in the camper, C| = the French Taunter on the forklift.
+const CAST_EXTRA = {
+  camper: {
+    start: ['Everyone in this yard works for me now. They just haven\'t been told.', 'B|Okay, okay, okay. Seatbelts, Mr. White. Seatbelts!', 'B|Yo, why do we always end up in the scary places?', 'Tonight we cook. Metal.'],
+    hitYou: ['Precise. Measured. Devastating.', 'B|Oh snap! Did you SEE that, Mr. White?!', 'B|Yo! Direct hit! That was so science!', 'I don\'t miss. I calculate.', 'Consider that a warning. There won\'t be a second.'],
+    gotHit: ['B|Yo, yo, yo! Not the windows! I just cleaned the windows!', 'You will remember the day you touched this RV.', 'B|Mr. White, they\'re ganging up on us!', 'Noted. Filed. Answered soon.'],
+    low: ['B|Mr. White, the RV is making the noise again! The BAD noise!', 'Damaged. Not finished. Never finished.', 'B|Something\'s on fire back here and it\'s not the experiment!'],
+    wheel: ['B|There goes another wheel! Do we even have a spare?!'],
+    wrecked: ['This changes nothing. I come back. I always come back.', 'B|Dude! We totaled the lab! AGAIN!'],
+    gloat: ['Remember who did this.', 'This is my yard now. The rest of you are tenants.', 'B|Yeah! Who\'s the danger now?! We are! Both of us!'],
+    air: ['Gravity is a rule. I break rules.', 'B|Yo! We\'re airborne! The beakers! THE BEAKERS!'],
+    taunt: ['I have a ninety-nine percent pure plan for you.', 'B|Yo, Mr. White says you\'re sloppy. And he\'s, like, never wrong.', 'You\'re in my territory. I would leave. Quickly.', 'B|We got a whole RV of science and it\'s coming for you, yo!'],
+    fire: ['Exothermic reaction. Stand very still.', 'B|Bombs away, yo! Chemistry delivery!'],
+    charge: ['No more half measures.', 'B|Ram \'em, Mr. White! RAM \'EM!'],
+    flee: ['A strategic retreat. Patience is a weapon.', 'B|Go, go, go! Floor it! Floor it!'],
+    crash: ['B|Wall! WALL! ...Okay, that was a wall.', 'That wall was not in my calculations. It will be.'],
+    respawn: ['B|New RV smell, yo! Let\'s not wreck this one!', 'They destroyed the lab. I built another. That is what I do.'],
+    kill: ['B|Yeah, Mr. White! Yeah, physics!', 'Exactly as planned.'],
+    onFire: ['B|We\'re on fire! Mr. White, we are literally on fire!', 'Combustion. How fitting.'],
+    rodeo: ['B|We got a BULL, yo! This is not in the chemistry book!'],
+    burger: ['B|Yo, we cooked a BULL! That is not the kind of cooking we do!'],
+    rival: ['B|Mr. White, can I say the mean thing? Please? Just once?', 'B|Yo, they\'re looking at us, Mr. White. Should I be scared? I\'m scared.'],
+  },
+  camper2: {
+    hitYou: ['B|Boom! Chemistry, yo! Chemistry in your FACE!', 'B|We hit \'em so hard they felt it in last week!', 'Physics. Applied with conviction.'],
+    gotHit: ['B|Ow! My coffee! That was my good coffee, yo!', 'B|Mr. White, do something! Do the scary voice!', 'Wrong RV. Wrong day. Wrong life choice.'],
+    taunt: ['B|Mr. White is calm. That\'s the scary part, yo.', 'B|You don\'t want none of this mobile laboratory, yo!', 'I am patient. I am precise. And I am right behind you.'],
+    low: ['B|This RV is held together with duct tape and hope, yo!'],
+    wrecked: ['B|Nooo! I had my whole snack stash in there!'],
+    gloat: ['B|Mr. White, we are SO good at this! Like, scary good!', 'Pride is not a sin. It is a receipt.'],
+    charge: ['B|Floor it, Mr. White! Floor it! FLOOR IT!', 'Brace yourself, Jesse. This is going to be educational.'],
+    air: ['B|Mr. White! Why are we flying?! RVs don\'t fly!'],
+    crash: ['B|Yo, you hit the wall! You said walls were for amateurs!'],
+    respawn: ['B|We\'re back, baby! Fresh RV, fresh science!', 'Did you think one wreck would stop me?'],
+    kill: ['B|We got \'em! We totally got \'em! High five, Mr. White! ...No? Okay.'],
+  },
+  tiger: {
+    start: ['Good evening. Please, make yourselves comfortable. It will not last.', 'Panzer ready. Milk chilled. Shall we?', 'I have studied each of you. It was very short reading.'],
+    hitYou: ['Oh, how wonderful. You crumple like a strudel.', 'A little tap. With seventy tonnes of affection.', 'Bingo, as they say.'],
+    gotHit: ['That was very impolite. I shall remember your face.', 'You have scratched the paint. I find that unforgivable.'],
+    low: ['The engine is complaining. I do not listen to complaints.', 'Hmm. A little damage. Nothing a good glass of milk cannot fix.'],
+    wrecked: ['How very disappointing. For you, eventually.', 'Ach. I shall need a new tank. And a new monocle.'],
+    taunt: ['Run, little rabbit. It makes the hunt more fun.', 'You may hide. I enjoy looking.', 'Such a lovely target. Truly.'],
+    fire: ['Gun ready. Do hold still, please.', 'Three little presents. For you.'],
+    charge: ['Panzer vor! Politely!', 'Forward, at a dignified pace.'],
+    crash: ['That wall was rude. It shall be dealt with.'],
+    respawn: ['Back again. Did you miss me? You will.'],
+    onFire: ['Ah. We seem to be on fire. How dramatic.'],
+    rodeo: ['A bull! How rustic. Hold still, please.'],
+  },
+  firetruck: {
+    start: ['Engine 17, this is your captain. Helmets on, chins up!', 'Right, you lot. Captain Maeve McCaffrey on deck. Behave.', 'Sirens up, girls and boys. Let\'s go to work.'],
+    hitYou: ['That\'s a full alarm response, that is!', 'Ah, ye walked into the hose again!', 'Rescued ye from your bumper. You\'re welcome.'],
+    gotHit: ['Oi! I have FOUR hundred gallons back here!', 'Ye don\'t ram a fire truck, ye eejit!'],
+    low: ['She\'s taking on smoke, but she\'s still my rig!', 'Hoses are leaking. So\'s my patience.'],
+    wrecked: ['Ah, would ye look at that. The rig\'s cooked.', 'Tell Engine 17 their captain went down swinging.'],
+    taunt: ['Is that smoke? No, that\'s just your driving.', 'I\'ve rescued cats with better steering.', 'I can hear the sirens already, and they\'re for you.'],
+    fire: ['Water on! Hit them with the big hose!', 'Full pressure! Soak \'em!'],
+    crash: ['Who parked a wall in my fire lane?!'],
+    respawn: ['Engine 17 is back in service!', 'New rig, same captain. Grand.'],
+    onFire: ['A fire truck on FIRE?! I\'ll never hear the end of it!', 'Somebody hose me down! ...Oh, right. That\'s me.'],
+    rodeo: ['Easy, big fella. Nobody\'s getting hurt on my watch. Except you.'],
+  },
+  tanker: {
+    start: ['Breaker one-nine, convoy\'s rollin\' into the yard.', 'Hank here. Seventy-five hundred kilos of mean, comin\' your way.'],
+    hitYou: ['Ten-four, you just got delivered!', 'That\'s a direct shipment, good buddy!', 'Mud flaps say hello!'],
+    gotHit: ['Breaker breaker, I got a four-wheeler bumpin\' my tank!', 'Easy on the tank, buddy, she\'s full of boom!'],
+    low: ['Mayday, mayday, this rig is leakin\' like a sieve!', 'Gauges are all in the red, dispatch.'],
+    wrecked: ['Dispatch... Hank\'s gonna be late.', 'Ten-seven. Out of service.'],
+    taunt: ['Got my ears on and my eyes on you, little buddy.', 'You\'re ridin\' my bumper. Bad idea, buddy.'],
+    fire: ['Pourin\' out the good stuff! Watch your tires!', 'Fuel on the floor, four-wheelers!'],
+    crash: ['Who put a wall on my route? Dispatch didn\'t say nothin\' about a wall!'],
+    respawn: ['New rig, full tank. Hank\'s back on the road.'],
+    onFire: ['Uh, dispatch? The tanker\'s on fire. That\'s... real bad.', 'Fire on a fuel truck! Everybody back up!'],
+  },
+  hellbender: {
+    start: ['Kneel, scavengers. Your Warlord has arrived.', 'Today the yard is mine. Tomorrow, the world.'],
+    hitYou: ['Crushed beneath the chrome!', 'Kneel! KNEEL!', 'The Warlord gives, and the Warlord takes. Mostly takes.'],
+    gotHit: ['You DARE strike your Warlord?!', 'That insolence will cost you your wheels!'],
+    low: ['My chariot bleeds! Bring me guzzoline!', 'War boys! Patch the armour!'],
+    wrecked: ['The Warlord... shall return... in chrome!', 'Mark this day. I will.'],
+    taunt: ['Your chrome is dull, your engine weak.', 'Bow, and I may let you keep a wheel.'],
+    fire: ['Let the guns sing for me!', 'Spin them up! Make them hum!'],
+    crash: ['The wall bows to no one. Neither do I.'],
+    respawn: ['The Warlord rises! Again!', 'Fetch my new chariot!'],
+    onFire: ['Fire? Fire is my crown!'],
+  },
+  sandflea: {
+    start: ['Oh what a day! What a lovely day for a smash!', 'Chrome me up! Witness me, everybody!'],
+    hitYou: ['Did you see that?! Did anyone SEE that?!', 'SHINY HIT! The shiniest hit!', 'Ahaha! Again! Again!'],
+    gotHit: ['Ow! Ow! I\'m still shiny though!', 'Hey! I\'m tiny! Pick on someone your own size!'],
+    low: ['I\'m held together by spit and chrome!', 'Bits are falling off! Good bits!'],
+    wrecked: ['Did anybody witness that?! Please say you witnessed that!', 'Valhalla, here I come! Again!'],
+    taunt: ['You\'re mediocre! MEDIOCRE!', 'Bet you can\'t catch me! Nobody can catch me!'],
+    fire: ['Flame on! Shiny flames!', 'Breathe fire, little buggy!'],
+    air: ['I\'m flyyyying! Witness me flyyyying!', 'So high! So SHINY!'],
+    crash: ['That wall wasn\'t chrome enough to see!'],
+    respawn: ['I\'m back! I\'m alive! I\'m SHINY!'],
+    onFire: ['I\'m on fire and it\'s BEAUTIFUL!'],
+  },
+  outrider: {
+    start: ['Fuel up. Drive.', 'Just passing through.', 'Hm. Crowded.'],
+    hitYou: ['There.', 'Stay down.', 'That\'s one.'],
+    gotHit: ['Wrong car.', 'Felt that. Barely.'],
+    low: ['Still running. Just.', 'Mm. Leaking.'],
+    wrecked: ['Walk it off.', 'Should have left.'],
+    taunt: ['Not worth it.', 'Go home.', 'I\'ve met scarier dogs.'],
+    fire: ['Hold still.', 'Line\'s out.'],
+    crash: ['Hm. Wall.'],
+    respawn: ['New wheels.', 'Again.'],
+    onFire: ['Hot. Fine.'],
+    air: ['Hm. Long way down.'],
+  },
+  viper: {
+    start: ['Ten seconds. That\'s all I need.', 'Family\'s watching. Let\'s make it count.'],
+    hitYou: ['That\'s respect, coming at you sideways.', 'Nobody threatens my family.', 'You just got passed. Permanently.'],
+    gotHit: ['You touched the Viper. Now it\'s personal.', 'Big mistake. I know where you park.'],
+    low: ['She\'s hurt, but she\'s family. We don\'t quit.'],
+    wrecked: ['I\'ll be back. Family always comes back.'],
+    taunt: ['You want a race? You don\'t want a race.', 'Your car\'s all show. Mine\'s all go.'],
+    fire: ['Rockets! For the family!', 'Light \'em up!'],
+    crash: ['Walls don\'t move. Neither do I.'],
+    respawn: ['New ride. Same rules.'],
+    onFire: ['She\'s burning, but she\'s still faster than you!'],
+  },
+  towtruck: {
+    start: ['Hoo-wee! Lotta broke-down cars in my future!', 'Cletus is open for business!'],
+    hitYou: ['Yee-haw! That\'s a tow-tal hit!', 'Shoot, that\'ll buff out. In about a week.'],
+    gotHit: ['Hey now! Mama painted that hook!', 'Rufus! They hit the truck!'],
+    low: ['Dang ol\' engine\'s sputterin\' like a banjo string!'],
+    wrecked: ['Well I\'ll be. Somebody tow the tow truck.'],
+    taunt: ['I tow cars like yours for breakfast!', 'You look like ya need a lift, partner!'],
+    fire: ['Hook\'s out! Come to Cletus!', 'Swing low, sweet hook!'],
+    crash: ['Who moved that there wall? It weren\'t there yesterday!'],
+    respawn: ['New truck, same hook! Hoo-wee!'],
+    onFire: ['Lordy! My truck\'s hotter than a skillet!'],
+    rodeo: ['Yee-haw! I done hooked a bull!'],
+  },
+  forklift: {
+    start: ['Knights! Our quest begins! By forklift!', 'C|You call that a vehicle? I have seen better shopping carts!'],
+    hitYou: ['None shall pass! Except through the forks!', 'C|Ha! Go and boil your bottom!', 'Lifted, by royal decree!'],
+    gotHit: ['Have at you! Have at you!', 'C|Ow! You hit like a silly English knight!'],
+    low: ['Tis but a dent. Merely a flesh wound.', 'The royal forklift is... somewhat damaged.'],
+    wrecked: ['Run away! Run away!', 'Our quest is paused. Briefly.'],
+    taunt: ['Bring me a shrubbery! And your car!', 'You there! Peasant! Get out of my way!'],
+    fire: ['Raise the forks!', 'Forks up, by order of the king!'],
+    crash: ['A wall! We must find another way. Or go through it.'],
+    respawn: ['The king returns! On a shiny new forklift!'],
+    onFire: ['The royal forklift burns! Fetch water! Fetch a grail of water!'],
+  },
+  combine: {
+    start: ['Mornin\', folks. Fine day for a harvest.', 'E-I-E-I-GO!', 'Reckon I\'ll plow through y\'all by lunch.'],
+    hitYou: ['Harvested! Fresh from the field!', 'Gee whillikers, that\'s a bumper crop!', 'Baled ya up nice and tidy!'],
+    gotHit: ['Now that ain\'t neighborly!', 'Watch the reel, city slicker!'],
+    low: ['Old girl\'s rattlin\' like a hen house in a storm.', 'Somethin\'s busted. Probably the important bit.'],
+    wrecked: ['Well, shucks. Back to the barn.', 'Somebody tell the cows I tried.'],
+    taunt: ['I\'ve seen faster scarecrows.', 'You\'re ripe for the pickin\'.', 'Come on over, I got room in the hopper.'],
+    fire: ['Reel\'s a-spinnin\'! Come on in!', 'Harvest time, y\'all!'],
+    crash: ['Dang fence. Wait, that\'s a wall.'],
+    respawn: ['New combine, same old farmer.'],
+    onFire: ['Fire in the corn! Fire in the corn!'],
+    rodeo: ['That bull belongs in my pasture!'],
+  },
+  bertha: {
+    start: ['Mornin\', sugar. Grandma brought three hundred tons of love.', 'Buckle up, darlin\'s. Bertha\'s on the road.', 'I baked a pie and I\'m bringin\' boulders.'],
+    hitYou: ['Bless your heart, you never stood a chance!', 'That\'s a grandma hug, honey!', 'Oops! Grandma didn\'t see you down there!'],
+    gotHit: ['Well, I never! Your mama would be ashamed!', 'Honey, you just poked the wrong grandma.'],
+    low: ['My knees are fine. This truck ain\'t.', 'Lord, she\'s smokin\' like Sunday dinner.'],
+    wrecked: ['Well, that\'s a fine how-do-you-do.', 'Somebody call my grandbabies. Grandma\'s takin\' a nap.'],
+    taunt: ['Come here, sugar. Grandma wants a word.', 'You\'re cuter than a button, and twice as flat soon.', 'I\'ve squashed bigger bugs on my windshield.'],
+    fire: ['Rocks a-comin\'! Duck, darlin\'!', 'Here\'s a little somethin\' from the quarry!'],
+    crash: ['Oh, sugar. I hit the wall. The wall lost.'],
+    respawn: ['Grandma\'s back, and she\'s brought snacks!'],
+    onFire: ['Oh my stars, I\'m hotter than a church picnic in July!'],
+    rodeo: ['Honey, I\'ve wrangled grandbabies. A bull is nothin\'.'],
+  },
+  dozer: {
+    start: ['Hard hats on, y\'all. Job site\'s open.', 'Big Bob\'s on the clock. Somebody\'s gettin\' leveled.'],
+    hitYou: ['Leveled! Flat as Texas!', 'Pushed ya clean off the job site!', 'That\'s what we call site prep!'],
+    gotHit: ['Hey! That blade cost more than your house!', 'Watch it, partner! Heavy machinery here!'],
+    low: ['Hydraulics are weepin\'. So am I, a little.'],
+    wrecked: ['Well, dadgum. Call the foreman. Oh wait, that\'s me.'],
+    taunt: ['I\'ve moved bigger piles than you before coffee.', 'Stand still, partner. Makes the pushin\' easier.'],
+    fire: ['Blade up! Here comes the slam!', 'Raise it, drop it, flatten it!'],
+    crash: ['Wall\'s in my way. Not for long.'],
+    respawn: ['New dozer, fresh diesel. Let\'s work.'],
+    onFire: ['Fire on the job site! Somebody grab the extinguisher!'],
+  },
+  mixer: {
+    start: ['Alright, everybody listen. Nobody gets hurt. Except youse.', 'Tony\'s here. Make yourselves comfortable. Not too comfortable.'],
+    hitYou: ['That\'s a little message from the family.', 'Concrete answer to your question.', 'Ay! That\'s for my cousin Paulie!'],
+    gotHit: ['You hit Tony\'s truck? You got some nerve, pal.', 'Ay, ay, ay! What\'s the matter with you?!'],
+    low: ['The drum\'s still turnin\'. That\'s all that matters.'],
+    wrecked: ['This ain\'t over. Nothin\'s ever over.', 'Somebody call my lawyer. Not the cheap one.'],
+    taunt: ['You and me gotta have a little talk.', 'I know a guy who knows a guy who knows where you park.', 'Nice car. Be a shame if it got... set.'],
+    fire: ['Special delivery! Fresh concrete!', 'Pourin\' you a new driveway, pal!'],
+    crash: ['Who put that wall there? I wanna talk to him.'],
+    respawn: ['Tony\'s back. Like he never left.'],
+    onFire: ['Fire in the truck! Fuhgeddaboudit, keep drivin\'!'],
+  },
+  cruiser: {
+    start: ['Sheriff Dolly Mae Buck, and honey, every one of y\'all is under arrest.', 'Y\'all are breakin\' about forty laws just bein\' here.'],
+    hitYou: ['That\'s a moving violation, sugar!', 'You have the right to remain dented!', 'Write that one up! Resisting a whole lotta sheriff!'],
+    gotHit: ['Did you just ram a lawwoman?! Oh, you are in TROUBLE!', 'That\'s a felony, darlin\', and a scratch on my paint!'],
+    low: ['Officer needs assistance! Officer needs a whole new car!'],
+    wrecked: ['Tell the deputy... I want hazard pay.', 'This cruiser is out of order! And so are you!'],
+    taunt: ['I got a ticket book and all day, sweetie.', 'Pull over, and keep your hands where I can see \'em!', 'I\'ve been chasin\' outlaws since before you had a license!'],
+    fire: ['Warning shot! The next one ain\'t a warning!', 'Spike strip! Let\'s see you outrun that, hotshot!'],
+    crash: ['That wall just got itself a citation!'],
+    respawn: ['The law is back, sugar, and she\'s mad!'],
+    onFire: ['My cruiser\'s on fire! Somebody call the fire department! ...Wait.'],
+    rodeo: ['That bull is under arrest!'],
+  },
+};
+// Roasts: what each character says about each of the others, by name. Used when they ram, wreck or get close to that driver (see barks.roast).
+const ROASTS = {
+  camper: { tiger: 'Klaus, your tank is slow and your manners are slower.', firetruck: 'B|Yo, Captain Maeve! Your hose is, like, totally limp, yo!', tanker: 'Hank. A rolling bomb with a radio. I respect the chemistry, not the driver.', hellbender: 'Warlord, all that chrome and not one working brain cell.', sandflea: 'B|Nuxy, your buggy is smaller than my lunchbox, yo!', outrider: 'Max. Silent type. I prefer my opponents to scream.', viper: 'Dom, you talk about family. I talk about results.', towtruck: 'Cletus, your hook is the only sharp thing about you.', forklift: 'King Arthur. A monarch on a pallet jack. Remarkable.', combine: 'MacDonald, your farm called. It wants its tractor back.', bertha: 'B|Yo, Bertha, your truck is bigger than our whole neighbourhood!', dozer: 'Bob, you push dirt. I push empires.', mixer: 'Tony, you sell cement. I sell fear. We are not the same.', cruiser: 'B|Sheriff Dolly Mae! Mr. White, it\'s the cops! Drive, drive, drive!' },
+  tiger: { camper: 'Herr White, your laboratory smells of burnt toast.', firetruck: 'Captain McCaffrey, I will provide the fire. You may bring the hose.', tanker: 'Big Hank, a tanker full of fuel near a tank with a cannon. Delightful.', hellbender: 'Warlord, so loud. A true officer whispers.', sandflea: 'Little Nuxy, I have bigger things in my milk glass.', outrider: 'Max, you say so little. I have so much to say about your car.', viper: 'Dom, your little wedge is a lovely doorstop.', towtruck: 'Cletus, you tow wrecks. Soon you will tow yourself.', forklift: 'King Arthur, I prefer my royalty on a throne, not a pallet.', combine: 'Herr MacDonald, I will harvest you first.', bertha: 'Frau Bertha, your truck is large, but my gun is larger.', dozer: 'Bob, a bulldozer against a panzer. How quaint.', mixer: 'Tony, your concrete will make a lovely memorial.', cruiser: 'Sheriff, you may write me a ticket. I shall frame it.' },
+  firetruck: { camper: 'White, that RV is a fire waiting to happen, and I\'m waiting.', tiger: 'Klaus, ye drive a tank like a grandad drives a shopping trolley.', tanker: 'Hank, every time I see ye, I check where the extinguisher is.', hellbender: 'Warlord, your truck is all spikes and no sense.', sandflea: 'Nuxy, I\'ve hosed down bigger toys than that buggy.', outrider: 'Max, would it kill ye to say more than two words?', viper: 'Dom, that car is so low ye could park it under a door.', towtruck: 'Cletus, ye tow wrecks? Ye ARE a wreck!', forklift: 'King Arthur, find your grail somewhere else, I\'m busy.', combine: 'MacDonald, ye smell like a barn on a hot day.', bertha: 'Bertha, love, your truck needs its own postcode.', dozer: 'Bob, ye push dirt for a living. Fitting.', mixer: 'Tony, your mixer\'s the only thing in your life that ever turned.', cruiser: 'Sheriff, I put out fires. You start arguments.' },
+  tanker: { camper: 'Breaker one-nine, there\'s a smelly RV in my mirror.', tiger: 'Klaus, good buddy, a tank don\'t make you a trucker.', firetruck: 'Captain, you follow me around like you\'re expectin\' somethin\'.', hellbender: 'Warlord, your rig\'s got more spikes than sense, buddy.', sandflea: 'Ten-four, Nuxy, I almost ran over you and your lunchbox.', outrider: 'Max, my CB talks more than you do.', viper: 'Dom, that car\'s lower than my fuel gauge.', towtruck: 'Cletus, you ain\'t towin\' this rig. Nobody tows Hank.', forklift: 'Your Majesty, that ain\'t a chariot, it\'s a warehouse cart.', combine: 'MacDonald, get that combine off my highway.', bertha: 'Bertha, sweetheart, you take up two lanes and a parkin\' lot.', dozer: 'Bob, you\'re slower than a weigh station on a Monday.', mixer: 'Tony, keep that drum spinnin\' and outta my lane.', cruiser: 'Smokey on my tail! It\'s Dolly Mae! Hide the logbook!' },
+  hellbender: { camper: 'White, your rolling hovel offends the wasteland.', tiger: 'Klaus, your tank is old. Like the empires you dream of.', firetruck: 'Fire captain, the wasteland laughs at your little hose.', tanker: 'Hank, your guzzoline belongs to me.', sandflea: 'Nuxy! Stop waving at me! Fight!', outrider: 'Max, you could have been a war boy. You chose to sulk.', viper: 'Dom, your family is small, and your car is smaller.', towtruck: 'Cletus, I will hang your hook on my wall.', forklift: 'A king? There is only one ruler here, forklift man.', combine: 'MacDonald, I will turn your farm into a racetrack.', bertha: 'Bertha, your truck is mighty. Your cooking, I hear, is better.', dozer: 'Bob, you build roads. I destroy them.', mixer: 'Tony, your concrete cannot hold the Warlord.', cruiser: 'Sheriff, the wasteland has no laws. Only me.' },
+  sandflea: { camper: 'Mr. White! Your RV is a big smelly box! Ha!', tiger: 'Klaus! Your tank is so slow I lapped it twice!', firetruck: 'Captain! Spray me! Spray me! You can\'t catch me!', tanker: 'Hank\'s gonna go BOOM! Can I watch? Please?!', hellbender: 'Warlord! Witness ME! Not you! ME!', outrider: 'Max! Say something! Anything! Say SHINY!', viper: 'Dom! Your car is shiny but mine is SHINIER!', towtruck: 'Cletus! You can\'t hook me! I\'m too zippy!', forklift: 'King Arthur! Your castle is a forklift! Ahaha!', combine: 'Old MacDonald had a combine, and it was SLOW!', bertha: 'Grandma Bertha! You\'re so big I can drive underneath you!', dozer: 'Bob! Your blade can\'t catch me! Nyah!', mixer: 'Tony! Your drum spins round and round and round! Ahaha!', cruiser: 'Sheriff! You\'ll never catch me! Never ever ever!' },
+  outrider: { camper: 'White. Too much talking.', tiger: 'Klaus. Big gun. Small speed.', firetruck: 'Captain. Loud. Wet.', tanker: 'Hank. Rolling bonfire.', hellbender: 'Warlord. All spikes. No sense.', sandflea: 'Nuxy. Calm down.', viper: 'Dom. Nice car. Shame.', towtruck: 'Cletus. You can\'t tow me.', forklift: 'Arthur. Get a real car.', combine: 'MacDonald. Go back to the farm.', bertha: 'Bertha. Too big.', dozer: 'Bob. Too slow.', mixer: 'Tony. Not scared.', cruiser: 'Sheriff. Write it down.' },
+  viper: { camper: 'White, that RV couldn\'t win a race against a parked car.', tiger: 'Klaus, a quarter mile in that tank takes you a week.', firetruck: 'Captain, I\'d race you, but you\'d need a head start. And a tow.', tanker: 'Hank, I\'ve seen faster fuel leaks.', hellbender: 'Warlord, big truck, small heart.', sandflea: 'Nuxy, kid, you\'re fast. Not fast enough.', outrider: 'Max, you and me, we\'re the same. Except I win.', towtruck: 'Cletus, you\'ll be towing me never.', forklift: 'King Arthur, that\'s not a ride. That\'s a warehouse.', combine: 'MacDonald, go race your cows.', bertha: 'Bertha, I could drive between your wheels and you wouldn\'t notice.', dozer: 'Bob, zero to sixty? More like zero to never.', mixer: 'Tony, your truck spins more than it drives.', cruiser: 'Sheriff, you\'ll need a faster car to catch me.' },
+  towtruck: { camper: 'Mr. White, that RV is one pothole from my hook, partner.', tiger: 'Klaus, I\'d tow that tank, but my truck\'d cry.', firetruck: 'Cap\'n Maeve, you\'re so red I thought you was a barn!', tanker: 'Hank, I tow your rig, I\'m chargin\' extra for the boom.', hellbender: 'Warlord, them spikes ain\'t scarin\' Rufus, and Rufus is scared of squirrels.', sandflea: 'Nuxy, I could tow that buggy with a fishin\' line!', outrider: 'Max, you talk less than my hound dog. And he\'s smarter.', viper: 'Dom, that car\'s so low a possum could jump over it.', forklift: 'King Arthur, I tow royalty for half price!', combine: 'MacDonald, your combine\'s older than my granpappy\'s truck.', bertha: 'Miss Bertha, I\'d need forty of me to tow you, ma\'am.', dozer: 'Bob, you push, I pull, and I\'m gonna win.', mixer: 'Tony, your drum\'s spinnin\' like my head after a hoedown.', cruiser: 'Sheriff Dolly Mae, I ain\'t done nothin\'! Lately.' },
+  forklift: { camper: 'You there, chemist! Your mobile hovel offends the crown!', tiger: 'Sir Klaus, your iron horse is a shameful beast!', firetruck: 'Lady Maeve, your dragon-quenching wagon shall not save you!', tanker: 'Sir Hank, your barrel of foul-smelling liquid is not the grail!', hellbender: 'You call yourself a Warlord? I am a KING! On a forklift!', sandflea: 'C|Your buggy is so tiny, your mother was a hamster!', outrider: 'Silent knight Max! Speak, or forever hold your peace!', viper: 'Sir Dom, your steed is low and frankly undignified!', towtruck: 'Sir Cletus, you shall not tow the king!', combine: 'Farmer MacDonald! Bring me a shrubbery, and your combine!', bertha: 'Lady Bertha, your castle on wheels is most impressive. And doomed!', dozer: 'Sir Bob, your blade shall be as a butter knife to my forks!', mixer: 'C|Tony! Your concrete smells of elderberries!', cruiser: 'Sheriff, you have no authority over the King of the Britons!' },
+  combine: { camper: 'Mr. White, that RV smells worse than my pig pen.', tiger: 'Klaus, I\'ve seen faster tractors at the county fair.', firetruck: 'Captain, you can hose down my barn anytime. You\'ll miss though.', tanker: 'Hank, keep that tanker outta my corn.', hellbender: 'Warlord, you look like a scarecrow that fell in a toolbox.', sandflea: 'Nuxy, you\'re about the size of my mailbox.', outrider: 'Max, quiet as a mouse in a feed bin.', viper: 'Dom, that little car would fit in my hopper.', towtruck: 'Cletus, you ain\'t towin\' this combine, son. ...Er, partner.', forklift: 'King Arthur, I got bigger forks in my hay barn.', bertha: 'Bertha, you\'re the only thing in this yard bigger than my harvest.', dozer: 'Bob, you push dirt, I grow stuff in it. Who\'s smarter?', mixer: 'Tony, your truck just goes round and round, like a chicken with no plan.', cruiser: 'Sheriff, I got a permit for this combine. Somewhere.' },
+  bertha: { camper: 'Mr. White, honey, that RV needs a bath worse than my grandbabies.', tiger: 'Klaus, sugar, your manners are lovely, but your tank is tiny.', firetruck: 'Captain Maeve, I\'ve put out bigger fires in my kitchen.', tanker: 'Hank, darlin\', you smell like a gas station on a hot day.', hellbender: 'Warlord, bless your heart, all that chrome and no manners.', sandflea: 'Nuxy, sweetie, I could lose you in my cup holder.', outrider: 'Max, honey, smile once in a while. It won\'t kill you.', viper: 'Dom, sugar, that little car of yours is cuter than a bug.', towtruck: 'Cletus, honey, you couldn\'t tow my handbag.', forklift: 'Arthur, your crown is crooked, and so is your forklift.', combine: 'MacDonald, darlin\', your corn\'s as dry as your jokes.', dozer: 'Bob, sugar, I\'ve got tires taller than your whole dozer.', mixer: 'Tony, honey, I make better cement in my biscuits.', cruiser: 'Dolly Mae, sweetie, I taught you to drive. Clearly I failed.' },
+  dozer: { camper: 'Mr. White, that RV ain\'t up to code.', tiger: 'Klaus, I\'ve buried bigger tanks than yours in a landfill.', firetruck: 'Captain, my job site\'s got more water than your hose.', tanker: 'Hank, park that fuel truck somewhere I ain\'t workin\'.', hellbender: 'Warlord, your truck looks like a scrap heap that won a raffle.', sandflea: 'Nuxy, I got gravel bigger than your buggy.', outrider: 'Max, talk more, partner, I can\'t hear you over my blade.', viper: 'Dom, that car\'s so low I almost scooped it up.', towtruck: 'Cletus, I push, you pull, and I always win.', forklift: 'Arthur, that ain\'t heavy machinery. That\'s a toy.', combine: 'MacDonald, your combine\'s got more rust than my old pickup.', bertha: 'Bertha, ma\'am, you\'re the only thing in this yard I can\'t push.', mixer: 'Tony, your concrete\'s gonna be my driveway.', cruiser: 'Sheriff, I got a permit. Mostly.' },
+  mixer: { camper: 'White, you cook. I pour. Guess who\'s got the bigger truck.', tiger: 'Klaus, you got a gun, I got cement. Cement wins.', firetruck: 'Captain, you put out fires, I put out people. Kiddin\'. Mostly.', tanker: 'Hank, one spark and you\'re a firework, pal.', hellbender: 'Warlord, you look like a hood ornament that got ambitious.', sandflea: 'Nuxy, kid, you\'re making me dizzy. Sit down.', outrider: 'Max, I like you. You don\'t talk. Smart.', viper: 'Dom, family? I got family. Bigger family.', towtruck: 'Cletus, you tow cars? I make \'em disappear.', forklift: 'King Arthur, you wanna be king? There\'s only one boss here.', combine: 'MacDonald, take your cows and go home, pal.', bertha: 'Bertha, you remind me of my ma. Terrifying.', dozer: 'Bob, you push, I pour. Together we build a nice parking lot outta youse.', cruiser: 'Sheriff, I didn\'t see nothin\'. I don\'t know nothin\'.' },
+  cruiser: { camper: 'Mr. White, that RV has more violations than wheels!', tiger: 'Klaus, sugar, a tank is NOT street legal!', firetruck: 'Maeve, honey, sirens are for the law, not for showin\' off!', tanker: 'Hank, I got you for speedin\', spillin\' and smellin\' funny!', hellbender: 'Warlord, all them spikes are a misdemeanor, darlin\'!', sandflea: 'Nuxy, that buggy ain\'t registered and neither are you!', outrider: 'Max, you have the right to remain silent. You already do.', viper: 'Dom, I clocked you at way too fast and too pretty!', towtruck: 'Cletus, I know that hook. I\'ve seen it on my wanted poster!', forklift: 'Your Majesty, kings still need a license, sugar!', combine: 'MacDonald, that combine is wider than the law allows!', bertha: 'Bertha, Mama, please, you are blocking four lanes!', dozer: 'Bob, that blade is a deadly weapon and you know it!', mixer: 'Tony Cement, I know you\'re up to somethin\', and I\'ll prove it!' },
+};
+for (const [type, more] of Object.entries(CAST_EXTRA)) { const P = type === 'cruiser' ? COP : CAR_CAST[type.replace(/2$/, '')]; if (P) for (const [ev, list] of Object.entries(more)) P.lines[ev] = (P.lines[ev] || []).concat(list); }
+const ROAST_BY = new Map(); // speaker persona -> target nick -> [lines]
+for (const [type, targets] of Object.entries(ROASTS)) { const P = type === 'cruiser' ? COP : CAR_CAST[type]; if (!P) continue; const m = new Map(); for (const [tt, line] of Object.entries(targets)) { const T = tt === 'cruiser' ? COP : CAR_CAST[tt]; if (T) m.set(T.nick, [].concat(line)); } ROAST_BY.set(P, m); }
 Object.assign(GENERIC, { onFire: ['I\'m on fire! I\'M ON FIRE!', 'Hot hot hot!', 'Somebody hose me down!', 'My engine is a barbecue!'], rodeo: ['Yee-haw! Ride \'em!', 'Gotcha, bull!', 'Rodeo time!'], burger: ['Flame-grilled!', 'Medium rare!', 'Who ordered the bull burger?'], rival: ['Hey {v}! Get out of my way!', '{v}, your {vcar} is a joke!', 'I\'m coming for you, {v}!'], respawn: ['I\'m back!', 'Miss me?', 'Round two!'], kill: ['So long, {v}!', 'Got you, {v}!', 'Ha! {v} is out!'] });
 const barks = {
   lastT: -99, el: null, voices: [],
@@ -6736,39 +7233,48 @@ const barks = {
   who(P, line) { line = String(line); const m = line.match(/^([BC])\|/); if (!m) return [P, line]; const alt = m[1] === 'B' ? P.duo : P.trio; return [alt ? { ...P, ...alt } : P, line.slice(2)]; }, // extra voices in the cab (B| and C|)
   used: new Set(),
   fill(tpl, P, vars) {
-    const w = P.words || {}, parts = []; let at = 0; // parts: the template's fixed text and the values it got, so VCLIP can splice recorded pieces
-    const out = tpl.replace(/\{(\w+)\}/g, (m, k, i) => { const val = vars[k] !== undefined ? vars[k] : w[k] ? w[k][Math.random() * w[k].length | 0] : ''; parts.push(tpl.slice(at, i), [k, String(val)]); at = i + m.length; return val; });
-    parts.push(tpl.slice(at)); this.lastParts = parts; return out;
+    const w = P.words || {};
+    this.lastTpl = tpl; // (VCLIP: which template this line came from)
+    return tpl.replace(/\{(\w+)\}/g, (m, k) => vars[k] !== undefined ? vars[k] : w[k] ? w[k][Math.random() * w[k].length | 0] : '');
   },
   compose(P, ev, vars) { // a fresh line every time: mix handwritten lines and templates, skip anything said this match
+    const rr = this.roast(P, ev, vars); if (rr || ev === 'roast') return rr; // a roast aimed at that driver by name (about half the time)
     const hand = (P.lines && P.lines[ev]) || [], tpls = TEMPLATES[ev] || GENERIC[ev] || [];
-    const r = VCLIP.pick(14, () => { // (prefers lines that have a recorded clip, when there are clips)
+    const line = VCLIP.pick(14, () => { // (prefers lines that have a recorded clip, when there are clips)
       const useHand = hand.length && Math.random() < (P.hand ?? 0.35);
       const src = useHand ? hand : tpls;
       if (!src.length) return null;
-      const line = this.fill(src[Math.random() * src.length | 0], P, vars);
-      return line.charAt(0).toUpperCase() + line.slice(1);
+      const l = this.fill(src[Math.random() * src.length | 0], P, vars);
+      return l.charAt(0).toUpperCase() + l.slice(1);
     }, P, this.used);
-    if (r) { this.remember(r.line); VCLIP.note(r); return r.line; }
+    if (line) { this.remember(line); return line; }
     return this.reuse(hand.length ? hand : tpls, P, vars); // every line already said: the respawn match never ends, so repeat one rather than go quiet for the rest of the session
+  },
+  roast(P, ev, vars) {
+    const m = ROAST_BY.get(P), tn = vars && (vars.v || vars.target), pool = m && tn && m.get(tn);
+    if (!pool || !['roast', 'hitYou', 'gotHit', 'kill', 'rival', 'taunt', 'wrecked'].includes(ev) || (ev !== 'roast' && Math.random() < 0.5)) return null;
+    const fresh = pool.filter((l) => !this.used.has(l)), line = fresh.length ? fresh[Math.random() * fresh.length | 0] : ev === 'roast' ? pool[Math.random() * pool.length | 0] : null; // (close-pass roasts may repeat: the per-pair cooldown spaces them)
+    if (line) this.remember(line); return line;
   },
   remember(line) { this.used.delete(line); this.used.add(line); if (this.used.size > 600) this.used.delete(this.used.values().next().value); }, // (the oldest lines become sayable again)
   reuse(src, P, vars) { if (!src || !src.length) return null; let line = this.fill(src[Math.random() * src.length | 0], P, vars); line = line.charAt(0).toUpperCase() + line.slice(1); this.remember(line); this.stats = this.stats || { sent: 0, started: 0, errors: 0, resets: 0, lastVoice: '' }; this.stats.repeats = (this.stats.repeats || 0) + 1; return line; },
   announce(ev, vars, force) {
     const now = performance.now() / 1000;
     if (game.state !== 'playing' || (!force && now - (this.annT || -99) < 4) || now - this.lastT < 1.2) return;
-    const pool = ANN_LINES[ev]; if (!pool) return;
+    if (!ANN_LINES[ev]) return;
+    let A = this.annSwap ? SHAZZA : ANNOUNCER, pool = annPool(A, ev); if (!pool.length) { A = A === SHAZZA ? ANNOUNCER : SHAZZA; pool = annPool(A, ev); } // Kev and Shazza take turns
+    this.annSwap = A === ANNOUNCER;
     for (let i = 0; i < 1; i++) {
-      const r = VCLIP.pick(8, () => this.fill(pool[Math.random() * pool.length | 0], ANNOUNCER, vars), ANNOUNCER, this.used); // (prefers recorded lines)
-      const line = r ? r.line : this.fill(pool[Math.random() * pool.length | 0], ANNOUNCER, vars); if (r) VCLIP.note(r); // (nothing fresh left: repeat one; a long match uses up the announcer's pool)
+      const r = VCLIP.pick(8, () => this.fill(pool[Math.random() * pool.length | 0], A, vars), A, this.used); // (prefers recorded lines)
+      const line = r || this.fill(pool[Math.random() * pool.length | 0], A, vars); // (nothing fresh left: repeat one; a long match uses up the announcer's pool)
       this.remember(line); this.annT = now; this.lastT = now;
-      this.show(ANNOUNCER, new THREE.Color(0xf2a20c), line);
-      this.speak(ANNOUNCER, line, null);
+      this.show(A, new THREE.Color(A === SHAZZA ? 0xff6fa8 : 0xf2a20c), line);
+      this.speak(A, line, null);
       return;
     }
   },
   show(P0, color, line0) {
-    if (MP.role === 'host') MP.event({ k: 'b', i: P0 === ANNOUNCER ? -1 : cars.findIndex((c) => c.persona === P0), x: String(line0).slice(0, 140) });
+    if (MP.role === 'host') MP.event({ k: 'b', i: P0 === ANNOUNCER ? -1 : P0 === SHAZZA ? -3 : cars.findIndex((c) => c.persona === P0), x: String(line0).slice(0, 140) });
     const [P, line] = this.who(P0, line0);
     const d = document.createElement('div');
     d.className = 'sub';
@@ -6957,19 +7463,29 @@ const barks = {
   },
 };
 
-/* ---------------- Pre-rendered voices: real recorded-style clips from voices/manifest.json, Web Speech for anything without one ----------------
+/* ---------------- Pre-rendered voices: recorded clips from voices/manifest.json, Web Speech for anything without one ----------------
    voices/ sits next to index.html (made by voices/render.mjs). No manifest (the single-file build, a local file, an old deploy): every line
-   uses Web Speech exactly as before. A line plays as one whole clip when there is one; a template line that names another driver, a car or a
-   speed is spliced from fragment + name clips; otherwise, or if a clip fails to load or decode, that one line goes to Web Speech. */
+   uses Web Speech exactly as before. Each character has clips of their own lines; a template line is recorded once in a name-free form
+   ("Pull over, pal!") and, when there are clips, that version is said (and captioned) instead of the name-filled one. */
 const VCLIP = {
-  clips: null, byChar: new Map(), fx: { 'crash-cam-kev': 'pa', 'big-hank': 'radio', 'german-tourist-in-the-back': 'muffled' },
+  clips: null, byChar: new Map(), fx: { 'crash-cam-kev': 'pa', shazza: 'pa', 'big-hank': 'radio', 'german-tourist-in-the-back': 'muffled' },
   bufs: new Map(), raw: new Map(), loading: new Map(), bytes: 0, rawBytes: 0, MAX_BYTES: 40e6, MAX_RAW: 12e6, // decoded audio is ~10x the mp3: cap both
-  parts: new Map(), q: null, cur: null, seen: new WeakSet(), log: [],
-  stats: { clips: 0, spliced: 0, speech: 0, failed: 0, fetched: 0, decoded: 0, started: 0 },
-  // (hash, ids and keys must match voices/extract.mjs)
+  q: null, cur: null, seen: new WeakSet(), log: [],
+  stats: { clips: 0, generic: 0, speech: 0, failed: 0, fetched: 0, decoded: 0 },
+  // (voices/extract.mjs runs hash, slug and generic from this block, so the ids always match)
   hash(str) { let h1 = 0xdeadbeef, h2 = 0x41c6ce57; for (let i = 0; i < str.length; i++) { const ch = str.charCodeAt(i); h1 = Math.imul(h1 ^ ch, 2654435761); h2 = Math.imul(h2 ^ ch, 1597334677); } h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909); h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909); return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36); },
   slug(nick) { return String(nick).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 32); },
-  key(s) { return String(s).replace(/^[\s.,!?;:…\-]+/, '').replace(/\s+$/, '').toLowerCase(); },
+  generic(tpl, P) { // a template with its blanks filled by words that fit any target: "{v}! Your {vcar} is a joke!" -> "Hey! Your car is a joke!"
+    const kev = !!P.caller, w = P.words || {}, G = kev ? { a: 'somebody', v: 'that poor driver', voc: 'mate' } : { a: 'that one', v: 'that one', voc: 'pal' };
+    const out = tpl.replace(/\{(\w+)\}/g, (m, k, i) => {
+      const before = tpl.slice(0, i).replace(/^[BC]\|/, ''), after = tpl.slice(i + m.length), start = !before.trim() || /[.!?]\s*$/.test(before);
+      let v;
+      if (k === 'v' || k === 'a') v = (/,\s*$/.test(before) || /\b(Yo|Hey|Oi|Herr)\s+$/.test(before)) && /^[!?.,]/.test(after) ? G.voc : start && /^[!,]/.test(after) && !kev ? 'hey' : /\b(a|the)\s+$/i.test(before) ? G[k].replace(/^that /, '') : G[k];
+      else v = { target: 'you', car: 'car', vcar: 'car', kmh: 'a hundred', n: 'a few', secs: 'three', w: 'the scrap pile' }[k] ?? (w[k] && w[k].length ? String(w[k][0]) : '');
+      return start ? v.charAt(0).toUpperCase() + v.slice(1) : v;
+    });
+    return out.charAt(0).toUpperCase() + out.slice(1);
+  },
   base: 'voices/',
   load() {
     try {
@@ -6984,42 +7500,27 @@ const VCLIP = {
       }).catch(() => {});
     } catch (e) {}
   },
-  // the clip ids for a line: [id] for a whole line, [ids...] for a spliced one, null = no clip (Web Speech)
-  idsFor(P0, line0, parts) {
-    if (!this.clips) return null;
-    const [P, line] = barks.who(P0, line0), ch = this.slug(P.nick), id = this.hash(ch + '|' + line);
-    if (this.clips[id]) return [id];
-    if (!parts) return null;
-    const ids = [];
-    for (let i = 0; i < parts.length; i++) {
-      const p = parts[i], txt = i === 0 ? String(p).replace(/^[BC]\|/, '') : p; // (B|/C| = said by the second/third voice in the cab, like the line)
-      if (typeof txt === 'string') { if (this.key(txt)) ids.push(this.hash(ch + '|§' + this.key(txt))); }
-      else if (this.key(txt[1])) ids.push(this.hash(ch + '|¤' + this.key(txt[1])));
-    }
-    return ids.length && ids.every((x) => this.clips[x]) ? ids : null;
-  },
-  // pick a line: one with a whole clip first, then one that can be spliced, else the first unused one (Web Speech), as before
+  id(P0, line0) { if (!this.clips) return null; const [P, line] = barks.who(P0, line0), id = this.hash(this.slug(P.nick) + '|' + line); return this.clips[id] ? id : null; }, // the clip for this exact line, if any
+  // pick a line: one with a clip (or the recorded generic version of its template) first, else the first unused one (Web Speech), as before
   pick(n, gen, P, used) {
-    let first = null, spliced = null;
+    let first = null;
     for (let i = 0; i < (this.clips ? n * 3 : n); i++) {
-      barks.lastParts = null; const line = gen(); if (line == null || used.has(line)) continue;
-      const r = { line, parts: barks.lastParts };
-      if (!this.clips) return r;
-      const ids = this.idsFor(P, line, r.parts);
-      if (ids && ids.length === 1) return r;
-      if (ids && !spliced) spliced = r; if (!first) first = r;
+      barks.lastTpl = null; const line = gen(); if (line == null) continue; const tpl = barks.lastTpl;
+      if (!this.clips) { if (!used.has(line)) return line; continue; }
+      if (!used.has(line) && this.id(P, line)) return line;
+      if (tpl) { const g = this.generic(tpl, P); if (g !== line && !used.has(g) && this.id(P, g)) { this.stats.generic++; return g; } }
+      if (!first && !used.has(line)) first = line;
     }
-    return spliced || first;
+    return first;
   },
-  note(r) { if (r && r.parts) { this.parts.set(r.line, r.parts); if (this.parts.size > 24) this.parts.delete(this.parts.keys().next().value); } },
   // called by barks.speak: true = this line is ours (a clip will play, or Web Speech takes over if it can't load)
   speak(P0, line0, pos, opt) {
     if (!this.clips || !sfx.ctx || sfx.muted || S.voiceVolume <= 0) return false;
-    const ids = this.idsFor(P0, line0, this.parts.get(line0));
-    if (!ids) { this.stats.speech++; return false; }
-    const [P] = barks.who(P0, line0);
-    const it = { P0, line0, pos, ids, fx: (opt && opt.fx) || this.fx[this.slug(P.nick)] || '', t: performance.now() };
-    if (this.cur) { if (this.q) this.stats.dropped = (this.stats.dropped || 0) + 1; this.q = it; } // one line waits; a newer one replaces it (like the speech backlog rule)
+    const id = this.id(P0, line0);
+    if (!id) { this.stats.speech++; return false; }
+    const [P, line] = barks.who(P0, line0);
+    const it = { P0, line0, who: P.nick, line, pos, id, fx: (opt && opt.fx) || this.fx[this.slug(P.nick)] || '', t: performance.now() };
+    if (this.cur) this.q = it; // one line waits; a newer one replaces it (like the speech backlog rule)
     else this.play(it);
     return true;
   },
@@ -7050,8 +7551,8 @@ const VCLIP = {
   },
   tick() { // every couple of seconds: preload for drivers who just arrived (new match, respawn as another car)
     if (!this.clips) return;
-    if (!this.kevDone) { this.kevDone = true; this.preload(ANNOUNCER, 10); }
-    for (const c of cars) { const P = c.persona; if (!P || c.isPlayer || this.seen.has(P)) continue; this.seen.add(P); this.preload(P, 6); if (P.duo) this.preload({ nick: P.duo.nick }, 2); }
+    if (!this.kevDone) { this.kevDone = true; this.preload(ANNOUNCER, 8); this.preload(SHAZZA, 6); }
+    for (const c of cars) { const P = c.persona; if (!P || c.isPlayer || this.seen.has(P)) continue; this.seen.add(P); this.preload(P, 6); if (P.duo) this.preload({ nick: P.duo.nick }, 4); }
   },
   bus() {
     const c = sfx.ctx; if (this._bus && this._bus.context === c) return this._bus;
@@ -7074,7 +7575,7 @@ const VCLIP = {
   play(it) {
     this.cur = it;
     const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('slow')), 2500));
-    Promise.race([Promise.all(it.ids.map((id) => this.get(id))), timeout]).then((bufs) => {
+    Promise.race([this.get(it.id), timeout]).then((buf) => {
       if (this.cur !== it) return; // stopped meanwhile
       if (VOICES_OFF || sfx.muted || S.voiceVolume <= 0 || performance.now() - it.t > 4000) { this.next(); return; } // switched off, or the caption is long gone
       const c = sfx.ctx, t0 = c.currentTime + 0.03;
@@ -7083,13 +7584,12 @@ const VCLIP = {
       let out = this.bus();
       if (it.pos && c.createStereoPanner) { const pn = c.createStereoPanner(); pn.pan.value = sfx.panOf(it.pos) * 0.7; pn.connect(out); out = pn; }
       g.connect(this.chain(it.fx, out));
-      let t = t0; const srcs = [];
-      for (let i = 0; i < bufs.length; i++) { const s = c.createBufferSource(); s.buffer = bufs[i]; s.connect(g); s.start(t); srcs.push(s); t += bufs[i].duration - (bufs.length > 1 ? 0.04 : 0); } // spliced pieces overlap a hair (ElevenLabs pads each clip)
-      if (it.fx === 'radio') { const n = c.createBufferSource(); n.buffer = sfx.noise; const ng = c.createGain(); ng.gain.setValueAtTime(0.0001, t); ng.gain.exponentialRampToValueAtTime(0.12 * g.gain.value, t + 0.01); ng.gain.exponentialRampToValueAtTime(0.0001, t + 0.12); const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 1500; n.connect(hp); hp.connect(ng); ng.connect(out); n.start(t, Math.random()); n.stop(t + 0.14); } // squelch tail
-      it.srcs = srcs; it.end = t; this.stats.started++; this.stats[bufs.length > 1 ? 'spliced' : 'clips']++;
-      this.log.push({ who: barks.who(it.P0, it.line0)[0].nick, line: barks.who(it.P0, it.line0)[1], pieces: bufs.length, fx: it.fx }); if (this.log.length > 30) this.log.shift(); // (shown in tests / console)
-      this.duck(t0, t);
-      srcs[srcs.length - 1].onended = () => { if (this.cur === it) this.next(); };
+      const s = c.createBufferSource(); s.buffer = buf; s.connect(g); s.start(t0); const t1 = t0 + buf.duration;
+      if (it.fx === 'radio') { const n = c.createBufferSource(); n.buffer = sfx.noise; const ng = c.createGain(); ng.gain.setValueAtTime(0.0001, t1); ng.gain.exponentialRampToValueAtTime(0.12 * g.gain.value, t1 + 0.01); ng.gain.exponentialRampToValueAtTime(0.0001, t1 + 0.12); const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 1500; n.connect(hp); hp.connect(ng); ng.connect(out); n.start(t1, Math.random()); n.stop(t1 + 0.14); } // squelch tail
+      it.src = s; this.stats.clips++;
+      this.log.push({ who: it.who, line: it.line, fx: it.fx }); if (this.log.length > 30) this.log.shift(); // (shown in tests / console)
+      this.duck(t0, t1);
+      s.onended = () => { if (this.cur === it) this.next(); };
     }).catch(() => { // couldn't fetch or decode: this one line goes to Web Speech
       if (this.cur !== it) return; this.stats.failed++;
       if (!VOICES_OFF && performance.now() - it.t < 3500) try { barks.speak(it.P0, it.line0, it.pos, { noClip: true }); } catch (e) {}
@@ -7102,9 +7602,33 @@ const VCLIP = {
     gn.cancelScheduledValues(t0); gn.setTargetAtTime(full * 0.45, t0, 0.06); gn.setTargetAtTime(full, t1 + 0.1, 0.35);
     clearTimeout(this.duckT); this.duckT = setTimeout(() => { try { gn.cancelScheduledValues(0); gn.value = S.musicVolume * 0.8; } catch (e) {} }, (t1 - t0) * 1000 + 2500); // and never stays ducked
   },
-  stopAll() { const it = this.cur; this.cur = null; this.q = null; if (it && it.srcs) for (const s of it.srcs) try { s.onended = null; s.stop(); } catch (e) {} },
+  stopAll() { const it = this.cur; this.cur = null; this.q = null; if (it && it.src) try { it.src.onended = null; it.src.stop(); } catch (e) {} },
 };
 VCLIP.load();
+// Close-pass roasts: a driver closing in on (or flashing past) a rival they have a roast for says it. Host/solo decides; guests hear it through the bark event.
+const ROAST_PAIR = new Map(); // 'speaker|target' -> last time (s)
+function roastTick() {
+  if (game.state !== 'playing' || MP.role === 'guest' || !player) return;
+  const now = performance.now() / 1000; if (now - barks.lastT < 1.8) return;
+  let best = null, bestD = 1e9;
+  for (const a of cars) {
+    if (a.isPlayer || a.remote || a.wrecked || !a.persona) continue; const m = ROAST_BY.get(a.persona); if (!m) continue;
+    const dp = a.body.position.distanceTo(player.body.position); if (dp > 70 || dp >= bestD) continue; // only where you can hear it; nearest first
+    for (const b of cars) {
+      if (b === a || b.wrecked || !b.persona || !m.has(b.persona.nick)) continue;
+      if (a.body.position.distanceTo(b.body.position) > 14) continue;
+      const k = a.persona.nick + '|' + b.persona.nick; if (now - (ROAST_PAIR.get(k) || -99) < 30) continue;
+      const rel = b.body.velocity.vsub(a.body.velocity), dir = b.body.position.vsub(a.body.position); dir.normalize();
+      const closing = -rel.dot(dir), fast = a.body.velocity.length() > 8 && b.body.velocity.length() > 8;
+      if (closing < 4 && rel.length() < 9 && !fast) continue; // closing in head-on, a fast near miss, or racing alongside
+      best = [a, b, k]; bestD = dp; break;
+    }
+  }
+  if (!best) return; const [a, b, k] = best, t0 = a.lastBark;
+  barks.say(a, 'roast', false, { v: b.persona.nick, target: b.persona.nick, car: b.T.name });
+  if (a.lastBark !== t0) { ROAST_PAIR.set(k, now); ROAST_PAIR.set(b.persona.nick + '|' + a.persona.nick, now); } // (both ways: one roast per pair per cooldown)
+}
+setInterval(() => { try { roastTick(); } catch (e) {} }, 500);
 setInterval(() => { try { VCLIP.tick(); } catch (e) {} }, 2000);
 
 /* ---------------- Off-screen opponent arrows ---------------- */
@@ -7159,49 +7683,57 @@ function updateThreats() {
 
 /* ---------------- Speedometer + tachometer ---------------- */
 const gauge = $('gauge'), gctx = gauge.getContext('2d');
+const GAUGE = { key: '', faceKey: '', face: null, W: 0, H: 0, t: 0 };
+try { document.fonts && document.fonts.addEventListener('loadingdone', () => { GAUGE.faceKey = GAUGE.key = ''; }); } catch (e) {} // the dial face was drawn before the fonts arrived
 function drawGauge() {
   const dpr = Math.min(2, window.devicePixelRatio || 1);
-  const W = gauge.clientWidth, H = gauge.clientHeight;
+  const now = performance.now(); if (now - GAUGE.t > 500 || !GAUGE.W) { GAUGE.t = now; GAUGE.W = gauge.clientWidth; GAUGE.H = gauge.clientHeight; } // (reading the size every frame forced a layout after the HUD's writes)
+  const W = GAUGE.W, H = GAUGE.H;
   if (!W || !H) return;
-  if (gauge.width !== Math.round(W * dpr) || gauge.height !== Math.round(H * dpr)) { gauge.width = Math.round(W * dpr); gauge.height = Math.round(H * dpr); }
-  const g = gctx;
-  g.setTransform(dpr, 0, 0, dpr, 0, 0);
-  g.clearRect(0, 0, W, H);
   const T = player.T, red = T.redline, max = Math.ceil(red * 1.15 / 1000) * 1000;
+  const sp = player.speed;
+  const gear = sp < -0.5 && player.ctrl.throttle < 0 ? 'R' : Math.abs(sp) < 0.5 && player.ctrl.throttle === 0 ? 'N' : String(player.gear);
+  const key = W + ',' + H + ',' + dpr + ',' + max + ',' + red + ',' + Math.round(clamp(player.rpm / max, 0, 1) * 400) + ',' + gear + ',' + Math.round(Math.abs(sp) * 3.6) + ',' + (player.shiftT > 0) + ',' + (player.rpm > red * 0.95);
+  if (key === GAUGE.key) return; GAUGE.key = key; // the needle hasn't moved a pixel: leave the canvas alone
+  if (gauge.width !== Math.round(W * dpr) || gauge.height !== Math.round(H * dpr)) { gauge.width = Math.round(W * dpr); gauge.height = Math.round(H * dpr); }
   const r = Math.min(W, H) * 0.42, cx = W / 2, cy = H / 2; // dial disc (r × 1.12) always fits the canvas
   const a0 = Math.PI * 0.75, a1 = Math.PI * 2.25, ang = (v) => a0 + (a1 - a0) * clamp(v / max, 0, 1);
-  g.lineCap = 'butt';
-  g.beginPath(); g.arc(cx, cy, r * 1.12, 0, Math.PI * 2); g.fillStyle = 'rgba(26,21,16,.82)'; g.fill();
-  g.lineWidth = 1; g.strokeStyle = 'rgba(241,232,218,.14)'; g.stroke();
-  g.beginPath(); g.arc(cx, cy, r * 0.93, ang(red), a1); g.lineWidth = r * 0.07; g.strokeStyle = '#e4472c'; g.stroke();
+  const fk = W + ',' + H + ',' + dpr + ',' + max + ',' + red;
+  if (GAUGE.faceKey !== fk) { GAUGE.faceKey = fk; const fc = GAUGE.face || (GAUGE.face = document.createElement('canvas')); fc.width = gauge.width; fc.height = gauge.height;
+    const g = fc.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H); g.lineCap = 'butt';
+    g.beginPath(); g.arc(cx, cy, r * 1.12, 0, Math.PI * 2); g.fillStyle = 'rgba(26,21,16,.82)'; g.fill();
+    g.lineWidth = 1; g.strokeStyle = 'rgba(241,232,218,.14)'; g.stroke();
+    g.beginPath(); g.arc(cx, cy, r * 0.93, ang(red), a1); g.lineWidth = r * 0.07; g.strokeStyle = '#e4472c'; g.stroke();
+    g.fillStyle = '#f1e8da'; g.strokeStyle = '#f1e8da';
+    g.font = `600 ${Math.round(r * 0.11)}px "Chakra Petch", system-ui, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+    for (let v = 0; v <= max; v += 500) {
+      const a = ang(v), major = v % 1000 === 0;
+      const r0 = r * (major ? 0.74 : 0.8), r1 = r * 0.87;
+      g.beginPath(); g.moveTo(cx + Math.cos(a) * r0, cy + Math.sin(a) * r0); g.lineTo(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1);
+      g.lineWidth = major ? 2 : 1; g.strokeStyle = v >= red ? '#e4472c' : '#f1e8da'; g.stroke();
+      if (major) { g.fillStyle = v >= red ? '#e4472c' : '#a89a86'; g.fillText(String(v / 1000), cx + Math.cos(a) * r * 0.62, cy + Math.sin(a) * r * 0.62); }
+    }
+    g.fillStyle = '#a89a86'; g.font = `600 ${Math.round(r * 0.1)}px "Chakra Petch", system-ui, sans-serif`;
+    g.fillText('KM/H', cx, cy + r * 0.72);
+    g.fillText('RPM ×1000', cx, cy + r * 0.96); }
+  const g = gctx;
+  g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, gauge.width, gauge.height); g.drawImage(GAUGE.face, 0, 0);
+  g.setTransform(dpr, 0, 0, dpr, 0, 0); g.lineCap = 'butt';
   // rpm fill
   g.beginPath(); g.arc(cx, cy, r * 0.93, a0, ang(player.rpm)); g.lineWidth = r * 0.07; g.strokeStyle = player.rpm > red * 0.95 ? '#e4472c' : 'rgba(242,162,12,.75)'; g.stroke();
-  g.fillStyle = '#f1e8da'; g.strokeStyle = '#f1e8da';
-  g.font = `600 ${Math.round(r * 0.11)}px "Chakra Petch", system-ui, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
-  for (let v = 0; v <= max; v += 500) {
-    const a = ang(v), major = v % 1000 === 0;
-    const r0 = r * (major ? 0.74 : 0.8), r1 = r * 0.87;
-    g.beginPath(); g.moveTo(cx + Math.cos(a) * r0, cy + Math.sin(a) * r0); g.lineTo(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1);
-    g.lineWidth = major ? 2 : 1; g.strokeStyle = v >= red ? '#e4472c' : '#f1e8da'; g.stroke();
-    if (major) { g.fillStyle = v >= red ? '#e4472c' : '#a89a86'; g.fillText(String(v / 1000), cx + Math.cos(a) * r * 0.62, cy + Math.sin(a) * r * 0.62); }
-  }
+  g.textAlign = 'center'; g.textBaseline = 'middle';
   // needle
   const na = ang(player.rpm);
   g.beginPath(); g.moveTo(cx - Math.cos(na) * r * 0.1, cy - Math.sin(na) * r * 0.1); g.lineTo(cx + Math.cos(na) * r * 0.9, cy + Math.sin(na) * r * 0.9);
   g.lineWidth = 3; g.strokeStyle = '#f2a20c'; g.stroke();
   g.beginPath(); g.arc(cx, cy, r * 0.07, 0, 7); g.fillStyle = '#f2a20c'; g.fill();
   // gear and speed
-  const sp = player.speed;
-  const gear = sp < -0.5 && player.ctrl.throttle < 0 ? 'R' : Math.abs(sp) < 0.5 && player.ctrl.throttle === 0 ? 'N' : String(player.gear);
   g.fillStyle = player.shiftT > 0 ? '#f2a20c' : '#f1e8da';
   g.font = `400 ${Math.round(r * 0.3)}px Bungee, "Arial Black", Impact, sans-serif`;
   g.fillText(gear, cx, cy - r * 0.36);
   g.fillStyle = '#f1e8da';
   g.font = `400 ${Math.round(r * 0.3)}px Bungee, "Arial Black", Impact, sans-serif`;
   g.fillText(String(Math.round(Math.abs(sp) * 3.6)), cx, cy + r * 0.42);
-  g.fillStyle = '#a89a86'; g.font = `600 ${Math.round(r * 0.1)}px "Chakra Petch", system-ui, sans-serif`;
-  g.fillText('KM/H', cx, cy + r * 0.72);
-  g.fillText('RPM ×1000', cx, cy + r * 0.96);
 }
 
 /* ---------------- Minimap ---------------- */
@@ -7225,8 +7757,10 @@ function drawMapBase() {
 }
 drawMapBase();
 barks.init();
+let mmLast = 0;
 function drawMinimap() {
   if (!MAP_ON) return; // hidden: don't spend time drawing it
+  const now = performance.now(); if (now - mmLast < 30) return; mmLast = now; // ~30 redraws a second is plenty for dots on a map (it was every frame)
   const W = mm.width, s = W / (A * 2 + 8);
   mctx.clearRect(0, 0, W, W);
   mctx.drawImage(mmBase, 0, 0);
@@ -7265,7 +7799,7 @@ const game = {
       car.respawnT = car.isPlayer || car.remote ? RESPAWN_HUMAN : RESPAWN_AI;
       if (car.isPlayer) { toast('WRECKED', 'bad'); const g = killer && !killer.wrecked ? killer : null; if (g && Math.random() < 0.6) barks.say(g, 'gloat', true); else barks.announce('youWrecked', {}, true); return; }
       if (killer && !killer.isPlayer && !killer.remote && Math.random() < 0.55) barks.say(killer, 'kill', true, { v: car.isPlayer ? 'you' : car.name, vcar: car.T.name, target: 'you', car: car.T.name });
-      else if (Math.random() < 0.5) barks.say(car, 'wrecked', true); else barks.announce('wreck', { v: car.name, vcar: car.T.name }, true);
+      else if (Math.random() < 0.5) barks.say(car, 'wrecked', true, killer && !killer.isPlayer && killer.persona ? { v: killer.persona.nick, target: killer.persona.nick, car: killer.T.name } : undefined); else barks.announce('wreck', { v: car.name, vcar: car.T.name }, true);
       sfx.cheer(1);
       if (killer === player) { this.score += 1000; toast(`WRECKED ${car.name} +1000`); this.slowmo = 1.1; } else toast(killer ? `${killer.name} wrecked ${car.name}` : `${car.name} is wrecked`);
       return;
@@ -7640,6 +8174,8 @@ function applySetting(key) {
   switch (key) {
     case 'gravity': world.gravity.set(0, -S.gravity, 0); for (const c of cars) c.body.wakeUp(); for (const p of props) p.body.wakeUp(); break;
     case 'night': applyNight(); break;
+    case 'sharp': resize(); break;
+    case 'fpsCap': PACE.autoCool = false; break;
     case 'restitution': world.defaultContactMaterial.restitution = S.restitution; carCM.restitution = S.restitution; break;
     case 'playerMassScale': if (player) player.setMass(player.T.mass * S.playerMassScale); break;
     case 'aiMassScale': for (const c of cars) if (!c.isPlayer) c.setMass(c.T.mass * S.aiMassScale); break;
@@ -7824,6 +8360,7 @@ const touch = { gas: false, brake: false, hb: false, nitro: false, fire: false, 
 let mouseFire = false; window.addEventListener('pointerup', (e) => { if (e.pointerType === 'mouse') mouseFire = false; });
 function enableTouch() {
   el.touch.hidden = false; document.body.classList.add('touch');
+  world.solver.iterations = 10; // phone physics default (applyQuality keeps it; see there)
   // tablets and phones: render a little lighter to keep the frame rate up
   QUALITY.dprCap = 1.5; QUALITY.maxPix = 1.6e6; sun.shadow.mapSize.set(1024, 1024); if (S.autoGfx && QUALITY.level < 3 && typeof applyQuality === 'function') setTimeout(() => applyQuality(3), 0); // tablets and phones start light and earn their way up if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } resize();
 }
@@ -8163,23 +8700,23 @@ function updateCrane(dt) {
 let propTick = 0;
 function wakeProp(pr) { if (pr.dormant) { pr.dormant = false; if (!world.bodies.includes(pr.body)) world.addBody(pr.body); } }
 function wakePropsNear(p, r) { for (const pr of props) if (pr.dormant && pr.body.position.distanceTo(p) < r) wakeProp(pr); }
-// far away, a car's small bits (bolts, lamps, mirrors, stickers) are a pixel or two: stop drawing them. Layer 1 is never rendered, and it leaves .visible alone for the game
+// far away, a car's small bits (bolts, lamps, mirrors, stickers) are a pixel or two: stop drawing them. Mask 0 is never rendered (not layer 1: a WebXR left eye draws layer 1), and it leaves .visible alone for the game
 const _lodV = new THREE.Vector3();
 const LOD_NEAR = [[35, 0.25], [70, 0.5], [120, 0.8]], LOD_LITE = [[20, 0.3], [45, 0.6], [80, 0.9]], LOD_PHONE = [[22, 0.3], [50, 0.6], [85, 0.9]]; // phones: small screen, few CPU cores (draw calls are their bottleneck) // [beyond this distance, hide parts smaller than this]
 function lodList(root, skip) { const out = []; root.updateMatrixWorld(true);
-  root.traverse((o) => { if (!o.isMesh || !o.geometry || (skip && skip.has(o))) return; const g = o.geometry; if (!g.boundingSphere) g.computeBoundingSphere(); const sc = o.getWorldScale(_lodV), r = g.boundingSphere.radius * Math.max(sc.x, sc.y, sc.z); if (r < 0.9) out.push({ o, r }); });
+  root.traverse((o) => { if (!o.isMesh || !o.geometry || (skip && skip.has(o))) return; const g = o.geometry; if (!g.boundingSphere) g.computeBoundingSphere(); const sc = o.getWorldScale(_lodV), r = o.userData.lodR ?? g.boundingSphere.radius * Math.max(sc.x, sc.y, sc.z); if (r < 0.9) out.push({ o, r }); }); // (a car's merged details carry the size of their biggest bit)
   return out; }
 function lodCut(h, d) { let cut = 0; for (const [dist, r] of QUALITY.lite ? LOD_LITE : isTouchUI() && QUALITY.level >= 3 ? LOD_PHONE : LOD_NEAR) if (d > dist + ((h.lodCut || 0) >= r ? -5 : 0)) cut = r; return cut; } // a little hysteresis so parts don't flicker at the edge
 let lodGroups = null; // the yard's moving machinery and animals: same treatment
 function sceneLOD(cp) {
   if (!lodGroups || lodGroups.n !== scene.children.length) { const cg = new Set(cars.map((c) => c.group)); lodGroups = scene.children.filter((t) => t.isGroup && !cg.has(t)).map((g) => ({ g, list: lodList(g) })).filter((h) => h.list.length >= 3); lodGroups.n = scene.children.length; }
-  for (const h of lodGroups) { const p = h.g.getWorldPosition(_lodV), cut = lodCut(h, p.distanceTo(cp)); if (cut === (h.lodCut || 0)) continue; h.lodCut = cut; for (const it of h.list) it.o.layers.mask = it.r < cut ? 2 : 1; }
+  for (const h of lodGroups) { const p = h.g.getWorldPosition(_lodV), cut = lodCut(h, p.distanceTo(cp)); if (cut === (h.lodCut || 0)) continue; h.lodCut = cut; for (const it of h.list) it.o.layers.mask = it.r < cut ? 0 : 1; }
 }
 function carLOD(c, d) {
   if (!c.lodList) { const wh = new Set(); for (const w of c.wheelMeshes || []) if (w) w.traverse((x) => wh.add(x)); c.lodList = lodList(c.group, wh); }
   const cut = lodCut(c, d);
   if (!cut && !c.lodCut) return; c.lodCut = cut; // (re-checked every pass while far: parts fly off)
-  for (const it of c.lodList) { const o = it.o; let inCar = false; for (let q = o.parent; q; q = q.parent) if (q === c.group) { inCar = true; break; } o.layers.mask = inCar && it.r < cut ? 2 : 1; } // a panel that flew off is debris now: always drawn
+  for (const it of c.lodList) { const o = it.o; let inCar = false; for (let q = o.parent; q; q = q.parent) if (q === c.group) { inCar = true; break; } o.layers.mask = o.userData.baked ? 0 : inCar && it.r < cut ? 0 : 1; } // (a baked panel is drawn by the car's merged mesh: no layer at all, not even a WebXR eye's) a panel that flew off is debris now: always drawn
 }
 function updatePropActivity(dt) {
   propTick -= dt; if (propTick > 0) return; propTick = 0.15;
@@ -8817,7 +9354,7 @@ const MP = {
       if (e.n <= this.seen) continue; this.seen = e.n;
       if (e.k === 'pc') { const pr = PROPID.map.get(e.id); if (pr && !pr.charred) { pr.fireT = 0; charProp(pr); } }
       if (e.k === 'pr') { const pr = PROPID.map.get(e.id); const i = pr ? props.indexOf(pr) : -1; if (i >= 0) { props.splice(i, 1); world.removeBody(pr.body); scene.remove(pr.mesh); bits(pr.body.position, BIT.splinter, 8, 4, 4); } }
-      if (e.k === 'b') { const c = cars[e.i], P = e.i === -1 ? ANNOUNCER : c && c.persona; if (P) { barks.show(P, e.i === -1 ? new THREE.Color(0xf2a20c) : c.baseColor, e.x); barks.speak(P, e.x, c ? c.body.position : null); } }
+      if (e.k === 'b') { const c = cars[e.i], P = e.i === -1 ? ANNOUNCER : e.i === -3 ? SHAZZA : c && c.persona; if (P) { barks.show(P, e.i === -1 ? new THREE.Color(0xf2a20c) : e.i === -3 ? new THREE.Color(0xff6fa8) : c.baseColor, e.x); barks.speak(P, e.x, c ? c.body.position : null); } }
       else if (e.k === 'h') { const p = new CANNON.Vec3(e.p[0], e.p[1], e.p[2]); sparks(p, Math.min(50, e.v * 2.5 | 0)); if (player) sfx.at(p).crash(Math.min(1, e.v / 18) * clamp(1 - player.body.position.distanceTo(p) / 110, 0, 1), e.v); }
       else if (e.k === 'bd') { const host = cars.find((c) => c.T.special === 'dump') || { body: { velocity: new CANNON.Vec3(), pointToWorldFrame: () => new CANNON.Vec3() }, T: { L: 0, H: 0 }, fwd: new CANNON.Vec3(1, 0, 0), comShift: 0 }; dropBoulder(host, e.p); }
       else if (e.k === 'ss') { addSpikeStrip(e.p[0], e.p[1], e.p[2], null); }
@@ -8934,7 +9471,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '65'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '66'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
@@ -9126,6 +9663,7 @@ function applyQuality(i) {
   QUALITY.level = i; const q = QSTEPS[i];
   for (const m of SCATTER.meshes) m.visible = i < 6; // ground clutter goes first on weak devices
   world.solver.iterations = i >= 7 ? 10 : i >= 6 ? 11 : 12; QUALITY.subSteps = i >= 6 ? 3 : i >= 5 ? 5 : 8; // weak devices: a cheaper solver, and never pile up catch-up steps (that spiral is what makes slow devices choke)
+  if (isTouchUI()) world.solver.iterations = 10; // phones and tablets: the lightest solver from the start (12 -> 10 passes; it's what the slowest desktop level already runs). Catch-up steps stay as they are: solo frames are capped at 50 ms (3 steps) anyway, and a phone hosting a match must keep real time
   QUALITY.scale = q.scale; QUALITY.gfxCap = q.gfx;
   if (sun.shadow.mapSize.x !== Math.min(q.shadow, isTouchUI() ? 1024 : 2048)) { sun.shadow.mapSize.set(Math.min(q.shadow, isTouchUI() ? 1024 : 2048), Math.min(q.shadow, isTouchUI() ? 1024 : 2048)); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
   const sh = q.shadow > 0; if (sun.castShadow !== sh) { sun.castShadow = sh; renderer.shadowMap.needsUpdate = true; }
@@ -9137,23 +9675,36 @@ function updatePerfHud(realDt) {
   PERF.fps = lerp(PERF.fps, 1 / Math.max(1e-3, realDt), 0.05); PERF.t -= realDt;
   const el2 = $('perf'); if (!S.perfHud) { if (!el2.hidden) el2.hidden = true; return; }
   if (PERF.t > 0) return; PERF.t = 0.5; el2.hidden = false;
-  let txt = `${Math.round(PERF.fps)} fps · quality ${QSTEPS.length - QUALITY.level}/${QSTEPS.length} · ${Math.round(renderer.getPixelRatio() * 100)}% res`;
+  let txt = `${Math.round(PERF.fps)} fps${PACE.iv ? ' (cap ' + Math.round(1000 / PACE.iv) + ')' : ''}${PACE.autoCool ? ' · cool mode' : ''}${govern.thermal ? ' · hot ×' + govern.thermal : ''} · quality ${QSTEPS.length - QUALITY.level}/${QSTEPS.length} · ${Math.round(renderer.getPixelRatio() * 100)}% res`;
   if (MP.role === 'guest' && MP.net) txt += `\nnet: ${Math.round(1 / MP.net.iv)} upd/s · jitter ${Math.round(MP.net.jit * 1000)} ms · smoothing ${Math.round((MP.delay || 0) * 1000)} ms`;
   if (MP.role === 'host') txt += `\nhosting ${MP.guests().length} player(s)`;
   el2.textContent = txt;
 }
 function governQuality(realDt) {
   updatePerfHud(realDt);
-  if (XRS.on) { VR.govern(realDt); return; } // VR has its own, rebased on the headset's frame rate
-  if (!S.autoGfx || game.state === 'menu' || document.hidden) { govern.acc = govern.n = 0; return; }
+  if (XRS.on) { govern.busy = []; VR.govern(realDt); return; } // VR has its own, rebased on the headset's frame rate (and is never paced or put in cool mode)
+  if (!S.autoGfx || game.state === 'menu' || document.hidden || game.paused) { govern.acc = govern.n = 0; govern.fr = []; govern.busy = []; return; }
   (govern.fr || (govern.fr = [])).push(realDt); govern.acc += Math.min(realDt, 0.1); govern.n++; govern.t += realDt;
   if (govern.t < (govern.first ? 2 : 1.2)) return; govern.first = true;
+  // the budget is the paced frame (16.7 ms at the 60 cap, 33 ms in cool mode), so a capped frame never reads as "slow"
+  const B = Math.max(1 / 60, (PACE.iv || 0) / 1000);
   // judge by the typical frame (70th percentile), not the average: a hitch or two (an explosion, a voice starting) must not cost two quality steps
   const fr = govern.fr.sort((a, b) => a - b), avg = fr[Math.min(fr.length - 1, Math.floor(fr.length * 0.7))]; govern.fr = []; govern.acc = govern.n = govern.t = 0;
-  govern.slowRuns = avg > 1 / 48 ? (govern.slowRuns || 0) + 1 : 0;
-  if (avg > 1 / 48 && avg <= 1 / 28 && govern.slowRuns < 2) return; // mildly slow once: wait and see
-  if (avg > 1 / 48 && QUALITY.level < QSTEPS.length - 1) { if (clock - (govern.upAt ?? -99) < 20) govern.upWait = Math.min(240, (govern.upWait || 25) * 2); applyQuality(Math.min(QSTEPS.length - 1, QUALITY.level + (avg > 1 / 28 ? 2 : 1))); govern.good = 0; govern.lastDown = clock; } // an upgrade that didn't hold: wait twice as long before trying again (each try is a stutter)   // struggling: drop a step (two if it's really bad)
-  else if (avg < 1 / 57) { govern.good++; if (govern.good >= 5 && QUALITY.level > 0 && clock - govern.lastDown > (govern.upWait || 25)) { applyQuality(QUALITY.level - 1); govern.good = 0; govern.upAt = clock; } } // 10 s of headroom: try one step back up
+  const bz = (govern.busy || []).sort((a, b) => a - b), busy = bz.length ? bz[Math.min(bz.length - 1, Math.floor(bz.length * 0.7))] / 1000 : 0; govern.busy = [];
+  // Thermal creep: a phone that heats up slows its clocks, so the same work takes longer at the same quality. Catch it from the CPU time per frame
+  // (before frames start dropping): 3 windows in a row 35 % above the best this level ever did, and over 60 % of the budget -> step down early,
+  // and wait much longer before trying to go back up (the heat doesn't go away in 25 s).
+  const L = QUALITY.level, base = (govern.base || (govern.base = []))[L];
+  if (busy > 0 && game.countdown <= 0 && govern.settle-- <= 0) govern.base[L] = base ? Math.min(base * 1.003, busy) : busy; // the low end this level has managed (drifts up ~9 %/min, so a busier scene isn't mistaken for heat)
+  govern.creep = base && busy > base * 1.35 && busy > B * 0.6 ? (govern.creep || 0) + 1 : 0;
+  if (govern.creep >= 3 && L < QSTEPS.length - 1) { govern.thermal = (govern.thermal || 0) + 1; ptag(`thermal: busy ${(busy * 1000).toFixed(1)} ms vs ${(base * 1000).toFixed(1)} ms`); govern.upWait = Math.max(govern.upWait || 25, 90); applyQuality(L + 1); govern.creep = 0; govern.good = 0; govern.lastDown = clock; govern.settle = 1; return; }
+  govern.slowRuns = avg > B * 1.25 ? (govern.slowRuns || 0) + 1 : 0;
+  // cool mode on its own: a phone/tablet already at the lowest step and still missing frames gets a steady 30 instead of a jittery 40
+  if (isTouchUI() && !PACE.autoCool && S.fpsCap > 30 && L === QSTEPS.length - 1 && govern.slowRuns >= 2) { PACE.autoCool = true; govern.coolAt = clock; govern.slowRuns = 0; ptag('cool mode on'); toast('COOL MODE · 30 FPS', 'cool'); return; }
+  if (PACE.autoCool && busy > 0 && busy < (1 / 60) * 0.45) { govern.coolGood = (govern.coolGood || 0) + 1; if (govern.coolGood >= 15 && clock - govern.coolAt > 60) { PACE.autoCool = false; govern.coolGood = 0; ptag('cool mode off'); } } else govern.coolGood = 0; // ~30 s of easy frames: back to 60
+  if (avg > B * 1.25 && avg <= B * 2.14 && govern.slowRuns < 2) return; // mildly slow once: wait and see
+  if (avg > B * 1.25 && L < QSTEPS.length - 1) { if (clock - (govern.upAt ?? -99) < 20) govern.upWait = Math.min(240, (govern.upWait || 25) * 2); applyQuality(Math.min(QSTEPS.length - 1, L + (avg > B * 2.14 ? 2 : 1))); govern.good = 0; govern.lastDown = clock; govern.settle = 1; } // an upgrade that didn't hold: wait twice as long before trying again (each try is a stutter)   // struggling: drop a step (two if it's really bad)
+  else if (avg < B * 1.053) { govern.good++; if (govern.good >= 5 && L > 0 && clock - govern.lastDown > (govern.upWait || 25) && !(base && busy > base * 1.25)) { applyQuality(L - 1); govern.good = 0; govern.upAt = clock; govern.settle = 1; } } // 10 s of headroom (and not running hot): try one step back up
   else govern.good = 0;
 }
 
@@ -9161,9 +9712,27 @@ function governQuality(realDt) {
 resetMatch();
 let lastT = performance.now();
 let frameErrors = 0;
+// Frame pacing: a 120 Hz screen (ProMotion Macs and iPads) calls us 120 times a second. Drawing and simulating every one of them doubles
+// the CPU and GPU work (and the heat) for a picture kids can't tell apart from 60. So draw on a fixed cadence: skip the rAF callbacks in between.
+// The menu's attract brawl runs at 30, a paused game at 10 (the frozen picture stays on screen), and a phone that is still too slow at the
+// lowest quality drops to a steady 30 ("cool mode") instead of stuttering at 40. The host's game clock (TICK) is separate and unaffected.
+const PACE = { next: 0, iv: 1000 / 60, skipped: 0, drawn: 0, autoCool: false };
+function paceInterval() {
+  let fps = S.fpsCap >= 120 ? 0 : S.fpsCap || 60; // 0 = every vsync
+  if (PACE.autoCool && (!fps || fps > 30)) fps = 30;
+  if (game.state === 'menu' && !window.__noPace) fps = Math.min(fps || 30, 30);
+  else if (game.state === 'playing' && game.paused) fps = 10;
+  return fps ? 1000 / fps : 0;
+}
 function frame(now) {
-  if (XRS.on) { VR.rafIdle = true; return; } // in VR the headset's own frame loop calls frameBody (VR.loop); this one restarts when VR ends
+  if (XRS.on) { VR.rafIdle = true; return; } // in VR the headset's own frame loop calls frameBody (VR.loop); this one restarts when VR ends. Pacing never applies there.
   requestAnimationFrame(frame); // schedule first: an error below must never freeze the game
+  const iv = paceInterval(); PACE.iv = iv;
+  if (iv) { // keep the phase: on 120 Hz every other callback is drawn, exactly 16.7 ms apart; on 60 Hz (cap 60) none is skipped
+    if (now < PACE.next - Math.min(4, iv * 0.2)) { PACE.skipped++; return; } // (the slack is half a 120 Hz vsync: rAF timestamps jitter)
+    PACE.next = now - PACE.next > iv ? now + iv : PACE.next + iv;
+  }
+  PACE.drawn++;
   try { frameBody(now); } catch (e) { if (frameErrors++ < 5) console.error('frame error', e); }
 }
 /* ---------------- Network health: every player measures how the game feels for them, the host collects it ----------------
@@ -9493,6 +10062,7 @@ function frameBody(now) {
   drawBody(Math.min(0.05, rawDt));
   const t2 = performance.now();
   PERFREP.add(rawDt * 1000, t2 - t0 + (TICK.on ? simMs : 0), simMs, t2 - t1, PERFREP.render); SEC.n++; PERFREP.watch(rawDt * 1000);
+  (govern.busy || (govern.busy = [])).push(t2 - t0 + (TICK.on ? simMs : 0)); // CPU time of this frame: the governor's thermal watch
 }
 function simBody(now) {
   const rawDt = (now - lastT) / 1000;
@@ -9565,7 +10135,9 @@ function simBody(now) {
       if (alive <= 1 && game.attractReset < 0) game.attractReset = 5;
       if (game.attractReset > 0) { game.attractReset -= dt; if (game.attractReset <= 0) resetMatch(); }
     }
-    for (const p of props) { p.mesh.position.copy(p.body.position); p.mesh.quaternion.copy(p.body.quaternion); }
+    for (const p of props) { const m = p.mesh, bp = p.body.position, bq = p.body.quaternion; // a prop at rest (most of them, most of the time) keeps its matrix: no copy, no recompose every frame
+      if (!m.matrixAutoUpdate && m.position.x === bp.x && m.position.y === bp.y && m.position.z === bp.z && m.quaternion.x === bq.x && m.quaternion.y === bq.y && m.quaternion.z === bq.z && m.quaternion.w === bq.w) continue;
+      m.position.copy(bp); m.quaternion.copy(bq); if (p.body.sleepState === CANNON.Body.SLEEPING || p.dormant) { m.updateMatrix(); m.matrixAutoUpdate = false; } else m.matrixAutoUpdate = true; }
     updateDebris(sdt);
     updatePickups(sdt);
     updateShells(sdt);
@@ -9632,7 +10204,7 @@ function drawBody(dt) {
   PERF.n = (PERF.n || 0) + 1; PERF.hostSkip = MP.role === 'host' && QUALITY.level === QSTEPS.length - 1 && PERF.fps < 34 && MP.guests().length > 0;
   if (PERF.hostSkip && PERF.n % 2 && !XRS.on) return; // (never skip a headset frame)
   PERFREP.r0 = performance.now();
-  if (!window.__noRender) { const gq = Math.min(S.gfx, S.autoGfx ? (QUALITY.gfxCap ?? 2) : 2); if (XRS.on) renderer.render(scene, VR.cam); /* VR: straight into the headset, no post chain */ else if (gq > 0) { grade.uniforms.uTime.value = clock % 10; sunGlare(); grade.enabled = gq > 1; bloom.strength = gq > 1 ? 0.42 : 0.34; composer.render(); } else renderer.render(scene, camera); PERFREP.render = performance.now() - PERFREP.r0; SEC.add('render', PERFREP.render); } // tests can skip drawing to run physics faster
+  if (!window.__noRender) { const gq = Math.min(S.gfx, S.autoGfx ? (QUALITY.gfxCap ?? 2) : 2); if (XRS.on) renderer.render(scene, VR.cam); /* VR: straight into the headset, no post chain */ else if (gq > 0) { grade.uniforms.uTime.value = clock % 10; sunGlare(); grade.enabled = gq > 1; outPass.enabled = !grade.enabled; bloom.strength = gq > 1 ? 0.42 : 0.34; composer.render(); } else renderer.render(scene, camera); PERFREP.render = performance.now() - PERFREP.r0; SEC.add('render', PERFREP.render); } // tests can skip drawing to run physics faster
 }
 /* =====================================================================
    VR MODE (WebXR: Meta Quest 2 / 3 / 3S in the Quest Browser)
@@ -10454,5 +11026,5 @@ window.__derby = { AUTO, PLAYLOG, BOULDERS, get mapShapes() { return mapShapes; 
 requestAnimationFrame(frame);
 window.__derby.SCORE = SCORE; // (the scoreboard's test hook)
 window.__derby.VR = VR; window.__derby.XRS = XRS; window.__derby.composer = composer;
-window.__derby.VCLIP = VCLIP; window.__derby.ANNOUNCER = ANNOUNCER; window.__derby.COP = COP; window.__derby.megaphone = megaphone; window.__derby.hornLine = hornLine;
+window.__derby.VCLIP = VCLIP; window.__derby.ROAST_BY = ROAST_BY; window.__derby.ROAST_PAIR = ROAST_PAIR; window.__derby.SHAZZA = SHAZZA; window.__derby.CAR_CAST = CAR_CAST; window.__derby.ANNOUNCER = ANNOUNCER; window.__derby.COP = COP; window.__derby.megaphone = megaphone; window.__derby.hornLine = hornLine;
 </script>
