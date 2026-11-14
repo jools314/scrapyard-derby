@@ -904,7 +904,7 @@ const M = {
   barrel: new THREE.MeshStandardMaterial({ color: 0x2f5d6b, roughness: 0.5, metalness: 0.4 }),
   barrelRed: new THREE.MeshStandardMaterial({ color: 0x9c2f1f, roughness: 0.5, metalness: 0.4 }),
   cone: new THREE.MeshStandardMaterial({ color: 0xff6a1a, roughness: 0.6 }),
-  barrier: new THREE.MeshStandardMaterial({ color: 0x6b655d, roughness: 0.9 }),
+  barrier: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, map: canvasTex(128, (g, w, h) => { g.fillStyle = '#b8b2a6'; g.fillRect(0, 0, w, h); for (let k = 0; k < 300; k++) { const c = 140 + Math.random() * 60; g.fillStyle = `rgba(${c},${c - 6},${c - 14},0.5)`; g.fillRect(Math.random() * w, Math.random() * h, 2, 2); } for (let k = 0; k < 6; k++) { g.fillStyle = k % 2 ? '#c8281e' : '#f2ece0'; g.fillRect(k * 8, 0, 8, h); g.fillRect(w - 48 + k * 8, 0, 8, h); } g.fillStyle = 'rgba(60,50,40,0.35)'; for (let k = 0; k < 8; k++) g.fillRect(Math.random() * w, h * 0.7 + Math.random() * h * 0.3, 10 + Math.random() * 20, 3); }, 1, 1) }), // concrete with red/white ends and scuffs
   tire: new THREE.MeshStandardMaterial({ color: 0x1a1817, roughness: 0.92 }),
   rim: new THREE.MeshStandardMaterial({ color: 0xa9a29a, roughness: 0.3, metalness: 0.9 }),
   disc: new THREE.MeshStandardMaterial({ color: 0x5b5550, roughness: 0.4, metalness: 0.8 }),
@@ -919,7 +919,7 @@ const M = {
   scrap: new THREE.MeshStandardMaterial({ color: 0x4b4038, roughness: 0.8, metalness: 0.3, flatShading: true }),
   floodlight: new THREE.MeshStandardMaterial({ color: 0xfff4d6, emissive: 0xffe2a0, emissiveIntensity: 2.2 }),
   paint: new THREE.MeshBasicMaterial({ color: 0xe6a316, transparent: true, opacity: 0.35, depthWrite: false }),
-  gas: new THREE.MeshStandardMaterial({ color: 0xc8281e, roughness: 0.35, metalness: 0.5, emissive: 0x300400 }),
+  gas: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.35, metalness: 0.4, emissive: 0x300400, map: canvasTex(128, (g, w, h) => { g.fillStyle = '#c8281e'; g.fillRect(0, 0, w, h); g.fillStyle = '#f2ece0'; g.fillRect(0, h * 0.42, w, h * 0.2); g.fillStyle = '#c8281e'; g.font = '900 15px Arial Black, Impact, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('PROPANE', w * 0.25, h * 0.52); g.fillText('PROPANE', w * 0.75, h * 0.52); g.save(); g.translate(w * 0.5, h * 0.3); g.rotate(Math.PI / 4); g.fillStyle = '#f2c020'; g.fillRect(-8, -8, 16, 16); g.restore(); g.fillStyle = '#8a8a8a'; g.fillRect(0, 0, w, h * 0.12); }, 1, 1) }), // red bottle, white band, hazard diamond, grey valve end
   armor: new THREE.MeshStandardMaterial({ color: 0x4a4440, roughness: 0.55, metalness: 0.8, flatShading: true }),
 };
 M.armor.map = grimeTex;
@@ -1705,9 +1705,18 @@ const G = {
   barrel: new THREE.CylinderGeometry(0.45, 0.45, 1.2, 16),
   tire: new THREE.TorusGeometry(0.45, 0.2, 8, 16).rotateX(Math.PI / 2),
   cone: new THREE.ConeGeometry(0.3, 0.8, 12),
-  barrier: new THREE.BoxGeometry(3, 0.9, 0.6),
-  shell: new THREE.BoxGeometry(4.2, 1.1, 1.8),
+  barrier: (() => { const sh = new THREE.Shape(); sh.moveTo(-0.3, -0.45); sh.lineTo(0.3, -0.45); sh.lineTo(0.27, -0.3); sh.lineTo(0.12, -0.15); sh.lineTo(0.1, 0.45); sh.lineTo(-0.1, 0.45); sh.lineTo(-0.12, -0.15); sh.lineTo(-0.27, -0.3); sh.lineTo(-0.3, -0.45); const g = new THREE.ExtrudeGeometry(sh, { depth: 3, bevelEnabled: false }); g.translate(0, 0, -1.5); g.rotateY(Math.PI / 2); g.computeVertexNormals(); return g; })(), // Jersey barrier profile
+  shell: (() => { const lo = new THREE.BoxGeometry(4.2, 0.72, 1.8).translate(0, -0.19, 0), cab = new THREE.BoxGeometry(2.0, 0.4, 1.5).translate(-0.25, 0.37, 0); return mergeGeos([lo, cab]); })(), // a gutted car: body and cabin hump
 };
+const SHELL_MATS = []; // (filled once the texture exists, below)
+const huskTex = canvasTex(256, (g, sz) => { g.fillStyle = '#9a9a9a'; g.fillRect(0, 0, sz, sz); // multiplied by each wreck's paint colour
+  for (let i = 0; i < 70; i++) { g.fillStyle = `rgba(${110 + Math.random() * 40},${50 + Math.random() * 25},${20 + Math.random() * 15},${0.25 + Math.random() * 0.4})`; const x = Math.random() * sz, y = Math.random() * sz; g.beginPath(); g.ellipse(x, y, 4 + Math.random() * 18, 3 + Math.random() * 10, Math.random() * 3, 0, 7); g.fill(); } // rust blooms
+  for (let i = 0; i < 40; i++) { g.strokeStyle = `rgba(90,40,15,${0.2 + Math.random() * 0.3})`; g.lineWidth = 1 + Math.random() * 2; const x = Math.random() * sz; g.beginPath(); g.moveTo(x, sz * 0.45); g.lineTo(x + (Math.random() - 0.5) * 6, sz * (0.6 + Math.random() * 0.4)); g.stroke(); } // rust streaks running down
+  g.fillStyle = 'rgba(15,15,18,0.85)'; g.fillRect(sz * 0.12, sz * 0.08, sz * 0.32, sz * 0.26); g.fillRect(sz * 0.52, sz * 0.08, sz * 0.34, sz * 0.26); // empty window holes
+  g.strokeStyle = 'rgba(20,20,20,0.6)'; g.lineWidth = 2; g.strokeRect(sz * 0.2, sz * 0.4, sz * 0.3, sz * 0.5); g.strokeRect(sz * 0.5, sz * 0.4, sz * 0.3, sz * 0.5); // door seams
+  g.fillStyle = 'rgba(10,10,10,0.9)'; for (const x of [0.15, 0.85]) { g.beginPath(); g.arc(sz * x, sz, sz * 0.13, Math.PI, 0); g.fill(); } // empty wheel arches
+}, 1, 1);
+for (const c of [0x8a6a4a, 0x5d7a92, 0xa04a32, 0x7a7a5a]) SHELL_MATS.push(new THREE.MeshStandardMaterial({ color: c, map: huskTex, roughness: 0.8, metalness: 0.35 }));
 const PROPID = { n: 0, map: new Map() };
 function propGone(pr) { if (MP.role === 'host') MP.event({ k: 'pr', id: pr.id }); } // tell guests a prop was destroyed
 function addProp(shape, geo, mat, mass, x, y, z, yaw = 0, kind = 'metal', shadow = true, offset) {
@@ -1883,7 +1892,7 @@ function buildProps() {
     for (let i = 0; i < 4; i++) addProp(barrelShape, G.barrel, i % 2 ? M.barrelRed : M.barrel, 90, x + (i % 2) * 1.0, 0.6, z + (i >> 1) * 1.0);
   }
   // red gas cylinders: knock one hard and it goes off, and can set off its neighbours
-  const gasShape = new CANNON.Cylinder(0.3, 0.3, 1.5, 10), gasGeo = new THREE.CylinderGeometry(0.3, 0.3, 1.5, 14);
+  const gasShape = new CANNON.Cylinder(0.3, 0.3, 1.5, 10), gasGeo = new THREE.LatheGeometry([[0, -0.75], [0.27, -0.75], [0.3, -0.71], [0.3, 0.42], [0.27, 0.56], [0.18, 0.66], [0.08, 0.7], [0.08, 0.78], [0.12, 0.79], [0.12, 0.86], [0.05, 0.9], [0, 0.9]].map(([r, y]) => new THREE.Vector2(r, y)), 16); // rounded shoulders, neck and valve
   for (const [x, z] of [[-20, 20], [20, -20], [-70, 60], [60, 60], [-60, -40], [100, 10], [10, 100], [-100, -10]]) for (let i = 0; i < 3; i++) {
     const b = addProp(gasShape, gasGeo, M.gas, 45, x + (i % 2) * 0.7, 0.75, z + (i >> 1) * 0.7, 0, 'metal'); b.gas = true;
   }
@@ -1897,7 +1906,7 @@ function buildProps() {
   for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; addProp(barrierShape, G.barrier, M.barrier, 380, Math.cos(a) * 30, 0.45, Math.sin(a) * 30, -a + Math.PI / 2, 'concrete'); }
   const shellShape = new CANNON.Box(new CANNON.Vec3(2.1, 0.55, 0.9));
   [[60, 40, 0.3], [-62, -48, 1.2], [36, 70, 2], [-50, 60, -0.6]].forEach(([x, z, y], i) => {
-    addProp(shellShape, G.shell, new THREE.MeshStandardMaterial({ color: [0x5a4a3a, 0x3d4a52, 0x6a3a2a, 0x4a4a3a][i], roughness: 0.7, metalness: 0.4, flatShading: true }), 900, x, 0.55, z, y, 'metal');
+    addProp(shellShape, G.shell, SHELL_MATS[i], 900, x, 0.55, z, y, 'metal');
   });
   buildStreetProps();
 }
@@ -1911,9 +1920,13 @@ const SG = {
 };
 const SM = {
   bin: new THREE.MeshStandardMaterial({ color: 0x7ab0d0, map: binTex, roughness: 0.45, metalness: 0.5 }),
-  dumpster: new THREE.MeshStandardMaterial({ color: 0x23402a, map: grimeTex, roughness: 0.7, metalness: 0.4 }),
+  dumpster: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.7, metalness: 0.35, map: canvasTex(128, (g, w, h) => { g.fillStyle = '#2f6a3a'; g.fillRect(0, 0, w, h); // a proper green skip: ribs, lid line, rust, stencil
+    for (let i = 0; i < 6; i++) { g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(8 + i * 21, h * 0.2, 5, h * 0.8); g.fillStyle = 'rgba(255,255,255,0.08)'; g.fillRect(13 + i * 21, h * 0.2, 2, h * 0.8); }
+    g.fillStyle = '#1c2a1e'; g.fillRect(0, 0, w, h * 0.16); g.fillStyle = 'rgba(0,0,0,0.5)'; g.fillRect(0, h * 0.16, w, 3);
+    for (let i = 0; i < 40; i++) { g.fillStyle = `rgba(${120 + Math.random() * 40},${60 + Math.random() * 20},25,${0.3 + Math.random() * 0.4})`; g.fillRect(Math.random() * w, h * 0.2 + Math.random() * h * 0.8, 2 + Math.random() * 6, 2 + Math.random() * 14); }
+    g.fillStyle = 'rgba(240,235,220,0.85)'; g.font = '900 18px Arial Black, Impact, sans-serif'; g.textAlign = 'center'; g.fillText('WASTE', w / 2, h * 0.62); }, 1, 1) }),
   potty: new THREE.MeshStandardMaterial({ color: 0x2b7fa6, map: grimeTex, roughness: 0.7 }),
-  fence: new THREE.MeshStandardMaterial({ color: 0x7a5a3a, roughness: 0.95 }),
+  fence: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95, map: canvasTex(128, (g, w, h) => { for (let i = 0; i < 8; i++) { const c = 100 + Math.random() * 40; g.fillStyle = `rgb(${c + 20},${c - 10},${c - 45})`; g.fillRect(i * w / 8, 0, w / 8 - 2, h); g.fillStyle = 'rgba(40,25,15,0.5)'; for (let k = 0; k < 6; k++) g.fillRect(i * w / 8 + Math.random() * 12, Math.random() * h, 1, 6 + Math.random() * 18); g.fillStyle = '#2a1e14'; g.fillRect(i * w / 8 + 6, h * 0.18, 3, 3); g.fillRect(i * w / 8 + 6, h * 0.78, 3, 3); } g.fillStyle = '#1a120c'; for (let i = 0; i < 8; i++) g.fillRect(i * w / 8 + w / 8 - 2, 0, 2, h); }, 1, 1) }), // weathered planks, gaps and nails
   box: new THREE.MeshStandardMaterial({ color: 0xffffff, map: boxTex, roughness: 0.95 }),
   sign: new THREE.MeshStandardMaterial({ color: 0xd8d2c4, roughness: 0.6 }),
 };
@@ -8224,7 +8237,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '55'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '56'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
