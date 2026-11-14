@@ -684,8 +684,8 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.18;
 const scene = new THREE.Scene();
-const FOG = 0xb58e6c;
-scene.fog = new THREE.Fog(FOG, 90, 520);
+const FOG = 0xa48d7e; // dusty rose-grey haze: warm, but not the whole world in sepia
+scene.fog = new THREE.Fog(FOG, 110, 560);
 const camera = new THREE.PerspectiveCamera(65, 1, 0.1, 900); // the fog has eaten everything past ~520 m anyway
 camera.position.set(0, 40, 110);
 // Post-processing: HDR render -> bloom on anything brighter than white (fire, sparks, lamps, the sun) -> ACES tone map -> grade
@@ -695,7 +695,7 @@ const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.42, 0.5, 1.0);
 composer.addPass(bloom);
 composer.addPass(new OutputPass());
 const grade = new ShaderPass({
-  uniforms: { tDiffuse: { value: null }, uVig: { value: 0.42 }, uSat: { value: 1.12 }, uCon: { value: 1.08 }, uWarm: { value: 0.035 }, uTime: { value: 0 } },
+  uniforms: { tDiffuse: { value: null }, uVig: { value: 0.42 }, uSat: { value: 1.16 }, uCon: { value: 1.12 }, uWarm: { value: 0.012 }, uTime: { value: 0 } },
   vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
   fragmentShader: `uniform sampler2D tDiffuse; uniform float uVig, uSat, uCon, uWarm, uTime; varying vec2 vUv;
     void main(){ vec4 c = texture2D(tDiffuse, vUv); vec3 col = c.rgb;
@@ -722,7 +722,7 @@ resize();
 // Dusk sky dome
 const sky = new THREE.Mesh(new THREE.SphereGeometry(1200, 32, 16), new THREE.ShaderMaterial({
   side: THREE.BackSide, depthWrite: false, fog: false,
-  uniforms: { top: { value: new THREE.Color(0x27324a) }, mid: { value: new THREE.Color(0xd9925a) }, low: { value: new THREE.Color(0x5e4a3c) }, sunDir: { value: new THREE.Vector3(0.55, 0.32, 0.3).normalize() } },
+  uniforms: { top: { value: new THREE.Color(0x1d3458) }, mid: { value: new THREE.Color(0xd9925a) }, low: { value: new THREE.Color(0x5e4a3c) }, sunDir: { value: new THREE.Vector3(0.55, 0.32, 0.3).normalize() } },
   vertexShader: 'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
   fragmentShader: `uniform vec3 top; uniform vec3 mid; uniform vec3 low; uniform vec3 sunDir; varying vec3 vP;
     void main(){ float h = vP.y; vec3 c = h > 0.0 ? mix(mid, top, pow(clamp(h * 1.6, 0.0, 1.0), 0.7)) : mix(mid, low, clamp(-h * 5.0, 0.0, 1.0));
@@ -755,9 +755,9 @@ function makeEnv(night) {
 }
 makeEnv(false);
 
-const hemi = new THREE.HemisphereLight(0x9db4e0, 0x4a3628, 0.75); scene.add(hemi); // cool sky fill against the warm sun: shadows read blue, light reads gold
-const fill = new THREE.DirectionalLight(0x9fb4d8, 0.55); fill.position.set(-80, 40, -60); scene.add(fill); // cool fill from the far side so dark paint still reads
-const sun = new THREE.DirectionalLight(0xffcf96, 3.4);
+const hemi = new THREE.HemisphereLight(0x94b2ea, 0x3e3028, 0.62); scene.add(hemi); // cool sky fill against the warm sun: shadows read blue, light reads gold
+const fill = new THREE.DirectionalLight(0x9fb4d8, 0.72); fill.position.set(-80, 40, -60); scene.add(fill); // cool fill from the far side so dark paint still reads
+const sun = new THREE.DirectionalLight(0xffd6a2, 3.9);
 const SUN_OFF = new THREE.Vector3(110, 64, 60);
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
@@ -960,14 +960,20 @@ const DET = { // small shared materials for the detail kit
 };
 DET.fireTxt = DET.text('FIRE DEPT', 'rgba(0,0,0,0)', '#f2d24a'); DET.policeTxt = DET.text('POLICE', 'rgba(0,0,0,0)', '#101010'); DET.flam = DET.text('FLAMMABLE', '#c8281e', '#ffffff'); DET.towTxt = DET.text('24H TOWING', 'rgba(0,0,0,0)', '#151515');
 { // rusty diamond plate for the ramps and kickers
-  const plate = canvasTex(256, (g, s) => {
-    g.fillStyle = '#8a7a6a'; g.fillRect(0, 0, s, s);
-    for (let y = 0; y < s; y += 16) for (let x = (y / 16) % 2 ? 8 : 0; x < s; x += 16) { g.save(); g.translate(x, y); g.rotate(0.6); g.fillStyle = 'rgba(220,210,195,.55)'; g.fillRect(-5, -1.5, 10, 3); g.fillStyle = 'rgba(40,30,22,.5)'; g.fillRect(-5, 1.2, 10, 1.2); g.restore(); }
-    for (let i = 0; i < 90; i++) { const x = Math.random() * s, y = Math.random() * s, r = rand(6, 40), gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, `rgba(${rand(120, 160) | 0},${rand(55, 75) | 0},25,${rand(0.4, 0.8)})`); gr.addColorStop(1, 'rgba(120,60,25,0)'); g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); }
-  }, 4, 4);
-  M.ramp.map = plate; M.ramp.bumpMap = plate; M.ramp.bumpScale = 1.2; M.ramp.color.setHex(0xffffff); M.ramp.flatShading = false; M.ramp.needsUpdate = true;
-  M.bank.map = groundTex; M.bank.bumpMap = groundTex; M.bank.bumpScale = 1.4; M.bank.color.setHex(0xb8a48e); M.bank.needsUpdate = true;
-  M.mesa.map = groundTex; M.mesa.bumpMap = groundTex; M.mesa.color.setHex(0xc2ab92); M.mesa.needsUpdate = true;
+  const plate = canvasTex(512, (g, s) => { // big welded steel sheets: grey tread plate, seams, weld beads and a few rust runs (not a busy red knit)
+    g.fillStyle = '#77736c'; g.fillRect(0, 0, s, s);
+    for (let i = 0; i < 9000; i++) { const v = 100 + Math.random() * 40 | 0; g.fillStyle = `rgba(${v},${v - 2},${v - 6},.25)`; g.fillRect(Math.random() * s, Math.random() * s, 2, 2); }
+    for (let y = 0; y < s; y += 22) for (let x = (y / 22) % 2 ? 11 : 0; x < s; x += 22) { g.save(); g.translate(x, y); g.rotate((x / 11 + y / 22) % 2 ? 0.7 : -0.7); g.fillStyle = 'rgba(200,196,188,.32)'; g.fillRect(-6, -1.5, 12, 2.4); g.fillStyle = 'rgba(30,26,22,.35)'; g.fillRect(-6, 0.9, 12, 1.2); g.restore(); }
+    for (let i = 0; i < 26; i++) { const x = Math.random() * s, y = Math.random() * s, r = rand(10, 55), gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, `rgba(${rand(110, 140) | 0},${rand(58, 72) | 0},32,${rand(0.3, 0.6)})`); gr.addColorStop(1, 'rgba(110,60,30,0)'); g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); }
+    for (let i = 0; i < 10; i++) { const x = Math.random() * s; const gr = g.createLinearGradient(0, 0, 0, 120); gr.addColorStop(0, 'rgba(120,62,28,.45)'); gr.addColorStop(1, 'rgba(120,62,28,0)'); g.fillStyle = gr; g.fillRect(x, rand(0, s), rand(2, 6), rand(40, 120)); } // rust runs
+    g.fillStyle = 'rgba(25,22,20,.8)'; g.fillRect(0, 0, s, 3); g.fillRect(0, 0, 3, s); g.fillRect(0, s / 2, s, 2); // sheet seams
+    g.fillStyle = 'rgba(160,150,140,.5)'; for (let x = 0; x < s; x += 6) { g.beginPath(); g.arc(x, 4.5, 2, 0, 7); g.arc(x, s / 2 + 3.5, 2, 0, 7); g.fill(); } // weld beads
+  }, 0.5, 0.5);
+  M.ramp.map = plate; M.ramp.bumpMap = plate; M.ramp.bumpScale = 0.8; M.ramp.color.setHex(0xf0e8dc); M.ramp.roughness = 0.62; M.ramp.metalness = 0.3; M.ramp.flatShading = false; M.ramp.needsUpdate = true;
+  // The mounds used the ground texture at the ground's 110x repeat: 27 tiles a metre, which shimmered into a red knit. Give them their own copy at about 6 m a tile.
+  const dirt = groundTex.clone(); dirt.repeat.set(0.7, 0.7); dirt.needsUpdate = true;
+  M.bank.map = dirt; M.bank.bumpMap = dirt; M.bank.bumpScale = 1.4; M.bank.color.setHex(0xb0a090); M.bank.needsUpdate = true;
+  M.mesa.map = dirt; M.mesa.bumpMap = dirt; M.mesa.bumpScale = 1.6; M.mesa.color.setHex(0xb8a490); M.mesa.needsUpdate = true;
   M.glass.envMapIntensity = 1.6; M.chrome.envMapIntensity = 1.4; M.rim.envMapIntensity = 1.3;
 }
 
@@ -1030,7 +1036,10 @@ function addConvex(verts, faces, pos, yaw, mat, opts = {}) {
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(p, 3));
   geo.computeVertexNormals();
-  const uv = []; for (let i = 0; i < p.length; i += 3) uv.push(p[i] * 0.25 + p[i + 1] * 0.25, p[i + 2] * 0.25); // rough planar UVs
+  const uv = [], nA = geo.attributes.normal.array; // box projection per triangle: slopes and sides get square texels, no smeared streaks
+  for (let i = 0; i < p.length; i += 9) { const nx = Math.abs(nA[i]), ny = Math.abs(nA[i + 1]), nz = Math.abs(nA[i + 2]);
+    for (let k = 0; k < 9; k += 3) { const x = p[i + k] + c[0], y = p[i + k + 1] + c[1], z = p[i + k + 2] + c[2];
+      if (ny >= nx && ny >= nz) uv.push(x * 0.25, z * 0.25); else if (nx >= nz) uv.push(z * 0.25, y * 0.25); else uv.push(x * 0.25, y * 0.25); } }
   geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
   const mesh = new THREE.Mesh(geo, mat);
   mesh.position.copy(body.position); mesh.quaternion.copy(body.quaternion);
@@ -1363,13 +1372,22 @@ function buildArena() {
   });
 
   // Scrap mountains beyond the fence
-  for (let i = 0; i < 90; i++) {
-    const a = rand(0, Math.PI * 2), r = rand(A + 40, A + 160);
-    const s = rand(6, 22);
-    const m = new THREE.Mesh(new THREE.ConeGeometry(s, s * rand(0.5, 1.0), 5 + (Math.random() * 3 | 0)), M.scrap);
-    m.position.set(Math.cos(a) * r, s * 0.25, Math.sin(a) * r);
-    m.rotation.y = rand(0, 6);
-    scene.add(m);
+  { // lumpy heaps of crushed junk (not neat cones): a few shared lumpy shapes, coloured per vertex with rusty, painted and dark patches, drawn as one instanced mesh
+    const shapes = [0, 1, 2].map(() => { const g = new THREE.IcosahedronGeometry(1, 2), P = g.attributes.position, col = [];
+      const seed = rand(0, 100);
+      for (let i = 0; i < P.count; i++) { let x = P.getX(i), y = P.getY(i), z = P.getZ(i);
+        const n = 1 + 0.22 * Math.sin(x * 5.1 + seed) * Math.cos(z * 4.3 - seed) + 0.12 * Math.sin(y * 9 + x * 7) + rand(-0.1, 0.1);
+        x *= n; z *= n; y = Math.max(-0.15, y) * n; y = y < 0 ? y : Math.pow(y, 1.15); P.setXYZ(i, x, y, z);
+        const t = Math.random(), base = t < 0.45 ? [0.36, 0.2, 0.11] : t < 0.75 ? [0.22, 0.2, 0.19] : t < 0.88 ? [0.5, 0.46, 0.4] : [[0.45, 0.12, 0.08], [0.12, 0.22, 0.38], [0.6, 0.48, 0.12]][i % 3];
+        const sh = 0.7 + Math.random() * 0.4; col.push(base[0] * sh, base[1] * sh, base[2] * sh); }
+      g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.computeVertexNormals(); return g; });
+    const heapMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.75, metalness: 0.35, flatShading: true, envMapIntensity: 0.6 });
+    const per = [[], [], []];
+    for (let i = 0; i < 110; i++) { const a = rand(0, Math.PI * 2), r = rand(A + 34, A + 170), s = rand(6, 24) * (r > A + 100 ? 1.4 : 1); per[i % 3].push([Math.cos(a) * r, Math.sin(a) * r, s]); }
+    const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler();
+    shapes.forEach((g, k) => { const im = new THREE.InstancedMesh(g, heapMat, per[k].length);
+      per[k].forEach(([x, z, s], i) => { e.set(rand(-0.08, 0.08), rand(0, 6.3), rand(-0.08, 0.08)); q.setFromEuler(e); m4.compose(tmpV.set(x, -s * 0.05, z), q, new THREE.Vector3(s * rand(1, 1.6), s * rand(0.45, 0.8), s * rand(1, 1.5))); im.setMatrixAt(i, m4); });
+      im.userData.shared = true; scene.add(im); });
   }
   // Floodlight towers
   for (const [x, z] of [[A + 8, A + 8], [-A - 8, A + 8], [A + 8, -A - 8], [-A - 8, -A - 8]]) {
@@ -8246,7 +8264,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '59'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '60'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
@@ -8862,8 +8880,34 @@ function simBody(now) {
     updateFireLights(clock);
   }
 }
+// Soft contact shadow under every car: grounds the cars the sun's shadow map doesn't reach (it only covers ~60 m around you),
+// and darkens the gap under the chassis the way real ambient occlusion does. One instanced draw for all cars.
+const CAR_AO = (() => {
+  const tex = canvasTex(64, (g, s) => { const gr = g.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2); gr.addColorStop(0, '#fff'); gr.addColorStop(0.55, '#bbb'); gr.addColorStop(1, '#000'); g.fillStyle = '#000'; g.fillRect(0, 0, s, s); g.fillStyle = gr; g.fillRect(0, 0, s, s); });
+  tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping; tex.repeat.set(1, 1);
+  const im = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x000000, alphaMap: tex, transparent: true, opacity: 0.62, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, fog: true }), 48);
+  im.frustumCulled = false; im.count = 0; im.renderOrder = 1; scene.add(im);
+  const res = new CANNON.RaycastResult(), from = new CANNON.Vec3(), to = new CANNON.Vec3(), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), sc = new THREE.Vector3(), p = new THREE.Vector3(), fw = new THREE.Vector3();
+  let frame = 0;
+  return { im, update() {
+    if (QUALITY.level >= 7) { im.count = 0; return; }
+    frame++; let n = 0;
+    for (const c of cars) { if (n >= 48 || !c.body || !c.group?.visible) continue;
+      const b = c.body, bp = b.position;
+      if (c.aoT === undefined || (frame + c.number) % 3 === 0) { from.set(bp.x, bp.y + 0.5, bp.z); to.set(bp.x, bp.y - 8, bp.z); res.reset(); world.rayTest(from, to, res); c.aoT = res.hasHit ? { y: res.hitPointWorld.y, nx: res.hitNormalWorld.x, ny: res.hitNormalWorld.y, nz: res.hitNormalWorld.z } : null; }
+      const h = c.aoT; if (!h) continue;
+      const gap = bp.y - h.y, k = clamp(1.25 - gap / (c.T.H * 2 + 2.5), 0, 1); if (k <= 0.02) continue;
+      fw.set(1, 0, 0).applyQuaternion(c.group.quaternion); const yaw = Math.atan2(-fw.z, fw.x);
+      q.setFromUnitVectors(up, p.set(h.nx, h.ny, h.nz)); q.multiply(tmpQ.setFromAxisAngle(up, yaw));
+      const sp = 1 + Math.max(0, gap - 0.8) * 0.25; // higher up: bigger, fainter
+      sc.set((c.T.L + 1.4) * sp * k, 1, (c.T.W + 1.2) * sp * k);
+      m4.compose(p.set(bp.x, h.y + 0.03, bp.z), q, sc); im.setMatrixAt(n, m4); n++; }
+    im.count = n; im.instanceMatrix.needsUpdate = true;
+  } };
+})();
 function drawBody(dt) {
   SEC.run('lod', updatePropBatches);
+  CAR_AO.update();
   const running = !(game.state === 'playing' && game.paused);
   updateCamera(dt);
   sky.position.copy(camera.position);
