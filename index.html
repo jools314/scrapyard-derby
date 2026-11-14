@@ -2227,7 +2227,8 @@ const WEAPONS = {
   flame: { label: 'FLAMER', cd: 5, dur: 2,
     update(car, dt) { // handbrake drift at speed: the buggy's hot exhaust lights a trail of fire behind it
       const vb = car.body.velocity, lat = Math.abs(vb.x * -car.fwd.z + vb.z * car.fwd.x); // sliding sideways = drifting
-      if (car.wrecked || lat < 3 || Math.hypot(vb.x, vb.z) < 5 || !(car.contacts > 0) || game.state !== 'playing') return;
+      const spd = Math.hypot(vb.x, vb.z), drifting = (lat > 2 && spd > 6) || (Math.abs(car.ctrl.steer || 0) > 0.7 && spd > 8); // a slide, or simply a hard turn at speed
+      if (car.wrecked || !drifting || !(car.contacts > 0) || game.state !== 'playing') return;
       car.trailT = (car.trailT || 0) - dt; const b = car.body, rp = b.pointToWorldFrame(new CANNON.Vec3(-car.T.L / 2 - car.comShift, 0.2, 0));
       if (Math.random() < 0.7) emit('fire', rp.x + rand(-0.4, 0.4), 0.4, rp.z + rand(-0.4, 0.4), b.velocity.x * 0.2, rand(1, 2), b.velocity.z * 0.2, rand(0.3, 0.5), rand(0.35, 0.6));
       if (car.trailT <= 0) { car.trailT = 0.3; addConcrete(rp.x, rp.z, rand(1.2, 1.7), 'fuel'); const pd = CONCRETE.list[CONCRETE.list.length - 1]; pd.burning = rand(3, 5); pd.owner = car; if (car.isPlayer && !car.trailSaid) { car.trailSaid = true; toast('🔥 FIRE DRIFT!', 'cool'); } }
@@ -2426,7 +2427,7 @@ const WEAPONS = {
       const inReel = (p, r) => { const l = b.pointToLocalFrame(p); return l.x > front - 0.9 - r && l.x < front + 1.4 + r && Math.abs(l.z) < 3.1 + r && l.y < 2.2; };
       for (const pr of props.slice()) { if (!inReel(pr.body.position, 0.4)) continue; if (pr.body.gas) { igniteProp(pr); continue; } if (pr.body.mass > 1200 || pr.body.propKind === 'concrete') continue; harvestProp(car, pr); }
       for (const c of cars) { if (c === car || c.wrecked || !inReel(c.body.position, Math.min(c.T.L, c.T.W) * 0.45)) continue; // chewed up and dragged in
-        const k = c.T.skid ? 0.3 : 1; c.applyDamage(18 * dt * S.damage * c.T.armor * k, car, 'front', null, 0); c.dozed = 6;
+        const k = c.T.skid ? 0.3 : 1; c.applyDamage(14 * dt * S.damage * c.T.armor * k, car, 'front', null, 0); c.dozed = 6;
         const l = c.body.pointToLocalFrame(b.position); c.body.velocity.x += (b.position.x - c.body.position.x) * dt * 0.8 * k; c.body.velocity.z += (b.position.z - c.body.position.z) * dt * 0.8 * k; c.body.velocity.y += dt * 2 * k;
         if (Math.random() < dt * 1.2) { const loose = c.parts.filter((q) => !q.detached); if (loose.length) c.detach(loose[Math.random() * loose.length | 0], car); }
         if (Math.random() < dt * 6) { const p = c.body.position; emit('debris', p.x, p.y + 0.6, p.z, f.x * rand(2, 5) + rand(-2, 2), rand(2, 5), f.z * rand(2, 5) + rand(-2, 2), rand(1, 2), rand(0.08, 0.2), c.paint); sparks(p, 3); }
@@ -2855,7 +2856,7 @@ function dropBoulder(car, ev) { // a 900 kg rock rolls off the back of the bed
   const r = ev ? ev[6] : rand(0.75, 1.0), body = new CANNON.Body({ mass: 900 * r * r * r, material: sceneryMat, linearDamping: 0.05, angularDamping: 0.1 }); body.addShape(new CANNON.Sphere(r));
   body.position.copy(p); body.velocity.copy(v); body.angularVelocity.set(rand(-3, 3), rand(-3, 3), rand(-3, 3)); body.boulder = true; world.addBody(body);
   const hit = new Set(); body.addEventListener('collide', (e) => { const c = e.body && e.body.car; if (!c || c === car || hit.has(c) || MP.role === 'guest') return; const rel = body.velocity.vsub(c.body.velocity).length(); if (rel < 2.5) return; hit.add(c); // a rolling rock is a lot of mass to stop
-    const lp = c.body.pointToLocalFrame(body.position), zn = Math.abs(lp.x) > Math.abs(lp.z) ? (lp.x > 0 ? 'front' : 'rear') : (lp.z > 0 ? 'right' : 'left'); c.applyDamage((6 + rel * 2.2) * S.damage * c.T.armor, car, zn, new THREE.Vector3(lp.x, lp.y, lp.z), rel); c.dent(new THREE.Vector3(lp.x, lp.y, lp.z), { x: Math.sign(lp.x) * (zn === 'front' || zn === 'rear' ? 1 : 0), y: 0, z: Math.sign(lp.z) * (zn === 'left' || zn === 'right' ? 1 : 0) }, 8 + rel);
+    const lp = c.body.pointToLocalFrame(body.position), zn = Math.abs(lp.x) > Math.abs(lp.z) ? (lp.x > 0 ? 'front' : 'rear') : (lp.z > 0 ? 'right' : 'left'); c.applyDamage((5 + rel * 1.8) * S.damage * c.T.armor, car, zn, new THREE.Vector3(lp.x, lp.y, lp.z), rel); c.dent(new THREE.Vector3(lp.x, lp.y, lp.z), { x: Math.sign(lp.x) * (zn === 'front' || zn === 'rear' ? 1 : 0), y: 0, z: Math.sign(lp.z) * (zn === 'left' || zn === 'right' ? 1 : 0) }, 8 + rel);
     if (game.state === 'playing') { if (c.isPlayer) toast('🪨 ROCKED!', 'bad'); else if (car.isPlayer) toast(`🪨 ROCKED ${c.name}!`, 'cool'); } });
   const m = new THREE.Mesh(boulderGeo, boulderMat); m.scale.setScalar(r); m.castShadow = true; m.receiveShadow = true; m.userData.shared = true; scene.add(m);
   BOULDERS.push({ body, mesh: m, t: 40, by: car }); while (BOULDERS.length > 15) { const o = BOULDERS.shift(); world.removeBody(o.body); scene.remove(o.mesh); }
@@ -8245,7 +8246,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '58'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '59'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
