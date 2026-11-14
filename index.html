@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta http-equiv="Cache-Control" content="no-cache"><title>Scrapyard Derby</title></head><body>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"><meta http-equiv="Cache-Control" content="no-cache"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="Derby"><meta name="theme-color" content="#1c1611"><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="apple-touch-icon.png"><title>Scrapyard Derby</title></head><body>
 <title>Scrapyard Derby</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -244,8 +244,24 @@
   #rsheet[hidden] { display: none; }
   #netlog { position: fixed; inset: 0; z-index: 45; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(0,0,0,0.35); }
   #netlog[hidden] { display: none; }
+  #apReport { position: fixed; inset: 0; z-index: 46; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(0,0,0,0.45); }
+  #apReport[hidden], #apBanner[hidden] { display: none; }
+  #apReport .nl-card { overflow: auto; }
+  #apBody { overflow: auto; font: 12px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace; }
+  #apBody table { border-collapse: collapse; width: 100%; margin: 4px 0 10px; }
+  #apBody th, #apBody td { padding: 2px 6px; text-align: right; border-bottom: 1px solid rgba(255, 220, 170, 0.1); white-space: nowrap; }
+  #apBody th:first-child, #apBody td:first-child { text-align: left; }
+  #apBody th { color: #c9b89f; font-weight: 600; }
+  #apBody h4 { margin: 8px 0 2px; font: 600 12px/1.2 system-ui, sans-serif; color: #f2a20c; text-transform: uppercase; letter-spacing: .06em; }
+  #apBody .ap-tot { display: flex; flex-wrap: wrap; gap: 6px 16px; }
+  #apBody .ap-tot b { color: #fff; }
+  #apReport .nl-actions { flex-wrap: wrap; }
+  #apBanner { position: fixed; top: calc(8px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); z-index: 39; background: rgba(20, 17, 14, 0.78); color: #f3e9dc; border: 1px solid rgba(255, 220, 170, 0.2); border-radius: 999px; padding: 5px 14px; font: 600 12px/1.3 system-ui, sans-serif; pointer-events: none; white-space: nowrap; max-width: calc(100vw - 32px); overflow: hidden; text-overflow: ellipsis; }
+  body.autoplay #touch, body.autoplay #keys, body.autoplay #rsheet { display: none !important; }
   #perfdlg { position: fixed; top: calc(250px + env(safe-area-inset-top, 0px)); left: calc(12px + env(safe-area-inset-left, 0px)); z-index: 44; width: min(400px, 42vw); max-height: calc(100vh - 470px); min-height: 160px; overflow: auto; } /* docked on the left under the stats: the middle and your car stay clear */
   #perfdlg #pfText { font-size: 10.5px; max-height: none; }
+  #perfdlg .nl-card { grid-template-columns: minmax(0, 1fr); box-sizing: border-box; } #perfdlg #pfText { overflow-x: auto; } /* (long lines scroll inside: the buttons stay in view) */
+  #plMeter { margin-top: 8px; overflow-wrap: anywhere; }
   #perfdlg .nl-card { padding: 10px 12px; background: rgba(20, 17, 14, 0.82); }
   #perfdlg .nl-actions { flex-wrap: wrap; } #perfdlg .nl-actions button { min-height: 34px; font-size: 12px; padding: 0 8px; }
   @media (max-height: 500px) { #perfdlg { top: calc(8px + env(safe-area-inset-top, 0px)); width: min(360px, 48vw); max-height: calc(100vh - 16px); } }
@@ -367,12 +383,63 @@
   .nitro-row[hidden] { display: none !important; }
   body:not(.touch) .stats { transform: scale(0.82); transform-origin: top left; } /* a smaller corner panel */
   body:not(.touch) #opponents { transform: scale(0.85); transform-origin: top left; }
+
+  /* Phones: one slim row of three up top (settings, pause, respawn); map, bug report, camera and tilt live in the settings menu.
+     Tapping the speedometer also flips the camera. Nothing on the right edge for the action buttons to run into. */
+  .tonly { display: none; }
+  body.touch #gearMenu kbd { display: none; }
+  #btnFull[hidden] { display: none !important; }
+  body.touch #gearMenu .tonly { display: flex; }
+  body.touch #btnMap, body.touch #btnCam, body.touch #btnTilt { display: none !important; }
+  body.touch .rail { display: flex !important; flex-direction: row !important; gap: 6px; }
+  body.touch .rail .ic { width: 44px; height: 44px; font-size: 18px; }
+  body.touch .rail .ic small { font-size: 8px; }
+  body.touch #gearMenu { top: 52px; right: 0; max-height: calc(100vh - 140px); overflow-y: auto; }
+  body.touch .speedo { pointer-events: auto; cursor: pointer; }
+  @media (max-width: 500px) {
+    body.touch #subs { left: calc(6px + env(safe-area-inset-left, 0px)); right: calc(6px + env(safe-area-inset-right, 0px)); top: calc(100px + env(safe-area-inset-top, 0px)); width: auto; min-width: 0; transform: none; }
+    body.touch #toasts { top: calc(150px + env(safe-area-inset-top, 0px)); }
+    body.touch .speedo { left: calc(158px + env(safe-area-inset-left, 0px)); }
+  }
+  /* ---- scoreboard: a small leaderboard under the stats, the full table on L / the settings menu ---- */
+  #lboard { display: grid; gap: 3px; padding: 6px 0 0; border-top: 1px solid var(--line); font-size: 12px; pointer-events: auto; cursor: pointer; }
+  #lboard[hidden] { display: none !important; }
+  .lb-h { display: flex; justify-content: space-between; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+  .lb-r { display: grid; grid-template-columns: 14px 10px 1fr auto; gap: 6px; align-items: center; font-variant-numeric: tabular-nums; }
+  .lb-r .lb-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lb-r .lb-n { color: var(--muted); text-align: right; }
+  .lb-r .lb-p { font-weight: 700; }
+  .lb-r.me .lb-name, .lb-r.me .lb-p { color: var(--accent); }
+  .lb-r.out { opacity: 0.5; }
+  body.touch #lboard { position: absolute; top: calc(100% + 6px); left: -1px; width: min(160px, 100%); box-sizing: border-box; padding: 5px 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; }
+  @media (max-height: 500px), (max-width: 500px) { body.touch #lboard { width: 128px; padding: 3px 6px; gap: 1px; font-size: 10.5px; } body.touch .lb-h { font-size: 8px; } body.touch .lb-r { grid-template-columns: 10px 7px 1fr auto; gap: 4px; } body.touch .lb-r .sw { width: 7px; height: 7px; } }
+  @media (max-width: 500px) { body.touch #lboard { top: calc(100% + 66px); } } /* portrait phone: under the voice captions */
+  #sboard { position: fixed; inset: 0; z-index: 46; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(0, 0, 0, 0.3); }
+  #sboard[hidden] { display: none; }
+  #sboard .nl-card { width: min(560px, 100%); max-height: calc(100vh - 32px); overflow: auto; box-sizing: border-box; }
+  .sbt { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+  .sbt th { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: 600; text-align: right; padding: 4px 6px; white-space: nowrap; }
+  .sbt td { padding: 6px; text-align: right; border-top: 1px solid var(--line); }
+  .sbt .nm { text-align: left; width: 100%; } .sbt td.nm { display: flex; align-items: center; gap: 7px; }
+  .sbt td.nm span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 40vw; }
+  .sbt td.pt { font-weight: 700; color: var(--accent); }
+  .sbt tr.me td { background: rgba(242, 162, 12, 0.16); }
+  .sbt tr.out td { opacity: 0.55; }
+  #overBoard { max-height: 40vh; overflow: auto; }
+  @media (max-height: 500px), (max-width: 500px) { .sbt { font-size: 12px; } .sbt td { padding: 3px 5px; } .sbt th { padding: 2px 5px; font-size: 9px; } #sboard { padding: 8px; } #sboard .nl-card { max-height: calc(100vh - 16px); padding: 10px 12px; gap: 6px; } #sboard .rs-title { font-size: 16px; } }
+
+  /* the bug button: a small faint corner icon, not a rail button (one tap copies the report and sends it) */
+  .bugdot { position: fixed; right: calc(6px + env(safe-area-inset-right, 0px)); bottom: calc(6px + env(safe-area-inset-bottom, 0px)); z-index: 30; width: 28px; height: 28px; padding: 0; border-radius: 50%; border: 1px solid var(--line); background: rgba(20, 17, 14, 0.45); font-size: 14px; line-height: 1; opacity: 0.55; pointer-events: auto; cursor: pointer; }
+  .bugdot:hover, .bugdot:focus-visible { opacity: 1; }
+  .bugdot.done { opacity: 1; background: rgba(60, 140, 70, 0.7); }
+  body.touch .bugdot { right: auto; left: 50%; transform: translateX(-50%); bottom: calc(6px + env(safe-area-inset-bottom, 0px)); width: 24px; height: 24px; font-size: 12px; } /* phones: bottom centre, between the pedal and the stick, clear of everything */
 </style>
 
 <div id="app">
   <canvas id="gl"></canvas>
 
   <div class="hud" id="hud">
+    <button id="btnBug" class="bugdot" type="button" title="Something weird? One tap copies a full bug report (and sends it to Claude) · F2" aria-label="Copy bug report">🐞</button>
     <div class="stats">
       <div class="bars">
         <div class="row"><span class="label">Hull</span><span class="label" id="hpText">100%</span></div>
@@ -396,22 +463,29 @@
         <circle id="w-3" cx="46" cy="64" r="4.5"></circle>
       </svg>
       <ul id="opponents" class="wide"></ul>
+      <div id="lboard" class="wide" hidden title="Scoreboard (L)" aria-label="Leaderboard"></div>
     </div>
     <div class="topright">
       <canvas id="minimap" width="320" height="320" aria-label="Arena map"></canvas>
       <div class="rail"><!-- a slim column on the right edge: nothing over the middle of the screen -->
         <button id="btnGear" class="ic gear" type="button" title="Settings and debugging" aria-label="Settings" aria-expanded="false">⚙️<span id="netDot" hidden></span></button>
         <button id="btnMap" class="ic" type="button" title="Map (Tab)" aria-pressed="false">🗺️<small>Map</small></button>
-        <button id="btnBug" class="ic" type="button" title="Something weird? One tap copies a full bug report for Claude">🐞<small>Bug</small></button>
         <button id="btnCam" class="ic" type="button" title="Camera: chase / far / inside (C)">🎥<small>View</small></button>
         <button id="btnPause" class="ic" type="button" title="Pause (P)">⏸️<small>Pause</small></button>
         <button id="btnRespawn" class="ic hot" type="button" title="Respawn or pick a new car (K)">🔄<small>Respawn</small></button>
       </div>
       <div id="gearMenu" hidden>
+        <button id="gmCam" class="tonly" type="button">🎥 Camera view<kbd>C</kbd></button>
+        <button id="gmMap" class="tonly" type="button">🗺️ Map</button>
+        <button id="gmScore" type="button">🏆 Scoreboard<kbd>L</kbd></button>
+        <button id="gmTilt" class="tonly" type="button">📱 Tilt steering: off</button>
+        <button id="gmFull" type="button">⛶ Full screen</button>
+        <button id="gmBug" class="tonly" type="button">🐞 Bug report</button>
         <button id="btnTune" type="button">Tune physics<kbd>T</kbd></button>
         <button id="btnNew" type="button">New car<kbd>N</kbd></button>
         <button id="btnPerf" type="button">Performance<kbd>I</kbd></button>
         <button id="btnNetLog" type="button" hidden>Network log</button>
+        <button id="btnApReport" type="button">Play report</button>
         <button id="btnMusic" type="button">Music on<kbd>B</kbd></button>
         <button id="btnMute" type="button">Sound on<kbd>M</kbd></button>
         <button id="btnVoices" type="button">Voices on<kbd>U</kbd></button>
@@ -454,6 +528,8 @@
       <div class="rs-sub" id="pfVerdict"></div>
       <pre id="pfText"></pre>
       <div class="nl-actions"><button id="pfHud" type="button">Corner readout: off</button><button id="pfSend" type="button">Save report</button><button id="pfCopy" type="button">Copy</button><button id="pfClose" class="primary" type="button">Close</button></div>
+      <div class="rs-sub" id="plMeter">Play log: …</div>
+      <div class="nl-actions"><button id="plCopy" type="button">Copy all play data</button><button id="plDl" type="button">Download</button><button id="plRep" type="button">Report</button><button id="plClear" type="button">Clear</button></div>
     </div>
   </div>
   <div id="netlog" hidden role="dialog" aria-label="Network log">
@@ -465,6 +541,23 @@
       <div class="nl-actions"><button id="nlCopy" class="primary" type="button">Copy for debugging</button><button id="nlClose" type="button">Close</button></div>
     </div>
   </div>
+  <div id="sboard" hidden role="dialog" aria-label="Scoreboard">
+    <div class="nl-card">
+      <div class="rs-title" id="sbTitle">Scoreboard</div>
+      <div class="rs-sub">100 points for every car you wreck · −50 for wrecking yourself</div>
+      <table class="sbt" id="sbTable"></table>
+      <div class="nl-actions"><button id="sbEnd" type="button">End match</button><button id="sbClose" class="primary" type="button">Close</button></div>
+    </div>
+  </div>
+  <div id="apReport" hidden role="dialog" aria-label="Play report">
+    <div class="nl-card">
+      <div class="rs-title">📊 Play report</div>
+      <div class="rs-sub" id="apSum"></div>
+      <div id="apBody"></div>
+      <div class="nl-actions"><button id="apCopy" class="primary" type="button">Copy all play data</button><button id="apDl" type="button">Download</button><button id="apGo" type="button">Start autoplay</button><button id="apClear" type="button">Clear</button><button id="apClose" type="button">Close</button></div>
+    </div>
+  </div>
+  <div id="apBanner" hidden></div>
   <div id="rsheet" hidden role="dialog" aria-label="Respawn">
     <div class="rs-card">
       <div class="rs-title" id="rsTitle">Respawn</div>
@@ -532,6 +625,9 @@
       <div class="actions">
         <span class="modes" role="group" aria-label="Game mode"><button type="button" class="mode" data-mode="respawn" aria-pressed="true">Respawn</button><button type="button" class="mode" data-mode="elim" aria-pressed="false">Elimination</button></span>
         <button id="btnStart" class="primary" type="button">Start derby</button>
+        <button id="btnAutoplay" type="button" title="The computer drives every car, match after match, and logs how the game runs (fps, physics glitches, stuck cars, balance). Any key or tap stops it.">🤖 Autoplay (learn)</button>
+        <button id="btnApReport2" type="button" class="quiet" title="What the play log has measured so far">Report</button>
+        <button id="btnFull" class="touch-only" type="button">⛶ Full screen</button>
         <span class="quiet">or press Enter</span>
       </div>
     </div>
@@ -557,6 +653,7 @@
         <div><span class="label">Time</span><span class="num" id="rTime">0:00</span></div>
         <div><span class="label">Wrecked</span><span class="num" id="rWrecks">0</span></div>
       </div>
+      <div id="overBoard" hidden><table class="sbt" id="overTable"></table></div>
       <div class="actions">
         <button id="btnAgain" class="primary" type="button">Drive again</button>
         <button id="btnGarage" type="button">Change car</button>
@@ -677,6 +774,8 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPrefere
 // Render resolution: big external monitors at 2x would mean 4-8 million shaded pixels a frame, bloom included.
 // Cap the pixel count, and let the auto-quality governor scale it further.
 const QUALITY = { scale: 1, maxPix: 2.3e6, dprCap: 2, level: 0, log: [] };
+const AUTO = { on: false }; // autoplay (learn) mode: filled in near the end of the script
+const PLAYLOG = { m: null }; // the play log (every match): filled in near the end of the script
 function renderPixelRatio() { const w = canvas.clientWidth || window.innerWidth, h = canvas.clientHeight || window.innerHeight; return Math.max(0.5, Math.min(window.devicePixelRatio || 1, QUALITY.dprCap, Math.sqrt(QUALITY.maxPix / Math.max(1, w * h))) * QUALITY.scale); }
 renderer.setPixelRatio(renderPixelRatio());
 renderer.shadowMap.enabled = true;
@@ -4513,7 +4612,7 @@ class Car {
         const F = thr * b.mass * 9 * taper * (contacts >= 6 ? clamp((Math.abs(speed) < 2.5 ? 0.6 : 0.2) + slopeUp * 5, 0.2, 1.3) : 1) * (live === 2 ? 1 : 0.55);
         if (live === 2) { this.tmpF.set(this.fwd.x * F, this.fwd.y * Math.abs(F) + slopeUp * b.mass * 9, this.fwd.z * F); b.applyForce(this.tmpF); }
         if (live === 2 && slopeUp > 0.03) { const g = b.mass * 9.8 * slopeUp * (T.dozer ? 1.9 : 1.6) * Math.sign(thr); this.tmpF.set(this.fwd.x * g, this.fwd.y * Math.abs(g), this.fwd.z * g); b.applyForce(this.tmpF); } // the whole belt bites into a slope: crawlers walk up hills that stall wheels
-        else { // only one belt is turning: it shoves its own side, the dead side drags, so the tank swings round in circles
+        if (live < 2) { // only one belt is turning: it shoves its own side, the dead side drags, so the tank swings round in circles (this was an `else` of the slope boost above, so on flat ground healthy crawlers ran it and swung right)
           for (let i = 0; i < this.nW; i++) { const w = v.wheelInfos[i]; w.frictionSlip *= 0.1; v.applyEngineForce(w.engineForce * 0.4, i); } // the hull skids round on the dead belt
           const sdz = (brk[0] ? 1 : -1) * T.track / 2, at = b.pointToWorldFrame(new CANNON.Vec3(0, -0.4, sdz)).vsub(b.position);
           this.tmpF.set(this.fwd.x * F, 0, this.fwd.z * F); b.applyForce(this.tmpF, at);
@@ -5258,7 +5357,7 @@ class Car {
     if (this.T.gun && dmg >= 10 && !this.wrecked && simTime - (this.smokeScrT ?? -99) > 18 && MP.role !== 'guest') { this.smokeScrT = simTime; smokeScreen(this); } // a big hit: the Tiger pops smoke
     if (this.T.flimsy && (zone === 'left' || zone === 'right' || zone === 'rear')) { dmg *= 1.6; if (dmg >= 1.5) this.shedJunk(zone, dmg); } // RV walls are plywood and staples: they cave in and spill the contents
     dmg = Math.min(dmg, this.health);
-    this.health -= dmg;
+    this.health -= dmg; if (PLAYLOG.m) PLAYLOG.dmg(this, dmg, by);
     if (zone && this.zones[zone] !== undefined) {
       const before = this.zones[zone];
       this.zones[zone] = Math.min(100, this.zones[zone] + dmg * 2.2);
@@ -5950,6 +6049,7 @@ function updateHUD(dt) {
     e.style.fill = lost ? '#17130f' : dmgColor(Math.min(100, dmg)); e.style.stroke = lost ? '#e4472c' : 'rgba(0,0,0,.5)';
   });
   el.score.textContent = game.score.toLocaleString();
+  SCORE.render();
   const ai = cars.filter((c) => !c.isPlayer);
   el.wrecks.textContent = GAME_MODE === 'respawn' ? String(player.kills || 0) : `${ai.filter((c) => c.wrecked).length} / ${ai.length}`; // respawn mode: how many you've wrecked
   for (const c of ai) { c.liBar.style.width = Math.max(0, c.health) + '%'; c.li.classList.toggle('dead', c.wrecked); }
@@ -6607,7 +6707,9 @@ const barks = {
   lastT: -99, el: null, voices: [],
   init() {
     this.el = $('subs');
-    try { const load = () => { this.voices = window.speechSynthesis ? speechSynthesis.getVoices() : []; }; load(); if (window.speechSynthesis) speechSynthesis.onvoiceschanged = load; } catch (e) {}
+    try { const load = () => { this.voices = window.speechSynthesis ? speechSynthesis.getVoices() : []; }; load(); if (window.speechSynthesis) { speechSynthesis.onvoiceschanged = load; try { speechSynthesis.addEventListener('voiceschanged', load); } catch (e) {} } } catch (e) {} // (the list can arrive late, and change when network voices come and go)
+    document.addEventListener('visibilitychange', () => { try { this.onVis(); } catch (e) {} });
+    setInterval(() => { try { this.doctor(); } catch (e) {} }, 1000); // watches the engine for the whole session: see doctor()
   },
   say(car, ev, force, vars) {
     if (!car || car.isPlayer || !car.persona || game.state !== 'playing') return;
@@ -6634,18 +6736,20 @@ const barks = {
       if (!src.length) continue;
       let line = this.fill(src[Math.random() * src.length | 0], P, vars);
       line = line.charAt(0).toUpperCase() + line.slice(1);
-      if (!this.used.has(line)) { this.used.add(line); return line; }
+      if (!this.used.has(line)) { this.remember(line); return line; }
     }
-    return null;
+    return this.reuse(hand.length ? hand : tpls, P, vars); // every line already said: the respawn match never ends, so repeat one rather than go quiet for the rest of the session
   },
+  remember(line) { this.used.delete(line); this.used.add(line); if (this.used.size > 600) this.used.delete(this.used.values().next().value); }, // (the oldest lines become sayable again)
+  reuse(src, P, vars) { if (!src || !src.length) return null; let line = this.fill(src[Math.random() * src.length | 0], P, vars); line = line.charAt(0).toUpperCase() + line.slice(1); this.remember(line); this.stats = this.stats || { sent: 0, started: 0, errors: 0, resets: 0, lastVoice: '' }; this.stats.repeats = (this.stats.repeats || 0) + 1; return line; },
   announce(ev, vars, force) {
     const now = performance.now() / 1000;
     if (game.state !== 'playing' || (!force && now - (this.annT || -99) < 4) || now - this.lastT < 1.2) return;
     const pool = ANN_LINES[ev]; if (!pool) return;
     for (let i = 0; i < 8; i++) {
       const line = this.fill(pool[Math.random() * pool.length | 0], ANNOUNCER, vars);
-      if (this.used.has(line)) continue;
-      this.used.add(line); this.annT = now; this.lastT = now;
+      if (this.used.has(line) && i < 7) continue; // (the last try may repeat: a long match uses up the announcer's pool)
+      this.remember(line); this.annT = now; this.lastT = now;
       this.show(ANNOUNCER, new THREE.Color(0xf2a20c), line);
       this.speak(ANNOUNCER, line, null);
       return;
@@ -6668,7 +6772,86 @@ const barks = {
     const ss = window.speechSynthesis; if (!ss || !(ss.speaking || ss.pending)) return;
     if (performance.now() - (this.lastSpeakT || -1e9) > 1000) { try { ss.cancel(); } catch (e) {} } else this.cancelLater = true;
   },
-  say0(u) { this.lastSpeakT = performance.now(); try { speechSynthesis.resume(); } catch (e) {} speechSynthesis.speak(u); },
+  say0(u) { // every line goes to the engine through here
+    const now = performance.now(); if (now < this.holdUntil && !this.testing) return false; // a reset is letting the engine settle: a line now would wedge it again
+    this.lastSpeakT = now; if (!this.asked++) this.firstAskT = now; this.hold(u); if (!u.__sentT) u.__sentT = now;
+    try { speechSynthesis.resume(); } catch (e) {} speechSynthesis.speak(u); return true;
+  },
+  // ---- long-session health: Chrome on a Mac can go quiet after a while (a network voice dies, the engine sits 'speaking'/'pending'/'paused' forever
+  // after a tab switch, an utterance gets garbage-collected and never reports back). The doctor notices "we keep asking and nothing starts" and resets everything.
+  live: new Set(), lastHeard: 0, asked: 0, firstAskT: 0, holdUntil: 0, preferLocalUntil: 0, recoveries: 0, failedRecoveries: 0, babbleUntil: 0, recoverT: 0, visT: 0, hiddenT: 0, hangs: {},
+  hold(u) { // a strong reference until the line ends: Chrome never fires 'end' for an utterance nobody holds, and then sits 'speaking' forever
+    if (this.live.has(u)) return; this.live.add(u); if (this.live.size > 40) this.live.delete(this.live.values().next().value);
+    const done = () => { this.live.delete(u); }; u.addEventListener('end', done); u.addEventListener('error', done);
+  },
+  heard() { this.lastHeard = performance.now(); this.asked = 0; this.firstAskT = 0; this.failedRecoveries = 0; this.babbleUntil = 0; }, // any start / word / end: the engine is alive
+  ssState() { const ss = window.speechSynthesis; return ss ? `speaking=${ss.speaking}, pending=${ss.pending}, paused=${ss.paused}` : 'no engine'; },
+  isBad(v) { const b = this.badVoices && this.badVoices.get(v.name); return !!b && b.until > performance.now(); },
+  ban(v, why, now1) { // network voices are banned at once; a voice on the device only after it hangs twice (one hang is often the engine, not the voice). Bans expire.
+    if (!v) return false; const net = v.localService === false, n = (this.hangs[v.name] = (this.hangs[v.name] || 0) + 1), t = performance.now();
+    if (net) this.netDown(`"${v.name}" ${why}`);
+    if (!net && !now1 && n < 2) return false;
+    if (!this.badVoices || !(this.badVoices instanceof Map)) this.badVoices = new Map();
+    const was = this.isBad(v); this.badVoices.set(v.name, { until: t + (net ? 600000 : 300000), at: t, net });
+    if (!was) NETLOG.incident('me', `voices: "${v.name}" ${why} - not using it for ${net ? 10 : 5} min`); return true;
+  },
+  netDown(why) { const t = performance.now(); if (t < this.preferLocalUntil) return; this.preferLocalUntil = t + 600000; NETLOG.incident('me', `voices: network voices stopped answering (${why}) - using the voices on this device for 10 min`); },
+  clone(u, flag) { // the same line again (default voice unless one is set afterwards)
+    const u2 = new SpeechSynthesisUtterance(u.text); u2[flag] = true; u2.pitch = u.pitch; u2.rate = u.rate; u2.volume = u.volume; u2.onstart = u.onstart;
+    const ok = () => { u2.__started = true; this.speechOK = true; this.heard(); }; u2.addEventListener('start', ok); u2.addEventListener('boundary', ok); u2.addEventListener('end', ok); u2.addEventListener('error', () => { u2.__errored = true; });
+    this.keep = (this.keep || []).concat(u2).slice(-12); return u2;
+  },
+  blameHung() { // about to clear a backlog: a line that has waited > 2.6 s at the front without starting is a hung voice (a dead network voice, usually) - say so, and stop using it
+    const t = performance.now(); for (const u of this.live) if (u.voice && !u.__started && !u.__errored && t - (u.__sentT || t) > 2600 && t - Math.max(this.lastHeard, this.visT) > 2600) { this.ban(u.voice, 'hung (never started)'); break; }
+  },
+  onVis() { // Chrome pauses a hidden tab's speech, and the line in flight may never report back: check the engine once we are visible again
+    const ss = window.speechSynthesis; if (!ss) return; const t = performance.now();
+    if (document.hidden) { this.hiddenT = t; return; }
+    this.visT = t; this.asked = 0; this.firstAskT = 0; // (the time spent hidden is not the engine ignoring us)
+    const st = this.ssState(), away = ((t - (this.hiddenT || t)) / 1000).toFixed(0);
+    if (ss.paused || ss.speaking || ss.pending) { if ((this.visLogged = (this.visLogged || 0) + 1) <= 5) NETLOG.incident('me', `voices: tab back after ${away} s hidden, engine ${st}, ${this.live.size} lines waiting - resuming${this.live.size ? ', will reset it if nothing starts' : ''}`); }
+    try { if (ss.paused) ss.resume(); } catch (e) {}
+  },
+  doctor() { // runs every second
+    const ss = window.speechSynthesis; if (!ss || VOICES_OFF || document.hidden || this.testing) return;
+    const now = performance.now(); this.sweep(now); if (now < this.holdUntil) return;
+    if (ss.paused && now - this.lastSpeakT > 1000) { try { ss.resume(); } catch (e) {} if (!this.pausedSaid) { this.pausedSaid = true; NETLOG.incident('me', `voices: speech engine was left paused (${this.ssState()}) - resumed it`); } }
+    if (!ss.speaking && !ss.pending) { // idle: whatever we were waiting on finished or was dropped without telling us. Nothing to hold on to, nothing stuck.
+      this.idleT = now; if (now - (this.lastSpeakT || 0) > 1500) { this.queued = 0; this.live.clear(); }
+      if (this.asked >= 3 && now - this.firstAskT > 8000 && now - Math.max(this.lastHeard, this.recoverT, this.visT) > 30000) this.recover(`${this.asked} lines asked for and not one reported back, engine idle`, true); // (some engines speak without any events: a gentle reset only, never the cartoon voices)
+      return; }
+    const since = now - Math.max(this.lastHeard, this.recoverT, this.visT, this.idleT || 0); let why = ''; // how long it has sat busy without a word
+    if (this.asked >= 2 && since > 5000) why = `${this.asked} lines asked for, engine busy ${(since / 1000).toFixed(0)} s and none started`;
+    else if (this.visT > this.recoverT && this.lastHeard < this.visT && now - this.visT > 1500 && since > 1500 && this.live.size) why = `still ${ss.paused ? 'paused' : 'busy'} ${((now - this.visT) / 1000).toFixed(0)} s after the tab came back from ${((this.visT - (this.hiddenT || this.visT)) / 1000).toFixed(0)} s in the background`;
+    else if (since > 15000 && this.live.size) why = `the engine has claimed to be speaking for ${(since / 1000).toFixed(0)} s without a word`; // (Chrome cuts some voices off after ~15 s; a network voice can die mid-line)
+    if (why) this.recover(why);
+  },
+  sweep(now) { // every couple of minutes: expired bans go, hang counts start over, and if (nearly) every voice is banned the list is wiped - a banned-list that only ever grows ends in silence
+    if (now - (this.sweepT || 0) < 120000) return; this.sweepT = now; if (!(this.badVoices instanceof Map)) return;
+    for (const [n, b] of this.badVoices) if (b.until <= now) this.badVoices.delete(n);
+    this.hangs = {}; const vs = this.voices || [], left = vs.filter((v) => !this.isBad(v)).length;
+    if (this.badVoices.size && vs.length && left <= Math.max(1, vs.length / 4)) { NETLOG.incident('me', `voices: ${this.badVoices.size} of ${vs.length} voices were banned - giving them all another chance`); this.badVoices.clear(); }
+  },
+  recover(why, soft) { // the full reset: cancel (only when that is safe), resume, forget our own bookkeeping, let the engine settle, and use voices on this device for a while
+    const ss = window.speechSynthesis, now = performance.now(); if (!ss) return;
+    if (now - (this.lastSpeakT || -1e9) < 1000) return; // never cancel right after handing it a line (that is what wedges it): the doctor looks again in a second
+    this.recoveries++; if (!soft) this.failedRecoveries++; this.recoverT = now; if (soft && (this.softN = (this.softN || 0) + 1) > 3) { this.asked = 0; this.firstAskT = 0; try { ss.cancel(); } catch (e) {} return; } // (logged the first few times only)
+    const st = this.stats = this.stats || { sent: 0, started: 0, errors: 0, resets: 0, lastVoice: '' }; st.resets++; st.recoveries = this.recoveries;
+    const waiting = [...this.live], usedNet = waiting.some((u) => u.voice && u.voice.localService === false) || / online\)$/.test(st.lastVoice || ''), giveUp = !soft && this.failedRecoveries >= 3;
+    NETLOG.incident('me', `voices: stuck - ${why} (last voice ${st.lastVoice || 'default'}, ${ss.getVoices().length} voices, ${this.ssState()}, ${waiting.length} lines waiting, ${this.recoveries} resets so far) - full speech reset${usedNet ? ', switching to voices on this device' : ''}${giveUp ? ', cartoon voices for 30 s then trying again' : ''}`);
+    this.grave = waiting; setTimeout(() => { this.grave = null; }, 4000); this.live.clear(); // (keep the cancelled ones alive until their events have fired)
+    try { ss.cancel(); } catch (e) {} try { ss.resume(); } catch (e) {}
+    this.queued = 0; this.silent = 0; this.asked = 0; this.firstAskT = 0; this.cancelLater = false;
+    if (usedNet || this.failedRecoveries >= 2) this.preferLocalUntil = Math.max(this.preferLocalUntil, now + 600000);
+    if (this.badVoices instanceof Map) for (const [n, b] of this.badVoices) if (!b.net && now - b.at < 30000) { this.badVoices.delete(n); this.hangs[n] = 0; } // banned while the whole engine was stuck: not that voice's fault
+    this.voices = ss.getVoices();
+    this.holdUntil = now + (giveUp ? 4000 : 1500); if (giveUp) this.babbleUntil = now + 30000;
+  },
+  resetOwn(why) { // forget our own bookkeeping (bans, counters, waits): a person pressing Test voices, or a reset, should get a clean start
+    if (this.badVoices instanceof Map) this.badVoices.clear(); else this.badVoices = new Map(); this.hangs = {}; this.queued = 0; this.silent = 0; this.asked = 0; this.firstAskT = 0; this.failedRecoveries = 0; this.softN = 0; this.cancelLater = false; this.live.clear();
+    if (why) { const st = this.stats = this.stats || { sent: 0, started: 0, errors: 0, resets: 0, lastVoice: '' }; st.cleared = (st.cleared || 0) + 1; }
+  },
+  voiceReport() { const t = performance.now(), b = this.badVoices instanceof Map ? [...this.badVoices].filter(([, v]) => v.until > t).map(([n]) => n) : []; return `resets ${this.recoveries} · last heard ${this.lastHeard ? ((t - this.lastHeard) / 1000).toFixed(0) + ' s ago' : 'never'} · ${this.live.size} waiting · network voices ${t < this.preferLocalUntil ? 'off for now' : 'on'} · banned ${b.join(', ') || 'none'} · ${this.ssState()}`; },
   unlock() { // must run inside a tap/keypress: browsers only allow speech that a gesture started
     try {
       if (!window.speechSynthesis) { this.speechOK = false; return; }
@@ -6676,9 +6859,9 @@ const barks = {
       this.tries = (this.tries || 0) + 1; this.unlockT = performance.now();
       const u = new SpeechSynthesisUtterance(this.tries === 1 ? 'Welcome to Scrapyard Derby!' : 'Here we go!');
       u.pitch = ANNOUNCER.pitch; u.rate = ANNOUNCER.rate; u.volume = this.tries === 1 ? Math.max(0.3, S.voiceVolume) : 0.25; // the device's default voice: a fancy voice that happens to be broken must not switch all speech off
-      const ok = () => { this.speechOK = true; }; u.onstart = ok; u.onboundary = ok; u.onend = ok; // (some voices speak without ever firing 'start')
+      const ok = () => { this.speechOK = true; this.heard(); }; u.onstart = ok; u.onboundary = ok; u.onend = ok; // (some voices speak without ever firing 'start')
       try { speechSynthesis.resume(); } catch (e) {} // Chrome on a Mac can be stuck 'paused'
-      this.keep = (this.keep || []).concat(u).slice(-6); // (Chrome can drop an utterance nobody holds)
+      this.keep = (this.keep || []).concat(u).slice(-12); // (Chrome can drop an utterance nobody holds)
       const stale = !this.lastSpeakT && (speechSynthesis.speaking || speechSynthesis.pending); // 'speaking' before we ever said a word: the engine was left wedged by an earlier page (Chrome shares it across tabs and reloads)
       if (stale) { try { speechSynthesis.cancel(); } catch (e) {} NETLOG.incident('me', 'voices: speech engine was stuck before the game spoke - reset it'); this.lastSpeakT = performance.now(); setTimeout(() => this.say0(u), 450); }
       else if (speechSynthesis.speaking || speechSynthesis.pending) { this.safeCancel(); setTimeout(() => this.say0(u), 300); } else this.say0(u); // Chrome drops (or wedges on) a line spoken in the same instant as a cancel
@@ -6705,9 +6888,9 @@ const barks = {
     }
   },
   pickVoice(P) { // named voices first (they carry the accent), then any voice of the language, then English
-    const vs = this.voices, names = (P.words && P.words.voice) || [];
-    const bad = this.badVoices || new Set();
-    for (const n of names) { const v = vs.find((x) => !bad.has(x.name) && x.name.toLowerCase().includes(n.toLowerCase())); if (v) return v; }
+    const local = performance.now() < this.preferLocalUntil, names = (P.words && P.words.voice) || [];
+    const vs = this.voices.filter((x) => !this.isBad(x) && !(local && x.localService === false)); // (banned and, while the network voices are down, online voices are skipped everywhere: nothing left means the device's default voice)
+    for (const n of names) { const v = vs.find((x) => x.name.toLowerCase().includes(n.toLowerCase())); if (v) return v; }
     const lang = P.lang.toLowerCase().replace('_', '-');
     return vs.find((x) => x.lang && x.lang.toLowerCase().replace('_', '-').startsWith(lang)) || vs.find((x) => x.lang && x.lang.toLowerCase().startsWith(lang.slice(0, 2))) || vs.find((x) => x.lang && x.lang.startsWith('en'));
   },
@@ -6715,7 +6898,11 @@ const barks = {
     if (VOICES_OFF) return; // the subtitles still show
     ptag('voice line');
     const [P, line] = this.who(P0, line0);
-    if (this.speechOK === false || !window.speechSynthesis) { this.babble(P, line, pos); return; }
+    if (typeof document !== 'undefined' && document.hidden) return; // a hidden tab's speech is paused: don't pile lines up behind it
+    const tnow = performance.now();
+    if (this.speechOK === false && window.speechSynthesis && !this.testing) { if (!this.noSpeechT) this.noSpeechT = tnow; else if (tnow - this.noSpeechT > 30000) { this.noSpeechT = 0; this.speechOK = null; } } // try real speech again now and then: one bad spell must not mean cartoon voices for the rest of the session
+    if (this.speechOK === false || !window.speechSynthesis || tnow < this.babbleUntil) { this.babble(P, line, pos); return; }
+    if (tnow < this.holdUntil) return; // a reset is letting the engine settle (the subtitle still shows)
     try {
       if (sfx.muted || S.voiceVolume <= 0) return;
       if (!this.voices.length) this.voices = speechSynthesis.getVoices();
@@ -6727,26 +6914,31 @@ const barks = {
       u.volume = clamp(S.voiceVolume * (1 - d / 220), 0.25, 1);
       // Chrome stalls if speech is cancelled and restarted rapidly: only cut in when a backlog builds up, and keep the engine awake
       if (this.testing) return; // the voice test owns the engine for a few seconds
-      let afterCancel = false; if (speechSynthesis.pending || (speechSynthesis.speaking && this.queued > 1)) { if (performance.now() - (this.lastSpeakT || -1e9) > 1000) { speechSynthesis.cancel(); this.queued = 0; afterCancel = true; } else return; } // (a backlog: drop this line rather than cancel too soon)
+      let afterCancel = false; if (speechSynthesis.pending || (speechSynthesis.speaking && this.queued > 1)) { if (performance.now() - (this.lastSpeakT || -1e9) > 1000) { this.blameHung(); speechSynthesis.cancel(); this.queued = 0; afterCancel = true; } else return; } // (a backlog: drop this line rather than cancel too soon)
       if (speechSynthesis.paused) speechSynthesis.resume();
       this.queued = (this.queued || 0) + 1;
       const sent = performance.now(); this.stats = this.stats || { sent: 0, started: 0, errors: 0, resets: 0, lastVoice: '' }; this.stats.sent++; this.stats.lastVoice = v ? v.name + ' (' + v.lang + (v.localService ? ', on device' : ', online') + ')' : 'default';
-      u.onstart = () => { this.speechOK = true; this.lastStart = Date.now(); this.stats.started++; this.silent = 0; }; u.addEventListener('boundary', () => { if (this.speechOK !== true) this.speechOK = true; }); u.addEventListener('end', (ev) => { if (this.speechOK !== true && ev.elapsedTime > 200) this.speechOK = true; });
-      setTimeout(() => { if (this.stats.started === 0 || performance.now() - sent > 2400 && !this.lastStart) {} if (!u.__started && !VOICES_OFF) { this.silent = (this.silent || 0) + 1; if (this.silent === 3) { NETLOG.incident('me', `voices: 3 lines in a row never started (voice ${this.stats.lastVoice}, ${speechSynthesis.getVoices().length} voices, speaking=${speechSynthesis.speaking}, pending=${speechSynthesis.pending}) - resetting the speech engine`); this.stats.resets++; try { speechSynthesis.cancel(); } catch (e) {} } } }, 2600);
+      u.onstart = () => { this.speechOK = true; this.lastStart = Date.now(); this.stats.started++; this.silent = 0; this.heard(); }; u.addEventListener('boundary', () => { u.__started = true; if (this.speechOK !== true) this.speechOK = true; this.heard(); }); u.addEventListener('end', (ev) => { u.__started = true; if (this.speechOK !== true && ev.elapsedTime > 200) this.speechOK = true; this.heard(); }); // (any of the three counts: some voices never fire 'start')
+      setTimeout(() => { if (!u.__started && !VOICES_OFF) { this.silent = (this.silent || 0) + 1; this.stats.failed = (this.stats.failed || 0) + 1; } this.stats.silent = this.silent; }, 2600); // (a stuck engine is reset by doctor(), not here: a cancel at a random moment is what wedges it)
       u.addEventListener('start', () => { u.__started = true; });
       u.onend = () => { this.queued = Math.max(0, this.queued - 1); };
-      u.onerror = (ev) => { this.queued = Math.max(0, this.queued - 1); this.lastErr = (ev && ev.error) || 'error'; this.stats.errors++; if (this.stats.errors <= 3 && this.lastErr !== 'interrupted' && this.lastErr !== 'canceled') NETLOG.incident('me', `voice error: ${this.lastErr} (voice ${this.stats.lastVoice})`); }; // (shown by Test voices)
-      this.keep = (this.keep || []).concat(u).slice(-6); // Chrome can drop an utterance nobody holds on to before it is spoken
+      u.onerror = (ev) => { this.queued = Math.max(0, this.queued - 1); this.lastErr = (ev && ev.error) || 'error'; this.stats.errors++; const real = this.lastErr !== 'interrupted' && this.lastErr !== 'canceled'; if (real && (this.errLogged = (this.errLogged || 0) + 1) <= 8) NETLOG.incident('me', `voice error: ${this.lastErr} (voice ${this.stats.lastVoice})`); if (real && u.voice && u.voice.localService === false && /network|synthesis|unavailable/.test(this.lastErr)) this.netDown(`"${u.voice.name}": ${this.lastErr}`); }; // (shown by Test voices)
+      this.keep = (this.keep || []).concat(u).slice(-12); // Chrome can drop an utterance nobody holds on to before it is spoken (say0 also holds it until it ends)
       if (this.speechOK !== true) { const id = setTimeout(() => { if (this.speechOK !== true) { this.speechOK = false; this.babble(P, line, pos); } }, 1500); u.addEventListener('start', () => clearTimeout(id)); }
       // a voice that fails gets one retry with the device's default voice (some named voices are online-only or broken)
-      u.addEventListener('error', (ev) => { const er = ev && ev.error; if (u.voice && !u.__retried && er !== 'interrupted' && er !== 'canceled') { const u2 = new SpeechSynthesisUtterance(u.text); u2.__retried = true; u2.pitch = u.pitch; u2.rate = u.rate; u2.volume = u.volume; u2.onstart = u.onstart; this.keep = (this.keep || []).concat(u2).slice(-6); this.badVoices = (this.badVoices || new Set()).add(u.voice.name); setTimeout(() => speechSynthesis.speak(u2), 60); } });
+      u.addEventListener('error', (ev) => { const er = ev && ev.error; if (u.voice && !u.__retried && er !== 'interrupted' && er !== 'canceled') { const u2 = this.clone(u, '__retried'); this.ban(u.voice, `failed (${er || 'error'})`, true); setTimeout(() => this.say0(u2), 60); } });
       if (afterCancel) setTimeout(() => this.say0(u), 300); else this.say0(u);
-      setTimeout(() => { // self-healing: a line that never starts while the engine claims to be speaking is a hung voice. Ban that voice here, clear the queue, say it in the default voice
+      const heal = () => { // self-healing: a line that never starts while the engine claims to be speaking is a hung voice. Count it against that voice, clear the queue, say it in the default voice
         if (u.__started || u.__errored || this.testing || Date.now() - (this.lastStart || 0) < 4000) return; // (someone else is still talking: it's just waiting its turn)
-        if (u.voice) { (this.badVoices = this.badVoices || new Set()).add(u.voice.name); NETLOG.incident('me', `voices: "${u.voice.name}" hung (never started) - not using it on this device`); }
-        try { speechSynthesis.cancel(); } catch (e) {} this.queued = 0;
-        if (!u.__healed && u.voice) setTimeout(() => { const u2 = new SpeechSynthesisUtterance(u.text); u2.__healed = true; u2.pitch = u.pitch; u2.rate = u.rate; u2.volume = u.volume; u2.onstart = u.onstart; u2.addEventListener('start', () => { u2.__started = true; }); this.keep = (this.keep || []).concat(u2).slice(-6); this.say0(u2); }, 400);
-      }, (afterCancel ? 300 : 0) + 2600);
+        const ss = speechSynthesis, t = performance.now();
+        if (t < this.holdUntil || this.recoverT > sent) return; // a full reset already dealt with it
+        if (!ss.speaking && !ss.pending) return; // idle: it finished or was dropped without telling us (saying it again would double it)
+        if (t - this.lastSpeakT < 1000) { if (!u.__waited) { u.__waited = true; setTimeout(heal, 1100); } return; } // another line just went in: cancelling now is what wedges the engine
+        if (u.voice) this.ban(u.voice, 'hung (never started)');
+        try { ss.cancel(); } catch (e) {} this.queued = 0; this.holdUntil = Math.max(this.holdUntil, t + 350); // (nothing may go in right on top of the cancel)
+        if (!u.__healed && u.voice) setTimeout(() => this.say0(this.clone(u, '__healed')), 400);
+      };
+      setTimeout(heal, (afterCancel ? 300 : 0) + 2600);
       u.addEventListener('error', () => { u.__errored = true; });
     } catch (e) {}
   },
@@ -6903,6 +7095,8 @@ const game = {
     if (this.state !== 'playing') return;
     const killer = car.lastAttacker && car.lastAttacker !== car && simTime - (car.lastAttackTime || 0) < 6 ? car.lastAttacker : null;
     if (killer) killer.kills = (killer.kills || 0) + 1;
+    if (PLAYLOG.m) PLAYLOG.wreck(car, killer); if (AUTO.on && car === player) car.respawnType = AUTO.nextType(); // (autoplay: every life a different vehicle)
+    SCORE.wreck(car, killer); // (host / solo only: guests get the table from the host)
     if (GAME_MODE === 'respawn' && MP.role === 'guest') { if (car.isPlayer) toast('WRECKED', 'bad'); else toast(`${car.name} is wrecked`); return; } // the host brings it back
     if (GAME_MODE === 'respawn' && MP.role !== 'guest') { // nobody is out: the wreck comes back in a few seconds
       car.respawnT = car.isPlayer || car.remote ? RESPAWN_HUMAN : RESPAWN_AI;
@@ -6996,7 +7190,7 @@ function respawnCar0(old, type) {
   if (old === player) { player = nc; setControlsFor(type); document.body.classList.toggle('has-gun', !!(nc.T.gun || nc.T.pour || nc.T.special)); sfx.setStyle(MUSIC_FOR[type] || 'rock'); toast('BACK IN', 'cool'); }
   for (let k = 0; k < 14; k++) emit('dust', sp.x + rand(-2, 2), 0.4, sp.z + rand(-2, 2), rand(-3, 3), rand(1, 4), rand(-3, 3), 1.2, 2.6);
   if (!nc.isPlayer && !nc.remote && Math.random() < 0.6) setTimeout(() => barks.say(nc, 'respawn', true), 400);
-  buildOpponentList();
+  buildOpponentList(); SCORE.ensure(nc);
   if (MP.role === 'host') MP.publishRoster(false);
   return nc;
 }
@@ -7034,6 +7228,7 @@ function askRespawn(type) {
   respawnCar(player, type || player.type);
 }
 function updateRespawnSheet(dt) {
+  if (AUTO.on) { if (RS.open) closeRespawnSheet(); return; } // autoplay picks the next car itself
   if (MP.role === 'guest' && player) { if (player.wrecked) player.respawnT = (player.respawnT ?? RESPAWN_HUMAN) - (dt || 0); else player.respawnT = undefined; }
   if (GAME_MODE !== 'respawn' || game.state !== 'playing' || !player) { if (RS.open) closeRespawnSheet(); return; }
   if (player.wrecked && !RS.open && RS.wreckedCar !== player) { RS.wreckedCar = player; openRespawnSheet(true); }
@@ -7045,6 +7240,88 @@ $('rsClose').addEventListener('click', closeRespawnSheet);
 $('btnRespawn').addEventListener('click', (e) => { e.currentTarget.blur(); if (game.state !== 'playing') return; if (GAME_MODE !== 'respawn' && MP.role !== 'guest' && !player.wrecked) { player.flipUpright(); return; } RS.open ? closeRespawnSheet() : openRespawnSheet(false); });
 for (const b of document.querySelectorAll('.modes .mode')) b.addEventListener('click', () => { GAME_MODE = b.dataset.mode; try { localStorage.setItem('scrapyard-derby-mode', GAME_MODE); } catch (e) {} for (const x of document.querySelectorAll('.modes .mode')) x.setAttribute('aria-pressed', String(x === b)); });
 for (const x of document.querySelectorAll('.modes .mode')) x.setAttribute('aria-pressed', String(x.dataset.mode === GAME_MODE));
+/* ---------------- Scoreboard: who wrecked whom, per driver, for the whole match ---------------- */
+// Keyed by driver, not car: people keep their row when they respawn in another car; a computer driver is its character.
+// The host (or a solo game) keeps the table; guests get a copy riding on a snapshot about once a second.
+const SCORE = {
+  rows: new Map(), open: false, leader: null, gotJ: '', sentAt: -1e9, dirtyNet: false, lastHtml: '',
+  pts(r) { return r.k * 100 - r.s * 50; },
+  myKey() { return MP.role === 'guest' ? 'h:' + (MP.myPeer() || '') : 'h:host'; },
+  keyOf(c) { return c.isPlayer && MP.role !== 'guest' ? 'h:host' : c.remote ? 'h:' + c.remote : 'a:' + c.name; },
+  nameOf(c) { return c.isPlayer ? (MP.role === 'host' ? MP.nick() : 'You') : String(c.name || '?').slice(0, 14); },
+  ensure(c) {
+    if (!c || MP.role === 'guest') return null;
+    const k = this.keyOf(c); let r = this.rows.get(k);
+    if (!r) { r = { key: k, name: '', k: 0, d: 0, s: 0, col: 0 }; this.rows.set(k, r); this.dirtyNet = true; }
+    r.name = this.nameOf(c); r.col = c.baseColor ? c.baseColor.getHex() : r.col; return r;
+  },
+  reset() { this.rows.clear(); this.leader = null; this.gotJ = ''; if (MP.role !== 'guest') for (const c of cars) this.ensure(c); this.changed(true); },
+  wreck(car, killer) { // called by the host / solo game for every wreck while playing
+    if (MP.role === 'guest') return;
+    const v = this.ensure(car); v.d++;
+    if (killer && this.keyOf(killer) !== v.key) this.ensure(killer).k++; else v.s++; // nobody to credit: wrecked themselves
+    this.changed();
+  },
+  list() { // sorted best first, with whether the driver is in the yard right now
+    const live = MP.role === 'guest' ? null : new Set(cars.map((c) => this.keyOf(c)));
+    return [...this.rows.values()].map((r) => ({ ...r, p: this.pts(r), in: live ? live.has(r.key) : r.in !== 0 }))
+      .sort((a, b) => b.p - a.p || b.k - a.k || a.d - b.d || (a.name < b.name ? -1 : 1));
+  },
+  changed(quiet) { // spot a new leader (only a clear one, with points on the board)
+    this.dirtyNet = true; const L = this.list(), top = L[0];
+    if (!top || top.p <= 0) { this.leader = null; return; }
+    if (L[1] && L[1].p === top.p) return; // tied: the old leader keeps it until someone pulls ahead
+    if (top.key !== this.leader) { this.leader = top.key; if (!quiet && GAME_MODE === 'respawn' && game.state === 'playing') toast(top.key === this.myKey() ? 'YOU TAKE THE LEAD!' : `${top.name.toUpperCase()} TAKES THE LEAD`, 'cool'); }
+  },
+  pack() { this.dirtyNet = false; this.sentAt = performance.now(); return this.list().map((r) => [r.key, r.name, r.k, r.d, r.s, r.col, r.in ? 1 : 0]); },
+  due() { const t = performance.now() - this.sentAt; return t > 1000 || (this.dirtyNet && t > 250); }, // at most ~4 a second when it changes, once a second otherwise
+  load(a) { // guest: the host's table
+    if (!Array.isArray(a)) return; const j = JSON.stringify(a); if (j === this.gotJ) return;
+    const first = !this.gotJ; this.gotJ = j; this.rows.clear();
+    for (const e of a) if (Array.isArray(e)) this.rows.set(String(e[0]), { key: String(e[0]), name: String(e[1]).slice(0, 14), k: e[2] | 0, d: e[3] | 0, s: e[4] | 0, col: e[5] | 0, in: e[6] | 0 });
+    this.changed(first);
+  },
+  migrate(me, roster) { // this guest took over hosting: its own row becomes the host's, the old host's row follows its car
+    const old = this.rows.get('h:host'); this.rows.delete('h:host'); this.gotJ = '';
+    if (old) { const c = cars[roster.findIndex((e) => e[1] === 'host')]; old.key = c ? this.keyOf(c) : 'h:gone'; this.rows.set(old.key, old); }
+    const mine = this.rows.get('h:' + me); if (mine) { this.rows.delete(mine.key); mine.key = 'h:host'; this.rows.set('h:host', mine); }
+    for (const c of cars) this.ensure(c);
+  },
+  esc(t) { return String(t).replace(/[&<>"']/g, (ch) => '&#' + ch.charCodeAt(0) + ';'); },
+  hex(c) { return '#' + ((c >>> 0) & 0xffffff).toString(16).padStart(6, '0'); },
+  table() {
+    const me = this.myKey();
+    return '<tr><th>#</th><th class="nm">Driver</th><th title="Cars they wrecked">Wrecks</th><th title="Times they got wrecked">Wrecked</th><th title="Wrecked themselves">Self</th><th>Pts</th></tr>' +
+      this.list().map((r, i) => `<tr class="${r.key === me ? 'me' : ''}${r.in ? '' : ' out'}"><td>${i + 1}</td><td class="nm"><span class="sw" style="background:${this.hex(r.col)}"></span><span>${this.esc(r.name)}${r.key === me ? ' (you)' : ''}</span></td><td>${r.k}</td><td>${r.d}</td><td>${r.s}</td><td class="pt">${this.pts(r)}</td></tr>`).join('');
+  },
+  render() { // the small leaderboard (top 3 and you), called with the HUD
+    const box = $('lboard'), on = GAME_MODE === 'respawn' && game.state !== 'menu' && this.rows.size > 0;
+    if (box.hidden === on) box.hidden = !on;
+    if (on) {
+      const L = this.list(), me = this.myKey(), mi = L.findIndex((r) => r.key === me), show = L.slice(0, 3); if (mi >= 3) show.push(L[mi]);
+      const html = '<div class="lb-h"><span>Leaders</span><span>pts</span></div>' + show.map((r) => `<div class="lb-r${r.key === me ? ' me' : ''}${r.in ? '' : ' out'}"><span class="lb-n">${L.indexOf(r) + 1}</span><span class="sw" style="background:${this.hex(r.col)}"></span><span class="lb-name">${this.esc(r.name)}</span><span class="lb-p">${r.p}</span></div>`).join('');
+      if (html !== this.lastHtml) { box.innerHTML = html; this.lastHtml = html; }
+    }
+    if (this.open) { const t = this.table(); if (t !== this.lastTable) { $('sbTable').innerHTML = t; this.lastTable = t; } $('sbEnd').hidden = !(MP.role !== 'guest' && GAME_MODE === 'respawn' && game.state === 'playing'); }
+  },
+  show(open, final) {
+    this.open = !!open; $('sboard').hidden = !open; this.lastTable = '';
+    $('sbTitle').textContent = final ? 'Final scores' : 'Scoreboard';
+    if (open) this.render();
+  },
+  finish() { // respawn matches never end by themselves: the host ends one here and everyone sees the final table
+    if (MP.role === 'guest' || game.state !== 'playing') return;
+    this.show(false); const top = this.list()[0];
+    game.endMatch(true);
+    $('overEyebrow').textContent = 'Final scores';
+    $('overTitle').textContent = !top || top.p <= 0 ? 'No winner' : top.key === this.myKey() ? 'You win!' : `${top.name} wins`;
+  },
+};
+$('lboard').addEventListener('click', (e) => { e.stopPropagation(); SCORE.show(true); });
+$('gmScore').addEventListener('click', (e) => { e.stopPropagation(); gearOpen(false); SCORE.show(!SCORE.open); });
+$('sbClose').addEventListener('click', () => SCORE.show(false));
+$('sbEnd').addEventListener('click', () => SCORE.finish());
+$('sboard').addEventListener('click', (e) => { if (e.target === e.currentTarget) SCORE.show(false); }); // a tap outside closes it
 function spawnCars() {
   for (const c of cars) c.dispose();
   cars.length = 0;
@@ -7099,6 +7376,7 @@ function setControlsFor(type) {
   { const T0 = CAR_TYPES[type]; const lab = document.querySelector('.row.gun-only .label'); if (lab) lab.textContent = T0.gun ? 'Cannon' : T0.pour ? (T0.pour === 'fuel' ? 'Fuel' : 'Concrete') : 'Weapon'; }
 }
 function resetMatch() {
+  if (PLAYLOG.roundReset) PLAYLOG.roundReset(); // a match that is thrown away still goes in the play log
   game.crashCam = null; if (typeof CRUSHER !== 'undefined') { CRUSHER.state = 'idle'; CRUSHER.t = 8; CRUSHER.y = CRUSHER.top; }
   if (typeof CRANE !== 'undefined') resetCrane();
   if (typeof BULLS !== 'undefined') resetBulls();
@@ -7119,7 +7397,7 @@ function resetMatch() {
   clearSkids();
   buildProps(); batchProps();
   buildPickups();
-  spawnCars();
+  spawnCars(); SCORE.reset(); SCORE.show(false);
   game.chatT = 14; game.score = 0; game.time = 0; game.overTimer = -1; game.attractReset = -1; game.shake = 0; game.propHits = 0;
 }
 // Speech only works after a tap or key press. Guests never press Start, and iOS sometimes doesn't confirm the first try:
@@ -7145,7 +7423,8 @@ function showOver() {
   const t = Math.floor(game.time);
   $('rTime').textContent = `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
   const ai = cars.filter((c) => !c.isPlayer);
-  $('rWrecks').textContent = `${ai.filter((c) => c.wrecked).length} / ${ai.length}`;
+  $('rWrecks').textContent = GAME_MODE === 'respawn' ? String(player.kills || 0) : `${ai.filter((c) => c.wrecked).length} / ${ai.length}`;
+  $('overBoard').hidden = GAME_MODE !== 'respawn'; if (GAME_MODE === 'respawn') $('overTable').innerHTML = SCORE.table();
   el.over.hidden = false;
 }
 
@@ -7255,9 +7534,7 @@ $('btnTune').addEventListener('click', (e) => { togglePanel(); e.currentTarget.b
 $('btnClose').addEventListener('click', () => togglePanel(false));
 $('btnRestart').addEventListener('click', (e) => { e.currentTarget.blur(); startMatch(); togglePanel(false); });
 $('btnDefaults').addEventListener('click', (e) => { e.currentTarget.blur(); for (const d of SETTINGS_DEF) setValue(d.key, d.def); });
-setInterval(() => { // Chrome sometimes sits 'speaking' forever and says nothing more: unstick it
-  try { const ss = window.speechSynthesis; if (!ss) return; if (ss.speaking && barks.lastStart && Date.now() - barks.lastStart > 15000) { ss.cancel(); barks.lastStart = Date.now(); if (barks.stats) barks.stats.resets++; } } catch (e) {}
-}, 3000);
+// (Chrome sometimes sits 'speaking' forever and says nothing more: barks.doctor() unsticks it, at a moment when a cancel is safe)
 let VOICES_OFF = false; try { VOICES_OFF = localStorage.getItem('derby-voices') === 'off'; } catch (e) {}
 function setVoices(off) { VOICES_OFF = off; $('btnVoices').firstChild.textContent = off ? 'Voices off' : 'Voices on'; try { localStorage.setItem('derby-voices', off ? 'off' : 'on'); } catch (e) {} if (off) try { speechSynthesis.cancel(); } catch (e) {} }
 setVoices(VOICES_OFF);
@@ -7273,7 +7550,7 @@ $('btnVoiceTest').addEventListener('click', () => { // speaks right inside the t
   if (VOICES_OFF) setVoices(false);
   barks.speechOK = null; barks.tries = Math.max(barks.tries || 0, 1);
   const res = { plain: 'no', character: 'no', ev: [] }; barks.testRes = res;
-  const mark = (who, what) => { res.ev.push(who + ':' + what); if (what === 'start' || what === 'word' || what === 'end') { res[who] = 'yes'; barks.speechOK = true; } };
+  const mark = (who, what) => { res.ev.push(who + ':' + what); if (what === 'start' || what === 'word' || what === 'end') { res[who] = 'yes'; barks.speechOK = true; barks.heard(); } };
   const hook = (u, who) => { u.onstart = () => mark(who, 'start'); u.onboundary = () => mark(who, 'word'); u.onend = () => mark(who, 'end'); u.onerror = (ev) => { barks.lastErr = (ev && ev.error) || 'error'; res[who] = 'error ' + barks.lastErr; res.ev.push(who + ':error ' + barks.lastErr); }; };
   let state0 = '';
   if (ss) {
@@ -7282,7 +7559,7 @@ $('btnVoiceTest').addEventListener('click', () => { // speaks right inside the t
     const wasBusy = ss.speaking || ss.pending; if (wasBusy) { ss.cancel(); res.ev.push('cleared queue'); }
     const u0 = new SpeechSynthesisUtterance('Testing, testing.'); u0.volume = 1; u0.rate = 1; hook(u0, 'plain'); // default voice, no language set: the safest possible line
     const P = CAR_CAST.forklift, u = new SpeechSynthesisUtterance('I am Arthur, King of the Britons!'); const v = barks.pickVoice(P); if (v) { u.voice = v; u.lang = v.lang; } u.volume = 1; hook(u, 'character');
-    barks.keep = (barks.keep || []).concat(u0, u).slice(-6);
+    barks.keep = (barks.keep || []).concat(u0, u).slice(-12); barks.holdUntil = 0; barks.babbleUntil = 0; barks.noSpeechT = 0; barks.resetOwn('voice test');
     const go = () => { barks.say0(u0); barks.say0(u); }; // (say0 also resumes a 'paused' engine)
     if (wasBusy) setTimeout(go, 400); else go(); // never speak in the same instant as a cancel: that is what wedged it
     setTimeout(() => { if (res.plain === 'no' && res.character === 'no') { res.ev.push('nothing after 2.2 s: clearing and retrying'); try { ss.cancel(); } catch (e) {} setTimeout(() => { const u3 = new SpeechSynthesisUtterance('Testing again.'); hook(u3, 'plain'); barks.keep.push(u3); barks.say0(u3); }, 400); } }, 2200);
@@ -7361,6 +7638,7 @@ window.addEventListener('keydown', (e) => {
     case 'KeyN': if (GAME_MODE === 'respawn' && game.state === 'playing') openRespawnSheet(false); else showMenu(); break;
     case 'KeyK': if (game.state === 'playing') { if (RS.open) closeRespawnSheet(); else openRespawnSheet(false); } break;
     case 'KeyC': nextCam(); break;
+    case 'KeyL': SCORE.show(!SCORE.open); break;
     case 'KeyT': togglePanel(); break;
     case 'KeyI': perfOpen($('perfdlg').hidden); break;
     case 'KeyU': setVoices(!VOICES_OFF); toast(VOICES_OFF ? 'VOICES OFF' : 'VOICES ON', 'cool'); break;
@@ -7369,7 +7647,8 @@ window.addEventListener('keydown', (e) => {
     case 'KeyB': toggleMusic(); break;
     case 'F2': e.preventDefault && e.preventDefault(); openBugReport(); break; // one key: full bug report copied
     case 'KeyP': case 'Escape':
-      if (!el.panel.hidden && e.code === 'Escape') togglePanel(false);
+      if (SCORE.open && e.code === 'Escape') SCORE.show(false);
+      else if (!el.panel.hidden && e.code === 'Escape') togglePanel(false);
       else if (game.state === 'playing') game.paused = !game.paused;
       break;
   }
@@ -7411,7 +7690,7 @@ async function setTilt(on) {
   }
   if (on && typeof DeviceMotionEvent === 'undefined') { toast('NO MOTION SENSORS IN THIS BROWSER', 'bad'); return; }
   tilt.on = on; tilt.zero = null; tilt.got = false; tilt.steer = 0; tilt.roll = 0;
-  document.body.classList.toggle('tilt', on); $('btnTilt').classList.toggle('on', on); $('btnTilt').setAttribute('aria-pressed', String(on));
+  document.body.classList.toggle('tilt', on); $('btnTilt').classList.toggle('on', on); $('btnTilt').setAttribute('aria-pressed', String(on)); $('gmTilt').textContent = '📱 Tilt steering: ' + (on ? 'on' : 'off');
   if (on) {
     window.addEventListener('devicemotion', tiltRead);
     toast('TILT STEERING · hold it level now', 'cool');
@@ -7429,6 +7708,33 @@ const tiltTap = (e) => { e.stopPropagation(); if (e.cancelable) e.preventDefault
 $('btnTilt').addEventListener('pointerdown', (e) => e.stopPropagation()); // keep the stick from grabbing it, but don't toggle on touch-down
 $('btnTilt').addEventListener('touchend', tiltTap); // iOS only counts touchend/click as a real tap for the motion permission
 $('btnTilt').addEventListener('click', tiltTap);
+// No browser zoom in the game: iOS ignores user-scalable=no, so block Safari's pinch gestures, multi-finger page moves
+// outside the controls, and the double-tap zoom. (The thumbstick and pedal use pointer events, which this doesn't touch.)
+for (const ev of ['gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(ev, (e) => e.preventDefault(), { passive: false });
+document.addEventListener('touchmove', (e) => { if (e.touches.length > 1 || (e.scale !== undefined && e.scale !== 1)) e.preventDefault(); }, { passive: false });
+{ let lastEnd = 0; document.addEventListener('touchend', (e) => { const now = Date.now(); if (now - lastEnd < 320 && e.target.closest && !e.target.closest('input,textarea,select')) e.preventDefault(); lastEnd = now; }, { passive: false }); }
+document.addEventListener('dblclick', (e) => e.preventDefault(), { passive: false });
+// Full screen: real full screen where the browser allows it (Android, iPad, desktop); an iPhone only goes full screen as a home-screen app
+const FS = { el: document.documentElement, get on() { return !!(document.fullscreenElement || document.webkitFullscreenElement); },
+  can() { return !!(this.el.requestFullscreen || this.el.webkitRequestFullscreen) && (document.fullscreenEnabled || document.webkitFullscreenEnabled); },
+  standalone() { return !!(window.navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches)); } };
+function toggleFullscreen() {
+  if (FS.on) { (document.exitFullscreen || document.webkitExitFullscreen).call(document); return; }
+  if (FS.can()) { try { const r = (FS.el.requestFullscreen || FS.el.webkitRequestFullscreen).call(FS.el, { navigationUI: 'hide' }); if (r && r.catch) r.catch(() => fsHint()); } catch (e) { fsHint(); } return; }
+  fsHint();
+}
+function fsHint() {
+  if (FS.standalone()) { toast('ALREADY FULL SCREEN', 'cool'); return; }
+  const ios = /iPhone|iPod/.test(navigator.userAgent), embedded = window.top !== window;
+  toast(embedded ? 'OPEN THE GAME IN ITS OWN TAB FOR FULL SCREEN' : ios ? 'IPHONE: TAP SHARE ⬆ → ADD TO HOME SCREEN, THEN PLAY FROM THE ICON' : 'THIS BROWSER WON\'T GO FULL SCREEN', 'cool');
+}
+$('btnFull').addEventListener('click', (e) => { e.stopPropagation(); toggleFullscreen(); });
+$('btnStart').addEventListener('click', () => { if (isTouchUI() && FS.can() && !FS.on) toggleFullscreen(); }); // phones that can: starting a derby goes full screen (it's the tap the browser needs)
+$('gmFull').addEventListener('click', (e) => { e.stopPropagation(); gearOpen(false); toggleFullscreen(); });
+const fsLabel = () => { $('gmFull').textContent = FS.on ? '⛶ Leave full screen' : '⛶ Full screen'; $('btnFull').hidden = FS.on || FS.standalone(); }; fsLabel(); document.addEventListener('fullscreenchange', fsLabel); document.addEventListener('webkitfullscreenchange', fsLabel);
+$('gmTilt').addEventListener('touchend', (e) => { tiltTap(e); gearOpen(false); }); $('gmTilt').addEventListener('click', (e) => { tiltTap(e); gearOpen(false); });
+for (const [g, b] of [['gmCam', 'btnCam'], ['gmMap', 'btnMap'], ['gmBug', 'btnBug']]) $(g).addEventListener('click', (e) => { e.stopPropagation(); gearOpen(false); $(b).click(); });
+document.querySelector('.speedo').addEventListener('click', () => { if (isTouchUI()) $('btnCam').click(); });
 const stickZone = $('stickZone'), stick = $('stick'), knob = $('knob');
 let stickId = null, sx0 = 0, sy0 = 0;
 let STICK_R = 60;
@@ -7529,7 +7835,9 @@ const desired = new THREE.Vector3();
 const lastFlat = new THREE.Vector2(0, -1);
 let clock = 0;
 let camRoll = 0;
+function camTarget() { const c = AUTO.on && AUTO.camCar; return c && !c.wrecked && cars.includes(c) ? c : player; }
 function updateCamera(dt) {
+  const player = camTarget(); // (autoplay can follow another car for a while)
   if (window.__camHold) return; // (tests frame their own shots)
   if (window.__camOverride) { const o = window.__camOverride; camera.position.set(o.pos[0], o.pos[1], o.pos[2]); camera.lookAt(o.look[0], o.look[1], o.look[2]); if (camera.view && camera.view.enabled) camera.clearViewOffset(); return; }
   if (game.state === 'menu' && player) { // showroom orbit around your car
@@ -8046,7 +8354,7 @@ const MP = {
     const snap = { t: Math.round(performance.now()) / 1000, st: game.state === 'playing' ? 1 : game.state === 'over' ? 2 : 0, cd: Math.round(game.countdown * 100) / 100, rk: this.rk, rv: this.rv, c: cs,
       b: BULLS.map((bl) => [r(bl.body.position.x), r(bl.body.position.y), r(bl.body.position.z), r(bl.yaw), ['graze', 'walk', 'paw', 'charge', 'proud', 'down', 'burger'].indexOf(bl.state)]),
       k: [r(CRANE.ang), r(CRANE.r), r(CRANE.h), CRANE.held ? cars.indexOf(CRANE.held) : -1], cr: [r(CRUSHER.y), ['idle', 'warn', 'slam', 'hold'].indexOf(CRUSHER.state)], bp: [r(BALL.ph), BOLLARDS.up ? 1 : 0], e: this.ev, p: this.propState(r), pf: props.filter((pr) => pr.fireT > 0).slice(0, 30).map((pr) => pr.id) };
-    this.snapN = (this.snapN || 0) + 1; if (this.snapN % 2) { delete snap.p; delete snap.pf; } // props drift slowly: their states ride on every other packet (10 a second), cars on every one
+    this.snapN = (this.snapN || 0) + 1; if (this.snapN % 2) { delete snap.p; delete snap.pf; if (SCORE.due()) snap.sc = SCORE.pack(); } // the scoreboard rides on a packet without props, about once a second // props drift slowly: their states ride on every other packet (10 a second), cars on every one
     let json = JSON.stringify(snap); while (json.length > 3600 && (snap.e.length || (snap.p && snap.p.length > 4))) { if (snap.p && snap.p.length > 4) snap.p = snap.p.slice(0, snap.p.length - 3); else snap.e = snap.e.slice(1); json = JSON.stringify(snap); } // keep each packet small: drop extra props first, then old events
     NETLOG.w && NETLOG.w.sent++; { const st = this.txStats || (this.txStats = { n: 0, bytes: 0, t0: performance.now(), last: null }); st.n++; st.bytes += json.length; if (performance.now() - st.t0 > 5000) { st.last = { perSec: +(st.n / ((performance.now() - st.t0) / 1000)).toFixed(1), avgBytes: Math.round(st.bytes / Math.max(1, st.n)), kbitPerGuest: Math.round(st.bytes * 8 / 1000 / ((performance.now() - st.t0) / 1000)) }; st.n = 0; st.bytes = 0; st.t0 = performance.now(); } }
     this.room.presence({ s: snap }, true).catch(() => {}); // out now: never wait behind this frame's drawing
@@ -8092,6 +8400,7 @@ const MP = {
       c.remote = c.isPlayer ? null : peer === 'host' ? (from || null) : peer || null;
       if (!c.isPlayer && !c.remote && !c.persona) c.persona = PERSONAS[(Math.random() * PERSONAS.length) | 0]; // the old host's car drives itself now
     });
+    SCORE.migrate(me, roster);
     this.rk = this.builtRk; this.rv = this.builtRv || 1; this.sidN = Math.max(0, ...cars.map((c) => c.sid || 0)); this.nextSnap = 0;
     this.lastFire.clear(); this.lastJump.clear(); this.rsSeen.clear(); this.snaps = []; this.net = null;
     this.room.presence({ host: epoch, nick: this.nick(), in: null, rs: null, nh: null, handoff: null }, true).catch(() => {});
@@ -8157,6 +8466,7 @@ const MP = {
     const inc = this.inbox.splice(0); if (hp.s && (!inc.length || inc[inc.length - 1].t < hp.s.t)) inc.push(hp.s); // (rooms without arrival hooks just hand over the latest)
     for (const s of inc) {
       if (!s || s.rk !== this.builtRk || (this.snaps.length && s.t <= this.snaps[this.snaps.length - 1].t)) continue;
+      if (s.sc) SCORE.load(s.sc);
       const now = s.a ?? performance.now() / 1000, N = this.net || (this.net = { iv: 0.05, jit: 0.01, off: null, lastT: s.t, n: 0 });
       const gapT = s.t - N.lastT; N.lastT = s.t; N.n++;
       if (gapT > 0 && gapT < 1) { N.iv = lerp(N.iv, gapT, 0.1); N.gap = lerp(N.gap ?? gapT, gapT, gapT > (N.gap ?? 0) ? 0.3 : 0.015); } // typical and worst-recent gap between updates
@@ -8169,7 +8479,7 @@ const MP = {
     // game state
     const st = latest.st === 1 ? 'playing' : latest.st === 2 ? 'over' : 'menu';
     if (st === 'playing' && game.state !== 'playing') { game.state = 'playing'; game.paused = false; el.menu.hidden = true; el.over.hidden = true; sfx.init(); }
-    else if (st !== 'playing' && game.state === 'playing') { game.state = st === 'over' ? 'over' : 'menu'; if (st === 'over') toast('ROUND OVER · HOST RESTARTS', 'cool'); else el.menu.hidden = false; }
+    else if (st !== 'playing' && game.state === 'playing') { game.state = st === 'over' ? 'over' : 'menu'; if (st === 'over') { toast('ROUND OVER · HOST RESTARTS', 'cool'); if (GAME_MODE === 'respawn') SCORE.show(true, true); } else el.menu.hidden = false; }
     game.countdown = latest.cd;
     if (latest.bp) { BALL.ph = latest.bp[0] / 100 + (this.rt - latest.t) * 0; BOLLARDS.up = !!latest.bp[1]; }
     if (latest.cr) { CRUSHER.y = latest.cr[0] / 100; CRUSHER.state = ['idle', 'warn', 'slam', 'hold'][latest.cr[1]] || 'idle'; }
@@ -8330,7 +8640,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '63'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '64'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
@@ -8714,7 +9024,7 @@ const NETLOG = {
   exportText() {
     const pad = (v, n) => String(v ?? '').padStart(n), ts = (t) => new Date(t).toISOString().slice(11, 19);
     const L = [`Scrapyard Derby network log · build ${BUILD} · ${MP.role} · via ${MP.via || MP.transport || '?'} · ${new Date().toISOString()}`,
-      `Device: ${navigator.userAgent}`, `Voices: ${VOICES_OFF ? 'OFF in menu' : 'on'} · sound ${sfx.muted ? 'OFF' : 'on'} · voice volume ${S.voiceVolume} · speech ${window.speechSynthesis ? speechSynthesis.getVoices().length + ' voices' : 'none'} · ${JSON.stringify(barks.stats || {})} · engine ok=${barks.speechOK} lastErr=${barks.lastErr || '-'}`, `Screen ${innerWidth}x${innerHeight} @${devicePixelRatio} · quality now ${QUALITY.level}/${QSTEPS.length - 1} (0 best) · mode ${GAME_MODE}`,
+      `Device: ${navigator.userAgent}`, `Voices: ${VOICES_OFF ? 'OFF in menu' : 'on'} · sound ${sfx.muted ? 'OFF' : 'on'} · voice volume ${S.voiceVolume} · speech ${window.speechSynthesis ? speechSynthesis.getVoices().length + ' voices' : 'none'} · ${JSON.stringify(barks.stats || {})} · engine ok=${barks.speechOK} lastErr=${barks.lastErr || '-'} · ${barks.voiceReport()}`, `Screen ${innerWidth}x${innerHeight} @${devicePixelRatio} · quality now ${QUALITY.level}/${QSTEPS.length - 1} (0 best) · mode ${GAME_MODE}`,
       `Players: ${cars.filter((c) => c.remote || c.netPeer || c.isPlayer).map((c) => (c.isPlayer ? MP.nick() + ' (this device)' : c.name) + ' · ' + c.T.name).join(', ')}`,
       'Host sends 20 snapshots/s; guests should see ~20 updates/s, jitter < 30 ms, smoothing 80-200 ms, gaps < 150 ms.', '',
       `Performance reports (${this.perf.length}, newest last; sent after each wreck and every 2 minutes; times in ms per frame):`,
@@ -8849,15 +9159,30 @@ function bugReport() {
   L.push('', '──────── network / performance / voice log ────────', NETLOG.exportText());
   return L.join('\n');
 }
-function openBugReport() {
+// The drop: reports go to a public ntfy.sh topic (free, no account; text kept 12 h, big reports become a file kept 3 h)
+// so Claude can fetch them directly instead of you copying and pasting. Nothing secret is in them.
+const DROP = { topic: 'scrapyard-derby-f74277e052a2', sent: 0 };
+function dropUpload(kind, text) {
+  if (!window.fetch || window.__noDrop) return Promise.resolve(false);
+  const dev = (/iPhone|iPad|Mac|Android|Windows/.exec(navigator.userAgent) || ['web'])[0], stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const name = `${kind}-b${BUILD}-${dev}-${stamp}.txt`;
+  return fetch('https://ntfy.sh/' + DROP.topic, { method: 'PUT', body: text, headers: { Filename: name, Title: `${kind} · build ${BUILD} · ${dev}`, Tags: kind } })
+    .then((r) => { if (!r.ok) throw new Error(r.status); DROP.sent++; if (kind === 'bug') { toast('🐞 SENT TO CLAUDE ✓', 'cool'); const el = $('nlSum'); if (el) el.textContent = 'Sent to Claude automatically, and copied. (Also kept on this device.)'; } return true; })
+    .catch(() => { if (kind === 'bug') { const el = $('nlSum'); if (el) el.textContent = 'Copied! Paste it to Claude (auto-send was blocked here). Also kept on this device.'; } return false; });
+}
+window.dropUpload = window.dropUpload || dropUpload; // the play log looks for it here (a test may install its own first)
+function openBugReport() { // one tap: the full report goes straight to the clipboard (and to Claude's drop); a dialog only if the browser won't allow copying
   const t = bugReport(); try { localStorage.setItem('derby-bug-last', t.slice(0, 400000)); } catch (e) {}
-  $('netlog').hidden = false; $('nlText').value = t; document.querySelector('#netlog .rs-title').textContent = '🐞 Bug report'; $('nlSum').textContent = 'Copied! Paste it to Claude. (Also kept on this device.)'; $('nlHost').hidden = true;
-  const ok = () => { toast('🐞 BUG REPORT COPIED', 'cool'); $('nlCopy').textContent = 'Copied'; };
-  (navigator.clipboard ? navigator.clipboard.writeText(t).then(ok) : Promise.reject()).catch(() => { const ta = $('nlText'); ta.focus(); ta.select(); try { document.execCommand('copy') ? ok() : null; } catch (e) {} $('nlSum').textContent = 'Press Copy (or select all and copy) and paste it to Claude.'; });
-  ptag('bug report taken');
+  const btn = $('btnBug'), ok = () => { toast(`🐞 BUG REPORT COPIED (${Math.round(t.length / 1024)} KB)`, 'cool'); btn.classList.add('done'); setTimeout(() => btn.classList.remove('done'), 2500); };
+  const legacy = () => { const ta = document.createElement('textarea'); ta.value = t; ta.setAttribute('readonly', ''); ta.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0'; document.body.appendChild(ta); ta.select(); ta.setSelectionRange(0, t.length); let done = false; try { done = document.execCommand('copy'); } catch (e) {} ta.remove(); return done; };
+  const dialog = () => { $('netlog').hidden = false; $('nlText').value = t; document.querySelector('#netlog .rs-title').textContent = '🐞 Bug report'; $('nlHost').hidden = true; $('nlSum').textContent = 'This browser blocked copying: press Copy (or select all and copy) and paste it to Claude. It was also sent automatically.'; const ta = $('nlText'); ta.focus(); ta.select(); };
+  if (legacy()) ok(); // (synchronous copy first: iOS only allows it inside the tap)
+  else if (navigator.clipboard) navigator.clipboard.writeText(t).then(ok, dialog); else dialog();
+  ptag('bug report taken'); dropUpload('bug', t);
 }
 function frameBody(now) {
   const rawDt = (now - lastDrawT) / 1000; lastDrawT = now;
+  PLAYLOG.frame(rawDt); // the play log: every match, whoever is driving (and autoplay's match loop)
   governQuality(rawDt); NETLOG.frame(rawDt); FLIGHT.rec();
   if (!WARMED && game.state === 'playing' && game.countdown > 0) warmShaders();
   const t0 = performance.now(); let simMs = TICK.ms || 0; TICK.ms = 0; // (a host's game ticks run between frames: count them too)
@@ -8875,11 +9200,12 @@ function simBody(now) {
   clock += dt;
   const running = !(game.state === 'playing' && game.paused);
   if (running) {
-    if (game.state === 'playing' && player && !player.wrecked) readPlayerInput();
+    if (game.state === 'playing' && player && !player.wrecked && !AUTO.on) readPlayerInput();
     if (MP.role === 'guest') SEC.run('net', () => MP.guestFrame(dt));
     else if (game.state === 'menu') { const c = player.ctrl; c.throttle = 0; c.steer = 0; c.nitro = false; c.handbrake = true; }
     if (MP.role === 'host') MP.applyInputs();
-    if (MP.role !== 'guest') SEC.run('ai', () => { for (const c of cars) if ((!c.isPlayer && !c.remote) || (game.state === 'over' && !c.remote)) c.think(dt); });
+    if (MP.role !== 'guest') SEC.run('ai', () => { for (const c of cars) if ((!c.isPlayer && !c.remote) || (game.state === 'over' && !c.remote) || (AUTO.on && c.isPlayer)) c.think(dt); });
+    if (PLAYLOG.m) PLAYLOG.sim(dt); // play log (and autoplay: the bots' brain drives your car too)
     if (MP.role === 'guest') {} // the host counts down
     else if (game.state === 'playing' && game.countdown > 0) { // 3-2-1: everyone holds on the brakes
       game.countdown -= dt;
@@ -8986,8 +9312,9 @@ function drawBody(dt) {
   sky.position.copy(camera.position);
   if (player) {
     const pp = player.body.position;
-    sun.position.set(pp.x + SUN_OFF.x, SUN_OFF.y, pp.z + SUN_OFF.z);
-    sun.target.position.set(pp.x, 0, pp.z);
+    const sp0 = camTarget().body.position; // the shadow map follows whatever the camera is looking at
+    sun.position.set(sp0.x + SUN_OFF.x, SUN_OFF.y, sp0.z + SUN_OFF.z);
+    sun.target.position.set(sp0.x, 0, sp0.z);
     const live = game.state === 'playing' && running;
     let near = null;
     for (const c of cars) if (!c.isPlayer && !c.wrecked) { const d = c.body.position.distanceTo(pp); if (!near || d < near.dist) near = { car: c, dist: d }; }
@@ -9005,6 +9332,398 @@ function drawBody(dt) {
   PERFREP.r0 = performance.now();
   if (!window.__noRender) { const gq = Math.min(S.gfx, S.autoGfx ? (QUALITY.gfxCap ?? 2) : 2); if (gq > 0) { grade.uniforms.uTime.value = clock % 10; sunGlare(); grade.enabled = gq > 1; bloom.strength = gq > 1 ? 0.42 : 0.34; composer.render(); } else renderer.render(scene, camera); PERFREP.render = performance.now() - PERFREP.r0; SEC.add('render', PERFREP.render); } // tests can skip drawing to run physics faster
 }
+/* ---------------- Play log: every match on this device (you, autoplay, hosting or as a guest) is written down ----------------
+   One record per match: build, start/end time, session, mode, role, device, the cars you drove, quality changes, fps, slow moments and
+   what caused them, physics safety-net hits, stuck cars, kills/deaths/damage per vehicle, weapon use, voice failures, network trouble,
+   script errors, memory, plus a short timestamped event stream. The match in progress is saved every 30 s (and when the page is hidden
+   or closed), so a crash loses nothing: the next page load finishes it. Kept in localStorage (~4 MB, oldest dropped first), shown in the
+   Performance panel (Copy all / Download / Clear), and sent with window.dropUpload('playlog', text) when that exists: an upload cursor
+   means nothing is sent twice or skipped. Records: 'session' (a page load), 'match', 'ck' (a checkpoint of a match still running, sent
+   early because something went wrong; the final 'match' record with the same id replaces it), 'errors' (script errors outside a match). */
+Object.assign(PLAYLOG, {
+  P: 'derby-pl-', META: 'derby-pl-meta', CUR: 'derby-pl-cur-', LOCK: 'derby-pl-uplock',
+  budget: 4e6, CHUNK: 200 * 1024, EVMAX: 400,
+  sid: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+  m: null, closed: false, n: 0, curT: 0, upT: 0, ckT: -1e9, curLen: 0, soonTimer: 0, soonAt: -1e9, soonGap: 60000, soonWhy: [], idleErrs: [],
+  busy: false, again: null, fails: 0, retryTimer: 0, lastTry: null,
+  ls(k, v) { try { if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); return true; } catch (e) { return v === undefined ? null : false; } },
+  meta() {
+    let o = null; try { o = JSON.parse(this.ls(this.META) || 'null'); } catch (e) {}
+    if (!o || !Array.isArray(o.idx)) o = { v: 1, seq: 0, up: 0, since: Date.now(), idx: [], evicted: 0, evictedUnsent: 0 };
+    if (!o.dev) o.dev = this.devId || (this.devId = 'd' + Math.random().toString(36).slice(2, 10)); this.devId = o.dev;
+    return o;
+  },
+  bytes(o) { let b = this.curLen + JSON.stringify(o).length; for (const e of o.idx) b += e[1]; return b; },
+  evict(o) { const e = o.idx.shift(); if (!e) return false; this.ls(this.P + e[0], null); o.evicted++; if (e[0] > o.up) o.evictedUnsent++; return true; },
+  saveMeta(o) { for (let i = 0; i < 50; i++) { if (this.ls(this.META, JSON.stringify(o))) return true; if (!this.evict(o)) return false; } return false; },
+  add(rec) { // a finished record: its own key, oldest-first eviction over the budget (and on a full storage)
+    const o = this.meta(); rec.seq = ++o.seq; const s = JSON.stringify(rec);
+    o.idx.push([rec.seq, s.length, String(rec.build), Date.now(), rec.kind, rec.id || '']);
+    while (this.bytes(o) > this.budget && o.idx.length > 1) this.evict(o);
+    let ok = this.ls(this.P + rec.seq, s);
+    while (!ok && o.idx.length > 1) { this.evict(o); ok = this.ls(this.P + rec.seq, s); }
+    if (!ok) o.idx.pop();
+    this.saveMeta(o); return ok ? rec.seq : 0;
+  },
+  dropCk(o, id) { o.idx = o.idx.filter((e) => { if (e[4] === 'ck' && e[5] === id) { this.ls(this.P + e[0], null); return false; } return true; }); },
+  records() { const o = this.meta(), out = []; for (const e of o.idx) { const s = this.ls(this.P + e[0]); if (s) out.push(s); } return out; },
+  matches() { const out = []; for (const s of this.records()) { try { const r = JSON.parse(s); if (r.kind === 'match') out.push(r); } catch (e) {} } return out; },
+  ev(type, detail) { const m = this.m; if (!m) return; if (m.ev.length < this.EVMAX) m.ev.push([Math.round(game.time * 10) / 10, type, detail]); else m.evDrop++; },
+  // ---- the match tracker ----
+  begin() {
+    this.n++;
+    if (QUALITY.log.length > 40) QUALITY.log.splice(0, QUALITY.log.length - 40);
+    for (const c of cars) { c.__apS = null; c.__apHeat = 0; c.__apF = false; c.__apL = 0; }
+    const bs = barks.stats || {};
+    this.m = { n: this.n, id: this.sid + '-' + this.n, at: Date.now(), p0: performance.now(), hidden: 0, hidAt: document.hidden ? performance.now() : 0,
+      role: AUTO.on ? 'autoplay' : MP.role, mode: GAME_MODE, q0: QUALITY.level, qNow: QUALITY.level, qCh: [], hist: new Uint32Array(400), frames: 0, ftSum: 0, worst: 0,
+      veh: {}, L: new Map(), weap: {}, me: [], meCur: null, meP: null, stuck: [], stuckN: 0, stuckS: 0, launch: 0, launchW: [], below: 0, nan: 0,
+      phys0: { fixes: PHYS.fixes, clamps: PHYS.clamps, blowups: PHYS.blowups }, kinds: {}, physL: [], inc: [], errs: [], errN: 0, voice: [], voiceN: 0, net: [], netN: 0,
+      ev: [], evDrop: 0, bark0: { sent: bs.sent || 0, started: bs.started || 0, errors: bs.errors || 0, resets: bs.resets || 0 }, sampT: 0 };
+    this.ev('start', `${this.m.role} ${GAME_MODE} · ${cars.length} cars · q${QUALITY.level}`);
+    this.curT = this.upT = performance.now(); this.soonGap = 60000; this.writeCur();
+  },
+  V(type) { return this.m.veh[type] || (this.m.veh[type] = { lives: 0, d: 0, k: 0, dmg: 0, taken: 0, life: 0, fires: 0 }); },
+  born(c) { const m = this.m; if (!c.wrecked && !m.L.has(c)) { m.L.set(c, { t: simTime, type: c.type }); this.V(c.type).lives++; } },
+  endLife(c) { const m = this.m, e = m.L.get(c); if (!e) return; this.V(e.type).life += simTime - e.t; m.L.delete(c); },
+  dmg(victim, d, by) {
+    const m = this.m; if (!m || !(d > 0) || game.state !== 'playing') return;
+    if (!by && victim.lastAttacker && simTime - victim.lastAttackTime < 1) by = victim.lastAttacker; // a shove still counts for whoever shoved
+    this.V(victim.type).taken += d; victim.__apHeat = (victim.__apHeat || 0) + d;
+    if (by && by !== victim && by.type) { this.V(by.type).dmg += d; by.__apHeat = (by.__apHeat || 0) + d; if (by === player && m.meCur) m.meCur.dmg += d; }
+  },
+  wreck(car, killer) {
+    const m = this.m; if (!m) return; if (!m.L.has(car)) { m.L.set(car, { t: simTime, type: car.type }); this.V(car.type).lives++; }
+    this.V(car.type).d++; this.endLife(car);
+    if (killer && killer.type) { this.V(killer.type).k++; if (killer === player && m.meCur) m.meCur.k++; }
+    this.ev('wreck', car.type + (car === player ? '(you)' : '') + (killer ? ' by ' + killer.type + (killer === player ? '(you)' : '') : ''));
+    if (car === player) this.closeMe();
+  },
+  closeMe() { const m = this.m, c = m.meCur; if (!c) return; c.secs = Math.round(simTime - c.t0); delete c.t0; c.dmg = Math.round(c.dmg); if (m.me.length < 40) m.me.push(c); m.meCur = null; },
+  sim(dt) {
+    const m = this.m; if (!m || game.state !== 'playing') return;
+    if (player && player !== m.meP && !player.wrecked) { this.closeMe(); m.meP = player; m.meCur = { car: player.type, t0: simTime, k: 0, dmg: 0 }; this.ev('car', player.type); }
+    else if (player && player.wrecked && m.meP === player) m.meP = null; // the next life (same object, maybe a new vehicle) opens a new entry
+    if (AUTO.on) { AUTO.tick(dt); if (!this.m) return; } // (its round may have just ended)
+    if (game.countdown > 0) return;
+    for (const c of cars) {
+      this.born(c);
+      const f = !!c.ctrl.fire; if (f && !c.__apF && !c.wrecked) { const w = AUTO.weap(c.T); m.weap[w] = (m.weap[w] || 0) + 1; this.V(c.type).fires++; } c.__apF = f;
+      if (c.__apHeat) c.__apHeat *= Math.exp(-dt / 3);
+    }
+    m.sampT -= dt;
+    if (m.sampT <= 0) { m.sampT = 0.5; // twice a second: stuck cars, launches, things that should never happen
+      for (const c of cars) {
+        const b = c.body, q = b.position, v = b.velocity;
+        if (!isFinite(q.x + q.y + q.z + v.x + v.y + v.z)) { if (!m.nan++) this.ev('nan', c.type); continue; }
+        if (Math.abs(v.y) > 25) { if (!c.__apL) { c.__apL = 1; m.launch++; const L = { car: c.type, vy: Math.round(v.y), y: Math.round(q.y), x: Math.round(q.x), z: Math.round(q.z), t: Math.round(game.time) }; if (m.launchW.length < 8) m.launchW.push(L); this.ev('launch', `${c.type} vy ${L.vy} at ${L.x},${L.z}`); } } else c.__apL = 0;
+        if (q.y < -1) m.below++;
+        const st = !c.wrecked && !c.carriedBy && !c.craned && Math.abs(c.ctrl.throttle) > 0.3 && Math.hypot(v.x, v.z) < 1;
+        if (st) { if (!c.__apS) c.__apS = { t: 0, x: Math.round(q.x), z: Math.round(q.z) }; c.__apS.t += 0.5;
+          if (c.__apS.t >= 10 && !c.__apS.big) { c.__apS.big = 1; this.ev('stuck', `${c.type}${c === player ? '(you)' : ''} 10 s at ${c.__apS.x},${c.__apS.z}`); this.soon('stuck car'); } }
+        else if (c.__apS) this.stuckDone(c);
+      }
+    }
+  },
+  stuckDone(c) {
+    const s = c.__apS, m = this.m; c.__apS = null; if (!s || s.t < 4 || !m) return; m.stuckN++; m.stuckS += s.t;
+    const e = { car: c.type, secs: s.t, x: s.x, z: s.z, me: c === player || undefined, t: Math.round(game.time) };
+    if (m.stuck.length < 12) m.stuck.push(e); else { const lo = m.stuck.reduce((a, x, i) => (x.secs < m.stuck[a].secs ? i : a), 0); if (s.t > m.stuck[lo].secs) m.stuck[lo] = e; }
+    if (s.t >= 10) this.ev('unstuck', `${c.type} after ${s.t} s`);
+  },
+  frame(rawDt) {
+    AUTO.frame(rawDt);
+    const st = game.state;
+    if (st !== 'playing') this.closed = false;
+    if (this.m && st !== 'playing') this.finish(st === 'over' ? 'game over: ' + ($('overTitle').textContent || '') : 'left the match');
+    if (!this.m && st === 'playing' && !this.closed) this.begin();
+    const m = this.m; if (!m) return;
+    if (!document.hidden && !game.paused && rawDt < 1 && rawDt > 0 && game.countdown <= 0) {
+      const ms = rawDt * 1000; m.hist[Math.min(399, Math.floor(ms * 2))]++; m.frames++; m.ftSum += ms; if (ms > m.worst) m.worst = ms;
+    }
+    if (QUALITY.level !== m.qNow) { m.qNow = QUALITY.level; if (m.qCh.length < 30) m.qCh.push([Math.round(game.time), QUALITY.level]); this.ev('q', QUALITY.level); }
+    const now = performance.now();
+    if (now - this.curT > 30000) { this.curT = now; this.writeCur(); }
+    if (now - this.upT > 180000) { this.upT = now; this.ck('every 3 min'); this.upload('every 3 min'); }
+  },
+  pct(m, q) { const tgt = m.frames * q; let a = 0; for (let i = 0; i < 400; i++) { a += m.hist[i]; if (a >= tgt) return (i + 0.5) / 2; } return 200; },
+  // ---- things the rest of the game reports ----
+  phys(e) {
+    const m = this.m; if (!m || !e || e.kind === 'x') return; m.kinds[e.kind] = (m.kinds[e.kind] || 0) + 1;
+    if (m.physL.length < 40) { const x = { ...e, gt: Math.round(game.time) }; if (player && e.who === player.T.name) x.flight = FLIGHT.buf.slice(-5); m.physL.push(x); }
+    this.ev('phys', `${e.kind} · ${e.who || '?'}`); this.soon('physics: ' + e.kind);
+  },
+  slow(x) {
+    const m = this.m; if (!m || !x) return;
+    if (m.inc.length < 30) m.inc.push({ t: Math.round(game.time), secs: x.secs, fps: x.fps, worst: x.worst, why: x.verdict, parts: x.parts, q: x.q, cars: x.cars, particles: x.particles, fires: x.fires, booms: x.booms, mem: x.mem,
+      worstF: x.worstF ? x.worstF.ms + ' ms: ' + String(x.worstF.parts).slice(0, 160) : '', before: (x.before || []).slice(0, 6).join(' · ').slice(0, 200) });
+    this.ev('slow', `${x.secs}s at ${x.fps} fps, worst ${x.worst} ms`); this.soon('slow moment');
+  },
+  net(who, what) {
+    what = String(what); const voice = /voice/i.test(what) && !/^voice test: .*work/i.test(what), m = this.m;
+    if (!m) { if (voice) { this.idleErrs.length < 10 && this.idleErrs.push(new Date().toISOString().slice(11, 19) + ' voice: ' + what.slice(0, 200)); this.soon('voice failure'); } return; }
+    const e = [Math.round(game.time), String(who).slice(0, 20), what.slice(0, 200)];
+    if (voice) { m.voiceN++; if (m.voice.length < 15) m.voice.push(e); this.ev('voice', what.slice(0, 80)); this.soon('voice failure'); }
+    else { m.netN++; if (m.net.length < 40) m.net.push(e); this.ev('net', what.slice(0, 80)); }
+  },
+  err(t) {
+    const m = this.m, s = String(t).slice(0, 300);
+    if (m) { m.errN++; if (m.errs.length < 10) m.errs.push(s); this.ev('err', s.slice(0, 100)); } else if (this.idleErrs.length < 10) this.idleErrs.push(s);
+    this.soon('script error');
+  },
+  // ---- records ----
+  uaShort() { const ua = navigator.userAgent, b = /Edg\/([\d]+)/.exec(ua) ? 'Edge ' + RegExp.$1 : /OPR\/(\d+)/.exec(ua) ? 'Opera ' + RegExp.$1 : /CriOS\/(\d+)/.exec(ua) ? 'Chrome iOS ' + RegExp.$1 : /FxiOS\/(\d+)/.exec(ua) ? 'Firefox iOS ' + RegExp.$1 : /Firefox\/(\d+)/.exec(ua) ? 'Firefox ' + RegExp.$1 : /Chrome\/(\d+)/.exec(ua) ? 'Chrome ' + RegExp.$1 : /Version\/([\d.]+).*Safari/.exec(ua) ? 'Safari ' + RegExp.$1 : 'other';
+    const os = /iPhone OS ([\d_]+)/.exec(ua) ? 'iOS ' + RegExp.$1.replace(/_/g, '.') : /Android ([\d.]+)/.exec(ua) ? 'Android ' + RegExp.$1 : /Mac OS X ([\d_]+)/.exec(ua) ? 'macOS ' + RegExp.$1.replace(/_/g, '.') : /Windows NT ([\d.]+)/.exec(ua) ? 'Windows ' + RegExp.$1 : /CrOS/.test(ua) ? 'ChromeOS' : /Linux/.test(ua) ? 'Linux' : '?';
+    return `${b} · ${os}${navigator.maxTouchPoints > 0 ? ' · touch' : ''}`; },
+  rec(kind, ended) {
+    const m = this.m, r1 = (v) => Math.round(v * 10) / 10, fps = (ms) => Math.round(1000 / Math.max(1, ms)), pm = performance.memory, mi = renderer.info.memory, now = Date.now();
+    const veh = {}; for (const [k, v] of Object.entries(m.veh)) veh[k] = { ...v };
+    for (const [c, e] of m.L) if (veh[e.type]) veh[e.type].life += simTime - e.t; // lives still going
+    for (const v of Object.values(veh)) { v.dmg = Math.round(v.dmg); v.taken = Math.round(v.taken); v.life = Math.round(v.life / Math.max(1, v.lives)); }
+    const me = m.me.slice(); if (m.meCur) me.push({ car: m.meCur.car, secs: Math.round(simTime - m.meCur.t0), k: m.meCur.k, dmg: Math.round(m.meCur.dmg), alive: true });
+    const stuck = m.stuck.slice(); for (const c of cars) if (c.__apS && c.__apS.t >= 4 && stuck.length < 16) stuck.push({ car: c.type, secs: c.__apS.t, x: c.__apS.x, z: c.__apS.z, me: c === player || undefined, ongoing: true });
+    const causes = {}; for (const x of m.inc) causes[x.why] = r1((causes[x.why] || 0) + x.secs);
+    const bs = barks.stats || {}, b0 = m.bark0, K = m.kinds;
+    return { v: 2, kind, id: m.id, n: m.n, sid: this.sid, dev: this.devId, build: BUILD, start: new Date(m.at).toISOString(), end: new Date(now).toISOString(), ended,
+      role: m.role, mode: m.mode, room: MP.role !== 'solo' ? MP.code || '' : undefined, device: PERFREP.device(), ua: this.uaShort(), cores: navigator.hardwareConcurrency || null, screen: `${screen.width}x${screen.height}@${devicePixelRatio} view ${innerWidth}x${innerHeight}`,
+      game: Math.round(game.time), real: Math.round((performance.now() - m.p0) / 1000), hidden: Math.round((m.hidden + (m.hidAt ? performance.now() - m.hidAt : 0)) / 1000), cars: cars.length, score: game.score, voices: !VOICES_OFF, sound: !sfx.muted,
+      q: { start: m.q0, end: QUALITY.level, ch: m.qCh, auto: !!S.autoGfx, gfx: S.gfx, res: Math.round(renderer.getPixelRatio() * 100) },
+      fps: m.frames ? { med: fps(this.pct(m, 0.5)), p5: fps(this.pct(m, 0.95)), low1: fps(this.pct(m, 0.99)), avg: fps(m.ftSum / m.frames), worstMs: Math.round(m.worst), frames: m.frames } : null,
+      slow: { n: m.inc.length, secs: r1(m.inc.reduce((a, x) => a + x.secs, 0)), worstMs: m.inc.reduce((a, x) => Math.max(a, x.worst || 0), 0), causes, list: m.inc },
+      phys: { fixes: PHYS.fixes - m.phys0.fixes, clamps: PHYS.clamps - m.phys0.clamps, blowups: PHYS.blowups - m.phys0.blowups, kinds: K, rescues: K['fell through floor, lifted back'] || 0, undos: K['solver kick undone'] || 0, escapes: K['escaped the arena, put back'] || 0, launches: m.launch, launchList: m.launchW, below: m.below, nan: m.nan, list: m.physL },
+      stuck: { n: m.stuckN, secs: r1(m.stuckS), list: stuck.sort((a, b) => b.secs - a.secs) },
+      veh, me, weap: m.weap,
+      voice: { n: m.voiceN, list: m.voice, sent: (bs.sent || 0) - b0.sent, started: (bs.started || 0) - b0.started, errors: (bs.errors || 0) - b0.errors, resets: (bs.resets || 0) - b0.resets, ok: barks.speechOK ?? null, lastErr: barks.lastErr || undefined },
+      net: { n: m.netN, list: m.net }, errs: { n: m.errN, list: m.errs },
+      mem: { geo: mi.geometries, tex: mi.textures, heapMB: pm ? Math.round(pm.usedJSHeapSize / 1048576) : null, objs: scene.children.length, debris: debris.length, props: props.length, bodies: world.bodies.length },
+      ev: m.ev, evDrop: m.evDrop || undefined };
+  },
+  finish(ended) {
+    const m = this.m; if (!m) return null;
+    for (const c of cars) if (c.__apS) this.stuckDone(c);
+    this.ev('end', ended);
+    let r = null; try { r = this.rec('match', ended); } catch (e) {}
+    this.m = null; this.closed = true; this.clearCur();
+    const o = this.meta(); this.dropCk(o, m.id); this.saveMeta(o);
+    if (r && (r.game >= 3 || r.errs.n || r.phys.list.length)) { this.add(r); this.upload('match end'); } // (a round thrown away in its first seconds says nothing)
+    if (r && AUTO.on) AUTO.logged(r);
+    return r;
+  },
+  roundReset() { if (this.m) this.finish(game.state === 'menu' ? 'quit to menu' : 'restarted'); this.closed = false; }, // resetMatch: a new round may start
+  writeCur(closing) { if (!this.m) return; try { const r = this.rec('live', 'in progress'); r.upd = Date.now(); r.hiddenNow = document.hidden || undefined; r.closing = closing || this.closing || undefined; const s = JSON.stringify(r); if (this.ls(this.CUR + this.sid, s)) this.curLen = s.length; } catch (e) {} },
+  clearCur() { this.ls(this.CUR + this.sid, null); this.curLen = 0; },
+  ck(why) { // an early copy of the match in progress, so it can be uploaded now (the final record replaces it)
+    if (!this.m) return; try { const r = this.rec('ck', 'checkpoint: ' + why); const o = this.meta(); this.dropCk(o, r.id); this.saveMeta(o); const seq = this.add(r); this.ckT = performance.now(); return seq; } catch (e) { return 0; }
+  },
+  recover() { // matches left behind by a page that closed or crashed mid-match
+    const keys = []; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith(this.CUR) && k !== this.CUR + this.sid) keys.push(k); } } catch (e) { return; }
+    for (const k of keys) {
+      let r = null; try { r = JSON.parse(this.ls(k) || 'null'); } catch (e) {}
+      if (!r || !r.id) { this.ls(k, null); continue; }
+      const age = Date.now() - (r.upd || 0); if (!r.closing && age < (r.hiddenNow ? 300000 : 45000)) continue; // (maybe another open tab)
+      r.kind = 'match'; r.ended = r.closing ? 'page closed mid-match' : 'lost mid-match (crash, or the tab was killed)'; r.recovered = new Date().toISOString(); delete r.upd; delete r.closing; delete r.hiddenNow;
+      this.ls(k, null); const o = this.meta(); this.dropCk(o, r.id); this.saveMeta(o); this.add(r);
+    }
+  },
+  session() {
+    this.add({ v: 2, kind: 'session', sid: this.sid, dev: this.devId, build: BUILD, at: new Date().toISOString(), device: PERFREP.device(), ua: this.uaShort(), uaFull: navigator.userAgent.slice(0, 300), lang: navigator.language, url: location.search.slice(0, 120) || undefined,
+      standalone: (matchMedia && matchMedia('(display-mode: standalone)').matches) || undefined, cores: navigator.hardwareConcurrency || null, mem: navigator.deviceMemory || null, screen: `${screen.width}x${screen.height}@${devicePixelRatio}`,
+      settings: { gfx: S.gfx, autoGfx: S.autoGfx, opp: S.aiCount, damage: S.damage, voices: !VOICES_OFF, tilt: !!tilt.on } });
+  },
+  // ---- upload ----
+  soon(why) { // something went wrong: upload within ~10 s (then a minute apart, doubling up to 5 min within a match)
+    if (this.soonWhy.length < 6 && !this.soonWhy.includes(why)) this.soonWhy.push(why);
+    if (this.soonTimer) return;
+    const wait = Math.max(10000, this.soonAt + this.soonGap - performance.now());
+    this.soonTimer = setTimeout(() => { this.soonTimer = 0; this.soonAt = performance.now(); this.soonGap = Math.min(300000, this.soonGap * 2); // (a device that keeps failing: further apart each time) const why = this.soonWhy.join(', '); this.soonWhy = [];
+      if (this.m) this.ck(why); else if (this.idleErrs.length) { this.add({ v: 2, kind: 'errors', sid: this.sid, dev: this.devId, build: BUILD, at: new Date().toISOString(), state: game.state, role: MP.role, list: this.idleErrs }); this.idleErrs = []; }
+      this.upload(why); }, wait);
+  },
+  lock() { const now = Date.now(); let v = null; try { v = JSON.parse(this.ls(this.LOCK) || 'null'); } catch (e) {} if (v && v.sid !== this.sid && now - v.t < 60000) return false; this.ls(this.LOCK, JSON.stringify({ sid: this.sid, t: now })); return true; },
+  unlock() { let v = null; try { v = JSON.parse(this.ls(this.LOCK) || 'null'); } catch (e) {} if (v && v.sid === this.sid) this.ls(this.LOCK, null); },
+  retry(ms) { clearTimeout(this.retryTimer); this.retryTimer = setTimeout(() => { this.retryTimer = 0; this.upload('retry'); }, ms); },
+  async upload(why) {
+    if (typeof window.dropUpload !== 'function') return false; // (nowhere to send it: it stays queued here)
+    if (this.busy) { this.again = why; return false; }
+    if (!this.lock()) { this.retry(20000); return false; }
+    this.busy = true; this.lastTry = { at: Date.now(), why }; let ok = true, sent = 0;
+    const enc = new TextEncoder(), send = async (text) => { const p = window.dropUpload('playlog', text); const t = new Promise((res) => setTimeout(() => res('timeout'), 45000)); return (await Promise.race([p, t])) === true; };
+    try {
+      for (let guard = 0; guard < 200; guard++) {
+        const o = this.meta(), sx = o.sentX || [], todo = o.idx.filter((e) => e[0] > o.up && !sx.includes(e[0])); if (!todo.length) break;
+        const lines = []; let size = 400, last = 0, lastT = 0;
+        for (const e of todo) {
+          const s = this.ls(this.P + e[0]); if (s == null) { if (!lines.length) { last = e[0]; lastT = e[3]; } continue; } // (gone: nothing to send)
+          const b = enc.encode(s).length + 1; if (lines.length && size + b > this.CHUNK) break;
+          lines.push(s); size += b; last = e[0]; lastT = e[3];
+        }
+        if (lines.length) {
+          const head = `#derby-playlog v2 dev=${o.dev} sid=${this.sid} build=${BUILD} sent=${new Date().toISOString()} why=${String(why).replace(/\s+/g, '_').slice(0, 60)} seq=${todo[0][0]}-${last}`;
+          if (size <= this.CHUNK) { if (!(await send(head + '\n' + lines.join('\n')))) { ok = false; break; } }
+          else { const s = lines[0], step = Math.floor(this.CHUNK / 3), n = Math.ceil(s.length / step); // one record over the limit: in pieces (3 bytes per character at most)
+            for (let i = 0; i < n && ok; i++) if (!(await send(`${head} part=${i + 1}/${n}\n` + s.slice(i * step, (i + 1) * step)))) ok = false;
+            if (!ok) break; }
+          sent++;
+        }
+        const o2 = this.meta(); if (last > o2.up) { o2.up = last; o2.upAt = Date.now(); o2.upRecT = lastT; } if (o2.sentX) o2.sentX = o2.sentX.filter((x) => x > o2.up); this.saveMeta(o2); this.ls(this.LOCK, JSON.stringify({ sid: this.sid, t: Date.now() }));
+      }
+    } catch (e) { ok = false; } finally { this.busy = false; this.unlock(); }
+    if (ok) { this.fails = 0; } else { this.fails++; this.retry(Math.min(600000, 15000 * 2 ** Math.min(6, this.fails - 1))); } // offline or the server said no: try again later (and when the network is back)
+    if (this.again) { const w = this.again; this.again = null; if (ok) setTimeout(() => this.upload(w), 0); }
+    return ok;
+  },
+  beacon(seq) { // the page is closing: send its last checkpoint now, without waiting for an answer (the page will be gone). It counts as sent (never twice);
+    // the final record for that match is made from the saved copy on the next visit and goes up the normal way.
+    if (typeof window.dropUpload !== 'function' || !seq) return; const s = this.ls(this.P + seq); if (!s) return;
+    const o = this.meta(); (o.sentX = o.sentX || []).push(seq); this.saveMeta(o);
+    try { const p = window.dropUpload('playlog', `#derby-playlog v2 dev=${o.dev} sid=${this.sid} build=${BUILD} sent=${new Date().toISOString()} why=page_closed seq=${seq}-${seq}\n${s}`); if (p && p.catch) p.catch(() => {}); } catch (e) {}
+  },
+  pending(o) { const sx = o.sentX || []; return o.idx.filter((e) => e[0] > o.up && !sx.includes(e[0])).length; },
+  // ---- the meter, export, the panel ----
+  meterText() {
+    const o = this.meta(), b = this.bytes(o), nm = o.idx.filter((e) => e[4] === 'match').length, pend = this.pending(o);
+    const bl = o.idx.map((e) => +e[2]).filter((x) => isFinite(x)), lo = bl.length ? Math.min(...bl) : +BUILD, hi = bl.length ? Math.max(...bl) : +BUILD;
+    const size = b >= 100000 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB', since = new Date(o.idx.length ? o.idx[0][3] : o.since).toLocaleDateString();
+    const up = typeof window.dropUpload !== 'function' ? 'upload not set up' : o.upRecT ? 'uploaded up to ' + new Date(o.upRecT).toLocaleString([], { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'nothing uploaded yet';
+    return `Play log: ${size} · ${nm} match${nm === 1 ? '' : 'es'} since ${since} · build${lo === hi ? ' ' + lo : 's ' + lo + '–' + hi} · ${up} · ${pend} waiting${o.evictedUnsent ? ` · ${o.evictedUnsent} dropped before upload (storage full)` : ''}`;
+  },
+  exportText() {
+    const o = this.meta(), recs = this.records(); let live = null; try { if (this.m) live = JSON.stringify(this.rec('live', 'in progress')); } catch (e) {}
+    return [`# Scrapyard Derby play log · exported ${new Date().toISOString()} · running build ${BUILD} · device ${o.dev} · ${recs.length} records · upload cursor ${o.up} of ${o.seq} · ${this.meterText()}`,
+      '# one JSON record per line. kind: session = a page load · match = one match · ck = checkpoint of a match still running (the match record with the same id replaces it) · errors = script errors outside a match · live = the match running right now',
+      ...recs, ...(live ? [live] : [])].join('\n');
+  },
+  async copy(btn) {
+    const t = this.exportText(), done = (ok) => { if (btn) { btn.textContent = ok ? `Copied ${Math.round(t.length / 1024)} KB · paste it to Claude` : 'Copy failed: use Download'; setTimeout(() => { btn.textContent = 'Copy all play data'; }, 2500); } };
+    try { await navigator.clipboard.writeText(t); done(true); }
+    catch (e) { const ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select(); let ok = false; try { ok = document.execCommand('copy'); } catch (e2) {} ta.remove(); done(ok); }
+    return t;
+  },
+  download() { const b = new Blob([this.exportText()], { type: 'text/plain' }), u = URL.createObjectURL(b), a = document.createElement('a');
+    a.href = u; a.download = `derby-playlog-b${BUILD}-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, '')}.txt`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 2000); },
+  clear() { const o = this.meta(); for (const e of o.idx) this.ls(this.P + e[0], null); this.ls(this.META, JSON.stringify({ v: 1, dev: o.dev, seq: o.seq, up: o.seq, since: Date.now(), idx: [], evicted: 0, evictedUnsent: 0 })); },
+  showMeter() { const el = $('plMeter'); if (el) el.textContent = this.meterText(); },
+});
+/* ---------------- Autoplay (learn): the bots' brain drives your car, match after match, every life a different vehicle ----------------
+   Menu button, or ?autoplay=1 (or #autoplay). Sound and voices off. Any key or tap gives the game back. Logged in the play log as role 'autoplay'. */
+Object.assign(AUTO, {
+  CYC: 'derby-autoplay-cycle', matchSecs: 180, prev: null, camCar: null, camHold: 0, camT: 0, wl: null, t0: 0, pending: false, seq: 0, bannerT: 0, last: null,
+  weap(T) { return T.gun ? 'cannon' : T.pour ? T.pour : T.special || 'none'; },
+  nextType() { const ks = Object.keys(CAR_TYPES); let i = 0; try { i = (+localStorage.getItem(this.CYC) || 0) % ks.length; localStorage.setItem(this.CYC, String((i + 1) % ks.length)); } catch (e) { i = (this.ci = ((this.ci ?? -1) + 1) % ks.length); } return ks[i]; },
+  start() {
+    if (this.on) return; if (MP.role !== 'solo') { toast('AUTOPLAY IS SINGLE-PLAYER ONLY', 'bad'); return; }
+    const p = new URLSearchParams(location.search), len = +p.get('aplen'); if (len >= 10) this.matchSecs = len;
+    if (PLAYLOG.m) PLAYLOG.finish('autoplay took over');
+    this.prev = { playerType, mode: GAME_MODE, voices: VOICES_OFF, muted: sfx.muted, cam: camMode };
+    GAME_MODE = 'respawn'; VOICES_OFF = true; try { speechSynthesis.cancel(); } catch (e) {} // muted by default: nobody is listening
+    try { sfx.init(); sfx.setMuted(true); } catch (e) { sfx.muted = true; }
+    camMode = 0; for (const id of ['perfdlg', 'netlog', 'apReport', 'gearMenu', 'panel']) { const d = $(id); if (d) d.hidden = true; }
+    clearInterval(PF.timer);
+    this.on = true; this.t0 = performance.now(); this.camCar = null; document.body.classList.add('autoplay'); $('apBanner').hidden = false;
+    this.lock(); this.nextMatch(); ptag('autoplay on');
+  },
+  stop() {
+    if (!this.on) return;
+    PLAYLOG.finish('autoplay stopped');
+    this.on = false; this.camCar = null; this.pending = false; document.body.classList.remove('autoplay'); $('apBanner').hidden = true;
+    const p = this.prev || {}; playerType = p.playerType || playerType; GAME_MODE = p.mode || GAME_MODE; VOICES_OFF = !!p.voices; camMode = p.cam || 0;
+    try { sfx.setMuted(!!p.muted); } catch (e) {}
+    if (this.wl) { try { this.wl.release(); } catch (e) {} this.wl = null; }
+    showMenu(); buildGarage(); ptag('autoplay off'); toast('AUTOPLAY STOPPED', 'cool');
+  },
+  async lock() { try { if (this.on && navigator.wakeLock && !document.hidden && (!this.wl || this.wl.released)) this.wl = await navigator.wakeLock.request('screen'); } catch (e) {} }, // keep the screen awake
+  nextMatch() { this.pending = false; playerType = this.nextType(); startMatch(); this.seq++; this.camCar = null; this.camHold = 0; },
+  logged(r) { this.last = r; if (this.on) toast(`MATCH ${this.seq} LOGGED`, 'cool'); },
+  tick(dt) { // (from the play log's sim step, while autoplay is on)
+    this.camT -= dt; if (this.camT <= 0) { this.camT = 0.5; this.pickCam(); }
+    if (game.time >= this.matchSecs && !this.pending) { PLAYLOG.finish('autoplay round done'); this.pending = true; } // the next match starts at the top of the next frame
+  },
+  pickCam() { // now and then follow whoever is in the thick of it, then come back to your car
+    this.camHold -= 0.5; if (this.camHold > 0) return;
+    if (this.camCar) { this.camCar = null; game.camSnap = true; this.camHold = 10; return; }
+    let best = null, bs = (player && player.__apHeat || 0) * 1.5 + 12;
+    for (const c of cars) if (c !== player && !c.wrecked && (c.__apHeat || 0) > bs) { best = c; bs = c.__apHeat; }
+    if (best) { this.camCar = best; game.camSnap = true; this.camHold = 8; } else this.camHold = 2;
+  },
+  frame(rawDt) {
+    if (!this.on) return;
+    if (this.pending) { this.nextMatch(); return; }
+    this.bannerT -= rawDt; if (this.bannerT <= 0) { this.bannerT = 0.5; const left = Math.max(0, this.matchSecs - game.time) | 0, f = camTarget();
+      $('apBanner').textContent = `🤖 AUTOPLAY · match ${this.seq} · ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')} left · ${player ? player.T.name : ''}${f !== player ? ' · watching ' + f.name : ''} · tap or any key to stop`; }
+  },
+  aggregate(log) {
+    const veh = {}, weap = {}, med = (a) => { const s = a.filter((x) => x != null).sort((x, y) => x - y); return s.length ? s[s.length >> 1] : null; };
+    let slow = 0, errs = 0, stuck = 0, stuckS = 0, fixes = 0, clamps = 0, blowups = 0, rescues = 0, undos = 0, launches = 0, game0 = 0, voice = 0, net = 0;
+    for (const s of log) { game0 += s.game || 0; slow += s.slow ? s.slow.secs : 0; errs += s.errs ? s.errs.n : 0; stuck += s.stuck ? s.stuck.n : 0; stuckS += s.stuck ? s.stuck.secs : 0; voice += s.voice ? s.voice.n : 0; net += s.net ? s.net.n : 0;
+      const p = s.phys || {}; fixes += p.fixes || 0; clamps += p.clamps || 0; blowups += p.blowups || 0; rescues += p.rescues || 0; undos += p.undos || 0; launches += p.launches || 0;
+      for (const [k, v] of Object.entries(s.veh || {})) { const a = veh[k] || (veh[k] = { lives: 0, k: 0, d: 0, dmg: 0, lifeS: 0, fires: 0 }); a.lives += v.lives; a.k += v.k; a.d += v.d; a.dmg += v.dmg; a.lifeS += v.life * v.lives; a.fires += v.fires; }
+      for (const [k, v] of Object.entries(s.weap || {})) weap[k] = (weap[k] || 0) + v; }
+    for (const a of Object.values(veh)) { a.life = Math.round(a.lifeS / Math.max(1, a.lives)); a.kd = Math.round(a.k / Math.max(1, a.d) * 100) / 100; a.dmgPerLife = Math.round(a.dmg / Math.max(1, a.lives)); delete a.lifeS; }
+    const memA = log.slice(0, 3), memB = log.slice(-3), mm = (a, k) => med(a.map((s) => s.mem && s.mem[k]));
+    return { matches: log.length, gameMinutes: Math.round(game0 / 60), fpsMedian: med(log.map((s) => s.fps && s.fps.med)), fpsP5: med(log.map((s) => s.fps && s.fps.p5)), fpsLow1Worst: log.reduce((a, s) => (s.fps && s.fps.low1 < a ? s.fps.low1 : a), 999),
+      slowSecs: Math.round(slow), slowPerMatch: Math.round(slow / Math.max(1, log.length) * 10) / 10, errors: errs, voice, net, stuck, stuckSecs: Math.round(stuckS), phys: { fixes, clamps, blowups, rescues, undos, launches },
+      mem: log.length ? { geo: [mm(memA, 'geo'), mm(memB, 'geo')], tex: [mm(memA, 'tex'), mm(memB, 'tex')], heapMB: [mm(memA, 'heapMB'), mm(memB, 'heapMB')] } : null, veh, weap };
+  },
+  openReport() {
+    const log = PLAYLOG.matches(), A = this.aggregate(log), esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+    const name = (k) => (CAR_TYPES[k] ? CAR_TYPES[k].name : k);
+    $('apSum').textContent = log.length ? `${PLAYLOG.meterText()} · ${A.gameMinutes} game minutes` : 'Nothing yet. Play, or start autoplay and leave it running: every match adds a line here.';
+    const H = [];
+    if (log.length) {
+      const mem = A.mem;
+      H.push('<h4>Totals</h4><div class="ap-tot">' + [['fps (median)', A.fpsMedian], ['5% low', A.fpsP5], ['worst 1% low', A.fpsLow1Worst], ['slow moments', A.slowSecs + ' s (' + A.slowPerMatch + '/match)'], ['stuck', A.stuck + ' × · ' + A.stuckSecs + ' s'], ['script errors', A.errors], ['voice failures', A.voice], ['network events', A.net],
+        ['physics fixes', A.phys.fixes], ['clamps', A.phys.clamps], ['blow-ups', A.phys.blowups], ['floor rescues', A.phys.rescues], ['kick undos', A.phys.undos], ['launches', A.phys.launches],
+        ['geometries', mem.geo.join(' → ')], ['textures', mem.tex.join(' → ')], ['heap MB', mem.heapMB[0] == null ? 'n/a' : mem.heapMB.join(' → ')]].map(([k, v]) => `<span>${esc(k)} <b>${esc(v)}</b></span>`).join('') + '</div>');
+      const vs = Object.entries(A.veh).sort((a, b) => b[1].kd - a[1].kd);
+      H.push('<h4>Vehicles (best K/D first)</h4><table><tr><th>car</th><th>lives</th><th>kills</th><th>deaths</th><th>K/D</th><th>dmg / life</th><th>avg life s</th><th>weapon uses</th></tr>' + vs.map(([k, v]) => `<tr><td>${esc(name(k))}</td><td>${v.lives}</td><td>${v.k}</td><td>${v.d}</td><td>${v.kd}</td><td>${v.dmgPerLife}</td><td>${v.life}</td><td>${v.fires}</td></tr>`).join('') + '</table>');
+      H.push('<h4>Weapons fired</h4><div class="ap-tot">' + Object.entries(A.weap).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<span>${esc(k)} <b>${v}</b></span>`).join('') + '</div>');
+      H.push('<h4>Latest matches</h4><table><tr><th>#</th><th>when</th><th>build</th><th>who</th><th>game s</th><th>fps med / 5% / 1%</th><th>quality</th><th>slow s</th><th>phys fix/clamp/undo/rescue</th><th>stuck</th><th>errors</th><th>geo / tex / heap</th><th>your cars</th></tr>' +
+        log.slice(-15).reverse().map((s) => `<tr><td>${s.seq}${s.recovered ? '*' : ''}</td><td>${esc(new Date(s.start).toLocaleString([], { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }))}</td><td>${esc(s.build)}</td><td>${esc(s.role)}</td><td>${s.game}</td><td>${s.fps ? s.fps.med + ' / ' + s.fps.p5 + ' / ' + s.fps.low1 : '-'}</td><td>${s.q.start}→${s.q.end}${s.q.ch.length ? ' (' + s.q.ch.length + ')' : ''}</td><td>${s.slow.secs}</td><td>${s.phys.fixes}/${s.phys.clamps}/${s.phys.undos}/${s.phys.rescues}</td><td>${s.stuck.n}</td><td>${s.errs.n}</td><td>${s.mem.geo} / ${s.mem.tex} / ${s.mem.heapMB ?? '-'}</td><td>${esc((s.me || []).map((x) => name(x.car)).join(', '))}</td></tr>`).join('') + '</table>');
+      const L = log[log.length - 1];
+      if (L.slow.n) H.push('<h4>Latest slow moments</h4>' + L.slow.list.slice(-4).map((x) => `<div>${esc(`${x.secs}s at ${x.fps} fps → ${x.why} · ${x.parts} · before: ${x.before || '-'}`)}</div>`).join(''));
+      if (L.errs.n) H.push('<h4>Latest errors</h4>' + L.errs.list.map((e) => `<div>${esc(e)}</div>`).join(''));
+    }
+    $('apBody').innerHTML = H.join(''); $('apReport').hidden = false; $('apCopy').textContent = 'Copy all play data';
+  },
+});
+// what the rest of the game reports also lands in the play log (each wrapped: the log must never break the game)
+{ const push0 = ERRS.push; ERRS.push = function (...a) { try { for (const x of a) PLAYLOG.err(x); } catch (e) {} return push0.apply(this, a); }; }
+PHYS.log.push = function (...a) { try { for (const x of a) PLAYLOG.phys(x); } catch (e) {} const r = Array.prototype.push.apply(this, a); if (this.length > 150) this.splice(0, 50); return r; }; // (the log stopped at 200 entries: keep it rolling)
+PERFREP.incidents.push = function (...a) { try { for (const x of a) PLAYLOG.slow(x); } catch (e) {} return Array.prototype.push.apply(this, a); };
+{ const i0 = NETLOG.incident; NETLOG.incident = function (who, what) { try { PLAYLOG.net(who, what); } catch (e) {} return i0.call(this, who, what); }; }
+try { PLAYLOG.meta(); PLAYLOG.recover(); PLAYLOG.session(); } catch (e) {}
+setTimeout(() => PLAYLOG.upload('page load'), 8000); // anything left over from last time
+addEventListener('online', () => PLAYLOG.upload('back online'));
+addEventListener('pageshow', () => { PLAYLOG.closing = false; });
+addEventListener('pagehide', () => { PLAYLOG.closing = true; if (PLAYLOG.m) { PLAYLOG.writeCur(true); PLAYLOG.beacon(PLAYLOG.ck('page closed')); } }); // (a normal upload now could be cut off half way and then go again next time)
+document.addEventListener('visibilitychange', () => {
+  const m = PLAYLOG.m;
+  if (m) { if (document.hidden) { m.hidAt = performance.now(); PLAYLOG.ev('hidden', ''); } else { if (m.hidAt) m.hidden += performance.now() - m.hidAt; m.hidAt = 0; PLAYLOG.ev('visible', ''); } }
+  if (!document.hidden) { AUTO.lock(); return; }
+  if (m) { PLAYLOG.writeCur(); if (!PLAYLOG.closing && game.time > 20 && performance.now() - PLAYLOG.ckT > 60000) PLAYLOG.ck('tab hidden'); }
+  if (!PLAYLOG.closing) PLAYLOG.upload('tab hidden');
+});
+setInterval(() => { if (!$('perfdlg').hidden) PLAYLOG.showMeter(); }, 1000);
+$('btnPerf').addEventListener('click', () => PLAYLOG.showMeter());
+$('plCopy').addEventListener('click', (e) => PLAYLOG.copy(e.currentTarget));
+$('plDl').addEventListener('click', () => PLAYLOG.download());
+$('plRep').addEventListener('click', () => AUTO.openReport());
+$('plClear').addEventListener('click', () => { if (!confirm('Clear the play log on this device? (Anything not uploaded yet is lost.)')) return; PLAYLOG.clear(); PLAYLOG.showMeter(); });
+window.playLogExport = () => PLAYLOG.exportText();
+window.playLogUpload = (why) => PLAYLOG.upload(why || 'by hand');
+$('btnAutoplay').addEventListener('click', (e) => { e.currentTarget.blur(); AUTO.start(); });
+for (const id of ['btnApReport', 'btnApReport2']) $(id).addEventListener('click', (e) => { e.currentTarget.blur(); gearOpen(false); AUTO.openReport(); });
+$('apClose').addEventListener('click', () => { $('apReport').hidden = true; });
+$('apGo').addEventListener('click', () => { $('apReport').hidden = true; AUTO.start(); });
+$('apClear').addEventListener('click', () => { if (!confirm('Clear the play log on this device? (Anything not uploaded yet is lost.)')) return; PLAYLOG.clear(); AUTO.openReport(); });
+$('apCopy').addEventListener('click', (e) => { const b = e.currentTarget; PLAYLOG.copy(b); });
+$('apDl').addEventListener('click', () => PLAYLOG.download());
+// any key or tap hands the game back (the tap that stops it does nothing else)
+const apStop = (e) => { if (!AUTO.on || performance.now() - AUTO.t0 < 800 || !e.isTrusted) return; AUTO.stop(); AUTO.swallow = performance.now(); e.preventDefault(); e.stopPropagation(); };
+addEventListener('keydown', apStop, true); addEventListener('pointerdown', apStop, true);
+addEventListener('click', (e) => { if (AUTO.swallow && performance.now() - AUTO.swallow < 700) { AUTO.swallow = 0; e.preventDefault(); e.stopPropagation(); } }, true);
+if (/[?&]autoplay=1\b/.test(location.search) || /^#autoplay\b/.test(location.hash)) setTimeout(() => AUTO.start(), 600); // a bookmark that starts it
+window.__derby = { AUTO, PLAYLOG, BOULDERS, get mapShapes() { return mapShapes; }, respawnCar: (o, t) => respawnCar(o, t), PHYS, cockpitEye: (c) => cockpitEye(c), wakeProp: (pr) => wakeProp(pr), addConcrete: (x, z, r, k) => addConcrete(x, z, r, k), igniteProp: (pr, t) => igniteProp(pr, t), cookBull: (bl, by, dt) => cookBull(bl, by, dt), tankerBoom: (p, c) => tankerBoom(p, c), CAR_TYPES, sfx, CANNON, barks, PERF, shells, NETLOG, nearHostAdd: () => nearHostAdd(), nearJoin: () => nearJoin(), JUMBO, BALL, BOLLARDS, GASQ, updateArenaPub: (dt) => updateArena(dt), CRUSHER, crushNow: () => crushNow(), applyNight: () => applyNight(), FIREWORKS, ARENA, CROWD, MP, QUALITY, applyQuality: (i) => applyQuality(i), MERGED, camera, updatePropActivity: (dt) => updatePropActivity(dt), renderer, scene, spawnFree: (x, z, r) => spawnFree(x, z, r), BULLS, updateBulls: (dt) => updateBulls(dt), updateShells, tilt, setTilt, get CRANE() { return CRANE; }, updateCrane: (dt) => updateCrane(dt), CONCRETE, THREE, craters, shells, pickups, barks, PERSONAS, TUNE, game, cars, S, world, CAR_TYPES, sfx, touch, drawGauge, get player() { return player; }, keys, startMatch, selectCar, setValue, debris, props, platformOf, get simTime() { return simTime; }, set simTime(v) { simTime = v; } }; // console tinkering + tests
 requestAnimationFrame(frame);
-window.__derby = { BOULDERS, get mapShapes() { return mapShapes; }, respawnCar: (o, t) => respawnCar(o, t), PHYS, cockpitEye: (c) => cockpitEye(c), wakeProp: (pr) => wakeProp(pr), addConcrete: (x, z, r, k) => addConcrete(x, z, r, k), igniteProp: (pr, t) => igniteProp(pr, t), cookBull: (bl, by, dt) => cookBull(bl, by, dt), tankerBoom: (p, c) => tankerBoom(p, c), CAR_TYPES, sfx, CANNON, barks, PERF, shells, NETLOG, nearHostAdd: () => nearHostAdd(), nearJoin: () => nearJoin(), JUMBO, BALL, BOLLARDS, GASQ, updateArenaPub: (dt) => updateArena(dt), CRUSHER, crushNow: () => crushNow(), applyNight: () => applyNight(), FIREWORKS, ARENA, CROWD, MP, QUALITY, applyQuality: (i) => applyQuality(i), MERGED, camera, updatePropActivity: (dt) => updatePropActivity(dt), renderer, scene, spawnFree: (x, z, r) => spawnFree(x, z, r), BULLS, updateBulls: (dt) => updateBulls(dt), updateShells, tilt, setTilt, get CRANE() { return CRANE; }, updateCrane: (dt) => updateCrane(dt), CONCRETE, THREE, craters, shells, pickups, barks, PERSONAS, TUNE, game, cars, S, world, CAR_TYPES, sfx, touch, drawGauge, get player() { return player; }, keys, startMatch, selectCar, setValue, debris, props, platformOf, get simTime() { return simTime; }, set simTime(v) { simTime = v; } }; // console tinkering + tests
+window.__derby.SCORE = SCORE; // (the scoreboard's test hook)
 </script>
