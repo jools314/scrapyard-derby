@@ -2317,7 +2317,7 @@ const WEAPONS = {
         const l = b.pointToLocalFrame(c.body.position), fx = l.x + car.comShift - car.T.L / 2;
         if (fx > -0.3 && fx < 2.4 + c.T.W * 0.5 && Math.abs(l.z) < 1.4 && l.y > -1.2 && l.y < 1.4 && fx < bd) { bd = fx; best = c; }
       }
-      if (!best) { car.liftUp = 1.2; if (car.isPlayer) toast('NOTHING ON THE FORKS', 'bad'); return; }
+      if (!best) { car.liftUp = 1.2; if (simTime - (car.palletT ?? -99) > 6) { car.palletT = simTime; dropPallet(car); } else if (car.isPlayer) toast('NOTHING ON THE FORKS', 'bad'); return; } // empty forks: drop a pallet of crates in your wake
       if (best.body.mass > 4200 || best.T.skid) { car.liftUp = 1.2; sfx.clank(0.6); if (car.isPlayer) toast(`${best.T.name.toUpperCase()} IS TOO HEAVY!`, 'bad'); return; }
       const vb = best.body; best.massSave = vb.mass; vb.mass = 250; vb.updateMassProperties(); vb.wakeUp(); // 2.5 t forklift: the load is balanced on the counterweight
       const con = new CANNON.LockConstraint(b, vb, { maxForce: 3e5 }); con.collideConnected = false; world.addConstraint(con);
@@ -2807,6 +2807,31 @@ function dropBoulder(car, ev) { // a 900 kg rock rolls off the back of the bed
   BOULDERS.push({ body, mesh: m, t: 40, by: car }); while (BOULDERS.length > 15) { const o = BOULDERS.shift(); world.removeBody(o.body); scene.remove(o.mesh); }
   sfx.at(p).crash(wv(car) * 0.6, 8); for (let i = 0; i < 6; i++) emit('dust', p.x, p.y, p.z, rand(-2, 2), rand(0, 2), rand(-2, 2), rand(1, 1.6), rand(0.5, 0.9));
   if (!ev && MP.role === 'host') MP.event({ k: 'bd', p: [p.x, p.y, p.z, v.x, v.y, v.z, r].map((x) => Math.round(x * 100) / 100) });
+}
+const LOBS = [], lobGeo = new THREE.IcosahedronGeometry(0.9, 1); lobGeo.userData.shared = true;
+const crateGeo = new THREE.BoxGeometry(0.75, 0.75, 0.75); crateGeo.userData.shared = true; let crateMat = null;
+function dropPallet(car) { if (MP.role === 'guest') return; const b = car.body;
+  crateMat = crateMat || new THREE.MeshStandardMaterial({ color: 0xa8743a, roughness: 0.85, map: CONCRETE.tex });
+  for (let k = 0; k < 6; k++) { const p = b.pointToWorldFrame(new CANNON.Vec3(-car.T.L / 2 - 0.9 - (k % 2) * 0.8 - car.comShift, 0.5 + Math.floor(k / 2) * 0.8, ((k >> 1) % 2 ? 0.4 : -0.4)));
+    const m = new THREE.Mesh(crateGeo, crateMat); m.userData.shared = true; m.castShadow = true; m.position.set(p.x, p.y, p.z); scene.add(m);
+    addDebris(m, new CANNON.Box(new CANNON.Vec3(0.375, 0.375, 0.375)), new CANNON.Vec3(), undefined, 45, new CANNON.Vec3(b.velocity.x * 0.5, 0, b.velocity.z * 0.5), new CANNON.Vec3(0, 0, 0)); }
+  sfx.at(b.position).clank(wv(car)); if (car.isPlayer) toast('📦 PALLET DROPPED!', 'cool'); else if (Math.random() < 0.5) barks.say(car, 'taunt', true);
+}
+function lobConcrete(car, tg) { // a dollop of wet concrete arcs over the cab and lands where the target is going
+  const b = car.body, from = b.pointToWorldFrame(new CANNON.Vec3(1 - car.comShift, car.T.H + 2.2, 0)), tp = tg.body.position, tv = tg.body.velocity, T = 0.95;
+  const to = new CANNON.Vec3(tp.x + tv.x * T * 0.8, 0.3, tp.z + tv.z * T * 0.8);
+  const m = new THREE.Mesh(lobGeo, new THREE.MeshStandardMaterial({ color: 0xbdb6aa, roughness: 0.9, map: CONCRETE.tex })); m.position.set(from.x, from.y, from.z); scene.add(m);
+  LOBS.push({ m, from, to, t: 0, T, car }); sfx.at(from).noiseHit('lowpass', 400, 0.8, 0.3 * wv(car), 0.3);
+}
+function updateLobs(dt) {
+  for (let i = LOBS.length - 1; i >= 0; i--) { const L = LOBS[i]; L.t += dt; const k = Math.min(1, L.t / L.T);
+    L.m.position.set(L.from.x + (L.to.x - L.from.x) * k, L.from.y + (L.to.y - L.from.y) * k + Math.sin(k * Math.PI) * 7, L.from.z + (L.to.z - L.from.z) * k); L.m.rotation.x += dt * 5;
+    if (k >= 1) { scene.remove(L.m); L.m.material.dispose(); LOBS.splice(i, 1); if (MP.role === 'guest') continue;
+      addConcrete(L.to.x, L.to.z, 4.2, 'concrete'); CONCRETE.list[CONCRETE.list.length - 1].owner = L.car; CONCRETE.list[CONCRETE.list.length - 1].t = 22;
+      for (let j = 0; j < 14; j++) emit('debris', L.to.x, 0.6, L.to.z, rand(-5, 5), rand(2, 6), rand(-5, 5), rand(1, 2), rand(0.1, 0.25), M.concrete || M.steel);
+      if (player) sfx.at(L.to).crash(clamp(1 - player.body.position.distanceTo(L.to) / 70, 0, 1) * 0.6, 6);
+      for (const c of cars) if (c !== L.car && !c.wrecked && Math.hypot(c.body.position.x - L.to.x, c.body.position.z - L.to.z) < 3.5) { c.applyDamage(6 * S.damage, L.car, 'top', null, 6); if (c.isPlayer) toast('BURIED IN CONCRETE!', 'bad'); }
+    } }
 }
 function updateBoulders(dt) {
   for (let i = BOULDERS.length - 1; i >= 0; i--) { const o = BOULDERS[i]; o.t -= dt; o.mesh.position.copy(o.body.position); o.mesh.quaternion.copy(o.body.quaternion);
@@ -4774,13 +4799,21 @@ class Car {
 
   updatePour(dt) { // mixer: pour a trail of wet concrete out of the chute
     this.load = this.load ?? 1;
-    if (this.ctrl.fire) { this.ctrl.fire = false; if (this.load > 0.2 && !this.wrecked && game.state === 'playing' && game.countdown <= 0) { this.pourT = 2.6; if (!this.isPlayer) barks.say(this, 'taunt'); } }
+    if (this.ctrl.fire) { this.ctrl.fire = false;
+      const trail = this.T.pour === 'fuel' && !(this.pourT > 0) ? CONCRETE.list.filter((c) => c.kind === 'fuel' && c.owner === this && !c.burning && c.t > 2) : [];
+      if (trail.length && game.state === 'playing') { // a lit match out the window: the fire races back along the trail
+        const p0 = this.body.position; trail.sort((a, b) => ((a.x - p0.x) ** 2 + (a.z - p0.z) ** 2) - ((b.x - p0.x) ** 2 + (b.z - p0.z) ** 2));
+        trail.forEach((c, i) => setTimeout(() => { if (CONCRETE.list.includes(c)) { c.burning = rand(7, 10); emit('fire', c.x, 0.5, c.z, 0, 3, 0, 0.6, 1.2); } }, 120 * i));
+        sfx.at(p0).noiseHit('bandpass', 2200, 2, 0.3 * wv(this), 0.12); if (this.isPlayer) toast('🔥 LIT THE TRAIL!', 'cool'); else barks.say(this, 'fire', true); ptag('fuel trail lit');
+      } else if (this.T.pour === true && this.load > 0.35 && !this.wrecked && game.state === 'playing' && game.countdown <= 0 && frontTarget(this, 26, 0.5)) { // someone ahead: lob a load of wet concrete on them
+        this.load -= 0.35; lobConcrete(this, frontTarget(this, 26, 0.5)); if (this.isPlayer) toast('🪣 CONCRETE BOMB!', 'cool'); else barks.say(this, 'fire', true);
+      } else if (this.load > 0.2 && !this.wrecked && game.state === 'playing' && game.countdown <= 0) { this.pourT = 2.6; if (!this.isPlayer) barks.say(this, 'taunt'); } }
     if (this.pourT > 0 && this.load > 0) {
       this.pourT -= dt; this.load = Math.max(0, this.load - dt * 0.28); this.pourDrop = (this.pourDrop || 0) - dt;
       this.glugT = (this.glugT || 0) - dt; if (this.glugT <= 0) { this.glugT = 0.22; sfx.at(this.body.position).glug(wv(this)); }
       const p = this.body.pointToWorldFrame(new CANNON.Vec3(-this.T.L / 2 - 0.8 - this.comShift, 0, 0));
       const fuel = this.T.pour === 'fuel';
-      if (this.pourDrop <= 0) { this.pourDrop = 0.3; addConcrete(p.x, p.z, rand(2.4, 3.4), fuel ? 'fuel' : 'concrete'); if (fuel && (this.leakT > 0 || this.health < 40)) CONCRETE.list[CONCRETE.list.length - 1].burning = rand(8, 12); }
+      if (this.pourDrop <= 0) { this.pourDrop = 0.3; addConcrete(p.x, p.z, rand(2.4, 3.4), fuel ? 'fuel' : 'concrete'); CONCRETE.list[CONCRETE.list.length - 1].owner = this; if (fuel && (this.leakT > 0 || this.health < 40)) CONCRETE.list[CONCRETE.list.length - 1].burning = rand(8, 12); }
       if (!fuel) for (let i = 0; i < 3; i++) emit('debris', p.x, 1.3, p.z, rand(-1, 1), rand(-1, 0.5), rand(-1, 1), 0.6, rand(0.12, 0.25), CONCRETE.wetMat);
       if (this.isPlayer && Math.random() < 0.1) sfx.noiseHit('lowpass', 400, 0.7, 0.15, 0.3);
     } else this.load = Math.min(1, this.load + dt * 0.04);
@@ -4984,7 +5017,7 @@ class Car {
     let squeeze = 1;
     if (this.pinN && simTime - this.pinT < 0.6 && n.dot(this.pinN) < -0.3 && dv > 5) squeeze = 2.3;
     if (other.mass === 0 || otherCar) { this.pinN = n.clone(); this.pinT = simTime; }
-    const rocket = otherCar && otherCar.ramT > 0 ? 1.6 : 1; // hit by a rocket ram
+    const rocket = otherCar && otherCar.ramT > 0 ? 1.6 : otherCar && otherCar.boosting && otherCar.T.style === 'muscle' ? 1.5 : 1; // hit by a rocket ram (or the Outrider with its blower screaming)
     const bladeK = this.T.dozer ? (zone === 'front' ? 0.1 : zone === 'left' || zone === 'right' ? 2.4 : zone === 'rear' ? 1.5 : 1) : 1; // the blade shrugs everything off; the dozer's flanks are its soft spot
     const onBlade = otherCar && otherCar.T.dozer && !otherCar.bladeRaised && (() => { const l = otherCar.body.pointToLocalFrame(this.body.position); return l.x + otherCar.comShift > otherCar.T.L / 2 - 0.4 && Math.abs(l.z) < otherCar.T.W * 0.8; })();
     const dmg = Math.pow(Math.max(0, dv - 3), 1.3) * 0.8 * S.damage * armor * ram * squeeze * rocket * this.T.armor * bladeK * (onBlade ? 2.5 : 1) + (onBlade && dv > 2 ? dv * 0.8 * S.damage : 0); // ...and driving into a steel blade hurts
@@ -5741,7 +5774,8 @@ function updateHUD(dt) {
     if (player.T.special === 'minigun') { const a = player.mgAmmo ?? W.ammo; $('gunFill').style.width = (player.mgReload > 0 ? (1 - player.mgReload / 4) * 100 : a / W.ammo * 100).toFixed(0) + '%'; $('gunState').textContent = player.mgReload > 0 ? 'RELOADING' : player.mgOn ? `${Math.round(a)} ROUNDS` : `MINIGUN ${Math.round(a)}`; }
     else { $('gunFill').style.width = ((1 - cd / W.cd) * 100).toFixed(0) + '%';
     $('gunState').textContent = player.specialT > 0 ? 'ACTIVE' : cd > 0 ? 'RECHARGING' : W.label; }
-    $('reticle').hidden = true;
+    const rt = $('reticle'), lockT = player.T.special === 'rockets' && game.state === 'playing' ? frontTarget(player, 110, 0.6) : null; // the Viper's rockets lock on: show who they'll chase
+    if (lockT) { tv3.set(lockT.body.position.x, lockT.body.position.y + 0.8, lockT.body.position.z).project(camera); rt.hidden = tv3.z > 1; rt.style.transform = `translate(${((tv3.x + 1) / 2 * canvas.clientWidth).toFixed(0)}px, ${((1 - tv3.y) / 2 * canvas.clientHeight).toFixed(0)}px)`; rt.classList.toggle('lock', cd <= 0); if (cd <= 0 && player.lockOn !== lockT) { player.lockOn = lockT; sfx.tone('square', 1400, 1400, 0.05, 0.06); sfx.tone('square', 1800, 1800, 0.05, 0.06, false, 0.08); } } else { rt.hidden = true; player.lockOn = null; }
   } else if (player.T.pour) { // concrete load
     $('gunFill').style.width = (player.load * 100).toFixed(0) + '%';
     $('gunState').textContent = player.pourT > 0 ? (player.T.pour === 'fuel' ? 'SPILLING' : 'POURING') : player.load < 0.2 ? 'REFILLING' : player.T.pour === 'fuel' ? 'FUEL' : 'CONCRETE';
@@ -8155,7 +8189,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '53'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '54'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
@@ -8713,7 +8747,7 @@ function simBody(now) {
     } else if (game.state === 'playing') game.grace -= dt;
     SEC.run('cars', () => { for (const c of cars) c.frameUpdate(dt); });
     if (MP.role !== 'guest') unwedge(dt);
-    SEC.run('arena', () => { updateCrane(dt); updateBulls(dt); updateBumps(dt); updateCrawlerCrush(dt); updateBoulders(dt); });
+    SEC.run('arena', () => { updateCrane(dt); updateBulls(dt); updateBumps(dt); updateCrawlerCrush(dt); updateBoulders(dt); updateLobs(dt); });
     SEC.run('lod', () => updatePropActivity(dt));
     updateRespawns(dt);
     SEC.run('arena', () => updateArena(dt));
