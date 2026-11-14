@@ -3499,7 +3499,9 @@ class Car {
     const root = this.root = new THREE.Group();
     g.add(root);
     scene.add(g);
-    this.paint = new THREE.MeshStandardMaterial({ color: this.baseColor.clone(), map: grimeTex, roughness: 0.34, metalness: 0.5, envMapIntensity: 1.25, flatShading: true });
+    this.paint = (QUALITY.level ?? 0) <= 2 // glossy clear-coated paint on capable devices; the cheaper matte paint on weak ones (smooth-shaded either way, not faceted)
+      ? new THREE.MeshPhysicalMaterial({ color: this.baseColor.clone(), map: grimeTex, roughness: 0.38, metalness: 0.45, envMapIntensity: 1.3, clearcoat: 0.65, clearcoatRoughness: 0.18 })
+      : new THREE.MeshStandardMaterial({ color: this.baseColor.clone(), map: grimeTex, roughness: 0.34, metalness: 0.5, envMapIntensity: 1.25 });
     this.glassMat = M.glass.clone();
     this.lampMat = M.lamp; this.lampMeshes = [];
     this.tailMat = M.tail.clone();
@@ -5194,7 +5196,7 @@ class Car {
     if (this.isPlayer && dmg >= 6 && game.state === 'playing') { toast(`-${Math.round(dmg)} HULL`, 'bad'); game.flash = Math.min(1, dmg / 25); }
     const k = 1 - this.health / 100;
     this.paint.color.copy(this.baseColor).lerp(new THREE.Color(0x3a2a1e), k * 0.75); // rusty, dusty, scorched
-    this.paint.roughness = 0.42 + k * 0.5; this.paint.metalness = 0.45 - k * 0.3;
+    this.paint.roughness = 0.42 + k * 0.5; this.paint.metalness = 0.45 - k * 0.3; if (this.paint.clearcoat !== undefined) this.paint.clearcoat = Math.max(0.03, 0.65 * (1 - k * 1.3)); // the shine goes as the dents come
     this.updateDamageEffects(by);
     if (this.health <= 0.01) this.wreck();
   }
@@ -8237,7 +8239,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '56'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '57'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
