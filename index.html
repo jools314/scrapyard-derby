@@ -2848,9 +2848,15 @@ const BOULDERS = [], boulderGeo = new THREE.DodecahedronGeometry(1.0); boulderGe
 const boulderMat = new THREE.MeshStandardMaterial({ color: 0x8a7764, roughness: 0.95, flatShading: true });
 function dropBoulder(car, ev) { // a 900 kg rock rolls off the back of the bed
   const b = car.body, p = ev ? new CANNON.Vec3(ev[0], ev[1], ev[2]) : b.pointToWorldFrame(new CANNON.Vec3(-car.T.L / 2 - 1.2 - car.comShift, car.T.H + 1.4, rand(-1.4, 1.4)));
-  const v = ev ? new CANNON.Vec3(ev[3], ev[4], ev[5]) : new CANNON.Vec3(b.velocity.x - car.fwd.x * rand(3, 6) + rand(-1, 1), rand(-1, 1), b.velocity.z - car.fwd.z * rand(3, 6) + rand(-1, 1));
+  let v; if (ev) v = new CANNON.Vec3(ev[3], ev[4], ev[5]); else { // roll them at whoever is tailing her (or straight back if nobody is)
+    const tail = cars.filter((c) => c !== car && !c.wrecked).map((c) => ({ c, l: b.pointToLocalFrame(c.body.position) })).filter((o) => o.l.x < -car.T.L / 2 && o.l.x > -30 && Math.abs(o.l.z) < 8).sort((a, b2) => b2.l.x - a.l.x)[0];
+    const aim = tail ? tail.c.body.position.vsub(p) : car.fwd.scale(-1); aim.y = 0; const d = aim.length() || 1; aim.scale(1 / d, aim);
+    const sp = tail ? clamp(d * 0.9, 5, 11) : rand(3, 6); v = new CANNON.Vec3(b.velocity.x * 0.5 + aim.x * sp + rand(-0.6, 0.6), rand(0, 1.5), b.velocity.z * 0.5 + aim.z * sp + rand(-0.6, 0.6)); }
   const r = ev ? ev[6] : rand(0.75, 1.0), body = new CANNON.Body({ mass: 900 * r * r * r, material: sceneryMat, linearDamping: 0.05, angularDamping: 0.1 }); body.addShape(new CANNON.Sphere(r));
   body.position.copy(p); body.velocity.copy(v); body.angularVelocity.set(rand(-3, 3), rand(-3, 3), rand(-3, 3)); body.boulder = true; world.addBody(body);
+  const hit = new Set(); body.addEventListener('collide', (e) => { const c = e.body && e.body.car; if (!c || c === car || hit.has(c) || MP.role === 'guest') return; const rel = body.velocity.vsub(c.body.velocity).length(); if (rel < 2.5) return; hit.add(c); // a rolling rock is a lot of mass to stop
+    const lp = c.body.pointToLocalFrame(body.position), zn = Math.abs(lp.x) > Math.abs(lp.z) ? (lp.x > 0 ? 'front' : 'rear') : (lp.z > 0 ? 'right' : 'left'); c.applyDamage((6 + rel * 2.2) * S.damage * c.T.armor, car, zn, new THREE.Vector3(lp.x, lp.y, lp.z), rel); c.dent(new THREE.Vector3(lp.x, lp.y, lp.z), { x: Math.sign(lp.x) * (zn === 'front' || zn === 'rear' ? 1 : 0), y: 0, z: Math.sign(lp.z) * (zn === 'left' || zn === 'right' ? 1 : 0) }, 8 + rel);
+    if (game.state === 'playing') { if (c.isPlayer) toast('🪨 ROCKED!', 'bad'); else if (car.isPlayer) toast(`🪨 ROCKED ${c.name}!`, 'cool'); } });
   const m = new THREE.Mesh(boulderGeo, boulderMat); m.scale.setScalar(r); m.castShadow = true; m.receiveShadow = true; m.userData.shared = true; scene.add(m);
   BOULDERS.push({ body, mesh: m, t: 40, by: car }); while (BOULDERS.length > 15) { const o = BOULDERS.shift(); world.removeBody(o.body); scene.remove(o.mesh); }
   sfx.at(p).crash(wv(car) * 0.6, 8); for (let i = 0; i < 6; i++) emit('dust', p.x, p.y, p.z, rand(-2, 2), rand(0, 2), rand(-2, 2), rand(1, 1.6), rand(0.5, 0.9));
@@ -8239,7 +8245,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '57'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '58'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
