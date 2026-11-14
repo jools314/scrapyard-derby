@@ -1107,6 +1107,40 @@ function addTabletop(cx, cz, dx, dz, h, angleDeg, topLen, W, sideDeg = 28) {
 }
 function rampForRise(rise, angleDeg) { return rise / Math.sin(angleDeg * D2R); }
 
+// Ground scatter: tyre tracks, oil stains, cracks and tufts of dry weeds. Two instanced meshes (two draw calls), hidden on the lowest quality levels.
+const SCATTER = { meshes: [] };
+function buildGroundScatter() {
+  const rnd = mulberry(9157);
+  const atlas = canvasTex(512, (g, sz) => { g.clearRect(0, 0, sz, sz); const h = sz / 2;
+    // 0: tyre tracks (two treaded bands)
+    for (const off of [0.32, 0.68]) for (let y = 0; y < h; y += 7) { g.fillStyle = `rgba(28,20,14,${0.35 + Math.random() * 0.2})`; g.fillRect(off * h - 9, y, 18, 4); }
+    // 1: oil stain
+    { const gr = g.createRadialGradient(h * 1.5, h * 0.5, 4, h * 1.5, h * 0.5, h * 0.46); gr.addColorStop(0, 'rgba(10,8,6,0.75)'); gr.addColorStop(0.6, 'rgba(20,16,12,0.45)'); gr.addColorStop(1, 'rgba(20,16,12,0)'); g.fillStyle = gr; g.beginPath(); for (let i = 0; i <= 24; i++) { const a = i / 24 * Math.PI * 2, r = h * (0.32 + Math.random() * 0.12); g.lineTo(h * 1.5 + Math.cos(a) * r, h * 0.5 + Math.sin(a) * r); } g.fill(); }
+    // 2: cracks
+    g.strokeStyle = 'rgba(30,22,16,0.7)'; g.lineWidth = 2; for (let k = 0; k < 5; k++) { let x = h * 0.5, y = h * 1.5; g.beginPath(); g.moveTo(x, y); for (let i = 0; i < 9; i++) { x += (Math.random() - 0.5) * 50; y += (Math.random() - 0.5) * 50; g.lineTo(x, y); } g.stroke(); }
+    // 3: gravel and bolts
+    for (let i = 0; i < 160; i++) { g.fillStyle = `rgba(${90 + Math.random() * 60},${80 + Math.random() * 50},${70 + Math.random() * 40},0.8)`; g.fillRect(h + Math.random() * h, h + Math.random() * h, 2 + Math.random() * 4, 2 + Math.random() * 4); }
+  }, 1, 1);
+  const decalMat = new THREE.MeshStandardMaterial({ map: atlas, transparent: true, depthWrite: false, roughness: 0.95, polygonOffset: true, polygonOffsetFactor: -2 });
+  const N = 260, geo = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), uv = geo.attributes.uv; // one quad; each instance picks an atlas cell through its UV offset attribute
+  const cell = new Float32Array(N * 2), dm = new THREE.InstancedMesh(geo, decalMat, N), mx = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), ps = new THREE.Vector3();
+  for (let i = 0; i < N; i++) { const k = rnd() < 0.45 ? 0 : rnd() < 0.4 ? 1 : rnd() < 0.5 ? 2 : 3; cell[i * 2] = (k % 2) * 0.5; cell[i * 2 + 1] = k < 2 ? 0.5 : 0;
+    const x = (rnd() - 0.5) * (2 * A - 10), z = (rnd() - 0.5) * (2 * A - 10), len = k === 0 ? 8 + rnd() * 14 : 2 + rnd() * 4;
+    mx.compose(ps.set(x, 0.02 + (i % 7) * 0.001, z), q.setFromEuler(new THREE.Euler(0, rnd() * Math.PI * 2, 0)), sc.set(k === 0 ? 2.2 : len, 1, len)); dm.setMatrixAt(i, mx); }
+  geo.setAttribute('cell', new THREE.InstancedBufferAttribute(cell, 2));
+  decalMat.onBeforeCompile = (sh) => { sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute vec2 cell;').replace('#include <uv_vertex>', '#include <uv_vertex>\nvMapUv = uv * 0.5 + cell;'); };
+  dm.receiveShadow = true; dm.userData.keep = true; scene.add(dm); SCATTER.meshes.push(dm);
+  // weeds: two crossed cards per tuft
+  const weedTex = canvasTex(64, (g, sz) => { g.clearRect(0, 0, sz, sz); for (let i = 0; i < 14; i++) { const x = sz * (0.2 + Math.random() * 0.6); g.strokeStyle = `rgb(${110 + Math.random() * 50},${100 + Math.random() * 40},${50 + Math.random() * 30})`; g.lineWidth = 2; g.beginPath(); g.moveTo(x, sz); g.quadraticCurveTo(x + (Math.random() - 0.5) * 20, sz * 0.5, x + (Math.random() - 0.5) * 26, sz * (0.1 + Math.random() * 0.3)); g.stroke(); } }, 1, 1);
+  const wg = new THREE.PlaneGeometry(0.9, 0.7).translate(0, 0.35, 0), wg2 = wg.clone().rotateY(Math.PI / 2), wgm = mergeGeos([wg, wg2]);
+  const weedMat = new THREE.MeshStandardMaterial({ map: weedTex, alphaTest: 0.4, side: THREE.DoubleSide, roughness: 1 });
+  const W2 = 220, wm = new THREE.InstancedMesh(wgm, weedMat, W2);
+  for (let i = 0; i < W2; i++) { const edge = rnd() < 0.6, x = edge ? (rnd() < 0.5 ? -1 : 1) * (A - 3 - rnd() * 8) : (rnd() - 0.5) * (2 * A - 10), z = edge ? (rnd() - 0.5) * (2 * A - 10) : (rnd() - 0.5) * (2 * A - 10), s2 = 0.7 + rnd() * 0.9;
+    mx.compose(ps.set(rnd() < 0.5 ? x : z, 0, rnd() < 0.5 ? z : x), q.setFromEuler(new THREE.Euler(0, rnd() * 3, 0)), sc.set(s2, s2, s2)); wm.setMatrixAt(i, mx); }
+  wm.userData.keep = true; scene.add(wm); SCATTER.meshes.push(wm);
+}
+function mergeGeos(gs) { const pos = [], nor = [], uv = [], idx = []; let off = 0; for (const g of gs) { const gi = g.index ? g : g; pos.push(...g.attributes.position.array); nor.push(...g.attributes.normal.array); uv.push(...g.attributes.uv.array); for (const i of g.index.array) idx.push(i + off); off += g.attributes.position.count; }
+  const m = new THREE.BufferGeometry(); m.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); m.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); m.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); m.setIndex(idx); return m; }
 function buildArena() {
   groundBody = new CANNON.Body({ type: CANNON.Body.STATIC, shape: new CANNON.Box(new CANNON.Vec3(600, 1, 600)), material: sceneryMat });
   groundBody.position.set(0, -1, 0);
@@ -1125,6 +1159,7 @@ function buildArena() {
     sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform sampler2D macroMap; varying vec2 vWXZ;').replace('#include <map_fragment>', '#include <map_fragment>\nfloat mc = texture2D(macroMap, vWXZ / 260.0).r * 0.7 + texture2D(macroMap, vWXZ / 61.0 + 0.37).r * 0.3; diffuseColor.rgb *= (0.5 + mc * 1.0) * vec3(1.0, 0.97, 0.93 + mc * 0.1);');
   };
 
+  buildGroundScatter();
   // Painted markings
   const ring = new THREE.Mesh(new THREE.RingGeometry(26, 27.2, 96), M.paint);
   ring.rotation.x = -Math.PI / 2; ring.position.y = 0.012; scene.add(ring);
@@ -8189,7 +8224,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '54'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '55'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
@@ -8373,6 +8408,7 @@ const govern = { acc: 0, n: 0, t: 0, good: 0, lastDown: -99 };
 function applyQuality(i) {
   if (QUALITY.level !== i) ptag('quality ' + QUALITY.level + '→' + i);
   QUALITY.level = i; const q = QSTEPS[i];
+  for (const m of SCATTER.meshes) m.visible = i < 6; // ground clutter goes first on weak devices
   world.solver.iterations = i >= 7 ? 10 : i >= 6 ? 11 : 12; QUALITY.subSteps = i >= 6 ? 3 : i >= 5 ? 5 : 8; // weak devices: a cheaper solver, and never pile up catch-up steps (that spiral is what makes slow devices choke)
   QUALITY.scale = q.scale; QUALITY.gfxCap = q.gfx;
   if (sun.shadow.mapSize.x !== Math.min(q.shadow, isTouchUI() ? 1024 : 2048)) { sun.shadow.mapSize.set(Math.min(q.shadow, isTouchUI() ? 1024 : 2048), Math.min(q.shadow, isTouchUI() ? 1024 : 2048)); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
