@@ -641,6 +641,7 @@ const CAR_TYPES = {
   cruiser: { special: 'spikes', handling: { steer: 1.05, rate: 1.1, spring: 1.1, damp: 1.1, rear: 1.0, drag: 0.95, roll: 0.9 }, frontDrive: 0.15, name: 'Cruiser', blurb: 'Police cruiser: F fires the pump shotgun out the window, the stop-stick drops itself behind you when someone tails you (or Z). G toggles the siren.', style: 'sedan', police: true, mass: 1650, L: 4.9, W: 1.9, H: 0.62, wheelR: 0.38, wheelW: 0.32, wb: 2.9, track: 1.62, power: 1.05, grip: 1.0, armor: 0.9, cabin: { l: 2.3, h: 0.58, w: 1.62, x: -0.15 }, color: 0x16191e, redline: 6200, idle: 750, cyl: 4 },
   tiger: { noPlant: true, handling: { steer: 0.65, rate: 0.85, spring: 2.2, damp: 2.0, rear: 1.0, drag: 45, roll: 0.02 }, frontDrive: 0.5, name: 'Tiger', blurb: 'Battle tank with an autocannon: each trigger pull fires a 3-round burst. F, click or FIRE to shoot.', style: 'tank', mass: 11000, L: 6.4, W: 3.4, H: 1.0, hullW: 0.62, wheelR: 0.5, wheelW: 0.5, wb: 4.4, axles: [2.2, 0.75, -0.75, -2.2], track: 2.7, power: 1.3, grip: 1.6, armor: 0.3, traction: 11, cabin: { l: 3.0, h: 0.85, w: 2.6, x: -0.3 }, color: 0x8f7d52, redline: 3000, idle: 600, cyl: 6, skid: true, gun: true, noWheelLoss: true },
   dozer: { noPlant: true, antiWheelie: true, maxSpeed: 8.5, handling: { steer: 0.7, rate: 0.8, spring: 2.2, damp: 2.0, rear: 1.0, drag: 45, roll: 0.02 }, frontDrive: 0.5, name: 'Bulldozer', blurb: 'Bulldozer Bob: 14 t crawler dozer, slow and unstoppable. Blade down it shoves anything; F raises the blade (flipping what is in front) so you can climb over cars, F again slams it down and crushes them.', style: 'tank', dozer: true, special: 'blade', mass: 14000, L: 5.6, W: 3.2, H: 1.0, hullW: 0.66, wheelR: 0.5, wheelW: 0.5, wb: 3.8, axles: [1.9, 0.65, -0.65, -1.9], track: 2.5, power: 1.7, grip: 1.7, armor: 0.45, traction: 18, cabin: { l: 1.7, h: 1.35, w: 1.8, x: -1.0 }, color: 0xe8b010, redline: 2600, idle: 550, cyl: 6, skid: true, noWheelLoss: true },
+  bertha: { heavy: true, special: 'dump', maxSpeed: 12, handling: { steer: 0.55, rate: 0.5, spring: 1.3, damp: 1.4, rear: 1.2, drag: 1.6, roll: 0.5 }, name: 'Big Bertha', blurb: 'Big Bertha: a 26-tonne mining dump truck with 2.7 m tyres. Rolls over anything; F tips the bed and drops a load of boulders on whoever is following.', style: 'dump', mass: 26000, L: 11, W: 5.2, H: 1.2, hullW: 0.82, wheelR: 1.35, wheelW: 0.9, wb: 6.2, axles: [3.3, -2.7], track: 4.1, power: 3.4, grip: 1.05, armor: 0.35, cabin: { l: 1.8, h: 1.4, w: 1.9, x: 3.7 }, color: 0xe0607a, redline: 2100, idle: 520, cyl: 6, noWheelLoss: true },
   tanker: { heavy: true, pour: 'fuel', handling: { steer: 0.7, rate: 0.6, spring: 1.2, damp: 1.3, rear: 1.15, drag: 1.4, roll: 0.55 }, name: 'Tanker', blurb: 'Fuel truck, 7.5 t on six wheels. F spills gasoline; once the tank is ruptured the trail catches fire. Explodes spectacularly.', style: 'tanker', mass: 7500, L: 9.2, W: 2.5, H: 0.75, wheelR: 0.56, wheelW: 0.46, wb: 5.65, axles: [3.3, -1.6, -3.05], track: 2.1, frontDrive: 0, power: 2.3, grip: 0.95, armor: 0.55, cabin: { l: 2.0, h: 1.35, w: 2.3, x: 3.05 }, color: 0x8c3a22, blast: 22, redline: 3000, idle: 600, cyl: 3 },
 };
 
@@ -2054,6 +2055,7 @@ const HORN_LINES = { // what each driver shouts when you lean on the horn (in ch
   cruiser: ['Pull over! Pull over right now!', 'This is the police! Move your vehicle!', 'Step away from the derby!'],
   tiger: ['Achtung! Panzer! Out of ze way, bitte!', 'Zis is ze panzer. I do not honk. I simply arrive.', 'Funkspruch to all units: kindly move, or be moved.'],
   tanker: ['Breaker one-nine, big rig comin\' through!', 'Ten-four, little buddy, get off my lane!', 'Seventy-five hundred kilos of fuel says MOVE!'],
+  bertha: ['Honey, I\'m three storeys up. I can\'t see you, and I\'m not lookin\'.', 'Bless your heart, you\'re in my way!', 'Sugar, I\'ve hauled bigger rocks than you before breakfast!'],
   dozer: ['Move it or lose it!', 'Beep beep beep! That\'s a dozer, and it don\'t care!', 'Clear the job site, folks!'],
 };
 function hornLine(car) { // a horn press gets an in-character shout (not every press: kids lean on the horn)
@@ -2354,6 +2356,12 @@ const WEAPONS = {
     update(car, dt) { const want = car.bladeRaised ? 1 : 0; car.forkH = lerp(car.forkH || 0, want, clamp(dt * (want ? 10 : 18), 0, 1));
       if (!car.bladeRaised && car.bladeShape) car.bladeShape.collisionResponse = true;
       if (!car.isPlayer && car.bladeRaised && simTime - (car.bladeRaisedT || 0) > (cars.some((c) => c !== car && bladeUnder(car, c)) ? 0.6 : 3)) { car.bladeRaised = false; bladeSlam(car); } }, // the AI drops it on whoever is underneath
+  },
+  dump: { label: 'BOULDERS', cd: 7, dur: 2.4, // tip the bed: a load of boulders tumbles out the back
+    start(car) { if ((car.bedLoaded ?? 1) < 0.5) { if (car.isPlayer) toast('BED STILL LOADING', 'bad'); car.specialT = 0; return; } car.dumpN = 0; car.dumpT = 0; sfx.at(car.body.position).hydraulic(wv(car)); if (!car.isPlayer && Math.random() < 0.6) barks.say(car, 'fire', true); },
+    tick(car, dt) { car.dumpT += dt; if (car.dumpT > 0.7 && car.dumpN < 5 && car.dumpT > 0.7 + car.dumpN * 0.12) { car.dumpN++; dropBoulder(car); if (car.dumpN === 5) car.bedLoaded = 0; } },
+    end(car) {},
+    update(car, dt) { const up = car.specialT > 0.6 ? 1 : 0; car.forkH = lerp(car.forkH || 0, up, clamp(dt * (up ? 2.2 : 1.5), 0, 1)); if ((car.bedLoaded ?? 1) < 1 && !(car.specialT > 0)) car.bedLoaded = Math.min(1, (car.bedLoaded || 0) + dt / 7); },
   },
   ram: { label: 'ROCKET RAM', cd: 7, dur: 1.2, // nitro lunge that hits twice as hard
     start(car) { const f = car.fwd; car.body.velocity.x += f.x * 12; car.body.velocity.z += f.z * 12; car.ramT = 1.2; sfx.at(car.body.position).rocketLaunch(wv(car)); if (car.isPlayer) { game.fovPunch = 10; sfx.noiseHit('lowpass', 500, 0.7, 0.6, 0.8); } },
@@ -2758,6 +2766,23 @@ function updateCrawlerCrush(dt) { // a tank or dozer sitting on a car squashes i
       c.onTopT = (c.onTopT || 0) + dt; if (c.onTopT > 0.25 && simTime - (c.crushT0 || -9) > 0.7) crushCar(c, t, 0.6);
       if (Math.random() < dt * 8) sfx.at(c.body.position).scrape(wv(t) * 0.7);
     } }
+}
+const BOULDERS = [], boulderGeo = new THREE.DodecahedronGeometry(1.0); boulderGeo.userData.shared = true;
+const boulderMat = new THREE.MeshStandardMaterial({ color: 0x8a7764, roughness: 0.95, flatShading: true });
+function dropBoulder(car, ev) { // a 900 kg rock rolls off the back of the bed
+  const b = car.body, p = ev ? new CANNON.Vec3(ev[0], ev[1], ev[2]) : b.pointToWorldFrame(new CANNON.Vec3(-car.T.L / 2 - 1.2 - car.comShift, car.T.H + 1.4, rand(-1.4, 1.4)));
+  const v = ev ? new CANNON.Vec3(ev[3], ev[4], ev[5]) : new CANNON.Vec3(b.velocity.x - car.fwd.x * rand(3, 6) + rand(-1, 1), rand(-1, 1), b.velocity.z - car.fwd.z * rand(3, 6) + rand(-1, 1));
+  const r = ev ? ev[6] : rand(0.75, 1.0), body = new CANNON.Body({ mass: 900 * r * r * r, material: sceneryMat, linearDamping: 0.05, angularDamping: 0.1 }); body.addShape(new CANNON.Sphere(r));
+  body.position.copy(p); body.velocity.copy(v); body.angularVelocity.set(rand(-3, 3), rand(-3, 3), rand(-3, 3)); body.boulder = true; world.addBody(body);
+  const m = new THREE.Mesh(boulderGeo, boulderMat); m.scale.setScalar(r); m.castShadow = true; m.receiveShadow = true; m.userData.shared = true; scene.add(m);
+  BOULDERS.push({ body, mesh: m, t: 40, by: car }); while (BOULDERS.length > 15) { const o = BOULDERS.shift(); world.removeBody(o.body); scene.remove(o.mesh); }
+  sfx.at(p).crash(wv(car) * 0.6, 8); for (let i = 0; i < 6; i++) emit('dust', p.x, p.y, p.z, rand(-2, 2), rand(0, 2), rand(-2, 2), rand(1, 1.6), rand(0.5, 0.9));
+  if (!ev && MP.role === 'host') MP.event({ k: 'bd', p: [p.x, p.y, p.z, v.x, v.y, v.z, r].map((x) => Math.round(x * 100) / 100) });
+}
+function updateBoulders(dt) {
+  for (let i = BOULDERS.length - 1; i >= 0; i--) { const o = BOULDERS[i]; o.t -= dt; o.mesh.position.copy(o.body.position); o.mesh.quaternion.copy(o.body.quaternion);
+    if (o.t < 2) o.mesh.position.y -= (2 - o.t) * 0.8; // sinks into the dirt before it goes
+    if (o.t <= 0 || o.body.position.y < -5) { world.removeBody(o.body); scene.remove(o.mesh); BOULDERS.splice(i, 1); } }
 }
 function harpoonRip(car, c) { // the barb rips the panel facing you clean off; the cable stays on the panel and you reel in a door
   c.rip = 0; const v = c.t; if (!v || !v.parts || v.wrecked) return;
@@ -3283,6 +3308,7 @@ class Car {
     b.addShape(chamferBox(C.l / 2, C.h / 2, C.w / 2, Math.min(0.3, C.w * 0.18), Math.min(0.15, C.h * 0.25)), new CANNON.Vec3(C.x, HULL_Y0 + T.H + C.h / 2, 0));
     if (T.style === 'van') b.addShape(this.vanShape = new CANNON.Box(new CANNON.Vec3(2.65, 0.62, T.W / 2 * 0.97)), new CANNON.Vec3(-0.65, HULL_Y0 + T.H + 0.62, 0));
     if (T.style === 'tanker') b.addShape(new CANNON.Box(new CANNON.Vec3(2.9, 1.05, 1.05)), new CANNON.Vec3(-1.55, HULL_Y0 + T.H + 1.1, 0));
+    if (T.style === 'dump') b.addShape(new CANNON.Box(new CANNON.Vec3(3.6, 0.95, T.W / 2 * 0.95)), new CANNON.Vec3(-1.3, HULL_Y0 + T.H + 0.95, 0)); // the dump bed
     if (T.style === 'mixer') b.addShape(new CANNON.Box(new CANNON.Vec3(2.1, 1.15, 1.15)), new CANNON.Vec3(-1.1, HULL_Y0 + T.H + 1.2, 0));
     if (T.style === 'fire') b.addShape(new CANNON.Box(new CANNON.Vec3(2.6, 0.5, 1.2)), new CANNON.Vec3(-1.8, HULL_Y0 + T.H + 0.5, 0));
     if (T.style === 'tank') for (const sd of [-1, 1]) b.addShape(chamferBox(T.L * 0.48, 0.42, 0.3, 0.12, 0.02, 0.5), new CANNON.Vec3(0, -0.36, sd * T.track / 2)); // tracks
@@ -3412,7 +3438,7 @@ class Car {
       for (const z of [-bw / 6, bw / 6]) add(new THREE.BoxGeometry(0.06, up * 0.8, 0.06), M.steel, 0.13, up * 0.4, z, frontBumper);
     }
     part(add(bumperGeo, M.steel, -L / 2 - 0.1, HULL_Y0 + 0.22, 0), 'rear', 32);
-    if (st !== 'buggy' && st !== 'tanker' && st !== 'tank' && st !== 'mixer' && st !== 'fire') {
+    if (st !== 'buggy' && st !== 'tanker' && st !== 'tank' && st !== 'mixer' && st !== 'fire' && st !== 'dump') {
       // Hood panel follows the sloped nose
       const hl = L * 0.27, hx = L / 2 - L * 0.19, hy = top - H * (st === 'wedge' ? 0.3 : 0.14) + 0.03, rz = st === 'wedge' ? -0.22 : st === 'van' ? 0 : -0.11;
       const hinge = new THREE.Group(); hinge.position.set(hx - (hl / 2) * Math.cos(rz), hy - (hl / 2) * Math.sin(rz), 0); hinge.rotation.z = rz; root.add(hinge); // the hood swings on hinges at its back edge
@@ -3513,6 +3539,26 @@ class Car {
         part(add(new THREE.CylinderGeometry(0.11, 0.11, 2.3, 10), M.chrome, x, top + 1.05, sz), 'top', 50);
         this.stacks.push({ x, y: top + 2.25, z: sz });
       }
+    }
+    if (st === 'dump') { // tipping bed (hinged at the back), canopy over the cab, a load of rocks, a stair-ladder up to the cab and a radiator the size of a garage door
+      const bed = new THREE.Group(); bed.position.set(-L / 2 + 0.4, top + 0.05, 0); root.add(bed); this.bed = bed;
+      const bw = W * 0.96, rockMat = new THREE.MeshStandardMaterial({ color: 0x7a6a58, roughness: 0.95, flatShading: true });
+      const floorG = new THREE.BoxGeometry(7.4, 0.18, bw, 10, 1, 6); const floor = add(floorG, this.paint, 3.7, 0.09, 0, bed); this.deform.push({ mesh: floor, orig: floorG.attributes.position.array.slice(), inGroup: true });
+      for (const sd of [-1, 1]) { const sg = new THREE.BoxGeometry(7.4, 1.9, 0.14, 10, 3, 1); const sm = add(sg, this.paint, 3.7, 0.95, sd * bw / 2, bed); sm.rotation.x = sd * 0.08; this.deform.push({ mesh: sm, orig: sg.attributes.position.array.slice(), inGroup: true }); }
+      add(new THREE.BoxGeometry(0.16, 2.2, bw), this.paint, 7.35, 1.1, 0, bed); // headboard
+      add(new THREE.BoxGeometry(2.6, 0.14, bw), this.paint, 8.6, 2.15, 0, bed); // canopy over the cab (keeps rocks off the driver)
+      for (let k = 0; k < 6; k++) add(new THREE.BoxGeometry(0.12, 1.7, 0.08), M.black, 0.6 + k * 1.3, 0.95, bw / 2 + 0.08, bed); // ribs
+      for (let k = 0; k < 6; k++) add(new THREE.BoxGeometry(0.12, 1.7, 0.08), M.black, 0.6 + k * 1.3, 0.95, -bw / 2 - 0.08, bed);
+      const load = new THREE.Group(); bed.add(load); this.bedLoad = load;
+      const rg = new THREE.DodecahedronGeometry(0.75); rg.userData.shared = true;
+      for (let k = 0; k < 9; k++) { const r = new THREE.Mesh(rg, rockMat); r.position.set(1.2 + (k % 3) * 2.1 + rand(-0.3, 0.3), 1.0 + rand(0, 0.5), (Math.floor(k / 3) - 1) * 1.3); r.rotation.set(rand(0, 6), rand(0, 6), 0); r.scale.setScalar(rand(0.8, 1.2)); r.castShadow = true; load.add(r); }
+      for (const sd of [-1, 1]) add(new THREE.CylinderGeometry(0.16, 0.16, 2.4, 10), M.chrome, 0.9, 0.6, sd * 1.2, root).rotation.z = 0.9; // hoist rams
+      add(new THREE.BoxGeometry(0.1, H * 1.1, hullW * 0.75), M.steel, L / 2 + 0.06, HULL_Y0 + H * 0.6, 0); // radiator
+      for (let k = 0; k < 8; k++) add(new THREE.BoxGeometry(0.05, H * 1.0, 0.06), M.black, L / 2 + 0.12, HULL_Y0 + H * 0.6, -hullW * 0.35 + k * hullW * 0.1);
+      for (let k = 0; k < 6; k++) add(new THREE.BoxGeometry(0.5, 0.05, 0.6), M.steel, L / 2 - 0.4, HULL_Y0 + 0.2 + k * 0.32, -hullW / 2 - 0.35); // stair-ladder up to the cab
+      add(new THREE.BoxGeometry(0.05, 2.0, 0.05), M.cone, L / 2 - 0.15, HULL_Y0 + 1.1, -hullW / 2 - 0.62); // hand rail
+      part(add(new THREE.CylinderGeometry(0.1, 0.1, 0.12, 10), M.cone, C.x, top + C.h + 0.1, -0.6), 'top', 25); // amber beacon
+      this.bedLoaded = 1;
     }
     if (st === 'mixer') { // rotating drum, chute, water tank
       const drum = new THREE.Group(); drum.position.set(-1.1, top + 1.25, 0); drum.rotation.z = 0.18; root.add(drum); this.drum = drum;
@@ -4520,6 +4566,7 @@ class Car {
       const kx = -clamp(la.x, -25, 25) * 0.02, kz = clamp(la.z, -25, 25) * 0.02;
       f.vaz += ((kx - f.az) * 30 - f.vaz * 2.2) * dt; f.vax += ((kz - f.ax) * 30 - f.vax * 2.2) * dt; f.az += f.vaz * dt; f.ax += f.vax * dt;
       f.az = clamp(f.az, -1.1, 1.1); f.ax = clamp(f.ax, -1.1, 1.1); f.piv.rotation.set(f.ax, 0, f.az); }
+    if (this.bed) { this.bed.rotation.z = (this.forkH || 0) * 0.85; if (this.bedLoad) this.bedLoad.visible = (this.bedLoaded ?? 1) > 0.5; } // the bed tips up to dump
     if (this.bladePivot) { const u = this.forkH || 0; this.bladePivot.position.y = this.bladeY0 + u * 0.95; this.bladePivot.rotation.z = u * 0.45; } // blade heaves up and curls back
     if (this.hood && this.hood.open && !this.hood.part.detached) { const h = this.hood; h.hinge.rotation.z = h.rz + h.open + Math.sin(clock * (5 + sp * 0.6) + h.seed) * Math.min(0.22, 0.02 + sp * 0.008) - Math.min(0.35, sp * 0.012); } // flaps in the wind, pressed down a little at speed
     for (const pt of this.parts) if (pt.loose && !pt.detached && pt.baseRot && !pt.own) {
@@ -5424,7 +5471,7 @@ class Car {
     if (this.T.special && !this.specialCd && Math.random() < 0.12) { // AI weapon use: every driver knows their gadget
       const sp = this.T.special, l = b.pointToLocalFrame(t.body.position), ahead = l.x > 0 && Math.abs(l.z) < Math.max(2.5, l.x * 0.6);
       const behind = cars.some((c) => c !== this && !c.wrecked && (() => { const q = b.pointToLocalFrame(c.body.position); return q.x < -this.T.L / 2 && q.x > -32 && Math.abs(q.z) < 7 + -q.x * 0.15; })());
-      if ((sp === 'harpoon' && ((ahead && dist > 10 && dist < 40) || !!frontTarget(this, 40, 0.4))) || (sp === 'flame' && ahead && dist < 10) || (sp === 'blade' && ahead && dist < 7.5) || (sp === 'water' && ahead && dist < 22) || (sp === 'ram' && ahead && dist > 8 && dist < 28) || ((sp === 'oil' || sp === 'bomb') && behind && sp !== 'bomb') || (sp === 'spikes' && ahead && dist < 28) || (sp === 'bomb' && ahead && dist > 12 && dist < 50) || (sp === 'lift' && (this.carry ? this.carry.t > 2.4 && (!this.delivery || this.delivery.gaveUp) : forkReady(this))) || (sp === 'tow' && (this.tow ? this.tow.t > 3.5 && Math.abs(this.speed) > 6 && (!this.delivery || this.delivery.gaveUp) : towable(this))) || (sp === 'minigun' && this.mgTarget && dist < 55) || (sp === 'rockets' && !!frontTarget(this, 90, 0.45) && dist > 10)) ctrl.fire = true;
+      if ((sp === 'harpoon' && ((ahead && dist > 10 && dist < 40) || !!frontTarget(this, 40, 0.4))) || (sp === 'flame' && ahead && dist < 10) || (sp === 'dump' && behind) || (sp === 'blade' && ahead && dist < 7.5) || (sp === 'water' && ahead && dist < 22) || (sp === 'ram' && ahead && dist > 8 && dist < 28) || ((sp === 'oil' || sp === 'bomb') && behind && sp !== 'bomb') || (sp === 'spikes' && ahead && dist < 28) || (sp === 'bomb' && ahead && dist > 12 && dist < 50) || (sp === 'lift' && (this.carry ? this.carry.t > 2.4 && (!this.delivery || this.delivery.gaveUp) : forkReady(this))) || (sp === 'tow' && (this.tow ? this.tow.t > 3.5 && Math.abs(this.speed) > 6 && (!this.delivery || this.delivery.gaveUp) : towable(this))) || (sp === 'minigun' && this.mgTarget && dist < 55) || (sp === 'rockets' && !!frontTarget(this, 90, 0.45) && dist > 10)) ctrl.fire = true;
     }
     if (this.T.pour && !this.pourT && this.load > 0.4) { // mixer: pour when someone is right behind
       for (const c of cars) { if (c === this || c.wrecked) continue; const l = b.pointToLocalFrame(c.body.position); if (l.x < -this.T.L / 2 && l.x > -38 && Math.abs(l.z) < 9 && Math.random() < 0.08) { ctrl.fire = true; break; } }
@@ -5942,6 +5989,22 @@ const CAR_CAST = {
       charge: ['Charge! For the Grail!', 'Camelot!', 'Onward, Patsy! Clop faster!'],
       flee: ['Run away! Run away!', 'Brave Sir Robin ran away...', 'We shall use... a tactical retreat!'],
     } },
+  bertha: { nick: 'Big Bertha', hand: 0.65, style: 'brawler', from: 'a Southern grandma who drives a 300-ton mine truck', lang: 'en-US', pitch: 1.0, rate: 0.95, color: '#e0607a',
+    words: { ex: ['Well butter my biscuit', 'Lord have mercy', 'Sweet tea and sunshine', 'Oh, sugar'], insult: ['sweetie', 'sugar plum', 'little fella', 'darlin\''], kin: ['my grandbabies', 'my late husband Earl', 'the church ladies'], thing: ['peach cobbler', 'a hard hat', 'my reading glasses'], boast: ['Bless your heart!', 'That there\'s called a haul, sugar.'], voice: ['Samantha', 'Karen', 'Victoria', 'Google US English'] },
+    lines: {
+      start: ['Alright, darlin\'s, Grandma\'s here to haul some trash.', 'Two hundred tons of payload and a thermos of coffee. Let\'s go.', 'Y\'all mind the big pink truck now.'],
+      hitYou: ['Bless your heart!', 'Oops! Did Grandma bump you, sweetie?', 'That\'s what you get for tailgatin\', sugar.', 'Flatter than my peach cobbler!'],
+      gotHit: ['Was that you, sugar? I barely felt it.', 'Honey, my tyres are taller than you.', 'Oh, now you\'ve made Grandma cross.'],
+      wheel: ['Lost a tyre! That\'s eight grand, mister!', 'Somebody call the tyre crew!'],
+      low: ['She\'s smokin\' worse than Earl on a Sunday.', 'Grandma needs a little sit-down.'],
+      wrecked: ['Well, I never!', 'Tell the grandbabies Grandma went down haulin\'.'],
+      gloat: ['Dinner\'s at six, and you\'re not invited.', 'Load it up and haul it out!', 'Now that\'s what I call a delivery.'],
+      air: ['Lord have mercy, I\'m flyin\'!', 'Two hundred tons should NOT be airborne!'],
+      taunt: ['Come here, sugar, Grandma\'s got somethin\' for you. It\'s rocks.', 'I\'ve got a bed full of boulders and nowhere to put \'em.', 'You tailgate Grandma, you get the gravel.'],
+      fire: ['Dumpin\' the load!', 'Rocks away, honey!', 'Special delivery!'],
+      charge: ['Grandma\'s comin\' through!', 'Out of the way, sweetie!'],
+      flee: ['Grandma needs her nap.', 'Back to the quarry!'],
+    } },
   dozer: { nick: 'Bulldozer Bob', hand: 0.7, style: 'brawler', from: 'a West Texas oilfield crew', lang: 'en-US', pitch: 0.7, rate: 0.92, color: '#e8b010',
     words: { ex: ['Well shoot', 'Lord have mercy', 'Hoo-wee', 'Dadgum'], insult: ['you tin can', 'you speed bump', 'you lawn ornament', 'you little hubcap'], kin: ['my mama', 'Uncle Earl', 'my ex-wife'], thing: ['brisket', 'diesel', 'a pothole'], boast: ['Hoo-wee!', 'That there is called grading.'], voice: ['Ralph', 'Fred', 'Google US English'] },
     lines: {
@@ -6028,6 +6091,7 @@ const HORNS = {
   viper:    { f: [554, 698], wave: 'square', drive: 2, lp: 3600, gain: 0.08, attack: 0.008 },
   hearse:   { f: [196, 233, 294], wave: 'triangle', drive: 2, lp: 1500, gain: 0.13, attack: 0.06, vibrato: 4.5 },
   towtruck: { f: [233, 294], wave: 'sawtooth', drive: 6, lp: 2000, gain: 0.12, attack: 0.03 },
+  bertha:   { f: [69.3, 87.3, 103.8], wave: 'sawtooth', drive: 24, lp: 1100, gain: 0.34, attack: 0.18, breath: 0.28 }, // a mine-site horn you feel in your chest
   firetruck: { f: [98, 123.5, 146.8], wave: 'sawtooth', drive: 20, lp: 1500, gain: 0.3, attack: 0.12, breath: 0.2 }, // a ship-sized three-tone air horn
   mixer:    { f: [116.5, 146.8], wave: 'sawtooth', drive: 15, lp: 1700, gain: 0.22, attack: 0.08, breath: 0.12 }, // deep Jersey trucker horn
   hellbender: { f: [185, 233], wave: 'square', drive: 8, lp: 2600, gain: 0.12, attack: 0.02 },
@@ -6208,6 +6272,15 @@ const CAST_MORE = {
     taunt: ['Bring me a shrubbery. And your hubcaps.', 'Ni! Ni! Ni!', 'C|Now go away, or I shall taunt you a second time!', 'What is your quest? To lose, apparently.'],
     hitYou: ['Ni!', 'B|Have at you!', 'Huzzah!'],
     gotHit: ['B|Just a flesh wound!', 'I\'m not dead!', 'B|Is that all you\'ve got?!'],
+  },
+  bertha: {
+    insult: ['sweetie', 'sugar', 'darlin\'', 'little fella'],
+    rival: ['{v}, sugar, you are in Grandma\'s mirror!', 'Bless your heart, {v}. That {vcar} is cute.', '{v}, Grandma\'s got a load with your name on it.'],
+    respawn: ['Grandma\'s back, and she brought rocks.', 'New truck, same Grandma.', 'Y\'all thought Grandma was done? Bless your hearts.'],
+    kill: ['{v} just got delivered.', 'Bury {v} under the gravel, boys.', 'Bless {v}\'s heart. Bless what\'s left of it.'],
+    taunt: ['I\'ve got two hundred tons and all day, sugar.', 'Grandma doesn\'t brake. Grandma arrives.'],
+    hitYou: ['Bless your heart!', 'Oopsie!', 'Rocks for everybody!'],
+    gotHit: ['That tickled, sweetie.', 'You hit a mine truck. On purpose. Bless your heart.'],
   },
   dozer: {
     insult: ['you hubcap', 'you speed bump', 'you lawn dart', 'you city slicker'],
@@ -6730,7 +6803,7 @@ function spawnCars() {
 function setControlsFor(type) {
   document.body.classList.toggle('has-gun', !!(CAR_TYPES[type].gun || CAR_TYPES[type].pour || CAR_TYPES[type].special));
   { const T0 = CAR_TYPES[type]; // the controls strip and the touch FIRE button follow your car
-    const act = T0.gun ? 'fire 3-round burst' : T0.pour ? (T0.pour === 'fuel' ? 'dump fuel' : 'pour concrete') : ({ blade: 'raise / slam blade', lift: 'lift / toss', tow: 'hook / release (back up first)', minigun: 'minigun', rockets: 'rocket salvo', water: 'water cannon', harpoon: 'harpoon', flame: 'flamethrower', bomb: 'propane bomb', spikes: 'shotgun · Z stop stick', oil: 'oil slick', ram: 'rocket ram' })[T0.special];
+    const act = T0.gun ? 'fire 3-round burst' : T0.pour ? (T0.pour === 'fuel' ? 'dump fuel' : 'pour concrete') : ({ dump: 'dump boulders', blade: 'raise / slam blade', lift: 'lift / toss', tow: 'hook / release (back up first)', minigun: 'minigun', rockets: 'rocket salvo', water: 'water cannon', harpoon: 'harpoon', flame: 'flamethrower', bomb: 'propane bomb', spikes: 'shotgun · Z stop stick', oil: 'oil slick', ram: 'rocket ram' })[T0.special];
     const kb = (k, t, cls) => `<span${cls ? ' class="sp"' : ''}><b>${k}</b> ${t}</span>`;
     const parts = [kb('W A S D', 'drive'), kb('Space', 'handbrake'), kb('Shift', 'nitro'), kb('J', 'jump')];
     if (act) parts.push(kb('F', act, true));
@@ -6738,7 +6811,7 @@ function setControlsFor(type) {
     if (T0.police || T0.siren) parts.push(kb('G', 'siren'));
     parts.push(kb('H', 'horn'), kb('C', 'camera'), kb('R', 'flip'), kb('N', 'new car'), kb('P', 'pause'));
     $('keys').innerHTML = parts.join(' · ');
-    const ICON = { blade: ['🚜', 'Blade'], harpoon: ['🎯', 'Harpoon'], oil: ['🛢️', 'Oil'], spikes: ['💥', 'Shotgun'], flame: ['🔥', 'Flames'], bomb: ['💣', 'Propane'], water: ['💧', 'Water'], minigun: ['🔫', 'Minigun'], rockets: ['🚀', 'Rockets'], lift: ['⬆️', 'Lift'], tow: ['🪝', 'Hook'], ram: ['🚀', 'Ram'] };
+    const ICON = { dump: ['🪨', 'Boulders'], blade: ['🚜', 'Blade'], harpoon: ['🎯', 'Harpoon'], oil: ['🛢️', 'Oil'], spikes: ['💥', 'Shotgun'], flame: ['🔥', 'Flames'], bomb: ['💣', 'Propane'], water: ['💧', 'Water'], minigun: ['🔫', 'Minigun'], rockets: ['🚀', 'Rockets'], lift: ['⬆️', 'Lift'], tow: ['🪝', 'Hook'], ram: ['🚀', 'Ram'] };
     const [ic, lb] = T0.gun ? ['💥', 'Cannon'] : T0.pour ? (T0.pour === 'fuel' ? ['⛽', 'Fuel'] : ['🧱', 'Concrete']) : ICON[T0.special] || ['💥', 'Fire'];
     $('fireIco').textContent = ic; $('fireLab').textContent = lb;
     document.body.classList.toggle('has-siren', !!(T0.police || T0.siren));
@@ -7711,8 +7784,8 @@ const MP = {
     const newer = this.room.peers().find((p) => !p.sameTab && p.presence && p.presence.host && (p.presence.host > this.epoch || (p.presence.host === this.epoch && p.peer > me)));
     if (newer) this.stepDown();
   },
-  hostLost(dt) { // no word from the host: hold on 5 s, then the strongest player takes over
-    const L = this.lost || (this.lost = { t: 0, excl: new Set(), wait: null, epoch0: this.epoch, at: performance.now() }); L.t = (performance.now() - L.at) / 1000; // wall clock: a struggling device still keeps to 5 s
+  hostLost(dt, fast) { // no word from the host: hold on 5 s, then the strongest player takes over (a host that is merely crawling or hidden: 1 s)
+    const L = this.lost || (this.lost = { t: 0, excl: new Set(), wait: null, epoch0: this.epoch, at: performance.now() - (fast ? 4000 : 0) }); L.t = (performance.now() - L.at) / 1000; // wall clock: a struggling device still keeps to 5 s
     const ban = $('hostlost'); ban.hidden = false;
     if (this.epoch > L.epoch0) { // somebody already took over: wait for their first updates instead of electing again
       L.newT = L.newT ?? L.t; const nm = this.room.peers().find((p) => p.peer === this.hostPeer)?.presence?.nick || 'another player';
@@ -7729,7 +7802,7 @@ const MP = {
     $('hlN').textContent = '…'; $('hlS').textContent = `${nm} is taking over as host…`;
     if (L.t - L.wait.t > 6) { L.excl.add(pick.peer); L.wait = null; } // they didn't: next best
   },
-  hostBack() { this.lost = null; $('hostlost').hidden = true; },
+  hostBack() { this.lost = null; this.crawlSaid = false; this.crawlSince = 0; $('hostlost').hidden = true; },
   becomeHost(epoch, from) { // turn this device's copy of the game into the real one and carry on
     const roster = this.lastRoster || [], me = this.myPeer();
     this.role = 'host'; this.epoch = epoch; this.hostBack(); this.hostPeer = null;
@@ -7790,8 +7863,13 @@ const MP = {
   },
   guestFrame(dt) {
     const hp = this.hostPresence();
-    const stale = this.lastSnapAt && performance.now() / 1000 - this.lastSnapAt > 2 && game.state === 'playing';
-    if (!hp || stale) { if (this.builtRk) this.hostLost(dt); if (this.role !== 'guest' || !hp) return; } else if (this.lost) this.hostBack();
+    const nowS = performance.now() / 1000, hk = (hp ? hp.peer : '') + '@' + this.epoch; if (hk !== this.crawlKey) { this.crawlKey = hk; this.crawlSince = nowS + 4; this.snapHist = []; this.crawlSaid = false; } // a new host gets a fresh start (and a few seconds to settle in)
+    if (!this.crawlSince || (this.snapHist && this.snapHist.length >= 15)) this.crawlSince = Math.max(this.crawlSince || 0, nowS); // fewer than ~3 updates a second for 6 s: the host is crawling (backgrounded or swamped)
+    const crawling = this.builtRk && game.state === 'playing' && nowS - this.crawlSince > 6 && !!this.lastSnapAt;
+    const hiddenHost = hp && hp.presence && hp.presence.hid && this.lastSnapAt && nowS - this.lastSnapAt > 0.6;
+    if ((crawling || hiddenHost) && !this.crawlSaid) { this.crawlSaid = true; NETLOG.incident('me', crawling ? `host is crawling (${this.snapHist ? this.snapHist.length : 0} updates in 6 s): taking over` : 'host page is in the background: taking over'); }
+    const stale = (this.lastSnapAt && nowS - this.lastSnapAt > 2 && game.state === 'playing') || crawling || hiddenHost;
+    if (!hp || stale) { if (this.builtRk) this.hostLost(dt, crawling || hiddenHost); if (this.role !== 'guest' || !hp) return; } else if (this.lost) this.hostBack();
     if (hp.handoff && hp.handoff[0] === this.myPeer() && this.builtRk) { this.becomeHost(hp.handoff[1], this.hostPeer); return; }
     if (hp.md) GAME_MODE = hp.md;
     if (hp.hh) { const h = {}; for (const k in hp.hh) h[k === 'host' ? 'host' : k] = { bad: true }; this.health = h; } else this.health = {};
@@ -7804,7 +7882,7 @@ const MP = {
       if (gapT > 0 && gapT < 1) { N.iv = lerp(N.iv, gapT, 0.1); N.gap = lerp(N.gap ?? gapT, gapT, gapT > (N.gap ?? 0) ? 0.3 : 0.015); } // typical and worst-recent gap between updates
       const off = s.t - now; N.off = N.off === null ? off : off > N.off ? off : N.off + (off - N.off) * 0.01; // host clock as seen by the fastest delivery: jump forward fast, drift back slowly
       const late = N.off - off; N.jit = lerp(N.jit, late, late > N.jit ? 0.25 : 0.02); // how late snapshots run behind the fastest: rises fast, relaxes slowly
-      this.snaps.push(s); if (this.snaps.length > 12) this.snaps.shift(); NETLOG.onSnap(now, s.t); this.lastSnapAt = performance.now() / 1000;
+      this.snaps.push(s); if (this.snaps.length > 12) this.snaps.shift(); NETLOG.onSnap(now, s.t); this.lastSnapAt = performance.now() / 1000; (this.snapHist || (this.snapHist = [])).push(this.lastSnapAt); while (this.snapHist.length && this.lastSnapAt - this.snapHist[0] > 6) this.snapHist.shift();
     }
     if (!this.snaps.length) return;
     const latest = this.snaps[this.snaps.length - 1];
@@ -7859,6 +7937,7 @@ const MP = {
       if (e.k === 'pr') { const pr = PROPID.map.get(e.id); const i = pr ? props.indexOf(pr) : -1; if (i >= 0) { props.splice(i, 1); world.removeBody(pr.body); scene.remove(pr.mesh); bits(pr.body.position, BIT.splinter, 8, 4, 4); } }
       if (e.k === 'b') { const c = cars[e.i], P = e.i === -1 ? ANNOUNCER : c && c.persona; if (P) { barks.show(P, e.i === -1 ? new THREE.Color(0xf2a20c) : c.baseColor, e.x); barks.speak(P, e.x, c ? c.body.position : null); } }
       else if (e.k === 'h') { const p = new CANNON.Vec3(e.p[0], e.p[1], e.p[2]); sparks(p, Math.min(50, e.v * 2.5 | 0)); if (player) sfx.at(p).crash(Math.min(1, e.v / 18) * clamp(1 - player.body.position.distanceTo(p) / 110, 0, 1), e.v); }
+      else if (e.k === 'bd') { const host = cars.find((c) => c.T.special === 'dump') || { body: { velocity: new CANNON.Vec3(), pointToWorldFrame: () => new CANNON.Vec3() }, T: { L: 0, H: 0 }, fwd: new CANNON.Vec3(1, 0, 0), comShift: 0 }; dropBoulder(host, e.p); }
       else if (e.k === 'ss') { addSpikeStrip(e.p[0], e.p[1], e.p[2], null); }
       else if (e.k === 'x') { explodeShell(new CANNON.Vec3(e.p[0], e.p[1], e.p[2]), null, this.dummy, e.s || 1); }
     }
@@ -7971,7 +8050,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '50'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '51'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
@@ -8391,13 +8470,27 @@ $('nlCopy').addEventListener('click', async () => { const t = $('nlText'); try {
 // The host runs the game on its own 60 Hz clock (a timer), separate from drawing: a slow draw never delays the game or the packets.
 // Everyone else simulates and draws in the same animation frame.
 const TICK = { on: false, last: 0, n: 0 };
+document.addEventListener('visibilitychange', () => {
+  if (MP.role !== 'host' || !MP.room) return;
+  MP.room.presence({ hid: document.hidden ? 1 : null }, true).catch(() => {});
+  if (document.hidden) { NETLOG.incident('me', 'host page went into the background'); clearTimeout(MP.hideT); MP.hideT = setTimeout(() => { // still hidden after 2 s: let an active player host instead (a locked iPad stops completely)
+    if (!document.hidden || MP.role !== 'host') return; const g = MP.guests().filter((p) => p.presence && p.presence.nick && !p.presence.hid).sort((a, b) => (b.presence.ps ?? 0) - (a.presence.ps ?? 0))[0];
+    if (g) { NETLOG.incident('me', `host in the background: handing the game to ${g.presence.nick}`); MP.handOver(g.peer); } }, 2000); }
+});
 function hostTick() {
   const want = MP.role === 'host' && !window.__noTick;
   if (want && !TICK.on) { TICK.on = true; lastT = performance.now(); }
   if (!want && TICK.on) { TICK.on = false; lastT = performance.now(); }
   if (TICK.on) { try { const t0 = performance.now(); simBody(t0); const ms = performance.now() - t0; NETLOG.sim(ms); TICK.ms = (TICK.ms || 0) + ms; TICK.n++; } catch (e) { if (frameErrors++ < 5) console.error('tick error', e); } }
-  setTimeout(hostTick, TICK.on ? Math.max(0, 1000 / 60 - (performance.now() - lastT)) : 250); // not hosting: just check now and then
+  if (!TICK.worker) setTimeout(hostTick, TICK.on ? Math.max(0, 1000 / 60 - (performance.now() - lastT)) : 250); // not hosting: just check now and then
 }
+// A hidden tab or a minimised window gets its timers slowed to once a second: a host there would run the whole game at 1 tick/s.
+// A worker's timer keeps going, so the host's game keeps its pace even in the background.
+try { const w = new Worker(URL.createObjectURL(new Blob(['let iv=setInterval(()=>postMessage(0),16);onmessage=(e)=>{clearInterval(iv);iv=setInterval(()=>postMessage(0),e.data)}'], { type: 'text/javascript' })));
+  let busy = false; w.onmessage = () => { TICK.lastW = performance.now(); if (busy) return; busy = true; try { hostTick(); } finally { busy = false; } }; TICK.worker = w;
+  const fallback = () => { if (!TICK.worker) return; TICK.worker = null; try { w.terminate(); } catch (e) {} setTimeout(hostTick, 20); }; w.onerror = fallback; // blocked (some embedded pages forbid workers): back to the plain timer
+  setInterval(() => { if (TICK.worker && !document.hidden && performance.now() - (TICK.lastW || 0) > 1500) fallback(); }, 1000);
+} catch (e) { TICK.worker = null; }
 setTimeout(hostTick, 100);
 let lastDrawT = performance.now();
 let WARMED = false;
@@ -8429,6 +8522,7 @@ function cockpitEye(c) { // where the driver's eye goes: toward the nose and jus
   }
   let x = ex, y = (isFinite(hood) ? hood : HULL_Y0 + c.T.H) + 0.38;
   if (c.T.dozer) { const C = c.T.cabin; x = C.x + C.l * 0.45; y = HULL_Y0 + c.T.H + C.h + 0.1; }
+  if (c.T.style === 'dump') { const C = c.T.cabin; x = C.x + C.l * 0.3; y = HULL_Y0 + c.T.H + C.h * 0.75; } // up in the cab, under the canopy
   if (c.T.style === 'van') { const C = c.T.cabin; x = C.x - C.l * 0.1; y = HULL_Y0 + c.T.H + C.h * 0.62; } // the RV: from the driver's seat, under the bunk, looking out the windscreen // the operator sits up high in the cab and looks down over the blade
   if (skip) { // a popped hood: sit behind its hinge, with its edge just under eye level, so it fills the bottom of the view and flaps up into it
     const hp = new THREE.Vector3(), tip = new THREE.Vector3(c.hood.hl, 0, 0); c.hood.hinge.getWorldPosition(hp); c.hood.hinge.localToWorld(tip);
@@ -8513,7 +8607,7 @@ function simBody(now) {
     } else if (game.state === 'playing') game.grace -= dt;
     SEC.run('cars', () => { for (const c of cars) c.frameUpdate(dt); });
     if (MP.role !== 'guest') unwedge(dt);
-    SEC.run('arena', () => { updateCrane(dt); updateBulls(dt); updateBumps(dt); updateCrawlerCrush(dt); });
+    SEC.run('arena', () => { updateCrane(dt); updateBulls(dt); updateBumps(dt); updateCrawlerCrush(dt); updateBoulders(dt); });
     SEC.run('lod', () => updatePropActivity(dt));
     updateRespawns(dt);
     SEC.run('arena', () => updateArena(dt));
@@ -8596,5 +8690,5 @@ function drawBody(dt) {
   if (!window.__noRender) { const gq = Math.min(S.gfx, S.autoGfx ? (QUALITY.gfxCap ?? 2) : 2); if (gq > 0) { grade.uniforms.uTime.value = clock % 10; grade.enabled = gq > 1; bloom.strength = gq > 1 ? 0.42 : 0.34; composer.render(); } else renderer.render(scene, camera); PERFREP.render = performance.now() - PERFREP.r0; SEC.add('render', PERFREP.render); } // tests can skip drawing to run physics faster
 }
 requestAnimationFrame(frame);
-window.__derby = { get mapShapes() { return mapShapes; }, respawnCar: (o, t) => respawnCar(o, t), PHYS, cockpitEye: (c) => cockpitEye(c), wakeProp: (pr) => wakeProp(pr), addConcrete: (x, z, r, k) => addConcrete(x, z, r, k), igniteProp: (pr, t) => igniteProp(pr, t), cookBull: (bl, by, dt) => cookBull(bl, by, dt), tankerBoom: (p, c) => tankerBoom(p, c), CAR_TYPES, sfx, CANNON, barks, PERF, shells, NETLOG, nearHostAdd: () => nearHostAdd(), nearJoin: () => nearJoin(), JUMBO, BALL, BOLLARDS, GASQ, updateArenaPub: (dt) => updateArena(dt), CRUSHER, crushNow: () => crushNow(), applyNight: () => applyNight(), FIREWORKS, ARENA, CROWD, MP, QUALITY, applyQuality: (i) => applyQuality(i), MERGED, camera, updatePropActivity: (dt) => updatePropActivity(dt), renderer, scene, spawnFree: (x, z, r) => spawnFree(x, z, r), BULLS, updateBulls: (dt) => updateBulls(dt), updateShells, tilt, setTilt, get CRANE() { return CRANE; }, updateCrane: (dt) => updateCrane(dt), CONCRETE, THREE, craters, shells, pickups, barks, PERSONAS, TUNE, game, cars, S, world, CAR_TYPES, sfx, touch, drawGauge, get player() { return player; }, keys, startMatch, selectCar, setValue, debris, props, platformOf, get simTime() { return simTime; }, set simTime(v) { simTime = v; } }; // console tinkering + tests
+window.__derby = { BOULDERS, get mapShapes() { return mapShapes; }, respawnCar: (o, t) => respawnCar(o, t), PHYS, cockpitEye: (c) => cockpitEye(c), wakeProp: (pr) => wakeProp(pr), addConcrete: (x, z, r, k) => addConcrete(x, z, r, k), igniteProp: (pr, t) => igniteProp(pr, t), cookBull: (bl, by, dt) => cookBull(bl, by, dt), tankerBoom: (p, c) => tankerBoom(p, c), CAR_TYPES, sfx, CANNON, barks, PERF, shells, NETLOG, nearHostAdd: () => nearHostAdd(), nearJoin: () => nearJoin(), JUMBO, BALL, BOLLARDS, GASQ, updateArenaPub: (dt) => updateArena(dt), CRUSHER, crushNow: () => crushNow(), applyNight: () => applyNight(), FIREWORKS, ARENA, CROWD, MP, QUALITY, applyQuality: (i) => applyQuality(i), MERGED, camera, updatePropActivity: (dt) => updatePropActivity(dt), renderer, scene, spawnFree: (x, z, r) => spawnFree(x, z, r), BULLS, updateBulls: (dt) => updateBulls(dt), updateShells, tilt, setTilt, get CRANE() { return CRANE; }, updateCrane: (dt) => updateCrane(dt), CONCRETE, THREE, craters, shells, pickups, barks, PERSONAS, TUNE, game, cars, S, world, CAR_TYPES, sfx, touch, drawGauge, get player() { return player; }, keys, startMatch, selectCar, setValue, debris, props, platformOf, get simTime() { return simTime; }, set simTime(v) { simTime = v; } }; // console tinkering + tests
 </script>
