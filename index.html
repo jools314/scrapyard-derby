@@ -641,6 +641,7 @@ const CAR_TYPES = {
   cruiser: { special: 'spikes', handling: { steer: 1.05, rate: 1.1, spring: 1.1, damp: 1.1, rear: 1.0, drag: 0.95, roll: 0.9 }, frontDrive: 0.15, name: 'Cruiser', blurb: 'Police cruiser: F fires the pump shotgun out the window, the stop-stick drops itself behind you when someone tails you (or Z). G toggles the siren.', style: 'sedan', police: true, mass: 1650, L: 4.9, W: 1.9, H: 0.62, wheelR: 0.38, wheelW: 0.32, wb: 2.9, track: 1.62, power: 1.05, grip: 1.0, armor: 0.9, cabin: { l: 2.3, h: 0.58, w: 1.62, x: -0.15 }, color: 0x16191e, redline: 6200, idle: 750, cyl: 4 },
   tiger: { noPlant: true, handling: { steer: 0.65, rate: 0.85, spring: 2.2, damp: 2.0, rear: 1.0, drag: 45, roll: 0.02 }, frontDrive: 0.5, name: 'Tiger', blurb: 'Battle tank with an autocannon: each trigger pull fires a 3-round burst. F, click or FIRE to shoot.', style: 'tank', mass: 11000, L: 6.4, W: 3.4, H: 1.0, hullW: 0.62, wheelR: 0.5, wheelW: 0.5, wb: 4.4, axles: [2.2, 0.75, -0.75, -2.2], track: 2.7, power: 1.3, grip: 1.6, armor: 0.3, traction: 11, cabin: { l: 3.0, h: 0.85, w: 2.6, x: -0.3 }, color: 0x8f7d52, redline: 3000, idle: 600, cyl: 6, skid: true, gun: true, noWheelLoss: true },
   dozer: { noPlant: true, antiWheelie: true, maxSpeed: 8.5, handling: { steer: 0.7, rate: 0.8, spring: 2.2, damp: 2.0, rear: 1.0, drag: 45, roll: 0.02 }, frontDrive: 0.5, name: 'Bulldozer', blurb: 'Bulldozer Bob: 14 t crawler dozer, slow and unstoppable. Blade down it shoves anything; F raises the blade (flipping what is in front) so you can climb over cars, F again slams it down and crushes them.', style: 'tank', dozer: true, special: 'blade', mass: 14000, L: 5.6, W: 3.2, H: 1.0, hullW: 0.66, wheelR: 0.5, wheelW: 0.5, wb: 3.8, axles: [1.9, 0.65, -0.65, -1.9], track: 2.5, power: 1.7, grip: 1.7, armor: 0.45, traction: 18, cabin: { l: 1.7, h: 1.35, w: 1.8, x: -1.0 }, color: 0xe8b010, redline: 2600, idle: 550, cyl: 6, skid: true, noWheelLoss: true },
+  combine: { heavy: true, special: 'reel', maxSpeed: 10, rearSteer: true, handling: { steer: 0.75, rate: 0.7, spring: 1.2, damp: 1.3, rear: 1.15, drag: 1.5, roll: 0.6 }, name: 'Combine', blurb: 'Old MacDonald\'s combine harvester. F starts the 6-metre reel: crates and drums come out the back as straw bales, and any car caught in it gets chewed up and dragged in. Steers with its back wheels.', style: 'combine', mass: 15000, L: 8.6, W: 3.6, H: 1.3, hullW: 0.86, wheelR: 0.95, wheelW: 0.7, wb: 4.6, axles: [2.0, -2.6], track: 3.0, power: 2.2, grip: 1.0, armor: 0.45, cabin: { l: 1.8, h: 1.5, w: 1.9, x: 2.3 }, color: 0x2f8a3c, redline: 2400, idle: 600, cyl: 6 },
   bertha: { heavy: true, special: 'dump', maxSpeed: 12, handling: { steer: 0.55, rate: 0.5, spring: 1.3, damp: 1.4, rear: 1.2, drag: 1.6, roll: 0.5 }, name: 'Big Bertha', blurb: 'Big Bertha: a 26-tonne mining dump truck with 2.7 m tyres. Rolls over anything; F tips the bed and drops a load of boulders on whoever is following.', style: 'dump', mass: 26000, L: 11, W: 5.2, H: 1.2, hullW: 0.82, wheelR: 1.35, wheelW: 0.9, wb: 6.2, axles: [3.3, -2.7], track: 4.1, power: 3.4, grip: 1.05, armor: 0.35, cabin: { l: 1.8, h: 1.4, w: 1.9, x: 3.7 }, color: 0xe0607a, redline: 2100, idle: 520, cyl: 6, noWheelLoss: true },
   tanker: { heavy: true, pour: 'fuel', handling: { steer: 0.7, rate: 0.6, spring: 1.2, damp: 1.3, rear: 1.15, drag: 1.4, roll: 0.55 }, name: 'Tanker', blurb: 'Fuel truck, 7.5 t on six wheels. F spills gasoline; once the tank is ruptured the trail catches fire. Explodes spectacularly.', style: 'tanker', mass: 7500, L: 9.2, W: 2.5, H: 0.75, wheelR: 0.56, wheelW: 0.46, wb: 5.65, axles: [3.3, -1.6, -3.05], track: 2.1, frontDrive: 0, power: 2.3, grip: 0.95, armor: 0.55, cabin: { l: 2.0, h: 1.35, w: 2.3, x: 3.05 }, color: 0x8c3a22, blast: 22, redline: 3000, idle: 600, cyl: 3 },
 };
@@ -2055,6 +2056,7 @@ const HORN_LINES = { // what each driver shouts when you lean on the horn (in ch
   cruiser: ['Pull over! Pull over right now!', 'This is the police! Move your vehicle!', 'Step away from the derby!'],
   tiger: ['Achtung! Panzer! Out of ze way, bitte!', 'Zis is ze panzer. I do not honk. I simply arrive.', 'Funkspruch to all units: kindly move, or be moved.'],
   tanker: ['Breaker one-nine, big rig comin\' through!', 'Ten-four, little buddy, get off my lane!', 'Seventy-five hundred kilos of fuel says MOVE!'],
+  combine: ['E-I-E-I-OUT OF MY WAY!', 'Harvest season, city folk!', 'With a crunch crunch here and a crunch crunch there!'],
   bertha: ['Honey, I\'m three storeys up. I can\'t see you, and I\'m not lookin\'.', 'Bless your heart, you\'re in my way!', 'Sugar, I\'ve hauled bigger rocks than you before breakfast!'],
   dozer: ['Move it or lose it!', 'Beep beep beep! That\'s a dozer, and it don\'t care!', 'Clear the job site, folks!'],
 };
@@ -2356,6 +2358,26 @@ const WEAPONS = {
     update(car, dt) { const want = car.bladeRaised ? 1 : 0; car.forkH = lerp(car.forkH || 0, want, clamp(dt * (want ? 10 : 18), 0, 1));
       if (!car.bladeRaised && car.bladeShape) car.bladeShape.collisionResponse = true;
       if (!car.isPlayer && car.bladeRaised && simTime - (car.bladeRaisedT || 0) > (cars.some((c) => c !== car && bladeUnder(car, c)) ? 0.6 : 3)) { car.bladeRaised = false; bladeSlam(car); } }, // the AI drops it on whoever is underneath
+  },
+  reel: { label: 'REEL', cd: 0.4, dur: 0, // F starts or stops the header: everything in front gets harvested
+    start(car) { car.reelOn = !car.reelOn; sfx.at(car.body.position).hydraulic(wv(car)); if (car.isPlayer) toast(car.reelOn ? '🌾 HARVESTING!' : 'REEL OFF', car.reelOn ? 'cool' : null); if (car.reelOn && !car.isPlayer && Math.random() < 0.5) barks.say(car, 'fire', true); },
+    update(car, dt) {
+      if (car.wrecked) car.reelOn = false; car.forkH = lerp(car.forkH || 0, car.reelOn ? 1 : 0, clamp(dt * 3, 0, 1));
+      if (!car.isPlayer && car.reelOn && simTime - (car.reelSince || 0) > 6 && !cars.some((c) => c !== car && !c.wrecked && car.body.pointToLocalFrame(c.body.position).x > 0 && car.body.position.distanceTo(c.body.position) < 18)) car.reelOn = false; // AI switches off when nobody's ahead
+      if (car.reelOn && !car.reelSince) car.reelSince = simTime; if (!car.reelOn) car.reelSince = 0;
+      if (!car.reelOn || (car.forkH || 0) < 0.6 || MP.role === 'guest') return;
+      car.chopT = (car.chopT || 0) - dt; if (car.chopT <= 0) { car.chopT = 0.18; sfx.at(car.body.position).noiseHit('bandpass', rand(500, 800), 3, 0.12 * wv(car), 0.08); } // chk-chk-chk
+      const b = car.body, f = car.fwd, front = car.T.L / 2 + 0.75 - car.comShift;
+      const inReel = (p, r) => { const l = b.pointToLocalFrame(p); return l.x > front - 0.9 - r && l.x < front + 1.4 + r && Math.abs(l.z) < 3.1 + r && l.y < 2.2; };
+      for (const pr of props.slice()) { if (!inReel(pr.body.position, 0.4)) continue; if (pr.body.gas) { igniteProp(pr); continue; } if (pr.body.mass > 1200 || pr.body.propKind === 'concrete') continue; harvestProp(car, pr); }
+      for (const c of cars) { if (c === car || c.wrecked || !inReel(c.body.position, Math.min(c.T.L, c.T.W) * 0.45)) continue; // chewed up and dragged in
+        const k = c.T.skid ? 0.3 : 1; c.applyDamage(18 * dt * S.damage * c.T.armor * k, car, 'front', null, 0); c.dozed = 6;
+        const l = c.body.pointToLocalFrame(b.position); c.body.velocity.x += (b.position.x - c.body.position.x) * dt * 0.8 * k; c.body.velocity.z += (b.position.z - c.body.position.z) * dt * 0.8 * k; c.body.velocity.y += dt * 2 * k;
+        if (Math.random() < dt * 1.2) { const loose = c.parts.filter((q) => !q.detached); if (loose.length) c.detach(loose[Math.random() * loose.length | 0], car); }
+        if (Math.random() < dt * 6) { const p = c.body.position; emit('debris', p.x, p.y + 0.6, p.z, f.x * rand(2, 5) + rand(-2, 2), rand(2, 5), f.z * rand(2, 5) + rand(-2, 2), rand(1, 2), rand(0.08, 0.2), c.paint); sparks(p, 3); }
+        if (!c.reelSaid && game.state === 'playing') { c.reelSaid = true; setTimeout(() => { c.reelSaid = false; }, 6000); if (c.isPlayer) toast('YOU\'RE BEING HARVESTED!', 'bad'); else if (car.isPlayer) toast(`HARVESTING ${c.name}!`, 'cool'); if (Math.random() < 0.6) barks.announce('harvest', { a: car.isPlayer ? 'Our hero' : car.name, v: c.isPlayer ? 'our hero' : c.name }, true); } }
+      for (const bl of BULLS) { if (bl.state === 'burger' || bl.state === 'down' || !inReel(bl.body.position, 0.6)) continue; bl.state = 'down'; bl.t = 3; bl.body.fixedRotation = false; bl.body.updateMassProperties(); bl.body.velocity.set(f.x * 4 + rand(-3, 3), 9, f.z * 4 + rand(-3, 3)); bl.body.angularVelocity.set(rand(-6, 6), rand(-6, 6), rand(-6, 6)); bullMoo(bl, 1.3); bl.angry = car; bl.grudgeT = simTime + 25; }
+    },
   },
   dump: { label: 'BOULDERS', cd: 7, dur: 2.4, // tip the bed: a load of boulders tumbles out the back
     start(car) { if ((car.bedLoaded ?? 1) < 0.5) { if (car.isPlayer) toast('BED STILL LOADING', 'bad'); car.specialT = 0; return; } car.dumpN = 0; car.dumpT = 0; sfx.at(car.body.position).hydraulic(wv(car)); if (!car.isPlayer && Math.random() < 0.6) barks.say(car, 'fire', true); },
@@ -2784,6 +2806,18 @@ function updateBoulders(dt) {
     if (o.t < 2) o.mesh.position.y -= (2 - o.t) * 0.8; // sinks into the dirt before it goes
     if (o.t <= 0 || o.body.position.y < -5) { world.removeBody(o.body); scene.remove(o.mesh); BOULDERS.splice(i, 1); } }
 }
+const BALE_MAT = new THREE.MeshStandardMaterial({ color: 0xd8b85a, roughness: 0.95 }), baleGeo = new THREE.BoxGeometry(1.0, 0.5, 0.55); baleGeo.userData.shared = true;
+function harvestProp(car, pr) { // into the reel it goes; out the back comes a straw bale
+  const i = props.indexOf(pr); if (i < 0) return; props.splice(i, 1); propGone(pr); const p = pr.body.position.clone(); setTimeout(() => world.removeBody(pr.body), 0); if (pr.mesh) { pr.mesh.visible = false; scene.remove(pr.mesh); }
+  for (let k = 0; k < 10; k++) emit('dust', p.x, p.y + 0.5, p.z, rand(-2, 2), rand(1, 4), rand(-2, 2), rand(0.8, 1.4), rand(0.3, 0.6));
+  if (player) sfx.at(p).propHit(pr.body.propKind, 0.7 * clamp(1 - player.body.position.distanceTo(p) / 70, 0, 1));
+  setTimeout(() => { if (car.wrecked || !cars.includes(car)) return; const b = car.body, out = b.pointToWorldFrame(new CANNON.Vec3(-car.T.L / 2 - 0.8 - car.comShift, 0.8, 0));
+    const m = new THREE.Mesh(baleGeo, BALE_MAT); m.userData.shared = true; m.castShadow = true; m.position.set(out.x, out.y, out.z); scene.add(m);
+    addDebris(m, new CANNON.Box(new CANNON.Vec3(0.5, 0.25, 0.27)), new CANNON.Vec3(), undefined, 25, new CANNON.Vec3(b.velocity.x - car.fwd.x * 3, 2, b.velocity.z - car.fwd.z * 3), new CANNON.Vec3(rand(-2, 2), rand(-2, 2), rand(-2, 2)));
+    for (let k = 0; k < 8; k++) emit('dust', out.x, out.y, out.z, -car.fwd.x * rand(2, 5) + rand(-1, 1), rand(0, 2), -car.fwd.z * rand(2, 5) + rand(-1, 1), rand(1, 1.6), rand(0.3, 0.6)); // chaff
+  }, 900);
+  car.harvested = (car.harvested || 0) + 1; if (car.isPlayer && car.harvested % 5 === 0) toast(`🌾 ${car.harvested} HARVESTED`, 'cool');
+}
 function harpoonRip(car, c) { // the barb rips the panel facing you clean off; the cable stays on the panel and you reel in a door
   c.rip = 0; const v = c.t; if (!v || !v.parts || v.wrecked) return;
   const l = v.body.pointToLocalFrame(car.body.position), side = Math.abs(l.x) > Math.abs(l.z) * 1.3 ? (l.x > 0 ? 'front' : 'rear') : (l.z > 0 ? 'right' : 'left');
@@ -3085,6 +3119,7 @@ const sfx = {
     if (type === 'camper') { if (on && now >= (this.hornNext || 0)) { this.hornNext = now + 900; this.aooga(); } return; } // A-OO-GAH
     if (type === 'cruiser' && on && now >= (this.hornNext || 0)) { this.hornNext = now + 650; this.whoop(); } // whoop-whoop over the steady horn
     if (type === 'hellbender' && edge) { this.cucaracha(); return; } // a musical horn, naturally
+    if (type === 'combine' && edge) { this.macdonald(); return; } // E-I-E-I-O
     if (type === 'dozer' && on && now >= (this.hornNext || 0)) { this.hornNext = now + 520; this.tone('square', 1050, 1050, 0.06, 0.22); } // and the reversing beeper
     const H = HORNS[type] || HORNS.outrider, c = this.ctx, t = c.currentTime;
     if (!this.hornV || this.hornV.type !== type) {
@@ -3105,6 +3140,7 @@ const sfx = {
   radio() { const c = this.ctx; if (!c) return; this.noiseHit('bandpass', 2200, 1.2, 0.28, 0.18); this.tone('sine', 1200, 1200, 0.07, 0.08, false, 0.2); this.tone('sine', 1200, 1200, 0.07, 0.08, false, 0.36); this.noiseHit('bandpass', 2600, 1.4, 0.12, 0.6, false, 0.45); }, // squelch, beep beep, hiss
   aooga() { this.tone('sawtooth', 196, 330, 0.14, 0.32); this.tone('square', 98, 165, 0.06, 0.32); this.tone('sawtooth', 330, 262, 0.14, 0.3, false, 0.34); }, // a-oo... -gah
   whoop() { this.tone('square', 600, 1500, 0.06, 0.28); this.tone('square', 1500, 700, 0.05, 0.25, false, 0.28); },
+  macdonald() { const n = [392, 392, 392, 293.7, 329.6, 329.6, 293.7, 0, 493.9, 493.9, 440, 440, 392]; let t = 0; for (const f of n) { if (f) { this.tone('square', f, f, 0.08, 0.26, false, t); this.tone('sawtooth', f / 2, f / 2, 0.05, 0.26, false, t); } t += f ? 0.3 : 0.15; } },
   cucaracha() { const n = [392, 392, 392, 523.3, 659.3, 392, 392, 392, 523.3, 659.3]; const d = [0.12, 0.12, 0.12, 0.3, 0.32, 0.12, 0.12, 0.12, 0.3, 0.32]; let t = 0; for (let i = 0; i < n.length; i++) { this.tone('square', n[i], n[i], 0.09, d[i] * 0.9, false, t); this.tone('sawtooth', n[i] / 2, n[i] / 2, 0.04, d[i] * 0.9, false, t); t += d[i] + (i === 4 ? 0.25 : 0.02); } },
   coconut(v) { this.noiseHit('bandpass', 1150, 7, 0.7 * v, 0.05); setTimeout(() => this.noiseHit('bandpass', 880, 7, 0.6 * v, 0.05), 150); }, // clip-clop
   honk(type, vol, dur) { // short honk from another car
@@ -3308,6 +3344,7 @@ class Car {
     b.addShape(chamferBox(C.l / 2, C.h / 2, C.w / 2, Math.min(0.3, C.w * 0.18), Math.min(0.15, C.h * 0.25)), new CANNON.Vec3(C.x, HULL_Y0 + T.H + C.h / 2, 0));
     if (T.style === 'van') b.addShape(this.vanShape = new CANNON.Box(new CANNON.Vec3(2.65, 0.62, T.W / 2 * 0.97)), new CANNON.Vec3(-0.65, HULL_Y0 + T.H + 0.62, 0));
     if (T.style === 'tanker') b.addShape(new CANNON.Box(new CANNON.Vec3(2.9, 1.05, 1.05)), new CANNON.Vec3(-1.55, HULL_Y0 + T.H + 1.1, 0));
+    if (T.style === 'combine') { b.addShape(new CANNON.Box(new CANNON.Vec3(0.7, 0.4, 3.0)), new CANNON.Vec3(T.L / 2 + 0.75, HULL_Y0 + 0.55, 0)); b.addShape(new CANNON.Box(new CANNON.Vec3(1.6, 0.7, 1.3)), new CANNON.Vec3(-0.9, HULL_Y0 + T.H + 0.7, 0)); } // the header out front, the grain tank on top
     if (T.style === 'dump') b.addShape(new CANNON.Box(new CANNON.Vec3(3.6, 0.95, T.W / 2 * 0.95)), new CANNON.Vec3(-1.3, HULL_Y0 + T.H + 0.95, 0)); // the dump bed
     if (T.style === 'mixer') b.addShape(new CANNON.Box(new CANNON.Vec3(2.1, 1.15, 1.15)), new CANNON.Vec3(-1.1, HULL_Y0 + T.H + 1.2, 0));
     if (T.style === 'fire') b.addShape(new CANNON.Box(new CANNON.Vec3(2.6, 0.5, 1.2)), new CANNON.Vec3(-1.8, HULL_Y0 + T.H + 0.5, 0));
@@ -3438,7 +3475,7 @@ class Car {
       for (const z of [-bw / 6, bw / 6]) add(new THREE.BoxGeometry(0.06, up * 0.8, 0.06), M.steel, 0.13, up * 0.4, z, frontBumper);
     }
     part(add(bumperGeo, M.steel, -L / 2 - 0.1, HULL_Y0 + 0.22, 0), 'rear', 32);
-    if (st !== 'buggy' && st !== 'tanker' && st !== 'tank' && st !== 'mixer' && st !== 'fire' && st !== 'dump') {
+    if (st !== 'buggy' && st !== 'tanker' && st !== 'tank' && st !== 'mixer' && st !== 'fire' && st !== 'dump' && st !== 'combine') {
       // Hood panel follows the sloped nose
       const hl = L * 0.27, hx = L / 2 - L * 0.19, hy = top - H * (st === 'wedge' ? 0.3 : 0.14) + 0.03, rz = st === 'wedge' ? -0.22 : st === 'van' ? 0 : -0.11;
       const hinge = new THREE.Group(); hinge.position.set(hx - (hl / 2) * Math.cos(rz), hy - (hl / 2) * Math.sin(rz), 0); hinge.rotation.z = rz; root.add(hinge); // the hood swings on hinges at its back edge
@@ -3539,6 +3576,27 @@ class Car {
         part(add(new THREE.CylinderGeometry(0.11, 0.11, 2.3, 10), M.chrome, x, top + 1.05, sz), 'top', 50);
         this.stacks.push({ x, y: top + 2.25, z: sz });
       }
+    }
+    if (st === 'combine') { // header with the spinning reel, grain tank, unloading auger, straw chopper, ladder, beacon
+      const yel = new THREE.MeshStandardMaterial({ color: 0xe6c02a, roughness: 0.5, metalness: 0.3 });
+      const hd = new THREE.Group(); hd.position.set(L / 2 + 0.75, HULL_Y0 + 0.55, 0); root.add(hd); this.header = hd;
+      const trG = new THREE.BoxGeometry(1.4, 0.18, 6.0, 4, 1, 12); const tr = add(trG, yel, 0, -0.32, 0, hd); this.deform.push({ mesh: tr, orig: trG.attributes.position.array.slice(), inGroup: true }); // trough floor
+      add(new THREE.BoxGeometry(0.12, 0.8, 6.0), yel, -0.65, 0.05, 0, hd); // back wall
+      for (const sd of [-1, 1]) add(new THREE.BoxGeometry(1.4, 0.8, 0.1), yel, 0, 0.05, sd * 3.0, hd); // end plates
+      for (let k = 0; k < 24; k++) add(new THREE.ConeGeometry(0.05, 0.4, 5).rotateZ(-Math.PI / 2), M.steel, 0.82, -0.32, -2.9 + k * 0.25, hd); // cutter-bar guards
+      const auger = add(new THREE.CylinderGeometry(0.2, 0.2, 5.8, 10).rotateX(Math.PI / 2), M.steel, -0.25, -0.1, 0, hd); this.auger = auger;
+      const reel = new THREE.Group(); reel.position.set(0.25, 0.75, 0); hd.add(reel); this.reel = reel;
+      add(new THREE.CylinderGeometry(0.07, 0.07, 6.0, 8).rotateX(Math.PI / 2), M.steel, 0, 0, 0, reel);
+      const batMat = new THREE.MeshStandardMaterial({ color: 0xd8342a, roughness: 0.6 });
+      for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2, bat = add(new THREE.BoxGeometry(0.08, 0.08, 5.9), batMat, Math.cos(a) * 0.62, Math.sin(a) * 0.62, 0, reel); for (let t = 0; t < 12; t++) add(new THREE.CylinderGeometry(0.015, 0.015, 0.3, 4), M.steel, Math.cos(a) * 0.5, Math.sin(a) * 0.5, -2.8 + t * 0.5, reel).rotation.z = a + Math.PI / 2; for (const z of [-2.9, 0, 2.9]) add(new THREE.BoxGeometry(0.04, 0.62, 0.04), M.steel, Math.cos(a) * 0.31, Math.sin(a) * 0.31, z, reel).rotation.z = a + Math.PI / 2; }
+      const tankG = new THREE.BoxGeometry(3.2, 1.4, 2.6, 6, 3, 4); const tank = add(tankG, this.paint, -0.9, top + 0.7, 0); this.deform.push({ mesh: tank, orig: tankG.attributes.position.array.slice() }); // grain tank
+      add(new THREE.BoxGeometry(3.3, 0.08, 2.7), yel, -0.9, top + 1.42, 0); // its rim
+      const pipe = part(add(new THREE.CylinderGeometry(0.22, 0.22, 5.2, 10).rotateZ(Math.PI / 2 - 0.25), M.steel, -1.6, top + 1.6, -1.9), 'left', 40); pipe.rotation.y = -0.5; // unloading auger, folded back
+      add(new THREE.BoxGeometry(0.6, 0.6, 2.2), M.black, -L / 2 - 0.2, HULL_Y0 + 0.9, 0); // straw chopper at the back
+      for (let k = 0; k < 7; k++) add(new THREE.BoxGeometry(0.05, 0.45, 2.0), M.steel, -L / 2 + 0.6 + k * 0.08, HULL_Y0 + H * 0.65, 0.01); // engine grille
+      for (let k = 0; k < 7; k++) add(new THREE.BoxGeometry(0.4, 0.04, 0.5), M.steel, C.x - C.l / 2 - 0.25, HULL_Y0 + 0.25 + k * 0.3, hullW / 2 + 0.3); // ladder up to the cab
+      part(add(new THREE.CylinderGeometry(0.1, 0.1, 0.12, 10), M.cone, C.x, top + C.h + 0.1, 0.5), 'top', 25); // beacon
+      add(new THREE.BoxGeometry(0.1, 0.4, hullW * 0.8), yel, -L / 2 + 0.05, HULL_Y0 + 0.4, 0); // rear bumper
     }
     if (st === 'dump') { // tipping bed (hinged at the back), canopy over the cab, a load of rocks, a stair-ladder up to the cab and a radiator the size of a garage door
       const bed = new THREE.Group(); bed.position.set(-L / 2 + 0.4, top + 0.05, 0); root.add(bed); this.bed = bed;
@@ -4566,6 +4624,7 @@ class Car {
       const kx = -clamp(la.x, -25, 25) * 0.02, kz = clamp(la.z, -25, 25) * 0.02;
       f.vaz += ((kx - f.az) * 30 - f.vaz * 2.2) * dt; f.vax += ((kz - f.ax) * 30 - f.vax * 2.2) * dt; f.az += f.vaz * dt; f.ax += f.vax * dt;
       f.az = clamp(f.az, -1.1, 1.1); f.ax = clamp(f.ax, -1.1, 1.1); f.piv.rotation.set(f.ax, 0, f.az); }
+    if (this.reel) { const on = this.forkH || 0; this.reel.rotation.z -= dt * (0.6 + on * 7); if (this.auger) this.auger.rotation.y += dt * on * 12; } // the reel turns slowly idling, fast when harvesting
     if (this.bed) { this.bed.rotation.z = (this.forkH || 0) * 0.85; if (this.bedLoad) this.bedLoad.visible = (this.bedLoaded ?? 1) > 0.5; } // the bed tips up to dump
     if (this.bladePivot) { const u = this.forkH || 0; this.bladePivot.position.y = this.bladeY0 + u * 0.95; this.bladePivot.rotation.z = u * 0.45; } // blade heaves up and curls back
     if (this.hood && this.hood.open && !this.hood.part.detached) { const h = this.hood; h.hinge.rotation.z = h.rz + h.open + Math.sin(clock * (5 + sp * 0.6) + h.seed) * Math.min(0.22, 0.02 + sp * 0.008) - Math.min(0.35, sp * 0.012); } // flaps in the wind, pressed down a little at speed
@@ -5471,7 +5530,7 @@ class Car {
     if (this.T.special && !this.specialCd && Math.random() < 0.12) { // AI weapon use: every driver knows their gadget
       const sp = this.T.special, l = b.pointToLocalFrame(t.body.position), ahead = l.x > 0 && Math.abs(l.z) < Math.max(2.5, l.x * 0.6);
       const behind = cars.some((c) => c !== this && !c.wrecked && (() => { const q = b.pointToLocalFrame(c.body.position); return q.x < -this.T.L / 2 && q.x > -32 && Math.abs(q.z) < 7 + -q.x * 0.15; })());
-      if ((sp === 'harpoon' && ((ahead && dist > 10 && dist < 40) || !!frontTarget(this, 40, 0.4))) || (sp === 'flame' && ahead && dist < 10) || (sp === 'dump' && behind) || (sp === 'blade' && ahead && dist < 7.5) || (sp === 'water' && ahead && dist < 22) || (sp === 'ram' && ahead && dist > 8 && dist < 28) || ((sp === 'oil' || sp === 'bomb') && behind && sp !== 'bomb') || (sp === 'spikes' && ahead && dist < 28) || (sp === 'bomb' && ahead && dist > 12 && dist < 50) || (sp === 'lift' && (this.carry ? this.carry.t > 2.4 && (!this.delivery || this.delivery.gaveUp) : forkReady(this))) || (sp === 'tow' && (this.tow ? this.tow.t > 3.5 && Math.abs(this.speed) > 6 && (!this.delivery || this.delivery.gaveUp) : towable(this))) || (sp === 'minigun' && this.mgTarget && dist < 55) || (sp === 'rockets' && !!frontTarget(this, 90, 0.45) && dist > 10)) ctrl.fire = true;
+      if ((sp === 'harpoon' && ((ahead && dist > 10 && dist < 40) || !!frontTarget(this, 40, 0.4))) || (sp === 'flame' && ahead && dist < 10) || (sp === 'reel' && !this.reelOn && ahead && dist < 18) || (sp === 'dump' && behind) || (sp === 'blade' && ahead && dist < 7.5) || (sp === 'water' && ahead && dist < 22) || (sp === 'ram' && ahead && dist > 8 && dist < 28) || ((sp === 'oil' || sp === 'bomb') && behind && sp !== 'bomb') || (sp === 'spikes' && ahead && dist < 28) || (sp === 'bomb' && ahead && dist > 12 && dist < 50) || (sp === 'lift' && (this.carry ? this.carry.t > 2.4 && (!this.delivery || this.delivery.gaveUp) : forkReady(this))) || (sp === 'tow' && (this.tow ? this.tow.t > 3.5 && Math.abs(this.speed) > 6 && (!this.delivery || this.delivery.gaveUp) : towable(this))) || (sp === 'minigun' && this.mgTarget && dist < 55) || (sp === 'rockets' && !!frontTarget(this, 90, 0.45) && dist > 10)) ctrl.fire = true;
     }
     if (this.T.pour && !this.pourT && this.load > 0.4) { // mixer: pour when someone is right behind
       for (const c of cars) { if (c === this || c.wrecked) continue; const l = b.pointToLocalFrame(c.body.position); if (l.x < -this.T.L / 2 && l.x > -38 && Math.abs(l.z) < 9 && Math.random() < 0.08) { ctrl.fire = true; break; } }
@@ -5989,6 +6048,22 @@ const CAR_CAST = {
       charge: ['Charge! For the Grail!', 'Camelot!', 'Onward, Patsy! Clop faster!'],
       flee: ['Run away! Run away!', 'Brave Sir Robin ran away...', 'We shall use... a tactical retreat!'],
     } },
+  combine: { nick: 'Old MacDonald', hand: 0.7, style: 'vulture', from: 'a laid-back Iowa farmer who has had it with city folk', lang: 'en-US', pitch: 0.8, rate: 0.9, color: '#2f8a3c',
+    words: { ex: ['Well, I\'ll be', 'Gee whillikers', 'Shucks', 'Holy cow'], insult: ['city slicker', 'you weed', 'you scarecrow', 'you corn-fed ninny'], kin: ['the missus', 'my prize pig', 'the cows'], thing: ['a corn dog', 'my tractor', 'a hay bale'], boast: ['E-I-E-I-O!', 'That\'s a bumper crop!'], voice: ['Fred', 'Ralph', 'Google US English'] },
+    lines: {
+      start: ['Mornin\'. Harvest\'s come early this year.', 'Old MacDonald had a yard. E-I-E-I-O.', 'Time to bring in the crop.'],
+      hitYou: ['Harvested!', 'With a crunch crunch here!', 'That\'s a bumper crop, that is.', 'Into the bale you go, city slicker.'],
+      gotHit: ['Hey now, watch the header!', 'You scratched my combine. The missus\'ll have words.', 'Shucks, that\'s gonna need welding.'],
+      wheel: ['Lost a wheel! Gee whillikers!', 'There goes a tyre, right into the cornfield.'],
+      low: ['She\'s sputterin\' like the old tractor.', 'Reckon she needs a rest in the barn.'],
+      wrecked: ['Well, I\'ll be. Back to the farm.', 'Tell the cows I love \'em.'],
+      gloat: ['Another field done.', 'E-I-E-I-O!', 'That\'s what we call a good harvest.'],
+      air: ['Holy cow! Combines don\'t fly!', 'Gee whillikers, we\'re airborne!'],
+      taunt: ['I\'ll bale you up and feed you to the cows.', 'Here comes harvest time, city folk.', 'With a crunch crunch here and a crunch crunch there!'],
+      fire: ['Reel\'s on!', 'Harvest time!', 'Bring in the crop!'],
+      charge: ['Comin\' through the cornfield!', 'Make way for the harvest!'],
+      flee: ['Back to the barn!', 'Gotta go feed the pigs.'],
+    } },
   bertha: { nick: 'Big Bertha', hand: 0.65, style: 'brawler', from: 'a Southern grandma who drives a 300-ton mine truck', lang: 'en-US', pitch: 1.0, rate: 0.95, color: '#e0607a',
     words: { ex: ['Well butter my biscuit', 'Lord have mercy', 'Sweet tea and sunshine', 'Oh, sugar'], insult: ['sweetie', 'sugar plum', 'little fella', 'darlin\''], kin: ['my grandbabies', 'my late husband Earl', 'the church ladies'], thing: ['peach cobbler', 'a hard hat', 'my reading glasses'], boast: ['Bless your heart!', 'That there\'s called a haul, sugar.'], voice: ['Samantha', 'Karen', 'Victoria', 'Google US English'] },
     lines: {
@@ -6042,6 +6117,7 @@ for (const P of Object.values(CAR_CAST)) PERSONAS.push(P); // (pushed last: gues
 const CAST_SET = new Set(Object.values(CAR_CAST));
 const ANNOUNCER = { nick: 'Crash Cam Kev', lang: 'en-AU', pitch: 0.95, rate: 1.18, words: { voice: ['Lee', 'Gordon', 'Karen', 'Catherine', 'Google UK English Male', 'Daniel', 'Ralph'] } }; // an over-the-top Aussie play-by-play caller
 const ANN_LINES = {
+  harvest: ['{a} is HARVESTING {v}! Straw bales out the back, folks!', 'Oh no, {v} has gone into the combine! Bit of a rough cut there!', 'That\'s not wheat, {a}! That\'s {v}!', 'Old MacDonald had a {v}, and now he has a bale!'],
   crushed: ['{a} just PANCAKED {v}! Flat as a tack!', 'Oh, {v} has been squashed like a bug on a windscreen!', '{a} parks fourteen tonnes on {v}. Rude!', 'That\'s not a car anymore, that\'s a sandwich press special!'],
   followUp: ['And ANOTHER one, just for good measure!', 'Oh, he\'s gone back for seconds! Cheeky!', 'Hit him again! A little top-up for {v}!', 'Double tap! {v} did not need that, but {a} gave it anyway!', 'One for the road! Absolutely unnecessary, absolutely beautiful!'],
   aiHit: ['OHHH! {a} has absolutely cleaned up {v}!', 'Bang! {a} into {v} at {kmh} k\'s! Lovely!', '{v} never saw {a} coming. Classic!', 'And {a} sends {v} for a little spin! Round and round she goes!', 'Crunch! {a} and {v}, the worst first date in history!'],
@@ -6091,6 +6167,7 @@ const HORNS = {
   viper:    { f: [554, 698], wave: 'square', drive: 2, lp: 3600, gain: 0.08, attack: 0.008 },
   hearse:   { f: [196, 233, 294], wave: 'triangle', drive: 2, lp: 1500, gain: 0.13, attack: 0.06, vibrato: 4.5 },
   towtruck: { f: [233, 294], wave: 'sawtooth', drive: 6, lp: 2000, gain: 0.12, attack: 0.03 },
+  combine:  { f: [196, 247], wave: 'square', drive: 6, lp: 2200, gain: 0.1, attack: 0.02 },
   bertha:   { f: [69.3, 87.3, 103.8], wave: 'sawtooth', drive: 24, lp: 1100, gain: 0.34, attack: 0.18, breath: 0.28 }, // a mine-site horn you feel in your chest
   firetruck: { f: [98, 123.5, 146.8], wave: 'sawtooth', drive: 20, lp: 1500, gain: 0.3, attack: 0.12, breath: 0.2 }, // a ship-sized three-tone air horn
   mixer:    { f: [116.5, 146.8], wave: 'sawtooth', drive: 15, lp: 1700, gain: 0.22, attack: 0.08, breath: 0.12 }, // deep Jersey trucker horn
@@ -6272,6 +6349,15 @@ const CAST_MORE = {
     taunt: ['Bring me a shrubbery. And your hubcaps.', 'Ni! Ni! Ni!', 'C|Now go away, or I shall taunt you a second time!', 'What is your quest? To lose, apparently.'],
     hitYou: ['Ni!', 'B|Have at you!', 'Huzzah!'],
     gotHit: ['B|Just a flesh wound!', 'I\'m not dead!', 'B|Is that all you\'ve got?!'],
+  },
+  combine: {
+    insult: ['city slicker', 'you weed', 'scarecrow'],
+    rival: ['{v}, I\'m gonna bale you up!', '{v}, that {vcar} would make a fine scarecrow.', 'Harvest time, {v}!'],
+    respawn: ['New combine, same old farmer.', 'Old MacDonald\'s back on the farm.'],
+    kill: ['{v} has been harvested.', 'Straw bale special: {v}.', 'E-I-E-I-{v}!'],
+    taunt: ['The cows are waitin\', city folk.', 'I\'ve chewed through tougher than you.'],
+    hitYou: ['Harvested!', 'Crunch!'],
+    gotHit: ['Mind the header!', 'You\'ll pay for that weldin\'.'],
   },
   bertha: {
     insult: ['sweetie', 'sugar', 'darlin\'', 'little fella'],
@@ -6803,7 +6889,7 @@ function spawnCars() {
 function setControlsFor(type) {
   document.body.classList.toggle('has-gun', !!(CAR_TYPES[type].gun || CAR_TYPES[type].pour || CAR_TYPES[type].special));
   { const T0 = CAR_TYPES[type]; // the controls strip and the touch FIRE button follow your car
-    const act = T0.gun ? 'fire 3-round burst' : T0.pour ? (T0.pour === 'fuel' ? 'dump fuel' : 'pour concrete') : ({ dump: 'dump boulders', blade: 'raise / slam blade', lift: 'lift / toss', tow: 'hook / release (back up first)', minigun: 'minigun', rockets: 'rocket salvo', water: 'water cannon', harpoon: 'harpoon', flame: 'flamethrower', bomb: 'propane bomb', spikes: 'shotgun · Z stop stick', oil: 'oil slick', ram: 'rocket ram' })[T0.special];
+    const act = T0.gun ? 'fire 3-round burst' : T0.pour ? (T0.pour === 'fuel' ? 'dump fuel' : 'pour concrete') : ({ reel: 'reel on / off', dump: 'dump boulders', blade: 'raise / slam blade', lift: 'lift / toss', tow: 'hook / release (back up first)', minigun: 'minigun', rockets: 'rocket salvo', water: 'water cannon', harpoon: 'harpoon', flame: 'flamethrower', bomb: 'propane bomb', spikes: 'shotgun · Z stop stick', oil: 'oil slick', ram: 'rocket ram' })[T0.special];
     const kb = (k, t, cls) => `<span${cls ? ' class="sp"' : ''}><b>${k}</b> ${t}</span>`;
     const parts = [kb('W A S D', 'drive'), kb('Space', 'handbrake'), kb('Shift', 'nitro'), kb('J', 'jump')];
     if (act) parts.push(kb('F', act, true));
@@ -6811,7 +6897,7 @@ function setControlsFor(type) {
     if (T0.police || T0.siren) parts.push(kb('G', 'siren'));
     parts.push(kb('H', 'horn'), kb('C', 'camera'), kb('R', 'flip'), kb('N', 'new car'), kb('P', 'pause'));
     $('keys').innerHTML = parts.join(' · ');
-    const ICON = { dump: ['🪨', 'Boulders'], blade: ['🚜', 'Blade'], harpoon: ['🎯', 'Harpoon'], oil: ['🛢️', 'Oil'], spikes: ['💥', 'Shotgun'], flame: ['🔥', 'Flames'], bomb: ['💣', 'Propane'], water: ['💧', 'Water'], minigun: ['🔫', 'Minigun'], rockets: ['🚀', 'Rockets'], lift: ['⬆️', 'Lift'], tow: ['🪝', 'Hook'], ram: ['🚀', 'Ram'] };
+    const ICON = { reel: ['🌾', 'Reel'], dump: ['🪨', 'Boulders'], blade: ['🚜', 'Blade'], harpoon: ['🎯', 'Harpoon'], oil: ['🛢️', 'Oil'], spikes: ['💥', 'Shotgun'], flame: ['🔥', 'Flames'], bomb: ['💣', 'Propane'], water: ['💧', 'Water'], minigun: ['🔫', 'Minigun'], rockets: ['🚀', 'Rockets'], lift: ['⬆️', 'Lift'], tow: ['🪝', 'Hook'], ram: ['🚀', 'Ram'] };
     const [ic, lb] = T0.gun ? ['💥', 'Cannon'] : T0.pour ? (T0.pour === 'fuel' ? ['⛽', 'Fuel'] : ['🧱', 'Concrete']) : ICON[T0.special] || ['💥', 'Fire'];
     $('fireIco').textContent = ic; $('fireLab').textContent = lb;
     document.body.classList.toggle('has-siren', !!(T0.police || T0.siren));
@@ -8050,7 +8136,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '51'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '52'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
@@ -8522,6 +8608,7 @@ function cockpitEye(c) { // where the driver's eye goes: toward the nose and jus
   }
   let x = ex, y = (isFinite(hood) ? hood : HULL_Y0 + c.T.H) + 0.38;
   if (c.T.dozer) { const C = c.T.cabin; x = C.x + C.l * 0.45; y = HULL_Y0 + c.T.H + C.h + 0.1; }
+  if (c.T.style === 'combine') { const C = c.T.cabin; x = C.x + C.l * 0.3; y = HULL_Y0 + c.T.H + C.h * 0.7; }
   if (c.T.style === 'dump') { const C = c.T.cabin; x = C.x + C.l * 0.3; y = HULL_Y0 + c.T.H + C.h * 0.75; } // up in the cab, under the canopy
   if (c.T.style === 'van') { const C = c.T.cabin; x = C.x - C.l * 0.1; y = HULL_Y0 + c.T.H + C.h * 0.62; } // the RV: from the driver's seat, under the bunk, looking out the windscreen // the operator sits up high in the cab and looks down over the blade
   if (skip) { // a popped hood: sit behind its hinge, with its edge just under eye level, so it fills the bottom of the view and flaps up into it
