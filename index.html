@@ -695,10 +695,19 @@ const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.42, 0.5, 1.0);
 composer.addPass(bloom);
 composer.addPass(new OutputPass());
 const grade = new ShaderPass({
-  uniforms: { tDiffuse: { value: null }, uVig: { value: 0.42 }, uSat: { value: 1.16 }, uCon: { value: 1.12 }, uWarm: { value: 0.012 }, uTime: { value: 0 } },
+  uniforms: { tDiffuse: { value: null }, uVig: { value: 0.42 }, uSat: { value: 1.16 }, uCon: { value: 1.12 }, uWarm: { value: 0.012 }, uTime: { value: 0 }, uSun: { value: new THREE.Vector3(0, 0, 0) }, uAsp: { value: 1 } },
   vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-  fragmentShader: `uniform sampler2D tDiffuse; uniform float uVig, uSat, uCon, uWarm, uTime; varying vec2 vUv;
+  fragmentShader: `uniform sampler2D tDiffuse; uniform float uVig, uSat, uCon, uWarm, uTime, uAsp; uniform vec3 uSun; varying vec2 vUv;
+    float vis(vec2 p){ return smoothstep(0.88, 0.99, dot(texture2D(tDiffuse, p).rgb, vec3(0.333))); }
     void main(){ vec4 c = texture2D(tDiffuse, vUv); vec3 col = c.rgb;
+      if (uSun.z > 0.0) { // sun glare: only as much as the sun itself is uncovered (five taps on the sun disc), a warm halo and faint lens ghosts
+        vec2 sp = uSun.xy, o = vec2(0.006, 0.006 * uAsp);
+        float v = (vis(sp) + vis(sp + vec2(o.x, 0.0)) + vis(sp - vec2(o.x, 0.0)) + vis(sp + vec2(0.0, o.y)) + vis(sp - vec2(0.0, o.y))) * 0.2 * uSun.z;
+        vec2 d = (vUv - sp) * vec2(uAsp, 1.0); float r = length(d);
+        col += vec3(1.0, 0.72, 0.42) * v * (pow(max(0.0, 1.0 - r * 1.3), 5.0) * 0.32 + pow(max(0.0, 1.0 - r * 7.0), 3.0) * 0.4);
+        col += vec3(1.0, 0.8, 0.55) * v * 0.05 * pow(max(0.0, 1.0 - abs(d.y) * 40.0), 2.0) * max(0.0, 1.0 - abs(d.x) * 1.2); // anamorphic streak
+        for (int i = 1; i <= 3; i++) { float t = float(i) * 0.45; vec2 gp = mix(sp, vec2(1.0) - sp, t); float gr = 0.03 + float(i) * 0.025; float gd = length((vUv - gp) * vec2(uAsp, 1.0));
+          col += mix(vec3(0.3, 0.6, 1.0), vec3(1.0, 0.55, 0.25), fract(t)) * v * 0.06 * (1.0 - smoothstep(gr * 0.6, gr, gd)); } }
       float l = dot(col, vec3(0.299, 0.587, 0.114));
       col = mix(vec3(l), col, uSat);                          // a little more saturation
       col = (col - 0.5) * uCon + 0.5;                          // and contrast
@@ -820,6 +829,23 @@ const groundTex = canvasTex(1024, (g, s) => {
     g.beginPath(); g.ellipse(Math.random() * s, Math.random() * s, rand(10, 40), rand(8, 25), rand(0, 3), 0, 7); g.fill();
   }
 }, 110, 110);
+// Perimeter wall: precast slabs with joints, rain streaks, tyre scuffs low down, spray-paint tags and peeling posters (24 m a tile)
+const wallTex = canvasTex(1024, (g, w, h) => {
+  g.fillStyle = '#8b847a'; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 14000; i++) { const v = 105 + Math.random() * 55 | 0; g.fillStyle = `rgba(${v},${v - 4},${v - 10},.3)`; g.fillRect(Math.random() * w, Math.random() * h, 2, 2); }
+  for (let x = 0; x < w; x += 128) { g.fillStyle = 'rgba(40,34,28,.55)'; g.fillRect(x, 0, 3, h); g.fillStyle = 'rgba(255,250,240,.12)'; g.fillRect(x + 3, 0, 2, h); } // slab joints
+  for (let i = 0; i < 60; i++) { const x = Math.random() * w, len = rand(30, 160), gr = g.createLinearGradient(0, 0, 0, len); gr.addColorStop(0, `rgba(50,42,34,${rand(0.15, 0.4)})`); gr.addColorStop(1, 'rgba(50,42,34,0)'); g.fillStyle = gr; g.fillRect(x, 0, rand(2, 10), len); } // rain streaks
+  for (let i = 0; i < 12; i++) { const x = Math.random() * w, len = rand(20, 70), gr = g.createLinearGradient(0, 0, 0, len); gr.addColorStop(0, 'rgba(130,62,26,.55)'); gr.addColorStop(1, 'rgba(130,62,26,0)'); g.fillStyle = gr; g.fillRect(x, rand(10, 40), rand(2, 5), len); } // rust bleeding from bolts
+  const low = g.createLinearGradient(0, h * 0.6, 0, h); low.addColorStop(0, 'rgba(70,56,42,0)'); low.addColorStop(1, 'rgba(70,56,42,.55)'); g.fillStyle = low; g.fillRect(0, 0, w, h); // dirt splashed up the base
+  g.lineCap = 'round'; for (let i = 0; i < 40; i++) { const y = h - rand(10, 70), x = Math.random() * w; g.strokeStyle = `rgba(18,16,14,${rand(0.25, 0.6)})`; g.lineWidth = rand(3, 12); g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + rand(20, 60), y + rand(-8, 8), x + rand(60, 200), y + rand(-12, 12)); g.stroke(); } // tyre scuffs
+  for (let i = 0; i < 4; i++) { const x = rand(40, w - 200), y = rand(40, 110), pw = rand(70, 110), ph = pw * 1.3, cols = [['#d8c9a0', '#b22a1c'], ['#e8e0cc', '#1a3c78'], ['#f0c020', '#151515'], ['#c8d8c0', '#2a5a2a']][i];
+    g.save(); g.translate(x, y); g.rotate(rand(-0.05, 0.05)); g.fillStyle = cols[0]; g.fillRect(0, 0, pw, ph); g.fillStyle = cols[1]; g.font = `900 ${pw * 0.22 | 0}px Impact, Arial Black, sans-serif`; g.textAlign = 'center';
+    g.fillText(['DERBY', 'SAT 8PM', 'SCRAP', 'TOW $$'][i], pw / 2, ph * 0.32); g.fillRect(pw * 0.15, ph * 0.45, pw * 0.7, ph * 0.3); g.fillStyle = 'rgba(0,0,0,.15)'; g.fillRect(0, ph * 0.85, pw, ph * 0.15);
+    g.fillStyle = '#8b847a'; g.beginPath(); g.moveTo(pw, ph); g.lineTo(pw - rand(15, 35), ph); g.lineTo(pw, ph - rand(20, 45)); g.fill(); g.restore(); } // peeling corner
+  g.font = 'italic 900 64px "Arial Black", Impact, sans-serif'; g.lineJoin = 'round';
+  for (const [t, c] of [['WRECK IT', '#e83a8a'], ['NO BRAKES', '#38c8e8'], ['KEV WAS HERE', '#f0f0f0'], ['SMASH', '#9ae830']]) { const x = rand(60, w - 300), y = rand(110, 190); g.save(); g.translate(x, y); g.rotate(rand(-0.12, 0.08)); g.globalAlpha = 0.8; g.lineWidth = 9; g.strokeStyle = '#151515'; g.strokeText(t, 0, 0); g.fillStyle = c; g.fillText(t, 0, 0); g.restore(); }
+  g.globalAlpha = 1;
+}, 1, 1, 4096);
 function hazardTex(rx) {
   return canvasTex(128, (g, s) => {
     g.fillStyle = '#1c1712'; g.fillRect(0, 0, s, s);
@@ -964,7 +990,7 @@ DET.fireTxt = DET.text('FIRE DEPT', 'rgba(0,0,0,0)', '#f2d24a'); DET.policeTxt =
     g.fillStyle = '#77736c'; g.fillRect(0, 0, s, s);
     for (let i = 0; i < 9000; i++) { const v = 100 + Math.random() * 40 | 0; g.fillStyle = `rgba(${v},${v - 2},${v - 6},.25)`; g.fillRect(Math.random() * s, Math.random() * s, 2, 2); }
     for (let y = 0; y < s; y += 22) for (let x = (y / 22) % 2 ? 11 : 0; x < s; x += 22) { g.save(); g.translate(x, y); g.rotate((x / 11 + y / 22) % 2 ? 0.7 : -0.7); g.fillStyle = 'rgba(200,196,188,.32)'; g.fillRect(-6, -1.5, 12, 2.4); g.fillStyle = 'rgba(30,26,22,.35)'; g.fillRect(-6, 0.9, 12, 1.2); g.restore(); }
-    for (let i = 0; i < 26; i++) { const x = Math.random() * s, y = Math.random() * s, r = rand(10, 55), gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, `rgba(${rand(110, 140) | 0},${rand(58, 72) | 0},32,${rand(0.3, 0.6)})`); gr.addColorStop(1, 'rgba(110,60,30,0)'); g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); }
+    for (let i = 0; i < 14; i++) { const x = Math.random() * s, y = Math.random() * s, r = rand(25, 90), gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, `rgba(${rand(110, 140) | 0},${rand(58, 72) | 0},32,${rand(0.12, 0.3)})`); gr.addColorStop(1, 'rgba(110,60,30,0)'); g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); }
     for (let i = 0; i < 10; i++) { const x = Math.random() * s; const gr = g.createLinearGradient(0, 0, 0, 120); gr.addColorStop(0, 'rgba(120,62,28,.45)'); gr.addColorStop(1, 'rgba(120,62,28,0)'); g.fillStyle = gr; g.fillRect(x, rand(0, s), rand(2, 6), rand(40, 120)); } // rust runs
     g.fillStyle = 'rgba(25,22,20,.8)'; g.fillRect(0, 0, s, 3); g.fillRect(0, 0, 3, s); g.fillRect(0, s / 2, s, 2); // sheet seams
     g.fillStyle = 'rgba(160,150,140,.5)'; for (let x = 0; x < s; x += 6) { g.beginPath(); g.arc(x, 4.5, 2, 0, 7); g.arc(x, s / 2 + 3.5, 2, 0, 7); g.fill(); } // weld beads
@@ -1165,7 +1191,12 @@ function buildArena() {
   M.ground.onBeforeCompile = (sh) => {
     sh.uniforms.macroMap = { value: macro };
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec2 vWXZ;').replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvWXZ = (modelMatrix * vec4(transformed, 1.0)).xz;');
-    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform sampler2D macroMap; varying vec2 vWXZ;').replace('#include <map_fragment>', '#include <map_fragment>\nfloat mc = texture2D(macroMap, vWXZ / 260.0).r * 0.7 + texture2D(macroMap, vWXZ / 61.0 + 0.37).r * 0.3; diffuseColor.rgb *= (0.5 + mc * 1.0) * vec3(1.0, 0.97, 0.93 + mc * 0.1);');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform sampler2D macroMap; varying vec2 vWXZ;').replace('#include <map_fragment>', '#include <map_fragment>\nfloat mc = texture2D(macroMap, vWXZ / 260.0).r * 0.7 + texture2D(macroMap, vWXZ / 61.0 + 0.37).r * 0.3; diffuseColor.rgb *= (0.5 + mc * 1.0) * vec3(1.0, 0.97, 0.93 + mc * 0.1);' +
+      // where the cars actually drive the dirt is packed dark and smooth (a loose ring round the yard and the centre circle); against the walls loose pale dust piles up
+      '\nfloat rr = length(vWXZ); float edge = max(abs(vWXZ.x), abs(vWXZ.y)); float wob = texture2D(macroMap, vWXZ / 37.0).r;' +
+      '\nfloat worn = (1.0 - smoothstep(8.0, 24.0, abs(rr - 92.0 + wob * 20.0))) * 0.22 + (1.0 - smoothstep(2.0, 14.0, abs(rr - 36.0 + wob * 8.0))) * 0.16;' +
+      `\nfloat pale = smoothstep(${A - 14}.0, ${A - 1}.0, edge) * (0.5 + wob * 0.6) * step(edge, ${A + 2}.0);` +
+      '\ndiffuseColor.rgb *= 1.0 - worn; diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.62, 0.55, 0.46), pale * 0.45);');
   };
 
   buildGroundScatter();
@@ -1179,7 +1210,8 @@ function buildArena() {
   const H = 3;
   for (const [x, z, hx, hz] of [[0, A + 1, A + 2, 1], [0, -A - 1, A + 2, 1], [A + 1, 0, 1, A + 2], [-A - 1, 0, 1, A + 2]]) {
     const w = addStaticBox(hx, H, hz, { x, y: H, z }, null, M.concrete, { obstacle: true, map: 'wall' });
-    w.mesh.material = M.concrete.clone(); w.mesh.material.map = concreteTex.clone(); w.mesh.material.map.repeat.set(Math.max(hx, hz) / 3, 1); w.mesh.material.map.needsUpdate = true;
+    w.mesh.material = M.concrete.clone(); w.mesh.material.map = wallTex.clone(); w.mesh.material.map.repeat.set(Math.max(hx, hz) * 2 / 24, 1); w.mesh.material.map.needsUpdate = true;
+    w.mesh.material.bumpMap = w.mesh.material.map; w.mesh.material.bumpScale = 0.6;
     const cap = new THREE.Mesh(new THREE.BoxGeometry(hx * 2 + 0.04, 0.6, hz * 2 + 0.04), new THREE.MeshStandardMaterial({ map: hazardTex(Math.max(hx, hz) / 1.5), roughness: 0.7 }));
     cap.position.set(x, H * 2 - 0.3, z);
     scene.add(cap);
@@ -1379,9 +1411,15 @@ function buildArena() {
         const n = 1 + 0.22 * Math.sin(x * 5.1 + seed) * Math.cos(z * 4.3 - seed) + 0.12 * Math.sin(y * 9 + x * 7) + rand(-0.1, 0.1);
         x *= n; z *= n; y = Math.max(-0.15, y) * n; y = y < 0 ? y : Math.pow(y, 1.15); P.setXYZ(i, x, y, z);
         const t = Math.random(), base = t < 0.45 ? [0.36, 0.2, 0.11] : t < 0.75 ? [0.22, 0.2, 0.19] : t < 0.88 ? [0.5, 0.46, 0.4] : [[0.45, 0.12, 0.08], [0.12, 0.22, 0.38], [0.6, 0.48, 0.12]][i % 3];
-        const sh = 0.7 + Math.random() * 0.4; col.push(base[0] * sh, base[1] * sh, base[2] * sh); }
+        const sh = 0.75 + Math.random() * 0.35; col.push(Math.min(1, (0.35 + base[0] * 1.3) * sh), Math.min(1, (0.35 + base[1] * 1.3) * sh), Math.min(1, (0.35 + base[2] * 1.3) * sh)); } // a tint over the junk texture
       g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.computeVertexNormals(); return g; });
-    const heapMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.75, metalness: 0.35, flatShading: true, envMapIntensity: 0.6 });
+    const junkTex = canvasTex(512, (g, s) => { // packed crushed scrap: overlapping slabs of rusty and painted metal with dark gaps between
+      g.fillStyle = '#1a1612'; g.fillRect(0, 0, s, s);
+      for (let i = 0; i < 420; i++) { const w = rand(10, 60), h = rand(6, 26), v = Math.random(), c = v < 0.5 ? [rand(120, 170), rand(60, 85), rand(30, 45)] : v < 0.8 ? [rand(110, 160), rand(105, 150), rand(95, 140)] : [[190, 50, 35], [50, 90, 160], [210, 170, 40], [60, 120, 70]][i % 4];
+        g.save(); g.translate(Math.random() * s, Math.random() * s); g.rotate(rand(-0.6, 0.6)); g.fillStyle = `rgb(${c[0] | 0},${c[1] | 0},${c[2] | 0})`; g.fillRect(-w / 2, -h / 2, w, h);
+        g.fillStyle = 'rgba(255,240,220,.25)'; g.fillRect(-w / 2, -h / 2, w, 1.5); g.fillStyle = 'rgba(0,0,0,.45)'; g.fillRect(-w / 2, h / 2 - 2, w, 2); g.restore(); }
+    }, 7, 4);
+    const heapMat = new THREE.MeshStandardMaterial({ map: junkTex, bumpMap: junkTex, bumpScale: 2, vertexColors: true, roughness: 0.92, metalness: 0.12, flatShading: true, envMapIntensity: 0.3 });
     const per = [[], [], []];
     for (let i = 0; i < 110; i++) { const a = rand(0, Math.PI * 2), r = rand(A + 34, A + 170), s = rand(6, 24) * (r > A + 100 ? 1.4 : 1); per[i % 3].push([Math.cos(a) * r, Math.sin(a) * r, s]); }
     const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler();
@@ -8264,7 +8302,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '60'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '61'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
@@ -8905,6 +8943,13 @@ const CAR_AO = (() => {
     im.count = n; im.instanceMatrix.needsUpdate = true;
   } };
 })();
+const _sunP = new THREE.Vector3();
+function sunGlare() { // where the sun is on screen (z = strength: fades out as it leaves the frame, off at night and inside a car's own smoke)
+  const u = grade.uniforms; u.uAsp.value = camera.aspect;
+  _sunP.copy(sky.material.uniforms.sunDir.value).multiplyScalar(500).add(camera.position).project(camera);
+  const inFront = _sunP.z < 1, edge = Math.max(Math.abs(_sunP.x), Math.abs(_sunP.y));
+  u.uSun.value.set(_sunP.x * 0.5 + 0.5, _sunP.y * 0.5 + 0.5, inFront && !S.night && QUALITY.level < 5 ? clamp(1.3 - edge, 0, 1) : 0);
+}
 function drawBody(dt) {
   SEC.run('lod', updatePropBatches);
   CAR_AO.update();
@@ -8930,7 +8975,7 @@ function drawBody(dt) {
   PERF.n = (PERF.n || 0) + 1; PERF.hostSkip = MP.role === 'host' && QUALITY.level === QSTEPS.length - 1 && PERF.fps < 34 && MP.guests().length > 0;
   if (PERF.hostSkip && PERF.n % 2) return;
   PERFREP.r0 = performance.now();
-  if (!window.__noRender) { const gq = Math.min(S.gfx, S.autoGfx ? (QUALITY.gfxCap ?? 2) : 2); if (gq > 0) { grade.uniforms.uTime.value = clock % 10; grade.enabled = gq > 1; bloom.strength = gq > 1 ? 0.42 : 0.34; composer.render(); } else renderer.render(scene, camera); PERFREP.render = performance.now() - PERFREP.r0; SEC.add('render', PERFREP.render); } // tests can skip drawing to run physics faster
+  if (!window.__noRender) { const gq = Math.min(S.gfx, S.autoGfx ? (QUALITY.gfxCap ?? 2) : 2); if (gq > 0) { grade.uniforms.uTime.value = clock % 10; sunGlare(); grade.enabled = gq > 1; bloom.strength = gq > 1 ? 0.42 : 0.34; composer.render(); } else renderer.render(scene, camera); PERFREP.render = performance.now() - PERFREP.r0; SEC.add('render', PERFREP.render); } // tests can skip drawing to run physics faster
 }
 requestAnimationFrame(frame);
 window.__derby = { BOULDERS, get mapShapes() { return mapShapes; }, respawnCar: (o, t) => respawnCar(o, t), PHYS, cockpitEye: (c) => cockpitEye(c), wakeProp: (pr) => wakeProp(pr), addConcrete: (x, z, r, k) => addConcrete(x, z, r, k), igniteProp: (pr, t) => igniteProp(pr, t), cookBull: (bl, by, dt) => cookBull(bl, by, dt), tankerBoom: (p, c) => tankerBoom(p, c), CAR_TYPES, sfx, CANNON, barks, PERF, shells, NETLOG, nearHostAdd: () => nearHostAdd(), nearJoin: () => nearJoin(), JUMBO, BALL, BOLLARDS, GASQ, updateArenaPub: (dt) => updateArena(dt), CRUSHER, crushNow: () => crushNow(), applyNight: () => applyNight(), FIREWORKS, ARENA, CROWD, MP, QUALITY, applyQuality: (i) => applyQuality(i), MERGED, camera, updatePropActivity: (dt) => updatePropActivity(dt), renderer, scene, spawnFree: (x, z, r) => spawnFree(x, z, r), BULLS, updateBulls: (dt) => updateBulls(dt), updateShells, tilt, setTilt, get CRANE() { return CRANE; }, updateCrane: (dt) => updateCrane(dt), CONCRETE, THREE, craters, shells, pickups, barks, PERSONAS, TUNE, game, cars, S, world, CAR_TYPES, sfx, touch, drawGauge, get player() { return player; }, keys, startMatch, selectCar, setValue, debris, props, platformOf, get simTime() { return simTime; }, set simTime(v) { simTime = v; } }; // console tinkering + tests
