@@ -2754,13 +2754,13 @@ function emit(type, x, y, z, vx, vy, vz, life, size, mat) {
   let p;
   if (GASSY.has(type)) {
     p = sprites[sIdx];
-    if (!p) { p = { mesh: new THREE.Sprite(SMAT.smoke), vel: new THREE.Vector3() }; sprites[sIdx] = p; scene.add(p.mesh); }
+    if (!p) { p = { mesh: new THREE.Object3D(), vel: new THREE.Vector3() }; sprites[sIdx] = p; } // drawn by PBATCH, not as its own object
     sIdx = (sIdx + 1) % SMAX;
     p.mesh.material = type === 'fire' ? SMAT.fireHot : SMAT[type];
     size *= type === 'dust' ? 1.1 : type === 'smoke' ? 1.8 : 2.2;
   } else {
     p = parts[pIdx];
-    if (!p) { p = { mesh: new THREE.Mesh(pGeo, PMAT.spark), vel: new THREE.Vector3() }; parts[pIdx] = p; scene.add(p.mesh); }
+    if (!p) { p = { mesh: new THREE.Object3D(), vel: new THREE.Vector3() }; parts[pIdx] = p; }
     pIdx = (pIdx + 1) % PMAX;
     p.mesh.material = mat || PMAT[type];
     p.mesh.rotation.set(rand(0, 3), rand(0, 3), rand(0, 3));
@@ -2814,6 +2814,28 @@ function updateParticles(dt) {
     }
   }
 }
+// Particle batching: every puff and chip used to be its own object, so one explosion added hundreds of draw calls
+// (the slow moments in the perf reports). Now each material draws all of its particles in one instanced call; puffs
+// are camera-facing quads placed by the vertex shader, exactly like sprites.
+const STANDING = new Set(); // particle materials that always keep their batch
+const PBATCH = (() => {
+  const quad = new THREE.PlaneGeometry(1, 1), batches = new Map(), m4 = new THREE.Matrix4(), q0 = new THREE.Quaternion();
+  const billboard = (mat) => { const b = new THREE.MeshBasicMaterial({ map: mat.map, color: mat.color, opacity: mat.opacity, transparent: true, depthWrite: false, blending: mat.blending, fog: true });
+    b.onBeforeCompile = (sh) => { sh.vertexShader = sh.vertexShader.replace('#include <project_vertex>', 'vec4 mvPosition = modelViewMatrix * vec4(instanceMatrix[3].xyz, 1.0); mvPosition.xy += position.xy * length(instanceMatrix[0].xyz); gl_Position = projectionMatrix * mvPosition;'); };
+    b.customProgramCacheKey = () => 'billboard'; return b; };
+  const get = (mat, sprite) => { let b = batches.get(mat); if (b) return b;
+    const cap = sprite ? SMAX : PMAX, im = new THREE.InstancedMesh(sprite ? quad : pGeo, sprite ? billboard(mat) : mat, cap);
+    im.frustumCulled = false; im.count = 0; im.instanceMatrix.setUsage(THREE.DynamicDrawUsage); im.renderOrder = sprite ? 2 : 0;
+    im.castShadow = !sprite && !mat.blending; scene.add(im); b = { im, n: 0, idle: 0, sprite }; batches.set(mat, b); return b; };
+  for (const k in SMAT) { STANDING.add(SMAT[k]); get(SMAT[k], true); } for (const k in PMAT) { STANDING.add(PMAT[k]); get(PMAT[k], false); } // made up front so their shaders compile during the countdown
+  return { batches, draw(dt) {
+    for (const b of batches.values()) b.n = 0;
+    for (const p of parts) { if (!p || !p.mesh.visible) continue; const b = get(p.mesh.material, false); if (b.n >= PMAX) continue; p.mesh.updateMatrix(); b.im.setMatrixAt(b.n++, p.mesh.matrix); }
+    for (const p of sprites) { if (!p || !p.mesh.visible) continue; const b = get(p.mesh.material, true); if (b.n >= SMAX) continue; m4.compose(p.mesh.position, q0, p.mesh.scale); b.im.setMatrixAt(b.n++, m4); }
+    for (const [mat, b] of batches) { b.im.count = b.n; if (b.n) { b.im.instanceMatrix.needsUpdate = true; b.idle = 0; }
+      else if (!STANDING.has(mat) && (b.idle += dt) > 8) { scene.remove(b.im); b.im.dispose(); if (b.sprite) b.im.material.dispose(); batches.delete(mat); } } // one-off materials (a car's paint) are let go
+  } };
+})();
 // Firelight: up to three flickering lights follow the burning cars nearest to you
 const fireLights = [0, 1, 2].map(() => { const l = new THREE.PointLight(0xff7a2a, 0, 18, 1.8); scene.add(l); return l; });
 function updateFireLights(t) {
@@ -8302,7 +8324,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '61'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '62'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
@@ -8914,7 +8936,7 @@ function simBody(now) {
     updatePickups(sdt);
     updateShells(sdt);
     updateConcrete(sdt);
-    SEC.run('effects', () => { updateParticles(sdt); updateBooms(sdt); updatePropFires(sdt); });
+    SEC.run('effects', () => { updateParticles(sdt); PBATCH.draw(sdt); updateBooms(sdt); updatePropFires(sdt); });
     updateFireLights(clock);
   }
 }
