@@ -9264,7 +9264,7 @@ const MP = {
       const now = Date.now(), newest = new Set(this.players(this.room.peers().filter((p) => !p.sameTab && p.presence && !p.presence.host)).map((p) => p.peer));
       for (const p of this.room.peers()) { const pr = p.presence || {}, isH = p.sameTab ? this.role === 'host' : this.role === 'guest' && !!pr.host && pr === hp;
         if (!p.sameTab && (!pr.nick || (!isH && now - (p.updatedAt || now) > 6000) || (!pr.host && !newest.has(p.peer)))) continue; // a device that went quiet (closed, or the old connection of one that reloaded) isn't listed
-        L.push([isH, p.sameTab ? this.nick() + ' (you' + (isH ? ', hosting' : '') + ')' : pr.nick + (isH ? ' (hosting)' : '')]); }
+        L.push([isH, p.sameTab ? this.nick() + ' (you' + (isH ? ', hosting' : '') + ')' : pr.nick + (isH ? ' (hosting)' : '') + (pr.ps != null && pr.ps < 200 ? ' ⚠' : '')]); } // ⚠ = that device's published perf score is struggling: fix the Wi-Fi before the derby, not during it
       L.sort((a, b) => b[0] - a[0]); t = `In the family yard “${famName()}”: ` + L.map((x) => x[1]).join(', ');
     } else if (this.family) t = 'Looking for the family yard…';
     else t = `Play together joins everyone in the family yard “${famName()}”.`;
