@@ -1703,6 +1703,7 @@ function crushNow() {
     for (let i = 0; i < 36; i++) emit('debris', C.x + rand(-1, 1), 9.2, C.z + rand(-1, 1), rand(-4, 4), rand(7, 13), rand(-4, 4), rand(1.2, 2.2), rand(0.06, 0.14), mats[i % mats.length]);
     if (game.state === 'playing') toast('🎉 CRUSHER CONFETTI!', 'cool');
   }
+  for (const bl of BULLS) if (bl.state === 'burger' && crusherInside(bl.body.position)) smashBurger(bl, 'crusher'); // SMASH BURGER: a burger caught in the press
   for (const c of cars) {
     if (!crusherInside(c.body.position)) continue;
     c.body.wakeUp(); c.body.velocity.set(0, -4, 0); c.body.angularVelocity.set(0, 0, 0);
@@ -3149,6 +3150,7 @@ function bladeUnder(car, c) { // is car c in the blade's footprint, low enough f
 function bladeSlam(car) { // fourteen tonnes of steel blade dropped onto a car: roof flattened, axles broken
   const p = car.body.pointToWorldFrame(new CANNON.Vec3(car.T.L / 2 + 0.8 - car.comShift, 0, 0)); let n = 0;
   for (const c of cars) if (c !== car && bladeUnder(car, c)) { crushCar(c, car, 1.0, 'blade'); n++; }
+  for (const bl of BULLS) { if (bl.state !== 'burger' || bl.smashed) continue; const l = car.body.pointToLocalFrame(bl.body.position), x = l.x + car.comShift - car.T.L / 2; if (x > -0.6 && x < 3.2 && Math.abs(l.z) < car.T.W * 0.6 + 0.5 && l.y < 1.6) { smashBurger(bl, 'blade'); n++; } } // SMASH BURGER: a burger under the falling blade
   sfx.at(p).hydraulic(wv(car)); sfx.at(p).crash(wv(car), n ? 16 : 8); for (let i = 0; i < 10; i++) emit('dust', p.x + rand(-1.5, 1.5), 0.3, p.z + rand(-1.5, 1.5), rand(-3, 3), rand(1, 2), rand(-3, 3), rand(1, 1.6), rand(0.5, 0.9)); game.shake = Math.max(game.shake, car.isPlayer ? 0.8 : 0.2);
   if (car.isPlayer && game.state === 'playing') toast(n ? 'BLADE DOWN: CRUSHED!' : 'BLADE DOWN', n ? 'cool' : null);
 }
@@ -8939,6 +8941,18 @@ function cookBull(bl, by, dt) { // called while a flame hits the bull
     if (by && !by.isPlayer && !by.remote && Math.random() < 0.7) barks.say(by, 'burger', true, { v: 'the bull', vcar: 'bull', target: 'you', car: 'bull' }); else barks.announce('burger', { a: by ? (by.isPlayer ? 'our hero' : by.name) : 'somebody' }, true);
   }
 }
+const trayMat = new THREE.MeshStandardMaterial({ color: 0xf0e9da, roughness: 0.9 });
+const trayGeo = new THREE.CylinderGeometry(1.15, 1.05, 0.07, 20);
+function smashBurger(bl, how) { // SMASH BURGER: a burger under something very heavy comes out wide, flat and proud on a little paper tray — and it still counts as a burger everywhere burgers count
+  if (!bl || bl.state !== 'burger' || bl.smashed) return false;
+  bl.smashed = true; bl.smashHow = how;
+  if (bl.burger) {
+    if (!bl.tray) { bl.tray = new THREE.Mesh(trayGeo, trayMat); bl.tray.position.y = 0; bl.tray.castShadow = true; bl.burger.add(bl.tray); }
+    if (!(bl.soggyT > 0)) bl.burger.scale.set(1.7, 0.62, 1.7); // a soggy burger keeps its own sag until it dries, then lands on the smashed scale
+  }
+  if (game.state === 'playing') toast('🍔 SMASH BURGER!', 'cool');
+  return true;
+}
 function bullMoo(bull, vol, f0) { if (!player || !sfx.ctx) return; const d = player.body.position.distanceTo(bull.body.position), v = clamp(1 - d / 90, 0, 1) * vol; if (v < 0.03) return; const f = f0 || rand(95, 125); bull.lastMooF = f; sfx.tone('sawtooth', f * 1.4, f, v * 0.25, rand(0.7, 1.1), true); sfx.tone('square', f * 0.7, f * 0.5, v * 0.08, 0.9, false); }
 function honkBack(car) { // HONK BACK: honk at a bull and it answers with a moo pitched like your horn; honk again within a few seconds and it harmonises, a fifth up
   let best = null, bd = 26;
@@ -8989,10 +9003,10 @@ function updateBulls(dt) {
       if (bl.soggyT > 0) { // SOGGY: limp and friction-free — it keeps almost all its slide, and sags wide and flat until it dries
         bl.soggyT -= dt; b.velocity.x *= 0.995; b.velocity.z *= 0.995;
         if (bl.burger) bl.burger.scale.set(1.5, 0.9, 1.5);
-        if (bl.soggyT <= 0) { bl.soggyT = 0; if (bl.burger) bl.burger.scale.setScalar(1.25); }
+        if (bl.soggyT <= 0) { bl.soggyT = 0; if (bl.burger) { if (bl.smashed) bl.burger.scale.set(1.7, 0.62, 1.7); else bl.burger.scale.setScalar(1.25); } }
       } else { b.velocity.x *= 0.9; b.velocity.z *= 0.9; }
       if (Math.random() < dt * 3) emit('steam', p.x + rand(-0.5, 0.5), p.y + 1.6, p.z + rand(-0.5, 0.5), 0, rand(1, 2), 0, rand(0.8, 1.4), rand(0.3, 0.5));
-      if (bl.t <= 0) { let sp = null; for (let k = 0; k < 12 && !sp; k++) { const c0 = findSpawn(rand(-70, 70), rand(-70, 70)); if (!cars.some((c) => c.body.position.distanceTo(new CANNON.Vec3(c0.x, 1.3, c0.z)) < 8)) sp = c0; } if (sp) { p.set(sp.x, 1.3, sp.z); b.velocity.set(0, 0, 0); bl.state = 'graze'; bl.t = 3; bl.cook = 0; } else bl.t = 1; }
+      if (bl.t <= 0) { let sp = null; for (let k = 0; k < 12 && !sp; k++) { const c0 = findSpawn(rand(-70, 70), rand(-70, 70)); if (!cars.some((c) => c.body.position.distanceTo(new CANNON.Vec3(c0.x, 1.3, c0.z)) < 8)) sp = c0; } if (sp) { p.set(sp.x, 1.3, sp.z); b.velocity.set(0, 0, 0); bl.state = 'graze'; bl.t = 3; bl.cook = 0; if (bl.smashed) { bl.smashed = false; bl.smashHow = null; if (bl.tray && bl.burger) { bl.burger.remove(bl.tray); bl.tray = null; } if (bl.burger) bl.burger.scale.setScalar(1.25); } } else bl.t = 1; }
     }
     else if (bl.satT > 0) { // RUBBER DUCK: hosed once, it sits in the puddle and stays sat, defeated, until the timer runs out
       bl.satT -= dt; b.velocity.x *= 0.55; b.velocity.z *= 0.55;
@@ -9613,7 +9627,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '82'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '83'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
@@ -11220,7 +11234,7 @@ const IDLE = { ms: 3 * 60 * 1000, last: performance.now(), on: !/[?&]noidle=1\b/
   } };
 for (const ev of ['keydown', 'pointerdown', 'pointermove', 'wheel', 'touchstart', 'touchmove']) addEventListener(ev, (e) => { if (e.isTrusted || window.__idleTest) IDLE.poke(); }, { capture: true, passive: true });
 setInterval(() => IDLE.check(), 5000);
-window.__derby = { AUTO, PLAYLOG, BOULDERS, get mapShapes() { return mapShapes; }, respawnCar: (o, t) => respawnCar(o, t), PHYS, cockpitEye: (c) => cockpitEye(c), wakeProp: (pr) => wakeProp(pr), addConcrete: (x, z, r, k) => addConcrete(x, z, r, k), igniteProp: (pr, t) => igniteProp(pr, t), cookBull: (bl, by, dt) => cookBull(bl, by, dt), hoseBull: (car, bl, p, f, dt) => hoseBull(car, bl, p, f, dt), DUCKS, goldConeReveal: (pr) => goldConeReveal(pr), sadTromboneKind: (t) => sadTromboneKind(t), honkBack: (car) => honkBack(car), tankerBoom: (p, c) => tankerBoom(p, c), CAR_TYPES, sfx, CANNON, barks, PERF, shells, NETLOG, nearHostAdd: () => nearHostAdd(), nearJoin: () => nearJoin(), JUMBO, BALL, BOLLARDS, GASQ, updateArenaPub: (dt) => updateArena(dt), CRUSHER, crushNow: () => crushNow(), applyNight: () => applyNight(), FIREWORKS, ARENA, CROWD, MP, QUALITY, applyQuality: (i) => applyQuality(i), MERGED, camera, updatePropActivity: (dt) => updatePropActivity(dt), renderer, scene, spawnFree: (x, z, r) => spawnFree(x, z, r), BULLS, updateBulls: (dt) => updateBulls(dt), updateShells, tilt, setTilt, get CRANE() { return CRANE; }, updateCrane: (dt) => updateCrane(dt), CONCRETE, THREE, craters, shells, pickups, barks, PERSONAS, TUNE, game, cars, S, world, CAR_TYPES, sfx, touch, drawGauge, get player() { return player; }, keys, startMatch, selectCar, setValue, debris, props, platformOf, get simTime() { return simTime; }, set simTime(v) { simTime = v; } }; // console tinkering + tests
+window.__derby = { AUTO, PLAYLOG, BOULDERS, get mapShapes() { return mapShapes; }, respawnCar: (o, t) => respawnCar(o, t), PHYS, cockpitEye: (c) => cockpitEye(c), wakeProp: (pr) => wakeProp(pr), addConcrete: (x, z, r, k) => addConcrete(x, z, r, k), igniteProp: (pr, t) => igniteProp(pr, t), cookBull: (bl, by, dt) => cookBull(bl, by, dt), hoseBull: (car, bl, p, f, dt) => hoseBull(car, bl, p, f, dt), DUCKS, goldConeReveal: (pr) => goldConeReveal(pr), sadTromboneKind: (t) => sadTromboneKind(t), honkBack: (car) => honkBack(car), smashBurger: (bl, how) => smashBurger(bl, how), bladeSlam: (car) => bladeSlam(car), tankerBoom: (p, c) => tankerBoom(p, c), CAR_TYPES, sfx, CANNON, barks, PERF, shells, NETLOG, nearHostAdd: () => nearHostAdd(), nearJoin: () => nearJoin(), JUMBO, BALL, BOLLARDS, GASQ, updateArenaPub: (dt) => updateArena(dt), CRUSHER, crushNow: () => crushNow(), applyNight: () => applyNight(), FIREWORKS, ARENA, CROWD, MP, QUALITY, applyQuality: (i) => applyQuality(i), MERGED, camera, updatePropActivity: (dt) => updatePropActivity(dt), renderer, scene, spawnFree: (x, z, r) => spawnFree(x, z, r), BULLS, updateBulls: (dt) => updateBulls(dt), updateShells, tilt, setTilt, get CRANE() { return CRANE; }, updateCrane: (dt) => updateCrane(dt), CONCRETE, THREE, craters, shells, pickups, barks, PERSONAS, TUNE, game, cars, S, world, CAR_TYPES, sfx, touch, drawGauge, get player() { return player; }, keys, startMatch, selectCar, setValue, debris, props, platformOf, get simTime() { return simTime; }, set simTime(v) { simTime = v; } }; // console tinkering + tests
 requestAnimationFrame(frame);
 window.__derby.IDLE = IDLE; window.__derby.TALK = TALK; window.__derby.DROP = DROP; window.__derby.SCORE = SCORE; window.__derby.UPDATE = UPDATE; window.__derby.TABENV = TABENV; window.__derby.PERFREP = PERFREP; // (test hooks)
 window.__derby.VR = VR; window.__derby.XRS = XRS; window.__derby.composer = composer;

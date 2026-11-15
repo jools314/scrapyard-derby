@@ -40,6 +40,7 @@ quick() {
   t trombone 600 "TROMBONE PASS"
   t honkback 600 "HONKBACK PASS"
   t confetti 600 "CONFETTI PASS"
+  t smash 600 "SMASH PASS"
 }
 release() {
   quick
