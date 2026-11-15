@@ -8432,6 +8432,7 @@ $('btnGarage').addEventListener('click', showMenu);
 /* ---------------- Input ---------------- */
 const keys = new Set();
 let camMode = 0;
+let lookBack = false, camKeyT = 0; // hold C to look behind you; a quick tap of C still cycles the camera
 function nextCam() { camMode = (camMode + 1) % 3; game.camSnap = true; toast(['CHASE VIEW', 'FAR VIEW', 'INSIDE VIEW'][camMode], 'cool'); }
 const GAME_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'KeyH']);
 window.addEventListener('keydown', (e) => {
@@ -8447,7 +8448,7 @@ window.addEventListener('keydown', (e) => {
     case 'KeyR': if (game.state === 'playing' && player && !player.wrecked) player.flipUpright(); break;
     case 'KeyN': if (GAME_MODE === 'respawn' && game.state === 'playing') openRespawnSheet(false); else showMenu(); break;
     case 'KeyK': if (game.state === 'playing') { if (RS.open) closeRespawnSheet(); else openRespawnSheet(false); } break;
-    case 'KeyC': nextCam(); break;
+    case 'KeyC': lookBack = true; camKeyT = performance.now(); break;
     case 'KeyL': SCORE.show(!SCORE.open); break;
     case 'KeyT': togglePanel(); break;
     case 'KeyI': perfOpen($('perfdlg').hidden); break;
@@ -8463,7 +8464,7 @@ window.addEventListener('keydown', (e) => {
       break;
   }
 });
-window.addEventListener('keyup', (e) => keys.delete(e.code));
+window.addEventListener('keyup', (e) => { keys.delete(e.code); if (e.code === 'KeyC') { if (performance.now() - camKeyT < 250) nextCam(); lookBack = false; } });
 canvas.addEventListener('pointerdown', (e) => { if (e.pointerType === 'mouse' && game.state === 'playing' && player && (player.T.gun || player.T.pour || player.T.special)) { player.ctrl.fire = true; mouseFire = true; } }); // click to fire / pour / use weapon
 window.addEventListener('blur', () => keys.clear());
 // Touch (iPad / phone): floating steering stick on the left half, pedals and buttons on the right
@@ -8705,7 +8706,7 @@ function updateCamera(dt) {
     if (Math.abs(d) > 2.6 || game.camSnap) { a0 = a1; game.camSnap = false; } else a0 += d * k; // a spin or a reset snaps it round
     lastFlat.set(Math.cos(a0), Math.sin(a0));
   }
-  const fx = lastFlat.x, fz = lastFlat.y;
+  const fx = lastFlat.x * (lookBack && camMode !== 2 ? -1 : 1), fz = lastFlat.y * (lookBack && camMode !== 2 ? -1 : 1); // holding C: the chase camera flips to look behind you
   const sp = Math.abs(player.speed);
   if (camMode === 2) { // bumper cam
     const E = player.eye || (player.eye = cockpitEye(player));
