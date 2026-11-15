@@ -716,6 +716,7 @@ const SETTINGS_DEF = [
   { key: 'downforce',           group: 'World', label: 'Downforce',           unit: 'kg/m',  min: 0,    max: 8,     step: 0.1,  def: 1.8 },
   { key: 'restitution',         group: 'World', label: 'Bounciness',          unit: '',      min: 0,    max: 1,     step: 0.05, def: 0.15 },
   { key: 'flashSafe',           group: 'World', label: 'Reduce flashing',     unit: '',      min: 0,    max: 1,     step: 1,    def: 0, note: 'R2-92: photosensitivity — steady crusher lamps (no 8 Hz strobe), damage flash capped, fireworks reduced to a single gentle burst' },
+  { key: 'uiScale',             group: 'World', label: 'HUD scale',           unit: '%',     min: 100,  max: 150,   step: 25,   def: 100, note: 'R2-94: scales the whole HUD layer — numerals, gauge labels, toasts — for small screens and tired eyes' },
   { key: 'playerMassScale',     group: 'Car',   label: 'Your car weight',     unit: '×',     min: 0.3,  max: 4,     step: 0.05, def: 1, mass: 'player' },
   { key: 'aiMassScale',         group: 'Car',   label: 'Opponent weight',     unit: '×',     min: 0.3,  max: 4,     step: 0.05, def: 1 },
   { key: 'frontWeight',         group: 'Car',   label: 'Weight on front axle', unit: '%',    min: 35,   max: 65,    step: 1,    def: 50 },
@@ -8371,6 +8372,7 @@ function applySetting(key) {
     case 'carWeight': case 'truckWeight': case 'suspensionStiffness': case 'suspensionDamping': case 'rideHeight': case 'suspensionTravel': for (const c of cars) c.applyWheelSettings(); break;
     case 'enginePower': buildGarage(); break;
     case 'sfxVolume': case 'musicVolume': sfx.setVolumes(); break;
+    case 'uiScale': { const z = (S.uiScale || 100) / 100; $('hud').style.zoom = z; $('toasts').style.zoom = z; break; } // R2-94
   }
 }
 function setValue(key, v) {
@@ -8416,6 +8418,7 @@ function setValue(key, v) {
     groups[d.group].appendChild(row);
   }
 })();
+applySetting('uiScale'); // R2-94: apply the saved HUD scale at boot (the panel build above is the first moment both S and the DOM exist)
 function togglePanel(show) { el.panel.hidden = show === undefined ? !el.panel.hidden : !show; }
 $('btnTune').addEventListener('click', (e) => { togglePanel(); e.currentTarget.blur(); });
 $('btnClose').addEventListener('click', () => togglePanel(false));
