@@ -728,6 +728,23 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+
+/* ================= NETCODE CONTRACT (read this before touching MP / NETLOG / guestFrame) =================
+   One host, many guests, no server of our own: rooms are ntfy topics (family rooms are a hash of the
+   family name + optional PIN — see famKey), presence is published over the room topic, WebRTC data
+   channels carry the fast path when they connect.
+   - The HOST ticks the only simulation. Guests never step physics for remote cars; they send inputs
+     (throttle/steer/buttons as a compact presence array) and smooth between host snapshots.
+   - Snapshots are size-capped (~3.6 KB): props are dropped first, then old events. Events ride the
+     snapshot ring (MP.event / e.n sequence numbers; guests apply each exactly once — see the event
+     dispatch in guestFrame). Event kinds are fire-and-forget effects, never state a guest must keep.
+   - Presence carries nick, want (chosen car), did (device id, survives reloads — a returning device
+     gets its own car back), jt (join time; newest connection wins), col (paint) and ps (perf score:
+     fps-based, published ~1/s; used for lobby ⚠ marks and host ranking).
+   - Host handover is manual (Net log): famCmp ranks candidate hosts by players, epoch, age, id.
+     The host's epoch increments on takeover; guests follow the highest epoch they can see.
+   - The host clock is real time (TICK). A guest's clock is whatever the snapshots say it is.
+   Change any of this and you must update this note, NETLOG's expectations, and the guest smoothing. */
 let SELF_HTML = null; function selfHtml() { if (SELF_HTML === null) SELF_HTML = '<!doctype html>\n' + document.documentElement.outerHTML; return SELF_HTML; } // captured lazily on the first tilt tap that needs it: serialising the whole page at boot cost every player a >1 MB string for a path almost nobody takes
 
 /* =====================================================================
