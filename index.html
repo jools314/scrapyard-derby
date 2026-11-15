@@ -642,6 +642,7 @@
       <p id="menuBest" class="quiet" style="margin:0"></p>
       <div class="actions">
         <span class="modes" role="group" aria-label="Game mode"><button type="button" class="mode" data-mode="respawn" aria-pressed="true">Respawn</button><button type="button" class="mode" data-mode="elim" aria-pressed="false">Elimination</button></span>
+        <span class="modes" id="fieldChips" role="group" aria-label="Field size"><button type="button" data-n="4">4 cars</button><button type="button" data-n="6">6</button><button type="button" data-n="9">9</button><button type="button" data-n="12">12</button></span>
         <button id="btnStart" class="primary" type="button">Start derby</button>
         <button id="btnVR" type="button" hidden>🥽 Enter VR</button>
         <button id="btnAutoplay" type="button" title="The computer drives every car, match after match, and logs how the game runs (fps, physics glitches, stuck cars, balance). Any key or tap stops it.">🤖 Autoplay (learn)</button>
@@ -8397,6 +8398,9 @@ const unlockAudio = () => sfx.init();
 window.addEventListener('pointerdown', unlockAudio, { once: true });
 window.addEventListener('keydown', unlockAudio, { once: true });
 $('btnStart').addEventListener('click', startMatch);
+function refreshFieldChips() { for (const b of document.querySelectorAll('#fieldChips button')) b.setAttribute('aria-pressed', String(+b.dataset.n === Math.round(S.aiCount))); }
+for (const b of document.querySelectorAll('#fieldChips button')) b.addEventListener('click', () => { setValue('aiCount', +b.dataset.n); refreshFieldChips(); b.blur(); });
+refreshFieldChips();
 $('btnReplay').addEventListener('click', () => { if (ARENA.lastWreck) { el.over.hidden = true; game.replayBack = true; game.replayBackT = clock + 7; startReplay(ARENA.lastWreck); toast('REPLAY ON THE BIG SCREEN', 'cool'); } });
 $('btnAgain').addEventListener('click', startMatch);
 $('btnGarage').addEventListener('click', showMenu);
