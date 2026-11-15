@@ -21,6 +21,7 @@ quick() {
   TAG=-b t drive 900 "" ONLY=camper,mixer,firetruck,hellbender,cruiser
   TAG=-c t drive 900 "" ONLY=tiger,dozer,combine,bertha,tanker
   t tracks 900 "TRACKS PASS"
+  t blade 600 "BLADE PASS"
   t interact 1200 "^16/16"
   t twothumb 600 "TWO-THUMB PASS"
   t zoom 600 '"twoFingerBlocked":true,"oneFingerAllowed":true,"gestureBlocked":true'

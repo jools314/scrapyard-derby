@@ -4128,7 +4128,7 @@ class Car {
         part(add(new THREE.CylinderGeometry(0.12, 0.12, 0.08, 10), M.cone, C.x, top + C.h + 0.14, 0.5), 'top', 25); // amber beacon
         const bp = new THREE.Group(); bp.position.set(L / 2 + 0.35, HULL_Y0 + 0.15, 0); root.add(bp); this.bladePivot = bp; this.bladeY0 = bp.position.y;
         const bladeGeo = new THREE.BoxGeometry(0.2, 1.35, W * 1.12, 2, 8, 14); // curved mouldboard: bend the plate into a scoop
-        { const a = bladeGeo.attributes.position.array; for (let i = 0; i < a.length; i += 3) { const v = a[i + 1] / 0.675; a[i] += 0.22 * (1 - v * v) - 0.05; } bladeGeo.computeVertexNormals(); }
+        { const a = bladeGeo.attributes.position.array; for (let i = 0; i < a.length; i += 3) { const v = a[i + 1] / 0.675; a[i] += 0.12 - 0.22 * (1 - v * v); } bladeGeo.computeVertexNormals(); }
         const blade = add(bladeGeo, this.paint, 0.15, 0.68, 0, bp); this.deform.push({ mesh: blade, orig: bladeGeo.attributes.position.array.slice(), inGroup: true });
         add(new THREE.BoxGeometry(0.12, 0.1, W * 1.14), M.steel, 0.32, 0.03, 0, bp); // cutting edge
         for (const sd of [-1, 1]) { add(new THREE.BoxGeometry(L * 0.62, 0.16, 0.16), M.steel, -L * 0.28, 0.25, sd * (T.track / 2 + 0.02), bp); add(new THREE.CylinderGeometry(0.07, 0.07, 1.1, 8).rotateZ(1.1), M.chrome, -0.5, 0.75, sd * 0.7, bp); } // push arms, lift rams
@@ -9534,7 +9534,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '70'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '71'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
