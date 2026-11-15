@@ -138,6 +138,11 @@
   #reticle::before, #reticle::after { content: ''; position: absolute; background: var(--fg); left: 50%; top: -9px; width: 2px; height: 62px; margin-left: -1px; }
   #reticle::after { top: 50%; left: -9px; width: 62px; height: 2px; margin: -1px 0 0; }
   #reticle.lock { border-color: var(--danger); } #reticle.lock::before, #reticle.lock::after { background: var(--danger); }
+  #pickMark { position: absolute; left: 0; top: 0; width: 70px; height: 56px; margin: -28px 0 0 -35px; pointer-events: none; filter: drop-shadow(0 0 1px rgba(0,0,0,.8));
+    --pk: #ff4a2a; background: linear-gradient(var(--pk), var(--pk)) left top / 16px 3px no-repeat, linear-gradient(var(--pk), var(--pk)) left top / 3px 16px no-repeat, linear-gradient(var(--pk), var(--pk)) right top / 16px 3px no-repeat, linear-gradient(var(--pk), var(--pk)) right top / 3px 16px no-repeat,
+      linear-gradient(var(--pk), var(--pk)) left bottom / 16px 3px no-repeat, linear-gradient(var(--pk), var(--pk)) left bottom / 3px 16px no-repeat, linear-gradient(var(--pk), var(--pk)) right bottom / 16px 3px no-repeat, linear-gradient(var(--pk), var(--pk)) right bottom / 3px 16px no-repeat; }
+  #pickMark span { position: absolute; left: 50%; bottom: 100%; margin-bottom: 4px; transform: translateX(-50%); white-space: nowrap; font: 800 12px/1.2 var(--ui); letter-spacing: .04em; color: #fff; background: rgba(190, 40, 18, .88); padding: 2px 7px; border-radius: 4px; }
+  #pickMark.far { opacity: .55; }
   .mp { display: grid; gap: 6px; padding: 10px; border: 1px solid var(--line); border-radius: 6px; }
   .mprow { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
   .mprow input { font: 500 13px var(--ui); padding: 6px 8px; background: var(--panel-solid); color: var(--fg); border: 1px solid var(--line); border-radius: 4px; width: 9em; }
@@ -376,6 +381,8 @@
   #touch .tb.sm { width: 58px; height: 58px; }
   .siren-only { display: none !important; }
   body.has-siren #touch .tb.siren-only { display: inline-flex !important; }
+  .aim-only { display: none !important; }
+  body.has-aim #touch .tb.aim-only { display: inline-flex !important; }
   body.touch .rail .ic { width: 46px; height: 46px; font-size: 19px; }
   body.touch #touch .tb.fire { width: 92px; height: 92px; }
   body.touch #touch .tb.sm { width: 56px; height: 56px; }
@@ -459,7 +466,7 @@
       <canvas id="minimap" width="320" height="320" aria-label="Arena map"></canvas>
       <div class="rail"><!-- a slim column on the right edge: nothing over the middle of the screen -->
         <button id="btnGear" class="ic gear" type="button" title="Settings and debugging" aria-label="Settings" aria-expanded="false">⚙️<span id="netDot" hidden></span></button>
-        <button id="btnMap" class="ic" type="button" title="Map (Tab)" aria-pressed="false">🗺️<small>Map</small></button>
+        <button id="btnMap" class="ic" type="button" title="Map (Y)" aria-pressed="false">🗺️<small>Map</small></button>
         <button id="btnCam" class="ic" type="button" title="Camera: chase / far / inside (C)">🎥<small>View</small></button>
         <button id="btnPause" class="ic" type="button" title="Pause (P)">⏸️<small>Pause</small></button>
         <button id="btnRespawn" class="ic hot" type="button" title="Respawn or pick a new car (K)">🔄<small>Respawn</small></button>
@@ -495,6 +502,7 @@
     <div id="tags"></div>
     <div id="hostlost" hidden><div class="hl-card"><div class="hl-t">PAUSED · HOST DISCONNECTED</div><div class="hl-n" id="hlN"></div><div class="hl-s" id="hlS"></div></div></div>
     <div id="reticle" hidden></div>
+    <div id="pickMark" hidden><span id="pickName"></span></div>
     <div id="subs" aria-live="polite"></div>
   </div>
 
@@ -506,6 +514,7 @@
         <button class="tb sm" data-k="hb" type="button"><span class="ico">🌀</span><small>Drift</small></button>
         <button class="tb sm" data-k="nitro" type="button"><span class="ico">⚡</span><small>Nitro</small></button>
         <button class="tb sm" data-k="jump" type="button"><span class="ico">⤴️</span><small>Jump</small></button>
+        <button class="tb sm aim-only" id="btnAim" type="button" aria-label="Next target"><span class="ico">🎯</span><small>Target</small></button>
         <button class="tb sm siren-only" data-k="siren" type="button"><span class="ico">🚨</span><small>Siren</small></button>
         <button class="tb fire gun-only" data-k="fire" type="button"><span class="ico" id="fireIco">💥</span><small id="fireLab">Fire</small></button>
       </div>
@@ -608,12 +617,13 @@
           <dt>J</dt><dd>Hydraulic jump</dd>
           <dt>F / click</dt><dd>Fire a 3-round burst (Tiger)</dd>
           <dt>G</dt><dd>Siren (Cruiser)</dd>
+          <dt>Tab</dt><dd>Pick a target for the cannon, minigun, rockets and other aimed weapons; Tab again for the next car (Shift+Tab goes back; on a gamepad R1 / L1). It stays picked until the car is wrecked or out of sight</dd>
           <dt>F / click</dt><dd>Your car's special weapon: harpoon, oil, spikes, flamethrower, propane bomb, water cannon, rocket ram, cannon, concrete or fuel</dd>
           <dt>V</dt><dd>Wheelie (Hellbender)</dd>
           <dt>Q / E</dt><dd>In the air: pitch nose down / up</dd>
           <dt>R · N</dt><dd>Reset car · restart match</dd>
           <dt>C · T · P</dt><dd>Camera · tune physics · pause</dd>
-          <dt>M · B</dt><dd>Sound · music</dd>
+          <dt>M · B · Y</dt><dd>Sound · music · map</dd>
           <dt>Touch</dt><dd>Drag left side to steer, pedals on the right</dd>
         </dl>
       </details>
@@ -2352,7 +2362,8 @@ function frontObject(car, range, cone) { // nearest bull or shootable prop ahead
   for (const pr of props) { const o = pr.body; if (!(o.gas || o.mass === 90 || o.propKind === 'rubber') || pr.dormant && !props.includes(pr)) continue; const l = b.pointToLocalFrame(o.position); if (l.x > 2 && Math.abs(l.z) < l.x * cone && l.x < bd) { bd = l.x; best = { body: o }; } }
   return best;
 }
-function frontTarget(car, range, cone) { // nearest car ahead inside a cone
+function frontTarget(car, range, cone) { // nearest car ahead inside a cone (a human's picked target first, when it is inside this weapon's reach)
+  const pk = pickFor(car); if (pk) { const l = car.body.pointToLocalFrame(pk.body.position), d = Math.hypot(l.x, l.z); if (l.x > 0 && d < range && Math.abs(Math.atan2(l.z, l.x)) < cone) return pk; }
   let best = null, bd = range;
   for (const c of cars) {
     if (c === car || c.wrecked) continue;
@@ -2360,6 +2371,52 @@ function frontTarget(car, range, cone) { // nearest car ahead inside a cone
     if (l.x > 0 && d < bd && Math.abs(Math.atan2(l.z, l.x)) < cone) { bd = d; best = c; }
   }
   return best;
+}
+/* Target picking: Tab (or the touch 🎯 button) chooses which car your aimed weapons go for.
+   The pick sticks until that car is wrecked, out of sight for PICK.lose seconds, or you press again. A guest sends it to the host as a car index. */
+const AIM_SPECIALS = new Set(['minigun', 'rockets', 'harpoon', 'bomb', 'water', 'spikes']);
+function canAim(T) { return !!(T && (T.gun || T.pour === true || AIM_SPECIALS.has(T.special))); } // tank cannon, mixer's concrete bomb, and the specials that aim at a car
+const PICK = { range: 130, lose: 1.5, occT: 0, occ: false };
+function pickFor(car) { const t = car.pickT; return t && (car.isPlayer || car.remote) && !t.wrecked && t !== car && cars.includes(t) ? t : null; }
+const _pkFrom = new CANNON.Vec3(), _pkTo = new CANNON.Vec3(), _pkRes = new CANNON.RaycastResult();
+function pickScreen(c) { // where car c sits on screen (x, y in -1..1), or null when it is behind you, off screen, too far or wrecked
+  if (!c || !player || c === player || c.wrecked || !cars.includes(c)) return null;
+  const p = c.body.position; if (p.distanceTo(player.body.position) > PICK.range) return null;
+  tv3.set(p.x, p.y + 0.6, p.z).project(camera);
+  if (tv3.z > 1 || tv3.z < -1 || Math.abs(tv3.x) > 1.02 || Math.abs(tv3.y) > 1.05) return null;
+  return { x: tv3.x, y: tv3.y };
+}
+function pickHidden(c) { // a big static thing (wall, crusher, container) between the camera and the car
+  const cp = camera.position, p = c.body.position; _pkFrom.set(cp.x, cp.y, cp.z); _pkTo.set(p.x, p.y + 0.8, p.z);
+  let hid = false; _pkRes.reset();
+  world.raycastAll(_pkFrom, _pkTo, { skipBackfaces: true, checkCollisionResponse: true }, (r) => { const b = r.body; if (b && b.mass === 0 && b.type !== CANNON.Body.KINEMATIC && !b.isTrigger && r.distance < _pkFrom.distanceTo(_pkTo) - 2) { hid = true; r.abort(); } });
+  return hid;
+}
+function cyclePick(dir = 1) {
+  if (!player || game.state !== 'playing' || !canAim(player.T)) return;
+  camera.updateMatrixWorld();
+  const cur = pickFor(player), cs = [];
+  for (const c of cars) { const s = pickScreen(c); if (s && (c === cur || !pickHidden(c))) cs.push({ c, x: s.x, y: s.y }); }
+  let nx = null;
+  if (!cur) { let bd = 1e9; for (const o of cs) { const d = Math.hypot(o.x, o.y * 0.6); if (d < bd) { bd = d; nx = o.c; } } } // first press: the car nearest the middle of the screen
+  else { cs.sort((a, b) => (a.x - b.x) * dir); const cx = (cs.find((o) => o.c === cur) || { x: pickScreen(cur)?.x ?? 0 }).x; const rest = cs.filter((o) => o.c !== cur);
+    nx = rest.length ? (rest.find((o) => (o.x - cx) * dir > 0) || rest[0]).c : null; } // sweep across the screen, wrapping round; nobody else in view: back to auto
+  setPick(nx, true);
+}
+function setPick(c, say) {
+  if (!player) return; const was = player.pickT; player.pickT = c || null; player.pickLost = 0; PICK.occT = 0; PICK.occ = false;
+  if (!say) return;
+  if (c) { toast(`🎯 TARGET: ${String(c.name).toUpperCase()}`, 'cool'); sfx.tone('square', 1200, 1200, 0.04, 0.05); }
+  else toast(was ? '🎯 AUTO AIM' : 'NO TARGET IN VIEW', was ? 'cool' : 'bad');
+}
+function updatePick(dt) { // keep the pick while you can see it; drop it once it has been out of sight for a while
+  if (!player) return; const t = player.pickT; if (!t) return;
+  if (!canAim(player.T) || t.wrecked || !cars.includes(t) || game.state !== 'playing' || XRS.on) { setPick(null, false); return; }
+  if (game.paused) return;
+  camera.updateMatrixWorld();
+  const s = pickScreen(t); PICK.occT -= dt; if (s && PICK.occT <= 0) { PICK.occT = 0.2; PICK.occ = pickHidden(t); } // the wall test runs 5 times a second
+  if (s && !PICK.occ) player.pickLost = 0;
+  else if ((player.pickLost = (player.pickLost || 0) + dt) > PICK.lose) { setPick(null, false); toast('🎯 TARGET LOST', 'bad'); }
 }
 function wv(car, r = 120) { return player ? clamp(1 - car.body.position.distanceTo(player.body.position) / r, 0, 1) : 1; } // weapon sound volume by distance
 function behindPoint(car, back) { return car.body.pointToWorldFrame(new CANNON.Vec3(-car.T.L / 2 - back - car.comShift, 0, 0)); }
@@ -5315,7 +5372,9 @@ class Car {
     const b = this.body, T = this.T;
     this.reload = Math.max(0, this.reload - dt);
     let tgt = null;
-    if (this.isPlayer) { // auto-track the nearest opponent roughly in front
+    const pk = pickFor(this);
+    if (pk) { const l = b.pointToLocalFrame(pk.body.position); if (Math.hypot(l.x, l.z) < 95 && Math.abs(Math.atan2(-l.z, l.x)) < 1.3) tgt = pk; } // your picked target, when the gun can reach it
+    if (tgt) {} else if (this.isPlayer || this.remote) { // auto-track the nearest opponent roughly in front
       let best = 1e9;
       for (const c of cars) {
         if (c === this || c.wrecked) continue;
@@ -6341,6 +6400,11 @@ function hudWidth(e, v) { const k = 'w' + v; if (_hudW.get(e.style) !== k) { _hu
 function updateHUD(dt) {
   if (!player) return;
   hudT -= dt;
+  updatePick(dt);
+  { const pk = player.pickT, pm = $('pickMark'); let show = false; // the picked target: corner brackets and the driver's name
+    if (pk && game.state === 'playing') { const p = pk.body.position; tv3.set(p.x, p.y + 0.7, p.z).project(camera);
+      if (tv3.z < 1 && Math.abs(tv3.x) < 1.1 && Math.abs(tv3.y) < 1.1) { show = true; pm.style.transform = `translate(${((tv3.x + 1) / 2 * canvas.clientWidth).toFixed(0)}px, ${((1 - tv3.y) / 2 * canvas.clientHeight).toFixed(0)}px)`; hudTxt($('pickName'), '🎯 ' + pk.name); pm.classList.toggle('far', !!player.pickLost); } }
+    if (pm.hidden === show) pm.hidden = !show; }
   drawGauge();
   updateThreats();
   updateTags();
@@ -6396,6 +6460,7 @@ function updateHUD(dt) {
     else if (player.onOil) hint = 'OIL SLICK! Ease off and steer gently';
     else if (player.stuckConcrete) hint = 'STUCK IN CONCRETE! Keep the power on to claw out';
     else if (game.stuckT > 2.2) hint = isTouchUI() ? 'Stuck? Tap Pause, then Reset car' : 'Stuck? Press R to reset your car';
+    else if (AIMHINT.until > game.time && !player.pickT && canAim(player.T) && game.countdown <= 0) hint = isTouchUI() ? 'Tap 🎯 to pick a target' : 'TAB: pick a target';
   }
   if (el.hint.textContent !== hint) el.hint.textContent = hint;
 }
@@ -8173,6 +8238,8 @@ function spawnCars() {
   buildOpponentList();
   if (MP.role === 'host') MP.publishRoster();
 }
+const AIMHINT = { until: 0 }; // the "TAB: target" hint, for the first few drives in a car that aims
+function aimHintFor(type) { if (!canAim(CAR_TYPES[type])) return; let n = 0; try { n = +localStorage.getItem('derby-aimhint') || 0; } catch (e) {} if (n >= 3) return; try { localStorage.setItem('derby-aimhint', String(n + 1)); } catch (e) {} AIMHINT.until = 14; } // (game.time restarts at 0 just after this)
 function setControlsFor(type) {
   document.body.classList.toggle('has-gun', !!(CAR_TYPES[type].gun || CAR_TYPES[type].pour || CAR_TYPES[type].special));
   { const T0 = CAR_TYPES[type]; // the controls strip and the touch FIRE button follow your car
@@ -8182,9 +8249,11 @@ function setControlsFor(type) {
     if (act) parts.push(kb('F', act, true));
     if (T0.wheelie) parts.push(kb('V', 'wheelie', true));
     if (T0.police || T0.siren) parts.push(kb('G', 'siren'));
+    if (canAim(T0)) parts.push(kb('Tab', 'target', true));
+    document.body.classList.toggle('has-aim', canAim(T0));
     parts.push(kb('H', 'horn'), kb('C', 'camera'), kb('R', 'flip'), kb('N', 'new car'), kb('P', 'pause'));
     $('keys').innerHTML = parts.join(' · ');
-    const ICON = { reel: ['🌾', 'Reel'], dump: ['🪨', 'Boulders'], blade: ['🚜', 'Blade'], harpoon: ['🎯', 'Harpoon'], oil: ['🛢️', 'Oil'], spikes: ['💥', 'Shotgun'], flame: ['🔥', 'Flames'], bomb: ['💣', 'Propane'], water: ['💧', 'Water'], minigun: ['🔫', 'Minigun'], rockets: ['🚀', 'Rockets'], lift: ['⬆️', 'Lift'], tow: ['🪝', 'Hook'], ram: ['🚀', 'Ram'] };
+    const ICON = { reel: ['🌾', 'Reel'], dump: ['🪨', 'Boulders'], blade: ['🚜', 'Blade'], harpoon: ['🔱', 'Harpoon'], oil: ['🛢️', 'Oil'], spikes: ['💥', 'Shotgun'], flame: ['🔥', 'Flames'], bomb: ['💣', 'Propane'], water: ['💧', 'Water'], minigun: ['🔫', 'Minigun'], rockets: ['🚀', 'Rockets'], lift: ['⬆️', 'Lift'], tow: ['🪝', 'Hook'], ram: ['🚀', 'Ram'] };
     const [ic, lb] = T0.gun ? ['💥', 'Cannon'] : T0.pour ? (T0.pour === 'fuel' ? ['⛽', 'Fuel'] : ['🧱', 'Concrete']) : ICON[T0.special] || ['💥', 'Fire'];
     $('fireIco').textContent = ic; $('fireLab').textContent = lb;
     document.body.classList.toggle('has-siren', !!(T0.police || T0.siren));
@@ -8198,7 +8267,7 @@ function resetMatch() {
   if (typeof BULLS !== 'undefined') resetBulls();
   sfx.setStyle(MUSIC_FOR[playerType] || 'rock'); // the soundtrack follows your ride
   document.body.classList.toggle('has-gun', !!(CAR_TYPES[playerType].gun || CAR_TYPES[playerType].pour || CAR_TYPES[playerType].special));
-  setControlsFor(playerType);
+  setControlsFor(playerType); aimHintFor(playerType);
   for (const p of parts) if (p) p.mesh.visible = false;
   for (const p of sprites) if (p) p.mesh.visible = false;
   while (debris.length) removeDebris(debris[0]);
@@ -8469,7 +8538,8 @@ window.addEventListener('keydown', (e) => {
     case 'KeyT': togglePanel(); break;
     case 'KeyI': perfOpen($('perfdlg').hidden); break;
     case 'KeyU': setVoices(!VOICES_OFF); toast(VOICES_OFF ? 'VOICES OFF' : 'VOICES ON', 'cool'); break;
-    case 'Tab': e.preventDefault(); setMap(!MAP_ON); break;
+    case 'Tab': e.preventDefault(); sfx.init(); cyclePick(e.shiftKey ? -1 : 1); break; // pick the next target in view
+    case 'KeyY': setMap(!MAP_ON); break;
     case 'KeyM': sfx.init(); toggleMute(); break;
     case 'KeyB': toggleMusic(); break;
     case 'F2': e.preventDefault && e.preventDefault(); openBugReport(); break; // one key: full bug report copied
@@ -8625,6 +8695,8 @@ window.addEventListener('touchend', (e) => { if (e.touches.length === 0) release
 window.addEventListener('touchcancel', (e) => { if (e.touches.length === 0) releaseAllTouch(); }, { passive: true });
 window.addEventListener('blur', releaseAllTouch);
 document.addEventListener('visibilitychange', () => { if (document.hidden) releaseAllTouch(); });
+$('btnAim').addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); sfx.init(); cyclePick(1); }); // 🎯: next target
+$('btnAim').addEventListener('contextmenu', (e) => e.preventDefault());
 for (const b of el.touch.querySelectorAll('[data-k]')) {
   const k = b.dataset.k;
   const on = (e) => {
@@ -8655,6 +8727,18 @@ function readPlayerInput() {
   c.nitro = k('ShiftLeft', 'ShiftRight') || touch.nitro;
   const kp = (k('KeyE') ? 1 : 0) - (k('KeyQ') ? 1 : 0);
   c.pitch = kp !== 0 ? kp : touch.pitch;
+  if (GP.n) pollPadTarget();
+}
+// Gamepad (standard mapping): R1 picks the next target, L1 the previous one (the same as Tab / Shift+Tab). Polled only once a pad has connected; no allocations.
+const GP = { n: 0, r1: false, l1: false };
+addEventListener('gamepadconnected', () => { GP.n++; });
+addEventListener('gamepaddisconnected', () => { GP.n = Math.max(0, GP.n - 1); });
+function pollPadTarget() {
+  const pads = navigator.getGamepads ? navigator.getGamepads() : null; if (!pads) return;
+  let r1 = false, l1 = false;
+  for (let i = 0; i < pads.length; i++) { const g = pads[i]; if (!g || !g.connected || g.mapping !== 'standard') continue; r1 = r1 || !!(g.buttons[5] && g.buttons[5].pressed); l1 = l1 || !!(g.buttons[4] && g.buttons[4].pressed); }
+  if (r1 && !GP.r1) { IDLE.poke(); cyclePick(1); } if (l1 && !GP.l1) { IDLE.poke(); cyclePick(-1); }
+  GP.r1 = r1; GP.l1 = l1;
 }
 
 /* ---------------- Camera ---------------- */
@@ -9378,6 +9462,7 @@ const MP = {
       const fn = a[3] | 0, jn = a[4] | 0;
       if (fn !== (this.lastFire.get(c) ?? fn)) ct.fire = true; this.lastFire.set(c, fn);
       if (jn !== (this.lastJump.get(c) ?? jn)) ct.jump = true; this.lastJump.set(c, jn);
+      { const pi = a.length > 5 ? a[5] | 0 : -1, pt = pi >= 0 ? cars[pi] : null; c.pickT = pt && pt !== c && !pt.wrecked ? pt : null; } // the guest's picked target (older guests send no [5]: auto aim)
     }
   },
   propState(r) { // props that are moving (up to 14, fastest first) plus a few others in turn, so every device's yard stays the same
@@ -9594,7 +9679,7 @@ const MP = {
     if (player && player.isPlayer) {
       const ct = player.ctrl; if (ct.fire) { this.inN.fire++; ct.fire = false; } if (ct.jump) { this.inN.jump++; ct.jump = false; }
       const f = (ct.handbrake ? 1 : 0) | (ct.nitro ? 2 : 0) | (ct.horn ? 4 : 0) | (ct.wheelie ? 8 : 0) | (ct.pitch > 0 ? 16 : 0) | (ct.pitch < 0 ? 32 : 0);
-      const inp = [Math.round(ct.throttle * 100), Math.round(ct.steer * 100), f, this.inN.fire, this.inN.jump], key = inp.join(',');
+      const inp = [Math.round(ct.throttle * 100), Math.round(ct.steer * 100), f, this.inN.fire, this.inN.jump, player.pickT && cars.includes(player.pickT) ? cars.indexOf(player.pickT) : -1], key = inp.join(','); // [5]: my picked target (car index), -1 = auto aim
       if (key !== this.sentIn) { this.sentIn = key; this.room.presence({ in: inp }, true).catch(() => {}); }
     }
   },
@@ -9701,7 +9786,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '91'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '92'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
@@ -10079,7 +10164,7 @@ $('pfClose').addEventListener('click', () => perfOpen(false));
 $('pfHud').addEventListener('click', () => { S.perfHud = S.perfHud ? 0 : 1; try { saveSettings(); } catch (e) {} $('pfHud').textContent = 'Corner readout: ' + (S.perfHud ? 'on' : 'off'); });
 $('pfSend').addEventListener('click', () => { PERFREP.send('sent by hand'); $('pfSend').textContent = MP.role === 'guest' ? 'Sent to the host · saved on this device' : 'Saved on this device · see gear ▸ Network log'; }); // kept in the browser's storage (survives closing the page) and in the Net log export
 $('pfCopy').addEventListener('click', async () => { const t = $('pfVerdict').textContent + '\n' + $('pfText').textContent; try { await navigator.clipboard.writeText(t); $('pfCopy').textContent = 'Copied'; } catch (e) { $('pfCopy').textContent = 'Copy failed'; } setTimeout(() => { $('pfCopy').textContent = 'Copy'; }, 1500); });
-// the map: off by default, Map button or Tab
+// the map: off by default, Map button or Y
 let MAP_ON = false; try { MAP_ON = localStorage.getItem('derby-map') === '1'; } catch (e) {}
 function setMap(on) { MAP_ON = on; document.body.classList.toggle('nomap', !on); $('btnMap').setAttribute('aria-pressed', String(on)); try { localStorage.setItem('derby-map', on ? '1' : '0'); } catch (e) {} }
 setMap(MAP_ON);
@@ -11308,7 +11393,7 @@ const IDLE = { ms: 3 * 60 * 1000, last: performance.now(), on: !/[?&]noidle=1\b/
   } };
 for (const ev of ['keydown', 'pointerdown', 'pointermove', 'wheel', 'touchstart', 'touchmove']) addEventListener(ev, (e) => { if (e.isTrusted || window.__idleTest) IDLE.poke(); }, { capture: true, passive: true });
 setInterval(() => IDLE.check(), 5000);
-window.__derby = { AUTO, PLAYLOG, BOULDERS, get mapShapes() { return mapShapes; }, respawnCar: (o, t) => respawnCar(o, t), PHYS, cockpitEye: (c) => cockpitEye(c), wakeProp: (pr) => wakeProp(pr), addConcrete: (x, z, r, k) => addConcrete(x, z, r, k), igniteProp: (pr, t) => igniteProp(pr, t), cookBull: (bl, by, dt) => cookBull(bl, by, dt), hoseBull: (car, bl, p, f, dt) => hoseBull(car, bl, p, f, dt), DUCKS, goldConeReveal: (pr) => goldConeReveal(pr), sadTromboneKind: (t) => sadTromboneKind(t), honkBack: (car) => honkBack(car), smashBurger: (bl, how) => smashBurger(bl, how), bladeSlam: (car) => bladeSlam(car), wearBunHat: (bl) => wearBunHat(bl), bunHatRoll: (bl) => bunHatRoll(bl), shakeOff: (bl) => shakeOff(bl), harvestProp: (car, pr) => harvestProp(car, pr), baleMsgRoll: () => baleMsgRoll(), BALE_MSGS, updateSigns: (dt) => updateSigns(dt), SIGN_PROPS, tankerBoom: (p, c) => tankerBoom(p, c), CAR_TYPES, sfx, CANNON, barks, PERF, shells, NETLOG, nearHostAdd: () => nearHostAdd(), nearJoin: () => nearJoin(), JUMBO, BALL, BOLLARDS, GASQ, updateArenaPub: (dt) => updateArena(dt), CRUSHER, crushNow: () => crushNow(), applyNight: () => applyNight(), FIREWORKS, ARENA, CROWD, MP, QUALITY, applyQuality: (i) => applyQuality(i), MERGED, camera, updatePropActivity: (dt) => updatePropActivity(dt), renderer, scene, spawnFree: (x, z, r) => spawnFree(x, z, r), BULLS, updateBulls: (dt) => updateBulls(dt), updateShells, tilt, setTilt, get CRANE() { return CRANE; }, updateCrane: (dt) => updateCrane(dt), CONCRETE, THREE, craters, shells, pickups, barks, PERSONAS, TUNE, game, cars, S, world, CAR_TYPES, sfx, touch, drawGauge, get player() { return player; }, keys, startMatch, selectCar, setValue, debris, props, platformOf, get simTime() { return simTime; }, set simTime(v) { simTime = v; } }; // console tinkering + tests
+window.__derby = { GP, PICK, cyclePick: (d) => cyclePick(d), setPick: (c) => setPick(c, false), canAim, frontTarget: (c, r, k) => frontTarget(c, r, k), AUTO, PLAYLOG, BOULDERS, get mapShapes() { return mapShapes; }, respawnCar: (o, t) => respawnCar(o, t), PHYS, cockpitEye: (c) => cockpitEye(c), wakeProp: (pr) => wakeProp(pr), addConcrete: (x, z, r, k) => addConcrete(x, z, r, k), igniteProp: (pr, t) => igniteProp(pr, t), cookBull: (bl, by, dt) => cookBull(bl, by, dt), hoseBull: (car, bl, p, f, dt) => hoseBull(car, bl, p, f, dt), DUCKS, goldConeReveal: (pr) => goldConeReveal(pr), sadTromboneKind: (t) => sadTromboneKind(t), honkBack: (car) => honkBack(car), smashBurger: (bl, how) => smashBurger(bl, how), bladeSlam: (car) => bladeSlam(car), wearBunHat: (bl) => wearBunHat(bl), bunHatRoll: (bl) => bunHatRoll(bl), shakeOff: (bl) => shakeOff(bl), harvestProp: (car, pr) => harvestProp(car, pr), baleMsgRoll: () => baleMsgRoll(), BALE_MSGS, updateSigns: (dt) => updateSigns(dt), SIGN_PROPS, tankerBoom: (p, c) => tankerBoom(p, c), CAR_TYPES, sfx, CANNON, barks, PERF, shells, NETLOG, nearHostAdd: () => nearHostAdd(), nearJoin: () => nearJoin(), JUMBO, BALL, BOLLARDS, GASQ, updateArenaPub: (dt) => updateArena(dt), CRUSHER, crushNow: () => crushNow(), applyNight: () => applyNight(), FIREWORKS, ARENA, CROWD, MP, QUALITY, applyQuality: (i) => applyQuality(i), MERGED, camera, updatePropActivity: (dt) => updatePropActivity(dt), renderer, scene, spawnFree: (x, z, r) => spawnFree(x, z, r), BULLS, updateBulls: (dt) => updateBulls(dt), updateShells, tilt, setTilt, get CRANE() { return CRANE; }, updateCrane: (dt) => updateCrane(dt), CONCRETE, THREE, craters, shells, pickups, barks, PERSONAS, TUNE, game, cars, S, world, CAR_TYPES, sfx, touch, drawGauge, get player() { return player; }, keys, startMatch, selectCar, setValue, debris, props, platformOf, get simTime() { return simTime; }, set simTime(v) { simTime = v; } }; // console tinkering + tests
 requestAnimationFrame(frame);
 window.__derby.IDLE = IDLE; window.__derby.TALK = TALK; window.__derby.DROP = DROP; window.__derby.SCORE = SCORE; window.__derby.UPDATE = UPDATE; window.__derby.TABENV = TABENV; window.__derby.PERFREP = PERFREP; // (test hooks)
 window.__derby.VR = VR; window.__derby.XRS = XRS; window.__derby.composer = composer;
