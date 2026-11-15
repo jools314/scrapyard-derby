@@ -7921,7 +7921,8 @@ const game = {
   endMatch(won) {
     this.state = 'over';
     if (player) saveBest(GAME_MODE, player.type, this.score, player.kills || 0);
-    if (player && !FREE_DRIVE && MP.role !== 'guest') { if (game.propHits >= 25) chalDone('props25'); if ((player.kills || 0) >= 10) chalDone('wrecks10'); if (won && GAME_MODE === 'elim') chalDone('elimwin'); }
+    if (player && !FREE_DRIVE && MP.role !== 'guest') { const MY = loadMastery(), mm = MY[player.type] || (MY[player.type] = { m: 0, w: 0 }); mm.m++; mm.w += player.kills || 0; try { localStorage.setItem('derby-mastery', JSON.stringify(MY)); } catch (e) {}
+      if (game.propHits >= 25) chalDone('props25'); if ((player.kills || 0) >= 10) chalDone('wrecks10'); if (won && GAME_MODE === 'elim') chalDone('elimwin'); }
     this.overTimer = won ? 2 : 1.2;
     $('overEyebrow').textContent = won ? 'Last car running' : 'Match over';
     $('overTitle').textContent = won ? 'Yard cleared' : 'Wrecked';
@@ -8142,6 +8143,8 @@ const CHAL_DEFS = [
 ];
 function chalDone(id) { let D; try { D = JSON.parse(localStorage.getItem('derby-challenges') || '[]'); } catch (e) { D = []; } if (D.includes(id)) return; D.push(id); try { localStorage.setItem('derby-challenges', JSON.stringify(D)); } catch (e) {} const def = CHAL_DEFS.find((c) => c.id === id); toast(`★ CHALLENGE: ${def ? def.label : id}`, 'cool'); refreshChal(); }
 function refreshChal() { const e = $('chalCard'); if (!e) return; let D = []; try { D = JSON.parse(localStorage.getItem('derby-challenges') || '[]'); } catch (err) {} e.textContent = CHAL_DEFS.map((c) => `${D.includes(c.id) ? '★' : '☆'} ${c.label}`).join('  ·  '); }
+function loadMastery() { try { return JSON.parse(localStorage.getItem('derby-mastery') || '{}'); } catch (e) { return {}; } }
+function masteryStars(type) { const m = loadMastery()[type]; if (!m) return 0; return m.w >= 15 ? 3 : m.w >= 5 ? 2 : m.w >= 1 ? 1 : 0; } // lifetime wrecks in that car: 1 / 5 / 15
 function spawnCars() {
   for (const c of cars) c.dispose();
   cars.length = 0;
@@ -8273,7 +8276,8 @@ function buildGarage() {
       <span class="kg">${T.mass.toLocaleString()} kg · ${Math.round(S.enginePower * T.power)} kW</span>
       <span class="stat">Speed ${pct((T.power / T.mass) / maxPW)}</span>
       <span class="stat">Weight ${pct(Math.log(T.mass / 600) / Math.log(7500 / 600))}</span>
-      <span class="stat">Grip ${pct(T.grip / 1.15)}</span>`;
+      <span class="stat">Grip ${pct(T.grip / 1.15)}</span>
+      <span class="stat">Mastery ${'★'.repeat(masteryStars(key))}${'☆'.repeat(3 - masteryStars(key))}</span>`;
     b.addEventListener('click', () => selectCar(key));
     garage.appendChild(b);
   }
