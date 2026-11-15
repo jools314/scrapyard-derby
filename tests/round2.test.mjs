@@ -137,6 +137,7 @@ test('R2-90', 'active transport named in log headers', () => { has(/activeVia\(\
 
 test('R2-98', 'minimap shape-coding: nemesis/bounty ring completes the set', () => { has(/R2-98/); has(/rivalNemesis\(\)/); });
 
+test('R2-79', 'CI workflow runs the suite + audit on push/PR', () => { fileHas('.github/workflows/ci.yml', /round2\.test\.mjs/); fileHas('.github/workflows/ci.yml', /lines-audit\.mjs/); });
 test('R2-78', 'smoke harness runs (pass) or honestly skips (no browser)', () => {
   let out = '', code = 0;
   try { out = execFileSync(process.execPath, [join(root, 'tests/smoke.mjs'), '--secs=5'], { encoding: 'utf8' }); }
