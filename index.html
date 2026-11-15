@@ -10654,6 +10654,7 @@ const VR = (() => {
     const m = live && !player.wrecked ? clamp(Math.abs(player.body.angularVelocity.y) / 1.8 + V.acc / 16 - 0.08, 0, 1) : 0;
     V.motion += (m - V.motion) * (1 - Math.exp(-dt * (m > V.motion ? 8 : 2.5)));
     vig.material.uniforms.uInner.value = V.set.vig ? lerp(1.05, V.set.vig === 2 ? 0.5 : 0.72, V.motion) : 3.2;
+    if (live && V.set.vig && player.health < 35) { const hp = Math.max(0, player.health) / 35; vig.material.uniforms.uInner.value = Math.min(vig.material.uniforms.uInner.value, lerp(0.5, 1.02, hp) + Math.sin(clock * 5) * 0.03 * (1 - hp)); } // R2-13: low hull closes the vignette in, with a pulse — VR bypasses the flat screen's grade pass, so danger had no visual channel (respects the vignette Off setting)
     vig.material.uniforms.uFade.value = V.fade;
     { const hf = player.hitFrom, ha = hf ? clamp(1 - (simTime - hf.t) / 0.7, 0, 1) : 0; vig.material.uniforms.uHit.value = ha * (hf ? clamp(hf.v / 12, 0.25, 1) : 0); if (hf) vig.material.uniforms.uHitVec.value.set(hf.x, hf.y); } // R2-4
     // cockpit furniture
