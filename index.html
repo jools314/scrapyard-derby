@@ -5561,6 +5561,10 @@ class Car {
       if (this.isPlayer) toast('SANDWICHED!', 'bad'); else if (otherCar && otherCar.isPlayer) toast(`SANDWICH! ${this.name}`);
       barks.announce('sandwich', { v: this.isPlayer ? 'our hero' : this.name });
     }
+    if (otherCar && dmg <= 0.3 && dv > 2.2 && dv < 6) { // a graze still registers as play: scuffed paint, and a point for the one who dealt it
+      this.scuff(model, nl, dv * 0.7);
+      if (otherCar.isPlayer && game.state === 'playing' && !FREE_DRIVE && simTime - (game.scrapeT || -9) > 1) { game.scrapeT = simTime; game.addScore(1, null); }
+    }
     if (dmg > 0.3) this.applyDamage(Mo === 0 ? Math.min(dmg, Math.max(0, this.health - 1)) : dmg, otherCar, zone, model, dv); // terrain alone never wrecks you
     if (dv > 2.5) { // the impactor shapes the damage: flat walls crush a plane, poles make a narrow V, cars a medium dent
       const pole = other.mass === 0 && other.shapes[0] && other.shapes[0].type === CANNON.Shape.types.CYLINDER && other !== groundBody;
@@ -7850,7 +7854,7 @@ function drawMinimap() {
 /* ---------------- Game flow ---------------- */
 const game = {
   state: 'menu', slowmo: 0, hitStop: 0, fovPunch: 0, countdown: 0, grace: 0, lastCount: 0, stuckT: 0, score: 0, time: 0, paused: false, overTimer: -1, attractReset: -1, shake: 0, flash: 0, propHits: 0, propToast: -9,
-  matchT: 0, biggestHit: 0, bestAir: 0, bestWheelie: 0, propCombo: 0, propComboT: -9, tut: -1, hitDirA: 0, hitDirT: -9, hitDirS: 0, nmT: 0, shots: 0, hits: 0,
+  matchT: 0, biggestHit: 0, bestAir: 0, bestWheelie: 0, propCombo: 0, propComboT: -9, tut: -1, hitDirA: 0, hitDirT: -9, hitDirS: 0, scrapeT: -9, nmT: 0, shots: 0, hits: 0,
   addScore(n, label) {
     this.score += n;
     if (label && n >= 40) toast(`+${n} ${label}`);
