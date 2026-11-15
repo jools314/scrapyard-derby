@@ -75,6 +75,7 @@ quick() {
 release() {
   quick
   t mp-respawn 1200 '"errs": \[\]'
+  t mp-elephant 1500 "MP-ELEPHANT PASS"
   t bugcopy 900 "BUGCOPY PASS"
   t envupdate 1500 "ENVUPDATE PASS"
   for x in rc-playlog-test rc-upload-test rc-autoplay-test rc-voices-exhaust; do t $x 1200 ""; done
