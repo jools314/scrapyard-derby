@@ -4763,7 +4763,7 @@ class Car {
       const thrown = this.trackBroken && this.trackBroken[i % 2]; // tank wheels alternate left/right
       v.applyEngineForce(hb && rear ? 0 : thrown ? 0 : F * share * (this.trackBroken && this.trackBroken[1 - i % 2] ? 0.8 : 1), i);
       v.setBrake(lost ? 0 : hb && rear ? brakeImp * 1.5 * 2 / Math.max(1, this.nW - 2) : brake * 4 / this.nW, i);
-      w.frictionSlip = lost ? 0.3 : S.tireGrip * T.grip * (rear ? TUNE.rearGrip * T.handling.rear : 1) * (hb && rear ? TUNE.hbGrip : 1) * (this.wheelDmg[i] > 55 ? 0.85 : 1) * (Math.abs(speed) < 6 ? 1.6 : 1); // extra bite at crawling speed
+      w.frictionSlip = lost ? 0.3 : S.tireGrip * T.grip * (rear ? TUNE.rearGrip * T.handling.rear : 1) * (hb && rear ? TUNE.hbGrip : 1) * (this.wheelDmg[i] > 55 ? 0.85 : 1) * (Math.abs(speed) < 6 ? 1.6 : 1) * (this.slipT > 0 ? 0.45 : 1); // extra bite at crawling speed; slipT: sprayed by a shaking bull — half grip while it lasts
       w.rollInfluence = TUNE.rollInfluence * T.handling.roll;
       if (thrown) { v.setBrake(brakeImp * 0.05, i); w.frictionSlip *= 0.12; } // bare road wheels on the dirt: next to no grip
       if (w.isInContact) contacts++;
@@ -4949,6 +4949,7 @@ class Car {
     this.onFire = !this.wrecked && !(this.douse > 0) && inFire(this);
     if (this.douse > 0) this.douse -= dt;
     if (this.wet > 0) this.wet = Math.max(0, this.wet - dt * 0.45);
+    if (this.slipT > 0) this.slipT = Math.max(0, this.slipT - dt); // THE SHAKE-OFF spray dries off the tyres
     // Water: a little slippery, and it throws spray
     this.inWater = this.contacts > 0 && !!puddleAt(b.position.x, b.position.z, 'water', 0.3);
     if (this.inWater) { for (const w of v.wheelInfos) w.frictionSlip *= 0.75; if (Math.abs(this.speed) > 4 && Math.random() < 0.5) { const wm = this.wheelMeshes[(Math.random() * this.wheelMeshes.length) | 0]; if (wm) { wm.getWorldPosition(tmpW); emit('steam', tmpW.x, 0.3, tmpW.z, rand(-2, 2) - this.fwd.x * 2, rand(1, 3), rand(-2, 2) - this.fwd.z * 2, rand(0.4, 0.8), rand(0.2, 0.4)); } } }
@@ -8904,7 +8905,7 @@ function hoseBull(car, bl, p, f, dt) { // what the fire truck's jet does to one 
     bl.soggyT = 8;
     return true;
   }
-  bl.cook = 0; bl.body.velocity.x += f.x * 18 * dt; bl.body.velocity.z += f.z * 18 * dt; bl.wet = 2;
+  bl.cook = 0; bl.body.velocity.x += f.x * 18 * dt; bl.body.velocity.z += f.z * 18 * dt; bl.wet = 2; bl.soak = Math.min(1, (bl.soak || 0) + dt * 2); // half a second under the hose and the bull is soaked through
   if (Math.random() < dt * 2) bullMoo(bl, 0.6);
   if (!bl.ducked && bl.state !== 'down' && MP.role !== 'guest') duckBull(bl, f, car);
   return true;
@@ -8967,6 +8968,15 @@ function wearBunHat(bl) { // IT REMEMBERS: the fresh bull wanders back in wearin
   return true;
 }
 function bunHatRoll(bl) { if (Math.random() < 0.1) return wearBunHat(bl); return false; } // one time in ten, when a burger expires and a fresh bull returns
+function shakeOff(bl) { // THE SHAKE-OFF: a fully soaked bull, as it dries, shakes itself dry like a huge dog — every car in reach gets sprayed with a 3-second grip penalty
+  bl.soak = 0; bl.shakeT = 0.6; bl.shakes = (bl.shakes || 0) + 1;
+  const p = bl.body.position;
+  for (let i = 0; i < 14; i++) emit('steam', p.x + rand(-1, 1), p.y + 0.8, p.z + rand(-1, 1), rand(-4, 4), rand(1, 3), rand(-4, 4), rand(0.5, 0.9), rand(0.25, 0.45)); // the spray, flying off in every direction
+  let sprayed = 0;
+  if (MP.role !== 'guest') for (const c of cars) { if (c.wrecked) continue; if (c.body.position.distanceTo(p) < 7) { c.slipT = 3; sprayed++; } } // host/solo decides; guests get the host's world
+  bullMoo(bl, 0.9);
+  return sprayed;
+}
 function bullMoo(bull, vol, f0) { if (!player || !sfx.ctx) return; const d = player.body.position.distanceTo(bull.body.position), v = clamp(1 - d / 90, 0, 1) * vol; if (v < 0.03) return; const f = f0 || rand(95, 125); bull.lastMooF = f; sfx.tone('sawtooth', f * 1.4, f, v * 0.25, rand(0.7, 1.1), true); sfx.tone('square', f * 0.7, f * 0.5, v * 0.08, 0.9, false); }
 function honkBack(car) { // HONK BACK: honk at a bull and it answers with a moo pitched like your horn; honk again within a few seconds and it harmonises, a fifth up
   let best = null, bd = 26;
@@ -9010,6 +9020,9 @@ function updateBulls(dt) {
   const live = game.state === 'playing' && game.countdown <= 0;
   for (const bl of BULLS) {
     const b = bl.body, p = b.position; bl.t -= dt; bl.hitCd -= dt;
+    if (bl.wet > 0) bl.wet = Math.max(0, bl.wet - dt); // the hose's wetting dries off again (it never did before: nothing read it)
+    if (bl.shakeT > 0) bl.shakeT -= dt;
+    if (MP.role !== 'guest' && bl.state !== 'burger' && bl.state !== 'down' && (bl.soak || 0) >= 1 && !(bl.wet > 0)) shakeOff(bl); // soaked through and the hose has stopped: THE SHAKE-OFF
     if (p.y < -0.5 || !isFinite(p.x)) { const sp = findSpawn(rand(-60, 60), rand(-60, 60)); p.set(sp.x, 1.3, sp.z); b.velocity.set(0, 0, 0); b.angularVelocity.set(0, 0, 0); b.fixedRotation = true; b.updateMassProperties(); b.quaternion.set(0, 0, 0, 1); bl.state = 'graze'; bl.t = 3; } // never lose a bull through the floor
     let speed = 0;
     if (MP.role === 'guest' && MP.applyBull(bl)) { /* host-driven */ }
@@ -9076,6 +9089,7 @@ function updateBulls(dt) {
     if (bl.satT > 0) { bl.legs[2].rotation.z = 1.3; bl.legs[3].rotation.z = 1.3; bl.legs[0].rotation.z = 0.25; bl.legs[1].rotation.z = 0.25; } // sat on its haunches: hind legs folded, front legs braced
     bl.neck.rotation.z = bl.state === 'charge' ? -0.45 : bl.state === 'graze' ? -0.7 + Math.sin(clock * 0.7 + bl.id) * 0.1 : bl.state === 'paw' ? -0.3 : bl.satT > 0 ? -0.1 : 0;
     bl.tail.rotation.x = Math.sin(clock * 3 + bl.id) * 0.4;
+    bl.neck.rotation.x = bl.shakeT > 0 ? Math.sin(clock * 42 + bl.id) * 0.28 : 0; // THE SHAKE-OFF: the whole head goes side to side, dog-style
     const mad = bl.state === 'paw' || bl.state === 'charge'; for (const e of bl.eyes) e.material.emissive.setHex(mad ? 0xff1a00 : 0x000000);
     if (mad && Math.random() < dt * 0.4) bullMoo(bl, 0.6);
   }
@@ -9641,7 +9655,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '84'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '85'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
@@ -11248,7 +11262,7 @@ const IDLE = { ms: 3 * 60 * 1000, last: performance.now(), on: !/[?&]noidle=1\b/
   } };
 for (const ev of ['keydown', 'pointerdown', 'pointermove', 'wheel', 'touchstart', 'touchmove']) addEventListener(ev, (e) => { if (e.isTrusted || window.__idleTest) IDLE.poke(); }, { capture: true, passive: true });
 setInterval(() => IDLE.check(), 5000);
-window.__derby = { AUTO, PLAYLOG, BOULDERS, get mapShapes() { return mapShapes; }, respawnCar: (o, t) => respawnCar(o, t), PHYS, cockpitEye: (c) => cockpitEye(c), wakeProp: (pr) => wakeProp(pr), addConcrete: (x, z, r, k) => addConcrete(x, z, r, k), igniteProp: (pr, t) => igniteProp(pr, t), cookBull: (bl, by, dt) => cookBull(bl, by, dt), hoseBull: (car, bl, p, f, dt) => hoseBull(car, bl, p, f, dt), DUCKS, goldConeReveal: (pr) => goldConeReveal(pr), sadTromboneKind: (t) => sadTromboneKind(t), honkBack: (car) => honkBack(car), smashBurger: (bl, how) => smashBurger(bl, how), bladeSlam: (car) => bladeSlam(car), wearBunHat: (bl) => wearBunHat(bl), bunHatRoll: (bl) => bunHatRoll(bl), tankerBoom: (p, c) => tankerBoom(p, c), CAR_TYPES, sfx, CANNON, barks, PERF, shells, NETLOG, nearHostAdd: () => nearHostAdd(), nearJoin: () => nearJoin(), JUMBO, BALL, BOLLARDS, GASQ, updateArenaPub: (dt) => updateArena(dt), CRUSHER, crushNow: () => crushNow(), applyNight: () => applyNight(), FIREWORKS, ARENA, CROWD, MP, QUALITY, applyQuality: (i) => applyQuality(i), MERGED, camera, updatePropActivity: (dt) => updatePropActivity(dt), renderer, scene, spawnFree: (x, z, r) => spawnFree(x, z, r), BULLS, updateBulls: (dt) => updateBulls(dt), updateShells, tilt, setTilt, get CRANE() { return CRANE; }, updateCrane: (dt) => updateCrane(dt), CONCRETE, THREE, craters, shells, pickups, barks, PERSONAS, TUNE, game, cars, S, world, CAR_TYPES, sfx, touch, drawGauge, get player() { return player; }, keys, startMatch, selectCar, setValue, debris, props, platformOf, get simTime() { return simTime; }, set simTime(v) { simTime = v; } }; // console tinkering + tests
+window.__derby = { AUTO, PLAYLOG, BOULDERS, get mapShapes() { return mapShapes; }, respawnCar: (o, t) => respawnCar(o, t), PHYS, cockpitEye: (c) => cockpitEye(c), wakeProp: (pr) => wakeProp(pr), addConcrete: (x, z, r, k) => addConcrete(x, z, r, k), igniteProp: (pr, t) => igniteProp(pr, t), cookBull: (bl, by, dt) => cookBull(bl, by, dt), hoseBull: (car, bl, p, f, dt) => hoseBull(car, bl, p, f, dt), DUCKS, goldConeReveal: (pr) => goldConeReveal(pr), sadTromboneKind: (t) => sadTromboneKind(t), honkBack: (car) => honkBack(car), smashBurger: (bl, how) => smashBurger(bl, how), bladeSlam: (car) => bladeSlam(car), wearBunHat: (bl) => wearBunHat(bl), bunHatRoll: (bl) => bunHatRoll(bl), shakeOff: (bl) => shakeOff(bl), tankerBoom: (p, c) => tankerBoom(p, c), CAR_TYPES, sfx, CANNON, barks, PERF, shells, NETLOG, nearHostAdd: () => nearHostAdd(), nearJoin: () => nearJoin(), JUMBO, BALL, BOLLARDS, GASQ, updateArenaPub: (dt) => updateArena(dt), CRUSHER, crushNow: () => crushNow(), applyNight: () => applyNight(), FIREWORKS, ARENA, CROWD, MP, QUALITY, applyQuality: (i) => applyQuality(i), MERGED, camera, updatePropActivity: (dt) => updatePropActivity(dt), renderer, scene, spawnFree: (x, z, r) => spawnFree(x, z, r), BULLS, updateBulls: (dt) => updateBulls(dt), updateShells, tilt, setTilt, get CRANE() { return CRANE; }, updateCrane: (dt) => updateCrane(dt), CONCRETE, THREE, craters, shells, pickups, barks, PERSONAS, TUNE, game, cars, S, world, CAR_TYPES, sfx, touch, drawGauge, get player() { return player; }, keys, startMatch, selectCar, setValue, debris, props, platformOf, get simTime() { return simTime; }, set simTime(v) { simTime = v; } }; // console tinkering + tests
 requestAnimationFrame(frame);
 window.__derby.IDLE = IDLE; window.__derby.TALK = TALK; window.__derby.DROP = DROP; window.__derby.SCORE = SCORE; window.__derby.UPDATE = UPDATE; window.__derby.TABENV = TABENV; window.__derby.PERFREP = PERFREP; // (test hooks)
 window.__derby.VR = VR; window.__derby.XRS = XRS; window.__derby.composer = composer;
