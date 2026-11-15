@@ -9534,7 +9534,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '71'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '72'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
@@ -10838,6 +10838,7 @@ Object.assign(PLAYLOG, {
   slow(x) {
     const m = this.m; if (!m || !x) return;
     if (m.inc.length < 30) m.inc.push({ t: Math.round(game.time), secs: x.secs, fps: x.fps, worst: x.worst, why: x.verdict, parts: x.parts, q: x.q, cars: x.cars, particles: x.particles, fires: x.fires, booms: x.booms, mem: x.mem,
+      calls: x.calls, tris: x.tris ?? PERFREP.tris, sim: x.sim, draw: x.draw, wait: x.wait, res: x.res, // (draw calls/triangles + the sim/draw/wait split: the analyser needs them to attribute slow moments, and the gates budget draw calls)
       worstF: x.worstF ? x.worstF.ms + ' ms: ' + String(x.worstF.parts).slice(0, 160) : '', before: (x.before || []).slice(0, 6).join(' · ').slice(0, 200) });
     this.ev('slow', `${x.secs}s at ${x.fps} fps, worst ${x.worst} ms`); this.soon('slow moment');
   },

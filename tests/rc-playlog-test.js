@@ -36,6 +36,11 @@ const { open } = require('./harness');
   ok(m2 && /page closed/.test(m2.ended) && m2.recovered && m2.game >= 6, 'match 2 recovered after the reload: ' + (m2 && m2.ended + ' · ' + m2.game + ' s'));
   ok(m2 && m2.errs.n >= 1 && m2.errs.list.some((e) => e.includes('boom-test')) && m2.ev.some((e) => e[1] === 'err'), 'match 2 has the script error (and an err event)');
   ok(cks.length === 0, `checkpoints replaced by the final records (${cks.length} left)`);
+  // slow-incident capture (build 72): draw calls, triangles and the sim/draw/wait split must survive into the record
+  const slowCap = await page.evaluate(() => { const P = __derby.PLAYLOG; if (!P.m) return null;
+    P.slow({ secs: 1.5, fps: 12, worst: 900, verdict: 'test verdict', parts: 'render 5.0', q: 1, cars: 8, particles: 3, fires: 1, booms: 0, mem: '', worstF: null, before: [], calls: 432, tris: 123456, sim: 3.1, draw: 4.2, wait: 9.3, res: 100 });
+    const e = P.m.inc[P.m.inc.length - 1]; return e && { calls: e.calls, tris: e.tris, sim: e.sim, draw: e.draw, wait: e.wait, res: e.res }; });
+  ok(slowCap && slowCap.calls === 432 && slowCap.tris === 123456 && slowCap.sim === 3.1 && slowCap.draw === 4.2 && slowCap.wait === 9.3 && slowCap.res === 100, 'slow incidents keep calls/tris and the sim/draw/wait split: ' + JSON.stringify(slowCap));
   const good = ms.every((x) => x.build && /^\d{4}-\d\d-\d\dT/.test(x.start) && /^\d{4}-\d\d-\d\dT/.test(x.end) && x.end >= x.start && x.sid && x.dev && x.role === 'solo' && x.mode && x.device.includes('GPU') && x.ua && x.cores && x.screen && x.me.length && x.fps && x.fps.med > 0 && x.q && x.phys && x.stuck && x.veh && x.weap && x.voice && x.net && x.errs && x.mem && x.ev.length >= 2);
   ok(good, 'every match: build, ISO start/end, session, device, role, mode, cars driven, fps, quality, phys, stuck, vehicles, weapons, voice, net, errors, memory, events');
   console.log('sample match:', JSON.stringify({ ...ms[0], ev: ms[0].ev.slice(0, 8), slow: { ...ms[0].slow, list: ms[0].slow.list.slice(0, 1) } }).slice(0, 1600));
