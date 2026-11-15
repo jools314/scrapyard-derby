@@ -798,6 +798,7 @@ const CAR_TYPES = {
   combine: { heavy: true, special: 'reel', maxSpeed: 10, rearSteer: true, handling: { steer: 0.75, rate: 0.7, spring: 1.2, damp: 1.3, rear: 1.15, drag: 1.5, roll: 0.6 }, name: 'Combine', blurb: 'Papa Jacques\'s combine harvester. F starts the 6-metre reel: crates and drums come out the back as straw bales, and any car caught in it gets chewed up and dragged in. Steers with its back wheels.', style: 'combine', mass: 15000, L: 8.6, W: 3.6, H: 1.3, hullW: 0.86, wheelR: 0.95, wheelW: 0.7, wb: 4.6, axles: [2.0, -2.6], track: 3.0, power: 2.2, grip: 1.0, armor: 0.45, cabin: { l: 1.8, h: 1.5, w: 1.9, x: 2.3 }, color: 0x2f8a3c, redline: 2400, idle: 600, cyl: 6 },
   bertha: { heavy: true, special: 'dump', maxSpeed: 12, handling: { steer: 0.55, rate: 0.5, spring: 1.3, damp: 1.4, rear: 1.2, drag: 1.6, roll: 0.5 }, name: 'Big Bertha', blurb: 'Big Bertha: a 26-tonne mining dump truck with 2.7 m tyres. Rolls over anything; F tips the bed and drops a load of boulders on whoever is following.', style: 'dump', mass: 26000, L: 11, W: 5.2, H: 1.2, hullW: 0.82, wheelR: 1.35, wheelW: 0.9, wb: 6.2, axles: [3.3, -2.7], track: 4.1, power: 3.4, grip: 1.05, armor: 0.35, cabin: { l: 1.8, h: 1.4, w: 1.9, x: 3.7 }, color: 0xe0607a, redline: 2100, idle: 520, cyl: 6, noWheelLoss: true },
   tanker: { heavy: true, pour: 'fuel', handling: { steer: 0.7, rate: 0.6, spring: 1.2, damp: 1.3, rear: 1.15, drag: 1.4, roll: 0.55 }, name: 'Tanker', blurb: 'Fuel truck, 7.5 t on six wheels. F spills gasoline; once the tank is ruptured the trail catches fire. Explodes spectacularly.', style: 'tanker', mass: 7500, L: 9.2, W: 2.5, H: 0.75, wheelR: 0.56, wheelW: 0.46, wb: 5.65, axles: [3.3, -1.6, -3.05], track: 2.1, frontDrive: 0, power: 2.3, grip: 0.95, armor: 0.55, cabin: { l: 2.0, h: 1.35, w: 2.3, x: 3.05 }, color: 0x8c3a22, blast: 22, redline: 3000, idle: 600, cyl: 3 },
+  elephant: { walker: true, noPlant: true, noWheelLoss: true, special: 'trunk', handling: { steer: 1, rate: 1, spring: 2.2, damp: 1, rear: 1, drag: 1, roll: 1 }, name: 'Steam Elephant', blurb: 'Mama Wanjiru\'s brass steam elephant: 12 t on four stomping legs, slow and unstoppable. F grabs a light car with the trunk and flings it; with nothing in reach it blasts steam that puts out fires and shoves cars back. Keep the boiler on its back away from hits and flames: at the red line it blows its top and stalls.', style: 'elephant', mass: 12000, L: 5.0, W: 2.5, H: 2.0, wheelR: 0.45, wheelW: 0.8, wb: 3.3, track: 1.7, power: 1.6, grip: 1.1, armor: 0.45, cabin: { l: 1.6, h: 1.1, w: 1.7, x: 0.5 }, color: 0xc8963a, redline: 900, idle: 240, cyl: 2 },
 };
 // Anansi the Spider-Walker: eight scrap-pipe legs instead of wheels (no RaycastVehicle: hover springs + drive forces, legs animated on top, see walkStep/updateLegs).
 // Its "wheels" are its legs: wheelBase = the 8 hips (front pair first, even = left), wheelLost = a leg snapped off. Fewer legs: slower, limps; under 6 it can't climb; under 4 it's a wreck.
@@ -2804,6 +2805,11 @@ const WEAPONS = {
       p.needsUpdate = true;
     },
   },
+  trunk: { label: 'TRUNK', cd: 1.2, dur: 1.5, // the steam elephant: grab a light car and fling it sideways; nothing in reach, a cone of steam (see WALK)
+    start(car) { WALK.trunkStart(car); },
+    update(car, dt) { WALK.trunkUpdate(car, dt); },
+    tick(car, dt) { if (car.steamOn) WALK.steamTick(car, dt); },
+  },
   lift: { label: 'FORKS', cd: 0.5, dur: 0, // slide the forks under a car, hoist it, carry it, toss it
     start(car) {
       if (car.carry) { liftRelease(car, true); return; }
@@ -4041,6 +4047,393 @@ function foldMat(m, local) {
   let f = cache.get(key); if (!f) { f = m.clone(); f.color.setRGB(1, 1, 1); f.emissive.setRGB(0, 0, 0); f.vertexColors = true; f.userData = { folded: true }; f.onBeforeCompile = foldCompile; f.customProgramCacheKey = () => 'carfold'; f.clone = foldClone; cache.set(key, f); }
   return f;
 }
+/* ---------------- Walkers: the Brass Steam Elephant ----------------
+   No RaycastVehicle: one body held up on four hover springs (a ray straight down from each hip), pushed along by drive forces.
+   The legs are drawn procedurally: each foot is planted on the ground and stays put while the body walks over it, then swings to
+   its next spot (an elephant's walk: left hind, left fore, right hind, right fore), with a two-bone IK knee. All four legs and the
+   trunk are two skinned meshes (two draw calls). Remote copies animate from the snapshot's velocity, pressure and flags. */
+const WALK = {
+  REST: 2.42, VMAX: 6, VREV: 3, YAW: 0.85, CYC: 3.4, DUTY: 0.6, HIP_Y: 0.35, UP: 1.3, LO: 1.25, ANK: 0.22,
+  OFF: [0.25, 0.75, 0, 0.5], // FL, FR, RL, RR (lateral-sequence walk: RL, FL, RR, FR)
+  TR: [0.8, 0.7, 0.6], TROOT: [3.5, 0.8], // trunk segment lengths, root (body frame x, y)
+  REDLINE: 0.85, BLEED: 0.012,
+  rayOpt: { skipBackfaces: true, collisionFilterMask: ~(LIGHT | CARG) },
+  v1: new CANNON.Vec3(), v2: new CANNON.Vec3(), vp: new CANNON.Vec3(), F: new CANNON.Vec3(), R: new CANNON.Vec3(), qi: new CANNON.Quaternion(), wl: new CANNON.Vec3(), rr: new CANNON.RaycastResult(),
+  m4: new THREE.Matrix4(), t3: new THREE.Vector3(), one: new THREE.Vector3(1, 1, 1), ang: [0, 0, 0],
+  mats() {
+    if (WALK.M) return WALK.M;
+    const S0 = (c, r, m) => new THREE.MeshStandardMaterial({ color: c, roughness: r, metalness: m });
+    const dialTex = canvasTex(128, (g, s) => { // the boiler's pressure gauge: green, amber, then the red line
+      const r = s / 2, A0 = -Math.PI / 2 - 3 * Math.PI / 4, span = 3 * Math.PI / 2;
+      g.fillStyle = '#f2ead2'; g.fillRect(0, 0, s, s); g.lineWidth = s * 0.12;
+      for (const [a, b, col] of [[0, 0.55, '#2f9a3a'], [0.55, WALK.REDLINE, '#e8b020'], [WALK.REDLINE, 1, '#d81e10']]) { g.strokeStyle = col; g.beginPath(); g.arc(r, r, r * 0.7, A0 + span * a, A0 + span * b); g.stroke(); }
+      g.strokeStyle = '#1a1410'; g.lineWidth = s * 0.025;
+      for (let k = 0; k <= 10; k++) { const a = A0 + span * k / 10; g.beginPath(); g.moveTo(r + Math.cos(a) * r * 0.5, r + Math.sin(a) * r * 0.5); g.lineTo(r + Math.cos(a) * r * 0.86, r + Math.sin(a) * r * 0.86); g.stroke(); }
+      g.lineWidth = s * 0.05; g.beginPath(); g.arc(r, r, r * 0.95, 0, Math.PI * 2); g.stroke();
+    });
+    return (WALK.M = { iron: S0(0x2a2420, 0.55, 0.8), wood: S0(0x6b4424, 0.8, 0), cloth: S0(0xa8221c, 0.85, 0), gold: S0(0xe8b84a, 0.3, 0.9), khaki: S0(0xb59a64, 0.9, 0), skin: S0(0x4a2c1c, 0.65, 0), hat: S0(0x6f6a3c, 0.9, 0), scarf: S0(0xd23a1e, 0.8, 0), ivory: S0(0xeee4c8, 0.45, 0),
+      dial: new THREE.MeshStandardMaterial({ map: dialTex, roughness: 0.4, emissive: 0xffffff, emissiveMap: dialTex, emissiveIntensity: 0.35 }), needle: S0(0x101010, 0.5, 0.3) });
+  },
+  init(c, b, x, z, yaw) { // the Car constructor hands over here for a walker
+    const T = c.T;
+    c.baseColor.setHex(T.color); // always brass: the colour is the character
+    b.angularDamping = 0.5;
+    b.addShape(new CANNON.Box(new CANNON.Vec3(2.5, 1.45, 1.22)), new CANNON.Vec3(0, 0.35, 0)); // the barrel body, down to 1.2 m off the ground (no driving under its belly)
+    b.addShape(new CANNON.Box(new CANNON.Vec3(0.6, 0.7, 0.7)), new CANNON.Vec3(2.95, 1.0, 0)); // head
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) b.addShape(new CANNON.Box(new CANNON.Vec3(0.38, 0.4, 0.38)), new CANNON.Vec3(sx * T.wb / 2, -1.45, sz * T.track / 2)); // legs (0.45 m clear of the ground: the springs carry it)
+    c.baseOffsets = b.shapeOffsets.map((o) => o.clone());
+    b.position.set(x, WALK.REST + 0.1, z); b.quaternion.setFromAxisAngle(AX_Y, yaw); b.car = c;
+    c.axles = [T.wb / 2, -T.wb / 2]; c.axleMid = 0; c.nW = 4; c.axlePairs = [[0, 1], [2, 3]];
+    c.wheelBase = [[T.wb / 2, -T.track / 2], [T.wb / 2, T.track / 2], [-T.wb / 2, -T.track / 2], [-T.wb / 2, T.track / 2]]; // FL, FR, RL, RR (as wheels: even = left)
+    c.wheelDmg = [0, 0, 0, 0]; c.wheelLost = [false, false, false, false]; c.lastSkid = [null, null, null, null];
+    c.gear = 1; c.rpm = T.idle; c.shiftT = 0; c.jumpBuf = 0; c.vTop = WALK.VMAX; c.connY = 0; c.comShift = 0;
+    c.pressure = 0; c.stallT = 0; c.whistleT = 0; c.forkH = 0; c.trunkSwing = 0; c.steamK = 0;
+    // the rest of the game reads wheelInfos (contact, ground point): the hover springs fill these in
+    const wi = c.wheelBase.map(([wx, wz]) => ({ isInContact: false, raycastResult: new CANNON.RaycastResult(), suspensionLength: WALK.REST, suspensionRestLength: WALK.REST, chassisConnectionPointLocal: new CANNON.Vec3(wx, 0, wz), chassisConnectionPointWorld: new CANNON.Vec3(), worldTransform: { position: new CANNON.Vec3(), quaternion: new CANNON.Quaternion() }, frictionSlip: 1, engineForce: 0, sliding: false, skidInfo: 1, radius: T.wheelR, maxSuspensionTravel: 0.5, suspensionStiffness: 30, dampingRelaxation: 2, dampingCompression: 3, rollInfluence: 0, steering: 0 }));
+    c.vehicle = { walker: true, wheelInfos: wi, setSteeringValue() {}, applyEngineForce(f, i) { wi[i].engineForce = f; }, setBrake() {}, updateWheelTransform() {}, addToWorld(w) { w.addBody(b); }, removeFromWorld(w) { w.removeBody(b); } };
+    world.addBody(b);
+    b.addEventListener('collide', (e) => c.onCollide(e));
+    WALK.build(c); c.mergeStaticParts(); c.setInertia();
+  },
+  build(c) {
+    const T = c.T, g = c.group = new THREE.Group(), root = c.root = new THREE.Group(); g.add(root); scene.add(g);
+    const D = WALK.mats();
+    c.paint = (QUALITY.level ?? 0) <= 2 ? new THREE.MeshPhysicalMaterial({ color: c.baseColor.clone(), map: grimeTex, roughness: 0.32, metalness: 0.85, envMapIntensity: 1.4, clearcoat: 0.3, clearcoatRoughness: 0.3 })
+      : new THREE.MeshStandardMaterial({ color: c.baseColor.clone(), map: grimeTex, roughness: 0.32, metalness: 0.85, envMapIntensity: 1.3 });
+    c.boilerMat = new THREE.MeshStandardMaterial({ color: 0xb8612e, roughness: 0.3, metalness: 0.9, emissive: 0xff3a10, emissiveIntensity: 0 }); // copper: glows red as the pressure climbs
+    c.glassMat = M.glass.clone(); c.lampMat = M.lamp; c.lampMeshes = []; c.tailMat = M.tail.clone();
+    c.tailGlow = new THREE.SpriteMaterial({ map: glowTex, color: 0xff2a1a, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.35 });
+    c.parts = []; c.deform = []; c.wheelMeshes = []; c.springs = [];
+    const P = c.paint, add = (geo, mat, x, y, z, par = root) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; par.add(m); return m; };
+    const part = (mesh, zone, at) => { c.parts.push({ mesh, zone, at: at * 0.6, detached: false }); return mesh; };
+    const cyl = (r1, r2, h, seg = 12) => new THREE.CylinderGeometry(r1, r2, h, seg);
+    // the barrel body: a box rounded into an elephant's belly (deformable: it dents and crumples like a car)
+    const bg = new THREE.BoxGeometry(5.0, 2.2, 2.5, 12, 5, 6), pa = bg.attributes.position;
+    for (let i = 0; i < pa.count; i++) { const x = pa.getX(i), y = pa.getY(i), z = pa.getZ(i), u = y / 1.1, w = z / 1.25, ex = x / 2.5, r = Math.hypot(u, w) || 1, k = Math.max(Math.abs(u), Math.abs(w)) / r, tp = 1 - 0.13 * ex * ex;
+      pa.setXYZ(i, x * (1 - 0.05 * u * u), y * k * tp, z * k * tp); }
+    bg.computeVertexNormals();
+    const torso = add(bg, P, 0, 0.75, 0); c.deform.push({ mesh: torso, orig: bg.attributes.position.array.slice() });
+    for (const bx of [-1.75, -0.6, 0.6, 1.75]) { const tp = 1 - 0.13 * (bx / 2.5) ** 2, band = add(new THREE.CylinderGeometry(1, 1, 0.12, 20, 1, true).rotateZ(Math.PI / 2), D.iron, bx, 0.75, 0); band.scale.set(1, 1.13 * tp, 1.28 * tp); // riveted iron hoops
+      for (let k = 0; k < 14; k++) { const a = k / 14 * Math.PI * 2; add(new THREE.SphereGeometry(0.04, 5, 3), D.gold, bx, 0.75 + Math.sin(a) * 1.15 * tp, Math.cos(a) * 1.3 * tp); } }
+    // head, eyes, forehead lamp, ears, tusks, the funnel
+    add(new THREE.SphereGeometry(1, 16, 12), P, 2.75, 1.2, 0).scale.set(0.95, 1.0, 0.9);
+    add(new THREE.SphereGeometry(0.62, 12, 8), P, 3.25, 0.85, 0).scale.set(0.8, 0.9, 0.85); // muzzle
+    for (const s of [-1, 1]) { add(new THREE.SphereGeometry(0.13, 10, 8), c.glassMat, 3.3, 1.5, s * 0.52); add(new THREE.BoxGeometry(0.3, 0.07, 0.24), D.iron, 3.33, 1.66, s * 0.52).rotation.x = s * 0.25; }
+    { const hl = add(new THREE.CylinderGeometry(0.16, 0.18, 0.12, 12).rotateZ(Math.PI / 2), M.lamp, 3.63, 1.75, 0); const glow = new THREE.Sprite(headGlowMat); glow.position.set(0.15, 0, 0); glow.scale.set(1.1, 0.7, 1); hl.add(glow); hl.glow = glow; c.lampMeshes.push(hl);
+      add(new THREE.TorusGeometry(0.18, 0.035, 6, 14).rotateY(Math.PI / 2), D.gold, 3.68, 1.75, 0); }
+    for (const s of [-1, 1]) { const side = s < 0 ? 'left' : 'right', ear = add(new THREE.CylinderGeometry(0.95, 0.95, 0.07, 18).rotateX(Math.PI / 2), P, 2.35, 1.3, s * 0.95); ear.rotation.y = -s * 0.45; ear.scale.set(0.9, 1.05, 1);
+      add(new THREE.TorusGeometry(0.95, 0.05, 6, 20), D.iron, 0, 0, 0, ear); for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2; add(new THREE.SphereGeometry(0.05, 5, 3), D.gold, Math.cos(a) * 0.7, Math.sin(a) * 0.7, s * 0.05, ear); } part(ear, side, 75);
+      const tusk = add(new THREE.ConeGeometry(0.1, 1.15, 8), D.ivory, 3.55, 0.6, s * 0.42); tusk.rotation.z = -1.15; tusk.rotation.x = s * 0.15; part(tusk, 'front', 70); }
+    add(cyl(0.2, 0.25, 1.1), D.iron, 2.6, 2.55, 0); add(cyl(0.36, 0.2, 0.28), P, 2.6, 3.2, 0); add(new THREE.TorusGeometry(0.34, 0.04, 6, 16).rotateX(Math.PI / 2), D.gold, 2.6, 3.33, 0);
+    const tip = new THREE.Object3D(); tip.position.set(2.6, 3.4, 0); root.add(tip); c.exhaust = [tip]; c.funnelY = 3.4; // nitro flames and the chuffing smoke come out of the funnel
+    // the boiler on its back (the weak spot) with its pressure gauge facing the rear, a safety valve and a whistle
+    add(cyl(0.62, 0.62, 2.0, 18).rotateZ(Math.PI / 2), c.boilerMat, -1.25, 2.45, 0);
+    add(new THREE.SphereGeometry(0.62, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2).rotateZ(Math.PI / 2), c.boilerMat, -0.25, 2.45, 0).scale.set(0.45, 1, 1);
+    for (const bx of [-2.15, -1.25, -0.35]) add(new THREE.CylinderGeometry(0.65, 0.65, 0.1, 18, 1, true).rotateZ(Math.PI / 2), D.iron, bx, 2.45, 0);
+    for (const bx of [-1.9, -0.6]) add(new THREE.BoxGeometry(0.25, 0.45, 1.3), D.iron, bx, 1.95, 0); // saddles
+    add(cyl(0.64, 0.64, 0.06, 18).rotateZ(Math.PI / 2), D.iron, -2.26, 2.45, 0); // end plate
+    const dial = add(new THREE.CircleGeometry(0.36, 24), D.dial, -2.3, 2.5, 0); dial.rotation.y = -Math.PI / 2; dial.castShadow = false;
+    add(new THREE.TorusGeometry(0.37, 0.05, 6, 24).rotateY(Math.PI / 2), D.gold, -2.3, 2.5, 0);
+    const nd = c.gaugeNeedle = new THREE.Group(); nd.position.set(-2.32, 2.5, 0); nd.rotation.y = -Math.PI / 2; root.add(nd);
+    { const n = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.3, 0.015), D.needle); n.position.set(0, 0.12, 0.01); nd.add(n); const hub = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 6), D.gold); nd.add(hub); }
+    const lid = c.boilerLid = new THREE.Group(); lid.position.set(-0.9, 3.1, 0); root.add(lid); c.lidY0 = 3.1; // safety valve: it blows off with the pressure
+    add(cyl(0.16, 0.16, 0.3), P, 0, -0.05, 0, lid); add(cyl(0.24, 0.24, 0.06, 14), D.iron, 0, 0.13, 0, lid); add(new THREE.SphereGeometry(0.06, 6, 4), D.gold, 0, 0.2, 0, lid);
+    add(cyl(0.07, 0.09, 0.45), D.gold, -1.75, 3.15, 0.3); add(cyl(0.12, 0.07, 0.12), D.gold, -1.75, 3.42, 0.3); // the whistle
+    for (const s of [-1, 1]) { const tl = add(new THREE.BoxGeometry(0.05, 0.12, 0.2), c.tailMat, -2.3, 1.95, s * 0.35); const tg = new THREE.Sprite(c.tailGlow); tg.position.set(-0.08, 0, 0); tg.scale.set(0.6, 0.35, 1); tl.add(tg); }
+    for (const s of [-1, 1]) { const pipe = add(cyl(0.06, 0.06, 2.3), D.gold, -0.2, 1.55, s * 1.0); pipe.rotation.z = Math.PI / 2 + 0.35; } // steam pipes down to the hips
+    { const tail = add(cyl(0.05, 0.08, 1.3, 8), D.iron, -2.6, 1.0, 0); tail.rotation.z = -0.35; add(new THREE.SphereGeometry(0.14, 8, 6), D.hat, 0, -0.7, 0, tail); part(tail, 'rear', 45); }
+    // the howdah: a wooden platform, brass poles, a red canopy, and Mama Wanjiru at the front with her ranger's hat
+    add(new THREE.BoxGeometry(1.9, 0.12, 1.9), D.wood, 0.5, 1.95, 0);
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) add(cyl(0.04, 0.04, 1.3, 6), D.gold, 0.5 + sx * 0.85, 2.6, sz * 0.85);
+    for (const s of [-1, 1]) { add(new THREE.BoxGeometry(1.8, 0.3, 0.06), D.wood, 0.5, 2.15, s * 0.88); add(new THREE.BoxGeometry(0.06, 0.3, 1.8), D.wood, 0.5 + s * 0.88, 2.15, 0); }
+    const canopy = new THREE.Group(); canopy.position.set(0.5, 3.25, 0); root.add(canopy);
+    add(new THREE.BoxGeometry(2.0, 0.08, 2.0), D.cloth, 0, 0, 0, canopy); add(new THREE.ConeGeometry(1.45, 0.5, 4).rotateY(Math.PI / 4), D.cloth, 0, 0.29, 0, canopy); add(new THREE.SphereGeometry(0.1, 8, 6), D.gold, 0, 0.6, 0, canopy);
+    for (const s of [-1, 1]) add(new THREE.BoxGeometry(2.02, 0.16, 0.02), D.gold, 0, -0.1, s * 1.0, canopy);
+    part(canopy, 'top', 70);
+    for (const s of [-1, 1]) part(add(new THREE.BoxGeometry(1.9, 0.9, 0.05), D.cloth, 0.5, 1.45, s * 1.17), s < 0 ? 'left' : 'right', 50); // saddle blanket
+    { const dx = 1.05, dy = 2.0; add(new THREE.BoxGeometry(0.42, 0.55, 0.5), D.khaki, dx, dy + 0.35, 0); add(new THREE.BoxGeometry(0.16, 0.1, 0.5), D.scarf, dx + 0.12, dy + 0.62, 0);
+      add(new THREE.SphereGeometry(0.17, 12, 10), D.skin, dx + 0.02, dy + 0.82, 0); add(cyl(0.33, 0.33, 0.03, 16), D.hat, dx, dy + 0.94, 0); add(cyl(0.15, 0.17, 0.15, 12), D.hat, dx, dy + 1.02, 0);
+      for (const s of [-1, 1]) { const arm = add(new THREE.BoxGeometry(0.12, 0.42, 0.12), D.khaki, dx + 0.18, dy + 0.42, s * 0.3); arm.rotation.z = -0.9; add(new THREE.SphereGeometry(0.06, 6, 4), D.skin, dx + 0.38, dy + 0.3, s * 0.3); } }
+    // legs and trunk: bones, and two skinned meshes (brass and iron) that draw all of them in two calls
+    const bones = [], brass = [], iron = [], { HIP_Y, UP, LO } = WALK;
+    c.legs = c.wheelBase.map(([hx, hz], i) => {
+      const hip = new THREE.Group(); hip.position.set(hx, HIP_Y, hz); root.add(hip);
+      const knee = new THREE.Group(); knee.position.set(0, -UP, 0); hip.add(knee);
+      const foot = new THREE.Group(); foot.position.set(0, -LO, 0); knee.add(foot);
+      const bi = bones.length; bones.push(hip, knee, foot);
+      const y0 = HIP_Y, yk = HIP_Y - UP, ya = yk - LO;
+      brass.push([cyl(0.44, 0.36, UP).translate(hx, y0 - UP / 2, hz), bi], [cyl(0.34, 0.4, LO).translate(hx, yk - LO / 2, hz), bi + 1]);
+      iron.push([new THREE.SphereGeometry(0.4, 10, 8).translate(hx, yk, hz), bi + 1], [cyl(0.46, 0.46, 0.1).translate(hx, y0 - 0.35, hz), bi], [cyl(0.42, 0.42, 0.1).translate(hx, ya + 0.25, hz), bi + 1],
+        [cyl(0.5, 0.54, 0.3, 14).translate(hx, ya - 0.07, hz), bi + 2]);
+      for (let k = -1; k <= 1; k++) iron.push([new THREE.BoxGeometry(0.14, 0.12, 0.14).translate(hx + 0.5, ya - 0.14, hz + k * 0.22), bi + 2]); // toenails
+      return { hip, knee, foot, hx, hz };
+    });
+    { const [rx, ry] = WALK.TROOT, TR = WALK.TR, tb = [], rad = [0.3, 0.24, 0.18, 0.13]; let par = root, y = ry;
+      for (let k = 0; k < 3; k++) { const bn = new THREE.Group(); bn.position.set(k ? 0 : rx, k ? -TR[k - 1] : ry, 0); par.add(bn); par = bn; tb.push(bn); bones.push(bn); const bi = bones.length - 1;
+        brass.push([cyl(rad[k], rad[k + 1], TR[k]).translate(rx, y - TR[k] / 2, 0), bi]); iron.push([cyl(rad[k] + 0.03, rad[k] + 0.03, 0.07).translate(rx, y - 0.05, 0), bi]); y -= TR[k]; }
+      iron.push([cyl(0.13, 0.2, 0.16).translate(rx, y - 0.06, 0), bones.length - 1]); // the steam nozzle
+      c.trunkBones = tb; }
+    const skin = (list, mat) => { const gs = list.map(([geo, bi]) => { const n = geo.attributes.position.count, si = new Uint16Array(n * 4), sw = new Float32Array(n * 4); for (let k = 0; k < n; k++) { si[k * 4] = bi; sw[k * 4] = 1; }
+        geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4)); geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw, 4)); return geo; });
+      const m = new THREE.SkinnedMesh(mergeGeometries(gs, false), mat); gs.forEach((x) => x.dispose()); m.castShadow = true; m.receiveShadow = true; m.boundingSphere = new THREE.Sphere(new THREE.Vector3(0.6, -0.6, 0), 5.5); root.add(m); return m; };
+    c.legBones = bones;
+    c.legSkin = [skin(brass, P), skin(iron, D.iron)];
+    root.updateMatrixWorld(true); c.legSkel = new THREE.Skeleton(bones); for (const m of c.legSkin) m.bind(c.legSkel);
+    c.gait = { ph: 0, n: 0, acc: 0, feet: c.legs.map(() => ({ p: new THREE.Vector3(), from: new THREE.Vector3(), gy: 0, sw: false, init: false })) };
+  },
+  dispose(c) { if (c.legSkel) c.legSkel.dispose(); if (c.hold) WALK.release(c, false); },
+  ground(x, z, y) { const r = WALK.rr; r.reset(); WALK.v1.set(x, y + 1.5, z); WALK.v2.set(x, y - 6, z); world.raycastClosest(WALK.v1, WALK.v2, WALK.rayOpt, r); return r.hasHit ? r.hitPointWorld.y : 0; },
+  /* ---- physics, every sub-step (host and solo) ---- */
+  physics(c, dt) {
+    const b = c.body, T = c.T, wi = c.vehicle.wheelInfos, g0 = S.gravity;
+    b.quaternion.vmult(AX_X, c.fwd); b.quaternion.vmult(AX_Y, c.up);
+    const fl = Math.hypot(c.fwd.x, c.fwd.z) || 1, fx = c.fwd.x / fl, fz = c.fwd.z / fl, vF = b.velocity.x * fx + b.velocity.z * fz, vL = b.velocity.x * -fz + b.velocity.z * fx;
+    c.speed = vF;
+    WALK.boiler(c, dt);
+    const dead = c.wrecked || c.stallT > 0;
+    const rest = c.wrecked ? 1.2 : c.stallT > 0 ? 2.12 : WALK.REST; // stalled: it sags on its knees; wrecked: it sits down
+    const K = b.mass * g0 / 4 / 0.12, C = 2 * 0.8 * Math.sqrt(K * b.mass / 4);
+    let contacts = 0;
+    for (let i = 0; i < 4; i++) { // hover springs: a ray straight down from each hip
+      const w = wi[i], from = w.chassisConnectionPointWorld; b.pointToWorldFrame(w.chassisConnectionPointLocal, from);
+      const r = w.raycastResult; r.reset(); WALK.v2.set(from.x, from.y - rest - 0.9, from.z); world.raycastClosest(from, WALK.v2, WALK.rayOpt, r);
+      const d = r.hasHit ? r.distance : rest + 0.9; w.suspensionLength = d; w.isInContact = r.hasHit && d < rest + 0.3; if (w.isInContact) contacts++;
+      if (!r.hasHit || d >= rest) continue;
+      from.vsub(b.position, WALK.R); b.getVelocityAtWorldPoint(from, WALK.vp);
+      const f = clamp(K * (rest - d) - C * WALK.vp.y, 0, b.mass * g0 * 1.6); WALK.F.set(0, f, 0); b.applyForce(WALK.F, WALK.R);
+    }
+    c.contacts = contacts;
+    b.quaternion.conjugate(WALK.qi); WALK.qi.vmult(b.angularVelocity, WALK.wl); const wl = WALK.wl;
+    if (contacts >= 2) { const k = Math.exp(-dt * 3); wl.x *= k; wl.z *= k; } // a walking machine keeps its balance
+    const thr = dead ? 0 : c.ctrl.throttle, steer = dead ? 0 : c.ctrl.steer, brake = !dead && (c.ctrl.brake || c.ctrl.handbrake);
+    c.boosting = !dead && c.ctrl.nitro && c.nitro > 0.01 && thr > 0; if (c.boosting) c.nitro = Math.max(0, c.nitro - dt * 0.3);
+    const slow = (c.stuckConcrete ? 0.35 : 1) * (c.inMud ? 0.6 : 1) * (1 - c.engineDmg * 0.3), vmax = WALK.VMAX * (c.boosting ? 1.3 : 1) * slow;
+    const want = brake ? 0 : thr > 0 ? thr * vmax : thr * WALK.VREV * slow, gnd = contacts / 4;
+    if (gnd > 0 && !c.craned) {
+      const acc = brake ? 9 : thr !== 0 && Math.sign(thr) !== Math.sign(vF) && Math.abs(vF) > 0.5 ? 6 : thr === 0 ? 5 : 3.2;
+      const aF = clamp((want - vF) * 4, -acc, acc) * gnd, shoved = simTime - (c.blastT ?? -9) < 0.5, aL = shoved ? 0 : clamp(-vL * 5, -10, 10) * gnd; // feet don't slide sideways
+      WALK.F.set((fx * aF - fz * aL) * b.mass, 0, (fz * aF + fx * aL) * b.mass); b.applyForce(WALK.F);
+      const yawW = steer * WALK.YAW * (vF < -0.5 && thr < 0 ? -1 : 1) * (brake ? 0.5 : 1); // turns on the spot too; backing up steers like a car
+      wl.y = lerp(wl.y, yawW, clamp(dt * 5 * gnd, 0, 1));
+      // pushing into something low it can't walk through: it steps up and over
+      c.slowT = thr !== 0 && Math.abs(vF) < 0.5 ? (c.slowT || 0) + dt : 0;
+      if (c.slowT > 1.2) { c.slowT = 0; b.velocity.y += 2.8; b.velocity.x += fx * 1.5 * Math.sign(thr); b.velocity.z += fz * 1.5 * Math.sign(thr); }
+    }
+    b.quaternion.vmult(wl, b.angularVelocity);
+    c.braking = brake && Math.abs(vF) > 0.5;
+    c.rpm = lerp(c.rpm, T.idle + (T.redline - T.idle) * clamp(Math.abs(vF) / WALK.VMAX + Math.abs(thr) * 0.15, 0, 1.1), clamp(dt * 6, 0, 1));
+    // the ground it stands in
+    const p = b.position; c.stuckConcrete = false;
+    if (contacts > 0) for (const pd of CONCRETE.list) if (pd.kind === 'concrete' && pd.t > 2 && (p.x - pd.x) ** 2 + (p.z - pd.z) ** 2 < (pd.r + 0.8) ** 2) { c.stuckConcrete = true; break; }
+    c.onFire = false; if (!c.wrecked && !(c.douse > 0)) { for (const pd of CONCRETE.list) if (pd.kind === 'fuel' && pd.burning > 0 && (p.x - pd.x) ** 2 + (p.z - pd.z) ** 2 < (pd.r + 1) ** 2) { c.onFire = true; break; } if (!c.onFire && ARENA.firePit && inFirePit({ x: p.x, y: 0.5, z: p.z })) c.onFire = true; }
+    if (c.douse > 0) c.douse -= dt; if (c.wet > 0) c.wet = Math.max(0, c.wet - dt * 0.45);
+    c.inWater = contacts > 0 && !!puddleAt(p.x, p.z, 'water', 0.3); c.onOil = false;
+    c.inMud = false; if (contacts > 0) for (const m of ARENA.mud) if ((p.x - m.x) ** 2 + (p.z - m.z) ** 2 < m.r * m.r) { c.inMud = true; break; }
+  },
+  /* ---- the boiler: hits and heat raise the pressure; at the red line it whistles, then blows its top and stalls ---- */
+  hit(c, dmg, by, zone, model, dv) { // from applyDamage (host and solo)
+    if (c.wrecked || !(dmg > 0) || MP.role === 'guest' || zone === 'bottom') return;
+    if (zone === 'top' && !model && !dv) return; // burning: counted as heat instead
+    const hot = by && by.T && (by.T.special === 'flame' || by.T.special === 'minigun');
+    if (zone === 'front' && !hot) return; // the head and trunk take it; the boiler is round the back
+    let k = zone === 'rear' ? 0.018 : zone === 'left' || zone === 'right' ? 0.013 : zone === 'top' ? 0.012 : 0.007;
+    if (hot) k = Math.max(k, 0.014) * (by.T.special === 'flame' ? 2.2 : 1.5); // flames and a red-hot minigun heat it fastest
+    if (model && model.x < -0.4 && model.y > 1.2) k *= 1.3; // right on the boiler
+    c.pressure = Math.min(1, (c.pressure || 0) + dmg * k);
+  },
+  heat(c) { // is there fire close to it? (checked a few times a second)
+    const p = c.body.position;
+    for (const pd of CONCRETE.list) if (pd.kind === 'fuel' && pd.burning > 0 && (pd.x - p.x) ** 2 + (pd.z - p.z) ** 2 < (pd.r + 6) ** 2) return 1;
+    for (const pr of props) if (pr.fireT > 0 && pr.body.position.distanceTo(p) < 7) return 1;
+    for (const o of cars) if (o !== c && o.burnT > 0 && o.body.position.distanceTo(p) < 8) return 1;
+    const F = ARENA.firePit; if (F && p.x > F.x0 - 6 && p.x < F.x1 + 6 && Math.abs(p.z - F.z) < F.hz + 6) return 1;
+    return 0;
+  },
+  boiler(c, dt) {
+    if (c.wrecked) { c.stallT = 0; c.whistleT = 0; return; }
+    if (c.stallT > 0) { c.stallT -= dt; if (c.stallT <= 0) { c.stallT = 0; if (c.isPlayer && game.state === 'playing') toast('BOILER BACK UP · TWENDE!', 'cool'); } return; }
+    c.heatT = (c.heatT || 0) - dt; if (c.heatT <= 0) { c.heatT = 0.3; c.heatNear = WALK.heat(c); }
+    const heat = (c.burnT > 0 ? 0.09 : 0) + (c.onFire ? 0.09 : 0) + (c.heatNear ? 0.06 : 0);
+    c.pressure = clamp((c.pressure || 0) + (heat - WALK.BLEED) * dt, 0, 1);
+    if (c.whistleT > 0) { c.whistleT -= dt; if (c.pressure < WALK.REDLINE - 0.07) c.whistleT = 0; else if (c.whistleT <= 0) WALK.blow(c); } // vent steam in time and it calms down
+    else if (c.pressure >= WALK.REDLINE) { c.whistleT = 1.3; if (c.isPlayer && game.state === 'playing') toast('BOILER AT THE RED LINE! VENT STEAM (F)', 'bad'); }
+  },
+  blow(c) { // the safety valve goes: a huge cloud of steam, and the elephant stalls for ~4 s
+    c.whistleT = 0; c.stallT = 4; c.pressure = 0.15; c.blownN = (c.blownN || 0) + 1;
+    if (c.hold) WALK.release(c, false);
+    const by = c.lastAttacker && simTime - c.lastAttackTime < 5 ? c.lastAttacker : null;
+    c.applyDamage(5 * S.damage, by, null, null, 0);
+    if (PLAYLOG.m) PLAYLOG.V(c.type).blows = (PLAYLOG.V(c.type).blows || 0) + 1;
+    if (game.state === 'playing') {
+      if (c.isPlayer) toast('BOILER BLEW! STALLED', 'bad'); else if (by && by.isPlayer) { toast(`${c.name.toUpperCase()} BLEW HER TOP!`, 'cool'); game.addScore(250, null); }
+      if (!c.isPlayer && !c.remote && Math.random() < 0.6) barks.say(c, 'boiler', true); else barks.announce('boiler', { v: c.isPlayer ? 'our hero' : c.name, a: by ? (by.isPlayer ? 'our hero' : by.name) : 'somebody' }, true);
+    }
+  },
+  blowFx(c) { // host and guests alike: when the stall starts
+    const b = c.body, p = b.pointToWorldFrame(WALK.v1.set(-1.2, 3.1, 0)), n = QUALITY.lite ? 18 : 40;
+    for (let i = 0; i < n; i++) emit('steam', p.x + rand(-0.6, 0.6), p.y + rand(0, 0.5), p.z + rand(-0.6, 0.6), rand(-4, 4), rand(4, 11), rand(-4, 4), rand(1.4, 2.6), rand(0.6, 1.3));
+    for (let i = 0; i < 8; i++) emit('debris', p.x, p.y, p.z, rand(-4, 4), rand(5, 9), rand(-4, 4), rand(1.5, 2.5), rand(0.06, 0.14), WALK.mats().gold);
+    c.lidPop = 1;
+    if (player) { const d = player.body.position.distanceTo(b.position), v = clamp(1 - d / 110, 0, 1); sfx.at(p).explosion(v * 0.45, false); sfx.at(p).noiseHit('highpass', 1800, 0.6, v * 0.5, 2.4); sfx.at(p).noiseHit('bandpass', 500, 0.7, v * 0.25, 1.6); if (d < 30) game.shake = Math.min(1.2, game.shake + 0.5 * (1 - d / 30)); }
+  },
+  whistle(c) { if (!player) return; const v = clamp(1 - player.body.position.distanceTo(c.body.position) / 120, 0, 1); if (v < 0.03) return; const s = sfx.at(c.body.position); s.tone('sine', 1320, 1400, v * 0.16, 1.25); sfx.at(c.body.position).tone('sine', 1760, 1870, v * 0.12, 1.25); sfx.at(c.body.position).noiseHit('highpass', 3000, 0.8, v * 0.12, 1.2); },
+  /* ---- the trunk: grab a light car and fling it sideways, or with nothing in reach, a cone of scalding steam ---- */
+  trunkAngles(lift, steam, t, out) {
+    out[0] = 0.25 + 0.06 * Math.sin(t * 1.3); out[1] = 0.12 + 0.08 * Math.sin(t * 1.7 + 1); out[2] = 0.18 + 0.12 * Math.sin(t * 2.1 + 2);
+    if (lift > 0) { out[0] = lerp(out[0], 2.3, lift); out[1] = lerp(out[1], 0.5, lift); out[2] = lerp(out[2], 0.4, lift); }
+    if (steam > 0) { out[0] = lerp(out[0], 1.45, steam); out[1] = lerp(out[1], 0.05, steam); out[2] = lerp(out[2], -0.05, steam); }
+    return out;
+  },
+  trunkTip(lift, steam, out) { // the trunk tip in the body frame (the same chain the bones draw)
+    const a = WALK.trunkAngles(lift, steam, 0, WALK.ang); let x = WALK.TROOT[0], y = WALK.TROOT[1], s = 0;
+    for (let k = 0; k < 3; k++) { s += a[k]; x += WALK.TR[k] * Math.sin(s); y -= WALK.TR[k] * Math.cos(s); }
+    return out.set(x, y, 0);
+  },
+  grabbable(c) {
+    const b = c.body; let best = null, bx = 7.4;
+    for (const o of cars) {
+      if (o === c || o.T.walker || o.T.skid || o.body.mass > 4600 || o.carriedBy || o.towedBy || o.craned) continue;
+      if (o.isPlayer && game.state === 'menu') continue;
+      const l = b.pointToLocalFrame(o.body.position);
+      if (l.x > 2.6 && l.x < bx && Math.abs(l.z) < 2.4 && Math.abs(l.y) < 2.6) { bx = l.x; best = o; }
+    }
+    return best;
+  },
+  trunkStart(c) {
+    if (c.stallT > 0) { c.specialT = 0; c.specialCd = 0.4; if (c.isPlayer) toast('BOILER STALLED!', 'bad'); return; }
+    if (c.hold) { c.specialT = 0; return; }
+    const t = WALK.grabbable(c), b = c.body;
+    if (t) {
+      c.specialT = 0; c.specialCd = 2.6; c.steamOn = false;
+      const vb = t.body; t.massSave = vb.mass; vb.mass = 300; vb.updateMassProperties(); vb.wakeUp();
+      const piv = WALK.trunkTip(0, 0, new CANNON.Vec3()), con = new CANNON.PointToPointConstraint(b, piv, vb, new CANNON.Vec3(0, 0.2, 0), 2.5e5); con.collideConnected = false; world.addConstraint(con);
+      // which way to throw it: toward the crusher, the fire pit or the wrecking ball if one is on that side, else away from the walls
+      const fl = Math.hypot(c.fwd.x, c.fwd.z) || 1, rx = -c.fwd.z / fl, rz = c.fwd.x / fl, P0 = b.position; let side = b.pointToLocalFrame(vb.position).z >= 0 ? 1 : -1, bestD = 1e9;
+      const F = ARENA.firePit, spots = [[CRUSHER.x, CRUSHER.z], [BALL.px, BALL.pz]].concat(F ? [[(F.x0 + F.x1) / 2, F.z]] : []);
+      for (const sd of [-1, 1]) { const qx = P0.x + rx * sd * 22, qz = P0.z + rz * sd * 22; if (Math.abs(qx) > A - 6 || Math.abs(qz) > A - 6) continue; for (const [hx, hz] of spots) { const d = Math.hypot(qx - hx, qz - hz); if (d < 14 && d < bestD) { bestD = d; side = sd; } } }
+      if (bestD > 1e8 && (Math.abs(P0.x + rx * side * 22) > A - 6 || Math.abs(P0.z + rz * side * 22) > A - 6)) side = -side;
+      c.hold = { c: t, con, t: 0, side }; t.carriedBy = c; t.heldBy = c;
+      t.applyDamage(4 * S.damage * t.T.armor, c, 'top', null, 0);
+      sfx.at(vb.position).clank(wv(c)); sfx.at(vb.position).hydraulic(wv(c)); sparks(vb.position, 10);
+      if (game.state === 'playing') { if (c.isPlayer) toast(`GRABBED ${t.name}!`, 'cool'); else if (t.isPlayer) toast(`${c.name} GRABBED YOU!`, 'bad'); if (!t.isPlayer && !t.remote) barks.say(t, 'air', true); }
+      return;
+    }
+    c.steamOn = true; c.specialCd = 3.2; // nothing to grab: steam
+    if (player) sfx.at(b.position).noiseHit('highpass', 2200, 0.6, wv(c) * 0.35, 1.4);
+  },
+  release(c, fling) {
+    const k = c.hold; if (!k) return; c.hold = null; world.removeConstraint(k.con);
+    const t = k.c, vb = t.body; vb.mass = t.massSave || 1500; vb.updateMassProperties(); t.carriedBy = null; t.heldBy = null; t.__relBy = c; t.__relT = simTime;
+    if (!fling) return;
+    const fl = Math.hypot(c.fwd.x, c.fwd.z) || 1, fx = c.fwd.x / fl, fz = c.fwd.z / fl, rx = -fz, rz = fx, s = k.side, bv = c.body.velocity;
+    vb.velocity.set(bv.x + rx * s * 13 + fx * 2, 6.5, bv.z + rz * s * 13 + fz * 2); vb.angularVelocity.set(rand(-3, 3), rand(-2, 2), s * rand(3, 5)); vb.wakeUp();
+    t.lastAttacker = c; t.lastAttackTime = simTime; t.applyDamage(6 * S.damage * t.T.armor, c, s > 0 ? 'left' : 'right', null, 0);
+    c.trunkSwing = s * 0.9; c.flungN = (c.flungN || 0) + 1;
+    if (PLAYLOG.m) PLAYLOG.V(c.type).flings = (PLAYLOG.V(c.type).flings || 0) + 1;
+    if (player) { sfx.at(vb.position).noiseHit('bandpass', 700, 0.7, wv(c) * 0.4, 0.4); sfx.at(vb.position).clank(wv(c) * 0.7); }
+    if (game.state === 'playing') { if (c.isPlayer) { toast(`FLUNG ${t.name}!`, 'cool'); game.addScore(200, null); } barks.announce('trunk', { a: c.isPlayer ? 'Our hero' : c.name, v: t.isPlayer ? 'our hero' : t.name }, true); if (!c.isPlayer && !c.remote && Math.random() < 0.5) barks.say(c, 'hitYou', false, { target: t.name, v: t.name, car: t.T.name }); }
+  },
+  trunkUpdate(c, dt) { // every frame, every machine
+    const k = c.hold;
+    if (k && !c.ghost) {
+      k.t += dt; const lift = Math.min(1, k.t / 0.8); c.forkH = lift;
+      WALK.trunkTip(lift, 0, k.con.pivotA); k.con.pivotA.x += 0.25; k.con.pivotA.y -= 0.45; // the car dangles under the curled trunk
+      if (!cars.includes(k.c) || c.wrecked || c.stallT > 0) WALK.release(c, false);
+      else if (k.t > 1.05) WALK.release(c, true);
+    } else if (!c.ghost) c.forkH = Math.max(0, (c.forkH || 0) - dt * 2.5);
+    if (c.steamOn && !(c.specialT > 0)) c.steamOn = false;
+    c.steamK = lerp(c.steamK || 0, c.steamOn || c.steamFlag ? 1 : 0, clamp(dt * 8, 0, 1));
+    c.trunkSwing = (c.trunkSwing || 0) * Math.exp(-dt * 3);
+  },
+  steamTick(c, dt) { // host and solo: the cone of steam does its work
+    const b = c.body, tip = b.pointToWorldFrame(WALK.trunkTip(0, 1, WALK.v1), WALK.v2), fl = Math.hypot(c.fwd.x, c.fwd.z) || 1, fx = c.fwd.x / fl, fz = c.fwd.z / fl;
+    WALK.steamFx(c, tip, fx, fz);
+    c.pressure = Math.max(0, (c.pressure || 0) - dt * 0.1); // venting lets the pressure off
+    if (c.burnT > 0) c.burnT = 0; c.douse = Math.max(c.douse || 0, 1);
+    const inCone = (q, r) => { const vx = q.x - tip.x, vz = q.z - tip.z, al = vx * fx + vz * fz; return al > -1 && al < r && Math.abs(vx * fz - vz * fx) < 1.4 + Math.max(0, al) * 0.35 ? Math.max(0, al) : -1; };
+    for (const o of cars) { if (o === c || (c.hold && c.hold.c === o)) continue; const al = inCone(o.body.position, 15); if (al < 0) continue;
+      if (!o.wrecked) { const k = Math.min(o.body.mass, 7000) * 16 * (1 - al / 17); WALK.F.set(fx * k, k * 0.1, fz * k); o.body.applyForce(WALK.F); o.body.wakeUp(); o.applyDamage(2.5 * dt * S.damage * o.T.armor, c, 'front', null, 0); o.lastAttacker = c; o.lastAttackTime = simTime; }
+      o.wet = Math.min(1, (o.wet || 0) + dt * 1.5);
+      if (o.burnT > 0) { o.burnT = 0; if (c.isPlayer && game.state === 'playing') toast(`FIRE OUT · ${o.name}`, 'cool'); }
+      o.douse = Math.max(o.douse || 0, o.wrecked ? 20 : 6); }
+    for (const pd of CONCRETE.list) if (pd.burning > 0 && inCone(pd, 14) >= 0) { pd.burning = 0; for (let k = 0; k < 4; k++) emit('steam', pd.x + rand(-1, 1), 0.4, pd.z + rand(-1, 1), 0, rand(1.5, 3), 0, rand(1, 1.8), rand(0.5, 0.9)); }
+    for (const pr of props) if (pr.fireT > 0 && inCone(pr.body.position, 15) >= 0) { pr.fireT = 0; for (let k = 0; k < 4; k++) emit('steam', pr.body.position.x, pr.body.position.y + 0.6, pr.body.position.z, rand(-1, 1), rand(2, 3), rand(-1, 1), rand(0.6, 1), rand(0.4, 0.7)); if (c.isPlayer) toast('FIRE OUT', 'cool'); }
+    for (const bl of BULLS) { if (bl.state === 'burger') continue; const al = inCone(bl.body.position, 14); if (al < 0) continue; bl.cook = 0; bl.body.velocity.x += fx * 14 * dt; bl.body.velocity.z += fz * 14 * dt; bl.wet = 2; }
+    c.hissT = (c.hissT || 0) - dt; if (c.hissT <= 0) { c.hissT = 0.3; sfx.at(b.position).hiss(wv(c)); }
+  },
+  steamFx(c, tip, fx, fz) { for (let i = 0; i < (QUALITY.lite ? 3 : 6); i++) emit('steam', tip.x, tip.y, tip.z, fx * rand(12, 18) + rand(-2, 2), rand(-1, 2), fz * rand(12, 18) + rand(-2, 2), rand(0.6, 1.0), rand(0.3, 0.6)); },
+  /* ---- per rendered frame (every machine): legs, trunk, gauge, smoke ---- */
+  frame(c, dt) {
+    const b = c.body, G = c.gait, pr = clamp(c.pressure || 0, 0, 1), red = pr >= WALK.REDLINE || c.whistleT > 0;
+    c.gaugeNeedle.rotation.z = 2.356 - pr * 4.712 + (red ? Math.sin(clock * 47) * 0.07 : 0); // the gauge on the back of the boiler: you can read the danger off the elephant
+    c.boilerMat.emissiveIntensity = Math.max(0, pr - 0.45) * 2 * (red ? 0.7 + 0.3 * Math.sin(clock * 18) : 1);
+    c.lidPop = Math.max(0, (c.lidPop || 0) - dt * 0.8); c.boilerLid.position.y = c.lidY0 + Math.sin(Math.min(1, (1 - c.lidPop) * 1.6) * Math.PI) * c.lidPop * 1.6; c.boilerLid.rotation.x = c.lidPop * 6;
+    const stalled = c.stallT > 0; if (stalled && !c._wasStall) WALK.blowFx(c); c._wasStall = stalled;
+    const wh = c.whistleT > 0; if (wh && !c._wasWh) WALK.whistle(c); c._wasWh = wh;
+    const cd = camera.position.distanceTo(b.position), near = cd < 80;
+    if (near && (pr > 0.7 || wh) && Math.random() < (wh ? 0.8 : 0.25)) { const q = b.pointToWorldFrame(WALK.v1.set(-0.9, 3.3, 0)); emit('steam', q.x, q.y, q.z, rand(-0.5, 0.5), rand(3, 5), rand(-0.5, 0.5), rand(0.5, 0.9), rand(0.2, 0.4)); } // the safety valve hisses
+    if (near && stalled && Math.random() < 0.4) { const lg = c.legs[Math.random() * 4 | 0], q = b.pointToWorldFrame(WALK.v1.set(lg.hx, 0.2, lg.hz)); emit('steam', q.x, q.y, q.z, rand(-1, 1), rand(0.5, 2), rand(-1, 1), rand(0.6, 1.2), rand(0.3, 0.6)); }
+    if (c.ghost && c.steamFlag) { const tip = b.pointToWorldFrame(WALK.trunkTip(0, 1, WALK.v1), WALK.v2), fl = Math.hypot(c.fwd.x, c.fwd.z) || 1; WALK.steamFx(c, tip, c.fwd.x / fl, c.fwd.z / fl); }
+    c.chuffT = (c.chuffT || 0) - dt; if (near && !stalled && !c.wrecked && c.chuffT <= 0) { c.chuffT = 0.9; WALK.chuff(c, 0.5); }
+    // trunk
+    const a = WALK.trunkAngles(c.forkH || 0, c.steamK || 0, clock, WALK.ang); for (let k = 0; k < 3; k++) c.trunkBones[k].rotation.z = a[k] * (stalled ? 0.3 : 1);
+    c.trunkBones[0].rotation.y = c.trunkSwing || 0;
+    // legs (far away: a third as often)
+    G.acc += dt; if (cd > 70 && (G.n = (G.n + 1) % 3)) return; const ldt = Math.min(0.1, G.acc); G.acc = 0;
+    const v = b.velocity, hv = Math.hypot(v.x, v.z), yr = Math.abs(b.angularVelocity.y), { DUTY, CYC, HIP_Y, UP, LO, ANK } = WALK;
+    WALK.m4.compose(c.group.position, c.group.quaternion, WALK.one); c.root.updateMatrix(); WALK.m4.multiply(c.root.matrix).invert(); const inv = WALK.m4;
+    const off = (f, i) => { const h = b.pointToWorldFrame(c.vehicle.wheelInfos[i].chassisConnectionPointLocal, WALK.v1); return Math.hypot(f.p.x - h.x, f.p.z - h.z); };
+    let cad = c.wrecked ? 0 : hv / CYC + yr * 0.3; if (cad < 0.1) cad = 0;
+    if (!cad && !c.wrecked && G.feet.some((f, i) => f.sw || off(f, i) > 0.45)) cad = 0.9; // stopping: finish the step and stand square
+    G.ph = (G.ph + cad * ldt) % 1;
+    const lead = cad ? DUTY / Math.max(cad, 0.5) * 0.5 : 0;
+    for (let i = 0; i < 4; i++) {
+      const f = G.feet[i], L = c.legs[i], h = b.pointToWorldFrame(c.vehicle.wheelInfos[i].chassisConnectionPointLocal, WALK.v1), nx = h.x + v.x * lead, nz = h.z + v.z * lead;
+      if (!f.init || Math.hypot(f.p.x - h.x, f.p.z - h.z) > 2.4 || Math.abs(f.p.y - (b.position.y - WALK.REST)) > 2.5) { f.p.set(nx, WALK.ground(nx, nz, b.position.y), nz); f.init = true; f.sw = false; }
+      const lp = (G.ph + WALK.OFF[i]) % 1, sw = cad > 0 && lp >= DUTY;
+      if (sw) { const s = (lp - DUTY) / (1 - DUTY); if (!f.sw) { f.sw = true; f.from.copy(f.p); f.gy = WALK.ground(nx, nz, b.position.y); }
+        const e = s * s * (3 - 2 * s); f.p.set(lerp(f.from.x, nx, e), lerp(f.from.y, f.gy, e) + Math.sin(Math.PI * s) * (0.3 + Math.min(0.3, hv * 0.05)), lerp(f.from.z, nz, e)); }
+      else if (f.sw) { f.sw = false; f.p.set(nx, f.gy, nz); WALK.stomp(c, i, f.p, cd); }
+      // two-bone IK in the leg's plane: front knees bend back, hind knees forward, like a real elephant
+      const t = WALK.t3.set(f.p.x, f.p.y + ANK, f.p.z).applyMatrix4(inv), dx = t.x - L.hx, dy = t.y - HIP_Y, d = clamp(Math.hypot(dx, dy), 0.4, UP + LO - 0.001);
+      const th = Math.atan2(dy, dx), al = Math.acos(clamp((UP * UP + d * d - LO * LO) / (2 * UP * d), -1, 1)), p1 = th + (i < 2 ? -al : al);
+      const kx = L.hx + UP * Math.cos(p1), ky = HIP_Y + UP * Math.sin(p1), p2 = Math.atan2(t.y - ky, t.x - kx);
+      L.hip.rotation.z = p1 + Math.PI / 2; L.knee.rotation.z = p2 - p1; L.foot.rotation.z = -(p2 + Math.PI / 2);
+    }
+  },
+  chuff(c, k) { const q = c.body.pointToWorldFrame(WALK.v1.set(2.6, c.funnelY, 0)); emit('smoke', q.x, q.y, q.z, rand(-0.3, 0.3) - c.fwd.x * 1.5, rand(2, 3.5), rand(-0.3, 0.3) - c.fwd.z * 1.5, rand(0.9, 1.5), rand(0.2, 0.35) * (0.6 + k)); },
+  stomp(c, i, p, cd) { // a foot comes down: dust, a thump you feel, a chuff from the funnel, and crates under it go flat
+    if (i < 2 && cd < 80) WALK.chuff(c, 1);
+    if (cd < 60) for (let n = 0; n < (QUALITY.lite ? 2 : 4); n++) { const a = rand(0, 6.28); emit('dust', p.x + Math.cos(a) * 0.5, p.y + 0.15, p.z + Math.sin(a) * 0.5, Math.cos(a) * rand(1.5, 3), rand(0.3, 0.9), Math.sin(a) * rand(1.5, 3), rand(0.5, 0.9), rand(0.4, 0.7)); }
+    if (player) { const pd = player.body.position.distanceTo(c.body.position);
+      if (pd < 70 && simTime - (c.stompSndT ?? -9) > 0.12) { c.stompSndT = simTime; sfx.at(p).thump(clamp(1 - pd / 70, 0, 1) * (player === c ? 0.35 : 0.6), 12000); }
+      if (game.state === 'playing') game.shake = player === c ? Math.min(0.2, game.shake + 0.012) : pd < 22 ? Math.min(0.6, game.shake + 0.05 * (1 - pd / 22)) : game.shake; }
+    if (MP.role !== 'guest' && !c.ghost) for (const pr of props) { const q = pr.body.position; if (pr.body.mass < 600 && pr.kind !== 'concrete' && (q.x - p.x) ** 2 + (q.z - p.z) ** 2 < 1.2 && q.y < p.y + 1.3) { flattenProp(pr, c); break; } }
+  },
+  /* ---- AI: lumbers at the biggest crowd, grabs and flings light cars (tow trucks and forklifts first), keeps its boiler turned away from attackers ---- */
+  ai(c, dt) {
+    const ctrl = c.ctrl, b = c.body;
+    if (c.wrecked || c.stallT > 0) { ctrl.throttle = 0; ctrl.steer = 0; ctrl.fire = false; return; }
+    c.aiT = (c.aiT || 0) - dt;
+    if (c.aiT <= 0) { c.aiT = 0.4;
+      let prey = null, ps = 1e9, gx = null, gz = 0, best = 0, threat = null;
+      for (const o of cars) { if (o === c || o.wrecked || (o.isPlayer && game.state === 'menu')) continue; const op = o.body.position, d = op.distanceTo(b.position);
+        if (o.body.mass <= 4600 && !o.T.skid && !o.T.walker && !o.carriedBy && d < 40) { const s = d * (o.type === 'towtruck' || o.type === 'forklift' ? 0.5 : 1); if (s < ps) { ps = s; prey = o; } }
+        let n = 0; for (const q of cars) if (q !== c && !q.wrecked && q.body.position.distanceTo(op) < 22) n++; if (n > best) { best = n; gx = op.x; gz = op.z; }
+        const l = b.pointToLocalFrame(op); if (d < 20 && l.x < 1.5) { const rvx = o.body.velocity.x - b.velocity.x, rvz = o.body.velocity.z - b.velocity.z, close = -(rvx * (op.x - b.position.x) + rvz * (op.z - b.position.z)) / (d || 1);
+          if (close > 3 || (o === c.lastAttacker && simTime - c.lastAttackTime < 3) || ((o.T.special === 'flame' || o.T.special === 'minigun') && d < 15)) threat = o; } }
+      c.aiGoal = threat ? { x: threat.body.position.x, z: threat.body.position.z, face: true } : prey ? { x: prey.body.position.x, z: prey.body.position.z } : gx !== null ? { x: gx, z: gz } : null;
+    }
+    const G = c.aiGoal;
+    if (G && !c.rampGoal && !(c.reverseTimer > 0) && c.mode !== 'flee') { const l = b.pointToLocalFrame(WALK.v1.set(G.x, b.position.y, G.z)), ang = Math.atan2(-l.z, l.x), d = Math.hypot(l.x, l.z);
+      ctrl.steer = clamp(ang * 1.6, -1, 1); ctrl.throttle = Math.abs(ang) > 1.2 ? 0.2 : G.face && d < 9 ? 0.3 : 1; ctrl.nitro = !G.face && d > 40 && Math.abs(ang) < 0.3; } // swing round to face whoever goes for the boiler
+    ctrl.handbrake = false; ctrl.brake = false; ctrl.jump = false;
+    if (!c.specialCd && !c.hold && game.state === 'playing') {
+      if (WALK.grabbable(c)) ctrl.fire = true;
+      else { const f = frontTarget(c, 12, 0.5); if ((f && (f.burnT > 0 || Math.random() < dt * 0.6)) || c.burnT > 0 || c.onFire || c.pressure > 0.72 || c.whistleT > 0) ctrl.fire = true; } // steam: a car in its face, fire, or the boiler needs venting
+    }
+  },
+};
 class Car {
   constructor({ type, name, color, isPlayer, x, z, yaw, number }) {
     const T = this.T = CAR_TYPES[type];
@@ -4066,6 +4459,7 @@ class Car {
     const mass = T.mass * (isPlayer ? S.playerMassScale : S.aiMassScale);
     const b = this.body = new CANNON.Body({ mass, angularDamping: 0.2, allowSleep: false, material: carMat });
     b.collisionFilterGroup = CARG;
+    if (T.walker) { WALK.init(this, b, x, z, yaw); return; } // legs, not wheels: hover springs and drive forces (WALK)
     const hullW = T.W * (T.hullW || 1);
     b.addShape(chamferBox(T.L / 2, T.H / 2, hullW / 2, Math.min(0.45, hullW * 0.22), 0.06, Math.min(0.7, T.H * 0.85)), new CANNON.Vec3(0, HULL_Y0 + T.H / 2, 0)); // nose rides up onto ramps
     const C = T.cabin;
@@ -4936,7 +5330,7 @@ class Car {
     if (this.towLine) { scene.remove(this.towLine); this.towLine.geometry.dispose(); this.towLine.material.dispose(); }
     if (this.cable) { scene.remove(this.cable.line); this.cable.line.geometry.dispose(); this.cable.line.material.dispose(); this.cable = null; } // a harpoon still out when its car goes
     if (this.webLine) { scene.remove(this.webLine); this.webLine.geometry.dispose(); } if (this.web && this.web.t && this.web.t.webBy === this) { this.web.t.webbedT = 0; this.web.t.webAt = null; }
-    this.vehicle.removeFromWorld(world);
+    this.vehicle.removeFromWorld(world); if (this.T.walker) WALK.dispose(this);
     scene.remove(this.group);
     for (const w of this.wheelMeshes) if (w) scene.remove(w);
     if (this.wheelSkin) { for (const m of this.wheelSkin) { scene.remove(m); m.geometry.dispose(); } this.wheelSkel.dispose(); }
@@ -5491,6 +5885,7 @@ class Car {
     if (!this.blob) { this.blob = new THREE.Mesh(blobGeo, blobMat.clone()); this.blob.rotation.x = -Math.PI / 2; this.blob.renderOrder = 1; scene.add(this.blob); }
     { const hgt = Math.max(0, b.position.y - 0.9), k = clamp(1 - hgt / 6, 0, 1), yaw = Math.atan2(-this.fwd.z, this.fwd.x); // soft contact shadow: grounds the car, fades as it flies
       this.blob.position.set(b.position.x, 0.03, b.position.z); this.blob.rotation.z = yaw; this.blob.scale.set(T.L * (1.15 + (1 - k) * 0.4), T.W * (1.35 + (1 - k) * 0.4), 1); this.blob.material.opacity = 0.62 * k; this.blob.visible = k > 0.02; }
+    if (T.walker) { WALK.frame(this, dt); if (this.bakedParts && this.bakedParts.length) this.checkBaked(); return; } // legs instead of wheels
     // Wheels, springs, skid marks, dust
     let skid = 0;
     if (T.walker) this.updateLegs(dt);
@@ -6163,6 +6558,7 @@ class Car {
   applyDamage(dmg, by, zone, model, dv = 0) {
     if (this.wrecked) return;
     if (by && !by.body) by = null; // blasts from scenery (gas cylinders, crane drops) have no driver to credit
+    if (this.T.walker) WALK.hit(this, dmg, by, zone, model, dv); // the elephant's boiler: hits from behind and fire raise the pressure
     if (this.trackHp && (zone === 'left' || zone === 'right') && dmg > 3 && !by) this.hurtTrack(zone === 'left' ? 0 : 1, dmg * 2, by); // blasts beside the tank
     if (this.T.gun && dmg >= 10 && !this.wrecked && simTime - (this.smokeScrT ?? -99) > 18 && MP.role !== 'guest') { this.smokeScrT = simTime; smokeScreen(this); } // a big hit: the Tiger pops smoke
     if (this.T.flimsy && (zone === 'left' || zone === 'right' || zone === 'rear')) { dmg *= 1.6; if (dmg >= 1.5) this.shedJunk(zone, dmg); } // RV walls are plywood and staples: they cave in and spill the contents
@@ -6673,6 +7069,7 @@ class Car {
     if (t.isPlayer && dist < 60 && Math.random() < 0.004) barks.say(this, 'taunt');
     else if (!t.isPlayer && dist < 25 && Math.random() < 0.002) barks.say(this, 'taunt', false, { target: t.name, insult: undefined, car: t.T.name });
     if (this.contacts === 0 && b.position.y > 4 && Math.random() < 0.02) barks.say(this, 'air');
+    if (this.T.walker) WALK.ai(this, dt); // the elephant's own tactics
     if (t.isPlayer && dist < 35 && Math.abs(angle) < 0.4 && Math.random() < 0.004 && player && game.state === 'playing') sfx.at(b.position).honk(this.type, clamp(1 - b.position.distanceTo(player.body.position) / 60, 0, 1) * 0.6, rand(0.25, 0.6));
   }
 }
@@ -10085,10 +10482,10 @@ const MP = {
     const r = (v, k = 100) => Math.round(v * k);
     const cs = cars.map((c) => { const b = c.body, p = b.position, q = b.quaternion, v = b.velocity, z = c.zones;
       return [r(p.x), r(p.y), r(p.z), r(q.x, 1e4), r(q.y, 1e4), r(q.z, 1e4), r(q.w, 1e4), r(v.x, 10), r(v.y, 10), r(v.z, 10), Math.round(c.health),
-        (c.wrecked ? 1 : 0) | (c.boosting ? 2 : 0) | (c.braking ? 4 : 0) | (c.sirenOn ? 8 : 0) | (c.turretGone ? 16 : 0) | (c.burnT > 0 ? 32 : 0) | (c.webbedT > 0 ? 64 : 0),
+        (c.wrecked ? 1 : 0) | (c.boosting ? 2 : 0) | (c.braking ? 4 : 0) | (c.sirenOn ? 8 : 0) | (c.turretGone ? 16 : 0) | (c.burnT > 0 ? 32 : 0) | (c.webbedT > 0 ? 64 : 0) | (c.stallT > 0 ? 128 : 0) | (c.whistleT > 0 ? 256 : 0) | (c.steamOn ? 512 : 0),
         [z.front, z.rear, z.left, z.right, z.top].map((x) => Math.round(x)).join('.'),
         c.parts.reduce((a, pt, i) => (pt.detached ? a.concat(i) : a), []), c.wheelLost.reduce((a, l, i) => a | (l ? 1 << i : 0), 0),
-        r(c.rpm || 0, 0.01), r(c.steerVal || 0), r(c.turretYaw || 0), r(c.forkH || 0), c.kills || 0]; });
+        r(c.rpm || 0, 0.01), r(c.steerVal || 0), r(c.T.walker ? c.pressure || 0 : c.turretYaw || 0), r(c.forkH || 0), c.kills || 0]; }); // (a walker sends its boiler pressure in the turret slot)
     const snap = { t: Math.round(performance.now()) / 1000, st: game.state === 'playing' ? 1 : game.state === 'over' ? 2 : 0, cd: Math.round(game.countdown * 100) / 100, rk: this.rk, rv: this.rv, c: cs,
       b: BULLS.map((bl) => [r(bl.body.position.x), r(bl.body.position.y), r(bl.body.position.z), r(bl.yaw), ['graze', 'walk', 'paw', 'charge', 'proud', 'down', 'burger'].indexOf(bl.state)]),
       k: [r(CRANE.ang), r(CRANE.r), r(CRANE.h), CRANE.held ? cars.indexOf(CRANE.held) : -1], cr: [r(CRUSHER.y), ['idle', 'warn', 'slam', 'hold'].indexOf(CRUSHER.state)], bp: [r(BALL.ph), BOLLARDS.up ? 1 : 0], e: this.ev, p: this.propState(r), pf: props.filter((pr) => pr.fireT > 0).slice(0, 30).map((pr) => pr.id) };
@@ -10248,7 +10645,7 @@ const MP = {
       c.body.quaternion.set(qa.x, qa.y, qa.z, qa.w);
       c.body.velocity.set(B[7] / 10, B[8] / 10, B[9] / 10);
       c.body.quaternion.vmult(AX_X, c.fwd); c.body.quaternion.vmult(AX_Y, c.up);
-      c.speed = c.body.velocity.dot(c.fwd); c.kills = B[19] | 0; c.rpm = B[15] * 100; c.steerVal = B[16] / 100; c.turretYaw = B[17] / 100; c.forkH = B[18] / 100;
+      c.speed = c.body.velocity.dot(c.fwd); c.kills = B[19] | 0; c.rpm = B[15] * 100; c.steerVal = B[16] / 100; if (c.T.walker) { c.pressure = B[17] / 100; c.stallT = B[11] & 128 ? 1 : 0; c.whistleT = B[11] & 256 ? 1 : 0; c.steamFlag = !!(B[11] & 512); } else c.turretYaw = B[17] / 100; c.forkH = B[18] / 100;
       c.boosting = !!(B[11] & 2); c.braking = !!(B[11] & 4); c.sirenOn = !!(B[11] & 8); if (B[11] & 32) c.burnT = Math.max(c.burnT || 0, 0.3); // burning: the flames are drawn here
       for (let w = 0; w < c.nW; w++) c.vehicle.setSteeringValue(w < 2 ? c.steerVal : 0, w);
       // damage follows the host: crumple stages, panels off, wheels off, the wreck itself
@@ -10928,6 +11325,7 @@ function cockpitEye(c) { // where the driver's eye goes: toward the nose and jus
   let x = ex, y = (isFinite(hood) ? hood : HULL_Y0 + c.T.H) + 0.38;
   if (c.T.dozer) { const C = c.T.cabin; x = C.x + C.l * 0.45; y = HULL_Y0 + c.T.H + C.h + 0.1; }
   if (c.T.style === 'combine') { const C = c.T.cabin; x = C.x + C.l * 0.3; y = HULL_Y0 + c.T.H + C.h * 0.7; }
+  if (c.T.style === 'elephant') { x = 1.25; y = 2.95; } // Mama Wanjiru's seat at the front of the howdah
   if (c.T.style === 'dump') { const C = c.T.cabin; x = C.x + C.l * 0.3; y = HULL_Y0 + c.T.H + C.h * 0.75; } // up in the cab, under the canopy
   if (c.T.style === 'van') { const C = c.T.cabin; x = C.x - C.l * 0.1; y = HULL_Y0 + c.T.H + C.h * 0.62; } // the RV: from the driver's seat, under the bunk, looking out the windscreen // the operator sits up high in the cab and looks down over the blade
   if (skip) { // a popped hood: sit behind its hinge, with its edge just under eye level, so it fills the bottom of the view and flaps up into it
