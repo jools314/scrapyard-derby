@@ -585,6 +585,14 @@
     </div>
   </aside>
 
+  <div id="glfail" class="overlay" hidden>
+    <div class="card">
+      <p class="eyebrow">Graphics problem</p>
+      <h2>This browser couldn't start WebGL</h2>
+      <p>Scrapyard Derby draws its 3D yard with WebGL, and this browser or device refused to create it — so there is no game behind this menu. Try a current Chrome, Edge, Firefox or Safari, make sure hardware acceleration is switched on, and (on iPhone/iPad) open the page in a normal Safari tab rather than inside another app. Then reload.</p>
+    </div>
+  </div>
+
   <div id="menu" class="overlay">
     <div class="card">
       <p class="eyebrow">Demolition derby · physics sandbox</p>
@@ -790,7 +798,9 @@ const AX_X = new CANNON.Vec3(1, 0, 0), AX_Y = new CANNON.Vec3(0, 1, 0), AX_Z = n
 
 /* ---------------- Renderer & scene ---------------- */
 const canvas = document.getElementById('gl');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+let renderer;
+try { renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' }); }
+catch (e) { const p = document.getElementById('glfail'); if (p) p.hidden = false; throw e; } // no WebGL: say so on screen instead of leaving a live-looking menu over a dead canvas
 // Render resolution: big external monitors at 2x would mean 4-8 million shaded pixels a frame, bloom included.
 // Cap the pixel count, and let the auto-quality governor scale it further.
 const QUALITY = { scale: 1, maxPix: 2.3e6, dprCap: 2, prCap: 1, level: 0, log: [] };
