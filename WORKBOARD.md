@@ -16,12 +16,8 @@ Format: `- [agent] topic — branch — claimed YYYY-MM-DD HH:MM UTC — notes`
 - [claude] Player target picking: Tab / one 🎯 button cycles visible targets for the Tiger cannon, minigun, rockets — claude/target-pick — claimed 2026-11-15 05:55 UTC
 - [claude] Voice round 5: Emeka "Danfo" Okafor replaces Raju (Sandflea), recordings for Bogdan/Ragnar/Maxine/Emeka, 60+ new rude/quirky/old-school commentary lines each for Kev and Shazza, 15 more per driver, and repeats fixed using the heard-log (brief: docs/voices/round5-brief.md) — claude/voices-round5 — claimed 2026-11-15 05:55 UTC — paused by usage limit until ~10:00 UTC
 - [muse] bob/improvements-round2 — branch exists; landing plan to follow (not yet claimed)
-- [muse] The Cannibal: a live bull that finds a burger eats it and becomes MEGA BULL (~20% bigger, faster, deeper moo, at most once per bull) — muse/cannibal — claimed 2026-11-15 16:50 UTC
-- [muse] Fernando: one bull per match wears a red cape + name tag; burgered = the crowd goes quiet, alive at match end = confetti (no voice line: Paco's line stays with claude/voices-round5) — muse/fernando — claimed 2026-11-15 16:50 UTC
-- [muse] Ring Toss: a loose tyre flying onto a bull's horns stays as a necklace for the match, charge gains a strut — muse/ring-toss — claimed 2026-11-15 16:50 UTC
-- [muse] Bull in the Stands: a bull landing in the grandstand takes a seat and watches, harmless, until match end — muse/bull-in-stands — claimed 2026-11-15 16:50 UTC
-- [muse] Fountain Burger: a burger on a geyser when it blows launches, spins and lands with a tiny flag planted in it — muse/fountain-burger — claimed 2026-11-15 16:50 UTC
-- [muse] Three Honks: honk three times at a burger and it gets a tiny paper flag; a fourth honk makes the flag wave; there is no fifth honk — muse/three-honks — claimed 2026-11-15 16:50 UTC
+- [muse] **REGRESSION fix, Build 82→88 (BACKLOG top item):** physics catches 325→484/h, stuck 39→66/h, slow 14→34 s/h on the Mac after the stacked gag builds 83–88. Bisect builds 83–88 locally (perfbudget, stuckspots, self-play), fix or revert the culprit(s), land ONE build with before/after numbers — muse/regression-82-88 — claimed 2026-11-15 17:47 UTC
+  - Released 2026-11-15 17:47 UTC (owner stopped the gag cycle and reprioritised to this regression): the six gag claims from 16:50 UTC — The Cannibal (muse/cannibal), Fernando (muse/fernando), Ring Toss (muse/ring-toss), Bull in the Stands (muse/bull-in-stands), Fountain Burger (muse/fountain-burger), Three Honks (muse/three-honks). All six return to BACKLOG/fun list unclaimed; no code was written for any of them.
 ## Ready to land (needs the test gate)
 
 ## Done
