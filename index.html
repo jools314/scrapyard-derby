@@ -6739,6 +6739,7 @@ const ANN_LINES = {
   bentGun: ['{a} just bent {v}\'s gun like a drinking straw!', 'That cannon now shoots round corners, folks!', '{a} tied a knot in the TANK! Somebody get a picture!', 'That barrel is a pretzel now! {v} could not hit the yard from inside it!'],
   turretOff: ['KABOOM! {a} fired a bent gun and the TURRET just left the building!', 'The turret is flying! {a} has a convertible now!', 'Rule one of tanks, {a}: never fire a bent barrel!'],
   barrelBurst: ['KABOOM! {a} fired a bent gun and it peeled open like a banana!', 'The gun just blew up in {a}\'s face! That is going to sting!', 'Note to {a}: never fire a bent barrel!'],
+  duo: ['I felt that one in the booth.', 'The replay team is going to be busy tonight.', 'That is going on the highlight reel, no question.', 'Somewhere, an insurance form just got longer.', 'The crowd felt that in their teeth.', 'Write that down: this yard does not do quiet.'], // R2-76: colour lines — the second announcer's beat after a big moment (either voice can land any of them)
   evtWarn: ['Something is coming in five seconds: {e}. You have been warned.', 'Hold on to your steering wheels \u2014 {e} in five.', 'The yard is about to change: {e}, five seconds out.', 'Five seconds! {e}! Kev has seen the schedule and he is grinning.'], // R2-65
   evtStart: ['{e}! Thirty seconds of beautiful nonsense!', '{e} is GO! Make it count!', '{e}! The yard goes mad for thirty seconds!', '{e}! This is not a drill, this is a derby!'], // R2-65
   streak: ['{n} wins on the bounce for the home favourite. The yard is starting to believe.', '{n} straight! Somebody check that car for magnets.', 'A streak of {n} and counting \u2014 the rest of the field is racing for second.', 'Win number {n} in a row if it lands today. No pressure.'], // R2-53: called at match start when a live win streak of 3+ walks in
@@ -6759,6 +6760,7 @@ const SHAZZA_LINES = {
   aiHit: ['Ooh, that is gonna leave a mark! Several marks!'],
 };
 function annPool(A, ev) { const all = ANN_LINES[ev] || []; return A === SHAZZA ? all.filter((_, i) => i % 2).concat(SHAZZA_LINES[ev] || []) : all.filter((_, i) => i % 2 === 0); }
+const DUO_EVENTS = new Set(['wreck', 'bigHit', 'headOn', 'tankerBoom', 'intoCrusher', 'evtStart', 'grudge', 'streak', 'crushed']); // R2-76: moments big enough for both voices
 const HORNS = {
   tanker:   { f: [146.8, 185, 220], wave: 'sawtooth', drive: 14, lp: 1900, gain: 0.2, attack: 0.07, breath: 0.12 }, // three-chime truck air horn
   mule:     { f: [207.7, 261.6], wave: 'sawtooth', drive: 8, lp: 2100, gain: 0.13, attack: 0.04, breath: 0.05 },
@@ -7305,6 +7307,7 @@ const barks = {
       this.remember(line); this.annT = now; this.lastT = now;
       this.show(A, new THREE.Color(A === SHAZZA ? 0xff6fa8 : 0xf2a20c), line);
       this.speak(A, line, null);
+      if (DUO_EVENTS.has(ev) && Math.random() < 0.45) { const B2 = A === SHAZZA ? ANNOUNCER : SHAZZA, dp = annPool(B2, 'duo'); if (dp.length) { const dl = this.fill(dp[(Math.random() * dp.length) | 0], B2, vars); setTimeout(() => { if (game.state === 'playing') { this.remember(dl); this.show(B2, new THREE.Color(B2 === SHAZZA ? 0xff6fa8 : 0xf2a20c), dl); this.speak(B2, dl, null); } }, 1500); } } // R2-76: the duo — the OTHER announcer colours the big moments a beat later, instead of the two taking whole matches in turns
       return;
     }
   },
