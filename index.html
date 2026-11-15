@@ -7548,6 +7548,14 @@ const VCLIP = {
     }
     return first;
   },
+  coverage() { // R2-75: voice-clip coverage, for the perf panel — what fraction of lines are actually heard as recordings, and which voices have no clips at all (missing clips were findable only by ear)
+    const cast = [...PERSONAS, ANNOUNCER, SHAZZA, COP];
+    if (!this.clips) return `Voice clips: none loaded (all lines are Web Speech) · ${cast.length} voices in the cast`;
+    const per = cast.map((P) => `${P.nick}: ${(this.byChar.get(this.slug(P.nick)) || []).length}`).filter((s) => !s.endsWith(': 0'));
+    const zero = cast.filter((P) => !(this.byChar.get(this.slug(P.nick)) || []).length).map((P) => P.nick);
+    const played = this.stats.clips + this.stats.generic, heard = played + this.stats.speech;
+    return `Voice clips: ${Object.keys(this.clips).length} loaded for ${this.byChar.size} voices · this session ${heard ? `${played}/${heard} lines heard as recordings (${Math.round(100 * played / Math.max(1, heard))}%)` : 'no lines yet'}${per.length ? ` · ${per.join(', ')}` : ''}${zero.length ? ` · NO clips: ${zero.join(', ')}` : ''}`;
+  },
   // called by barks.speak: true = this line is ours (a clip will play, or Web Speech takes over if it can't load)
   speak(P0, line0, pos, opt) {
     if (!this.clips || !sfx.ctx || sfx.muted || S.voiceVolume <= 0) return false;
@@ -10094,6 +10102,7 @@ function perfLiveText() {
     'By system (ms per frame):', ...String(p.parts || '').split(', ').filter(Boolean).map((x) => '  ' + x), '',
     `Quality ${p.q} of ${QSTEPS.length - 1} (0 best) · resolution ${p.res}% · ${p.calls} draw calls · ${p.tris} triangles · ${p.cars} cars`,
     `${MP.role === 'solo' ? 'Single player' : MP.role === 'host' ? 'Hosting' : 'Guest'}${MP.role === 'guest' && MP.net ? ` · ${Math.round(1 / MP.net.iv)} updates/s, smoothing ${Math.round((MP.delay || 0) * 1000)} ms` : ''}`,
+    VCLIP.coverage(), // R2-75
     p.dev, '', PERFREP.incidentText()];
   return [p.verdict, L.join('\n')];
 }
