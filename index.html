@@ -10351,7 +10351,7 @@ const VR = (() => {
     applyQuality(V.q2 ? 6 : 5); QUALITY.lite = true; // Quest preset: no post chain, 1024 shadows (none on Quest 2), fewer particles, lighter physics
     camMode = V.set.view ? 0 : 2; game.crashCam = null; game.shake = 0; game.fovPunch = 0; V.lastShake = 0;
     const fr = s.supportedFrameRates ? Array.from(s.supportedFrameRates) : [];
-    V.hz = s.frameRate || 72;
+    V.hz = s.frameRate || 72; V.resStep = 0; V.baseScale = V.q2 ? 0.85 : 1; // R2-7: governor resolution steps start from the session's base scale
     if (s.updateTargetFrameRate && fr.length) { const want = !V.q2 && fr.includes(90) ? 90 : 72; if (fr.includes(want)) { V.hz = want; try { const p = s.updateTargetFrameRate(want); if (p && p.catch) p.catch(() => {}); } catch (e) {} } }
     rig.visible = true; V.fade = 1; V.blackT = 0.2; V.lastPlayer = null; V.anchor = null; V.snap = true; V.page = 'main'; V.menuSig = ''; V.recenterAt = 3; V.ft = []; V.gt = 0; V.slow = 0;
     s.addEventListener('visibilitychange', () => { if (s.visibilityState !== 'visible' && game.state === 'playing') game.paused = true; }); // the Quest menu opened over the game
@@ -10663,12 +10663,19 @@ const VR = (() => {
     V.hudT -= dt; if (hud.mesh.visible && V.hudT <= 0) { V.hudT = 0.12; drawHud(); }
     updateMenu(dt);
   }
+  function applyResStep() { // R2-7: resolution/foveation step: 0 = session base, 1 = 85%, 2 = 70% (of the base framebuffer scale; foveation follows the same factor)
+    const s = [1, 0.85, 0.7][V.resStep || 0] || 1;
+    try { renderer.xr.setFramebufferScaleFactor((V.baseScale || 1) * s); renderer.xr.setFoveation(s); } catch (e) {}
+    V.stats.resStep = V.resStep || 0;
+  }
   function govern(dt) { // the headset sets the frame rate: drop detail when frames run long
     if (game.state === 'menu') { V.ft.length = 0; V.gt = 0; return; }
     V.ft.push(dt); V.gt += dt; if (V.gt < 2) return;
     const f = V.ft.sort((a, b) => a - b), p70 = f[Math.floor(f.length * 0.7)] || 0; V.ft = []; V.gt = 0;
     V.slow = p70 > 1.3 / V.hz ? V.slow + 1 : 0;
-    if (V.slow >= 2 && QUALITY.level < QSTEPS.length - 1) { applyQuality(QUALITY.level + 1); QUALITY.lite = true; V.slow = 0; }
+    if (V.slow >= 2) { // R2-7: shed pixels before shedding the world — resolution and foveation step down first; only then does the quality level drop
+      if ((V.resStep || 0) < 2) { V.resStep = (V.resStep || 0) + 1; applyResStep(); V.slow = 0; }
+      else if (QUALITY.level < QSTEPS.length - 1) { applyQuality(QUALITY.level + 1); QUALITY.lite = true; V.slow = 0; } }
   }
 
   // ---- buttons on the 2D page ----
