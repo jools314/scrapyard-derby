@@ -7644,10 +7644,12 @@ const tagEls = new Map(), tagHost = document.getElementById('tags'), NET_ICON = 
 function updateTags() {
   const W = tagHost.clientWidth, H = tagHost.clientHeight, seen = new Set();
   for (const c of cars) {
-    if (c.isPlayer || !(c.remote || c.netPeer) || c.wrecked) continue;
-    const p = c.body.position, d = player ? p.distanceTo(player.body.position) : 0; if (d > 80) continue;
+    if (c.isPlayer || c.wrecked) continue;
+    const human = !!(c.remote || c.netPeer); // R2-31: nameplates for every car, not just remote humans — AI drivers show their persona name at shorter range so the yard reads as a cast, and the host's car carries a ★
+    const p = c.body.position, d = player ? p.distanceTo(player.body.position) : 0; if (d > (human ? 80 : 40)) continue;
     tv3.set(p.x, p.y + (c.T.H || 1.6) + 1.4, p.z).project(camera); if (tv3.z > 1 || Math.abs(tv3.x) > 1.1 || Math.abs(tv3.y) > 1.1) continue;
     let e = tagEls.get(c); if (!e) { e = document.createElement('div'); e.className = 'ntag'; e.innerHTML = `<span class="dot" style="background:#${c.baseColor.getHexString()}"></span><span class="nm"></span>${NET_ICON}`; e.querySelector('.nm').textContent = c.name; tagHost.appendChild(e); tagEls.set(c, e); }
+    { const want = c.name + ((c.netPeer === 'host' || c.remote === 'host') ? ' ★' : '') + (d > 3 ? ` · ${Math.round(d)}m` : ''); if (e._t !== want) { e._t = want; e.querySelector('.nm').textContent = want; } } // R2-31: host marker + live distance, rewritten only when the text actually changes
     seen.add(c);
     const bad = !!MP.health?.[c.remote || c.netPeer]?.bad; if (bad !== e.classList.contains('bad')) e.classList.toggle('bad', bad);
     const sc = clamp(1.25 - d / 80, 0.6, 1.1), op = d > 65 ? (80 - d) / 15 : 1;
