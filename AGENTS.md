@@ -6,11 +6,12 @@ Several agents work on this repo at the same time (Claude, Muse/Bob and others).
 - The owner copies `main` elsewhere for outside players by hand when they're ready. You only ever deliver to `main`.
 
 Read these first, in this order:
-1. [DESIGN-PRINCIPLES.md](DESIGN-PRINCIPLES.md): what fits the game. **Simple and focused on the main play. No new modes, menus or settings.**
-2. **This file:** the workflow and the rules.
-3. [QUALITY-GATES.md](QUALITY-GATES.md): the tests and standards every push must meet, including the metrics we must not regress.
-4. [LOGS.md](LOGS.md): getting the play logs and turning them into fixes.
-5. [CONTRIBUTING.md](CONTRIBUTING.md): the pieces of the repo and how to run the tests. `REVIEW-*.md` holds the owner's feedback on earlier contributions; learn from it.
+1. [TASTE.md](TASTE.md): what the game should feel like, and what counts as a good improvement versus one we don't want. **Read this before choosing what to work on.**
+2. [DESIGN-PRINCIPLES.md](DESIGN-PRINCIPLES.md): what fits the game. **Simple and focused on the main play. No new modes, menus or settings.**
+3. **This file:** the workflow and the rules.
+4. [QUALITY-GATES.md](QUALITY-GATES.md): the tests and standards every push must meet, including the metrics we must not regress.
+5. [LOGS.md](LOGS.md): getting the play logs and turning them into fixes.
+6. [CONTRIBUTING.md](CONTRIBUTING.md): the pieces of the repo and how to run the tests. `REVIEW-*.md` holds the owner's feedback on earlier contributions; learn from it.
 
 ## The loop
 1. **Pick something.** Good sources: the latest report on the `play-logs` branch (stuck spots, physics glitches, slow frames, errors, balance outliers), bugs, and polish to the core fight. Big new things, like a new vehicle, a new weapon or anything that changes game flow, need a short `PROPOSAL-<topic>.md` and the owner's OK first.

@@ -1,6 +1,6 @@
 # Scrapyard Derby: design principles
 
-Read this before suggesting or building features. It comes from the owner.
+Read this before suggesting or building features. For the *taste* behind these rules (the feel we want, with good and bad examples), see [TASTE.md](TASTE.md). It comes from the owner.
 
 1. **Simple, focused on the main play.** Improve the core fight: driving, crashing, weapons, AI, feel, sound, performance.
 2. **No new modes, menus, settings or sliders** that make players choose things. Good defaults that just work beat options.
