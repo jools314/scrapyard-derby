@@ -7,10 +7,10 @@ why, the player-visible effect, the verification status, and any dependency on a
 earlier R2 commit. The full 100-item list ships in this branch as
 `IMPROVEMENTS-ROUND2-LIST.md`.
 
-**Result: 57 implemented · 21 partial · 22 spec-only** (of 100).
+**Result: 60 implemented · 21 partial · 19 spec-only** (of 100).
 
 **Tests (Jonas's rule, 2026-11-14 — every CL ships with tests):**
-`node tests/round2.test.mjs` — **80 cases, all passing**. One case per implemented/
+`node tests/round2.test.mjs` — **83 cases, all passing**. One case per implemented/
 partial item verifies its wiring in `index.html` (picking an item out fails exactly
 its case); the tools are executed against fixtures; the module is `node --check`ed.
 Behaviour that needs a browser, a headset or two devices cannot run in CI-grade
@@ -28,15 +28,22 @@ below are the post-rebase ones. `main` was never written to. The fernverk mirror
 was not touched. `const BUILD` is unchanged ('67'); the pass is marked in-file by
 `const BOB_PASS_R2 = 'improvements-round2';` (commit `e72a3a6`).
 
-**⚠ Withheld items — needs Jonas's word:** items **14, 84 and 89** all touch the
-bug-report upload path. During this round, a safety check flagged the report-upload
-code section, and work in it was withheld rather than improvised around the flag.
-They are documented below as spec-only with that reason stated. Implementing them
-needs Jonas's explicit confirmation first.
+**Safety hold — LIFTED by Jonas (2026-11-14):** items **14, 84 and 89** all touch
+the bug-report upload path. During this round, a safety check flagged the
+report-upload code section, and work in it was withheld rather than improvised
+around the flag. Jonas then confirmed in chat: the game's auto-upload of bug
+reports and play logs is fine with him as long as he's playing it himself. On
+that word the three items were implemented (commits `253e4d8`, `dc6adde`,
+`df34d92`, each with its test case; suite now 83). **Scope caveat, recorded in
+the R2-89 code comment as well: the upload path is fine for his own/family
+play — the privacy posture is to be revisited before any wider public
+release.** R2-89's rotation is documented in its commit: old builds keep
+sending to the legacy topic (it keeps working); a build with R2-89 sends to a
+topic derived from its build number by `dropTopic()` in `index.html`.
 
 ---
 
-## Implemented (57)
+## Implemented (60)
 
 | # | Item | Commit | Test |
 |---|------|--------|------|
@@ -50,6 +57,7 @@ needs Jonas's explicit confirmation first.
 | 8 | VR quality never steps back up | `817854b` | R2-8 |
 | 9 | 120 Hz on Quest 3 | `b7c4a4f` | R2-9 |
 | 13 | VR low-health feedback | `748776a` | R2-13 |
+| 14 | File a bug report from inside VR | `253e4d8` | R2-14 |
 | 17 | Controller tracking-loss and battery surfacing | `e1d3f0b` | R2-17 |
 | 18 | Per-car seat height in VR | `fa3bd86` | R2-18 |
 | 24 | Family-yard host beacons are unauthenticated | `29b02cd` | R2-24 |
@@ -88,8 +96,10 @@ needs Jonas's explicit confirmation first.
 | 81 | Play-log diff tool | `7e94a48` | R2-81 (executed on fixtures) |
 | 82 | Perf budgets as assertions | `ffd4e32` | R2-82 |
 | 83 | VR telemetry is collected and thrown away | `48706cc` | R2-83 |
+| 84 | Bug reports need a picture | `dc6adde` | R2-84 |
 | 86 | TESTING.md | `dd3770e` | R2-86 |
 | 88 | Autoplay scenario matrix | `2dbfd01` | R2-88 |
+| 89 | The report drop is a public topic | `df34d92` | R2-89 (executes dropTopic) |
 | 90 | Name the transport in NETLOG | `7d894a6` | R2-90 |
 | 92 | Reduce-flashing setting | `35449b9` | R2-92 |
 | 94 | UI scale for the HUD | `02b9749` | R2-94 |
@@ -100,7 +110,8 @@ needs Jonas's explicit confirmation first.
 
 Plus the scaffolding commits: `6731000` (the round-2 list itself), `e72a3a6`
 (R2-00 pass marker), `232e8ef` (the test suite for everything above it), and this
-document.
+document. The three formerly withheld items (14, 84, 89) landed after Jonas
+lifted the safety hold on 2026-11-14 — see the header note.
 
 ## Partial (21) — safe part shipped, remainder named in the commit body
 
@@ -128,13 +139,12 @@ document.
 | 93 | Visual sound cues | `21ccc95` | Crusher/bull/charge/horn icons on a compass strip. Remains: VR HUD twin. |
 | 95 | One-thumb touch mode | `d331088` | Auto-throttle core: cruise at half throttle, any real input takes over. Remains: the one-thumb layout (pedal cluster hidden, bigger steer zone). |
 
-## Spec-only (22) — documented, not implemented
+## Spec-only (19) — documented, not implemented
 
 | # | Item | Why spec-only / what's needed |
 |---|------|-------------------------------|
 | 10 | Passthrough mixed-reality mode | Needs a headset + XR passthrough API decisions (privacy surface, camera permissions) — a design + hardware item, not a static change. |
 | 11 | VR spectate / director cam | Needs the VR session model extended to a non-driving role; pairs with #22. Design first. |
-| 14 | File a bug report from inside VR | **Withheld — safety hold (see header).** The report-upload code section was flagged by a safety check during this round; implementing needs Jonas's explicit confirmation. |
 | 15 | Hand-tracking driving | Needs hand-tracking hardware to develop against; no safe static part. |
 | 21 | Public room discovery | A public lobby is a service + moderation commitment, not a client change; also changes the family-yard trust model (#24). Product decision for Jonas. |
 | 22 | A spectator role | Needs a protocol role (no car slot, camera-only) across host/guest — a netcode change to make with two-device testing in the loop. |
@@ -150,8 +160,6 @@ document.
 | 64 | New archetype: the tuk-tuk | Same as #63. |
 | 66 | Weather: rain | Needs the full weather stack (sky, particles, grip model, audio) — an L feature; R2-67's living sky is its foundation. |
 | 74 | New archetype: the snowplow | Same as #63. |
-| 84 | Bug reports need a picture | **Withheld — safety hold (see header)**, same as #14. |
-| 89 | The report drop is a public topic | **Withheld — safety hold (see header)**, same as #14. |
 | 91 | Full per-action key remapping | The remap UI is a settings-surface build of its own (conflict detection, per-action storage); round-1's presets cover the common cases meanwhile. |
 | 96 | Menu/HUD localisation | String extraction across the whole UI is a project, and a half-extracted language is worse than none. Swedish first when it happens; the cast already speaks five languages as the model. |
 
@@ -163,7 +171,9 @@ button (#6) · governor stepping down *and up* without judder (#7, #8) · 120 Hz
 actually engaged on Quest 3 (#9) · replay on the over page (#12) · low-hull
 vignette (#13) · tune page (#16) · controller-lost toast (#17) · seat heights
 feel right per car (#18) · a match record from a VR session carries the `vr`
-block (#83).
+block (#83) · bug report filed from the VR pause page actually lands in the
+drop (#14; with #84, check whether the picture is the headset view or blank —
+a blank is rejected by design and the text still lands).
 
 **Needs two devices:** signed beacons reject a fake host (#24) · quick-chat
 both ways (#26) · guest input gate under a flood (#29) · per-room car memory
@@ -184,4 +194,6 @@ autoplay presets (#88) · reduce-flashing kills the crusher strobe (#92) ·
 visual cues bearings (#93) · HUD scale + readable font (#94, #100) · first-run
 tour shows once (#97) · nemesis ring on the minimap (#98) · screen-reader pass
 with VoiceOver/NVDA (#99) · one-thumb cruise feel (#95) · stats card image
-(#52) · smoke test's first live pass (#78) · CI's first GitHub run (#79).
+(#52) · smoke test's first live pass (#78) · CI's first GitHub run (#79) ·
+bug report arrives with its .jpg picture next to the .txt (#84) · first build
+carrying R2-89 sends its drop to the derived topic, not the legacy one (#89).
