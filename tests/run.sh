@@ -38,6 +38,7 @@ quick() {
   t groundbeef 600 "GROUNDBEEF PASS"
   t goldcone 600 "GOLDCONE PASS"
   t trombone 600 "TROMBONE PASS"
+  t honkback 600 "HONKBACK PASS"
 }
 release() {
   quick
