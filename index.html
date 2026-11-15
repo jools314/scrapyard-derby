@@ -5672,6 +5672,7 @@ class Car {
     this.updateDamageEffects(by);
     if (by && by.isPlayer && !this.isPlayer && dmg > 0) { // the player's own record of violence
       game.biggestHit = Math.max(game.biggestHit || 0, dv * 3.6);
+      by.nitro = Math.min(1, by.nitro + dmg * 0.002); // fighting feeds the boost: +1% nitro per 5 damage dealt
       if (game.tut === 1) { game.tut = 2; toast('NOW HOLD SHIFT FOR NITRO', 'cool'); }
     }
     if (this.health <= 0.01) this.wreck();
