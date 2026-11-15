@@ -649,6 +649,7 @@
       <div class="actions">
         <span class="modes" role="group" aria-label="Game mode"><button type="button" class="mode" data-mode="respawn" aria-pressed="true">Respawn</button><button type="button" class="mode" data-mode="elim" aria-pressed="false">Elimination</button></span>
         <span class="modes" id="fieldChips" role="group" aria-label="Field size"><button type="button" data-n="4">4 cars</button><button type="button" data-n="6">6</button><button type="button" data-n="9">9</button><button type="button" data-n="12">12</button></span>
+        <select id="themeSel" aria-label="Themed derby"><option value="">Any cars</option><option value="heavy">Heavy metal</option><option value="buggies">Buggies only</option></select>
         <button id="btnStart" class="primary" type="button">Start derby</button>
         <button id="btnFree" type="button">Free drive</button>
         <button id="btnSpec" type="button">👁 Watch a brawl</button>
@@ -7952,6 +7953,8 @@ function findSpawn(x, z) {
 /* ---------------- Respawn mode (default): wrecked cars come back, people can swap cars any time ---------------- */
 let GAME_MODE = 'respawn'; try { GAME_MODE = localStorage.getItem('scrapyard-derby-mode') === 'elim' ? 'elim' : 'respawn'; } catch (e) {}
 let FREE_DRIVE = false; // the menu's Free drive: no score, no stakes, wrecks come straight back (set by the button, cleared by showMenu)
+let DERBY_THEME = ''; try { DERBY_THEME = localStorage.getItem('derby-theme') || ''; } catch (e) {} // themed derbies: '' any cars, 'heavy' heavy metal, 'buggies' buggies only
+const HEAVY_TYPES = ['tanker', 'mixer', 'firetruck', 'dozer', 'bertha', 'combine', 'towtruck'];
 const RESPAWN_AI = 5, RESPAWN_HUMAN = 6; // seconds until a wreck comes back by itself
 // somewhere easy to drive off from: near where you were, but not on top of the thing you were stuck on, open ground, away from the pack
 function respawnSpot(old) {
@@ -8004,7 +8007,7 @@ function aiRespawnType(c) {
   if (!free.length) return c.type === 'tiger' ? Object.keys(CAR_TYPES).find((k) => k !== 'tiger') : c.type;
   const guns = ['tiger', 'hellbender', 'cruiser'], gunOut = cars.some((o) => o !== c && guns.includes(o.type));
   const wt = (k) => { let w = k === 'tiger' ? 0.25 : 1; if (S.aiSkill >= 0.9 && !gunOut && guns.includes(k)) w *= 6; // top difficulty seeds a gun car into the field, so difficulty changes the kind of threat
-    return w; };
+    if (DERBY_THEME === 'heavy' && !HEAVY_TYPES.includes(k)) w *= 0.04; if (DERBY_THEME === 'buggies' && k !== 'sandflea') w *= 0.04; return w; };
   let sum = 0; for (const k of free) sum += wt(k);
   let r = Math.random() * sum; for (const k of free) { r -= wt(k); if (r <= 0) return k; }
   return free[0];
@@ -8149,6 +8152,8 @@ function spawnCars() {
   for (const c of cars) c.dispose();
   cars.length = 0;
   const types = Object.keys(CAR_TYPES).filter((k) => k !== playerType).sort(() => Math.random() - 0.5); // one of each type, yours excluded
+  if (DERBY_THEME === 'heavy') { const h = types.filter((k) => HEAVY_TYPES.includes(k)); if (h.length >= 3) { types.length = 0; types.push(...h); } } // themed derby: the field is heavy metal
+  else if (DERBY_THEME === 'buggies' && playerType !== 'sandflea') { types.length = 0; for (let i = 0; i < 12; i++) types.push('sandflea'); } // themed derby: a field of buggies
   const n = Math.min(Math.round(S.aiCount), types.length);
   // You start on the south side; the pack starts across the yard on the north side, ~190 m away
   const ps = findSpawn(30, 100);
@@ -8172,7 +8177,7 @@ function spawnCars() {
     const a = (-165 + (n === 1 ? 75 : i * 150 / (n - 1))) * D2R;
     const sp = findSpawn(Math.cos(a) * 112, Math.sin(a) * 105);
     const type = types[i];
-    const P = type === 'cruiser' ? COP : CAR_CAST[type] || castOrder[i % castOrder.length]; // every car comes with its own driver
+    const P = DERBY_THEME === 'buggies' ? castOrder[i % castOrder.length] : type === 'cruiser' ? COP : CAR_CAST[type] || castOrder[i % castOrder.length]; // every car comes with its own driver
     const ai = new Car({ type, name: P.nick, color: COLORS[i % COLORS.length], number: 2 + i * 3 % 97, isPlayer: false, x: sp.x, z: sp.z, yaw: Math.atan2(sp.z, -sp.x) });
     ai.persona = P;
     cars.push(ai);
@@ -8470,6 +8475,7 @@ $('btnFree').addEventListener('click', () => { const b = document.querySelector(
 function refreshFieldChips() { for (const b of document.querySelectorAll('#fieldChips button')) b.setAttribute('aria-pressed', String(+b.dataset.n === Math.round(S.aiCount))); }
 for (const b of document.querySelectorAll('#fieldChips button')) b.addEventListener('click', () => { setValue('aiCount', +b.dataset.n); refreshFieldChips(); b.blur(); });
 refreshFieldChips();
+{ const ts = $('themeSel'); if (ts) { ts.value = DERBY_THEME; ts.addEventListener('change', () => { DERBY_THEME = ts.value; try { localStorage.setItem('derby-theme', DERBY_THEME); } catch (e) {} }); } }
 { const mc = $('myColor'); if (mc) { const swap = () => { if (game.state === 'menu' && player) { const old = player, idx = cars.indexOf(old); const nc = new Car({ type: playerType, name: 'You', color: myColor(playerType), number: 1, isPlayer: true, x: old.body.position.x, z: old.body.position.z, yaw: Math.atan2(-old.fwd.z, old.fwd.x) }); old.dispose(); cars[idx] = nc; player = nc; } if (MP.role === 'guest') MP.sendWant(); };
   mc.value = '#' + new THREE.Color(myColor(playerType)).getHexString();
   mc.addEventListener('input', () => { try { localStorage.setItem('derby-mycolor', String(new THREE.Color(mc.value).getHex())); } catch (e) {} swap(); });
