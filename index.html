@@ -690,6 +690,7 @@
       <div class="actions">
         <button id="btnAgain" class="primary" type="button">Drive again</button>
         <button id="btnReplay" type="button">↻ Watch the wreck</button>
+        <button id="btnRematch" type="button" hidden>Rematch — same cars</button>
         <button id="btnGarage" type="button">Change car</button>
         <span class="quiet">or press Enter</span>
       </div>
@@ -8235,6 +8236,7 @@ function showOver() {
   $('rAir').textContent = game.bestAir.toFixed(1) + 's';
   $('rAcc').textContent = game.shots > 0 ? Math.round(game.hits / game.shots * 100) + '%' : '—';
   { const b = bestFor(GAME_MODE, player.type); $('rBest').textContent = b ? b.score.toLocaleString() : '—'; }
+  $('btnRematch').hidden = !(MP.role === 'host' && GAME_MODE === 'respawn');
   $('overBoard').hidden = GAME_MODE !== 'respawn'; if (GAME_MODE === 'respawn') $('overTable').innerHTML = SCORE.table();
   el.over.hidden = false;
 }
@@ -8447,6 +8449,7 @@ function refreshFieldChips() { for (const b of document.querySelectorAll('#field
 for (const b of document.querySelectorAll('#fieldChips button')) b.addEventListener('click', () => { setValue('aiCount', +b.dataset.n); refreshFieldChips(); b.blur(); });
 refreshFieldChips();
 $('btnReplay').addEventListener('click', () => { if (ARENA.lastWreck) { el.over.hidden = true; game.replayBack = true; game.replayBackT = clock + 7; startReplay(ARENA.lastWreck); toast('REPLAY ON THE BIG SCREEN', 'cool'); } });
+$('btnRematch').addEventListener('click', () => { if (MP.role === 'host') { MP.event({ k: 'rm' }); startMatch(); } });
 $('btnSpec').addEventListener('click', () => { const pool = cars.filter((c) => !c.isPlayer); SPECTATE.car = SPECTATE.car ? null : pool[Math.random() * pool.length | 0] || null; toast(SPECTATE.car ? `WATCHING ${SPECTATE.car.name.toUpperCase()}` : 'BACK TO YOUR CAR', 'cool'); });
 $('btnAgain').addEventListener('click', startMatch);
 $('btnGarage').addEventListener('click', showMenu);
@@ -9523,6 +9526,7 @@ const MP = {
       else if (e.k === 'ss') { addSpikeStrip(e.p[0], e.p[1], e.p[2], null); }
       else if (e.k === 'x') { explodeShell(new CANNON.Vec3(e.p[0], e.p[1], e.p[2]), null, this.dummy, e.s || 1); }
       else if (e.k === 'ping') { const c = cars[e.i]; if (c) { game.pingT = simTime; game.pingPos = { x: c.body.position.x, z: c.body.position.z }; } }
+      else if (e.k === 'rm') { resetMatch(); game.state = 'playing'; el.over.hidden = true; el.menu.hidden = true; toast('REMATCH!', 'cool'); } // the host called a rematch: reset with them (the roster and snapshots re-sync the field)
     }
     // my stick and buttons go back to the host
     if (player && player.isPlayer) {
