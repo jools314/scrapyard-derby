@@ -8347,6 +8347,7 @@ $('btnRestart').addEventListener('click', (e) => { e.currentTarget.blur(); start
 $('btnDefaults').addEventListener('click', (e) => { e.currentTarget.blur(); for (const d of SETTINGS_DEF) setValue(d.key, d.def); });
 // (Chrome sometimes sits 'speaking' forever and says nothing more: barks.doctor() unsticks it, at a moment when a cancel is safe)
 let VOICES_OFF = false; try { VOICES_OFF = localStorage.getItem('derby-voices') === 'off'; } catch (e) {}
+try { if (!localStorage.getItem('derby-voices') && /iPhone|iPad|iPod/.test(navigator.userAgent)) VOICES_OFF = true; } catch (e) {} // first run on iOS: subtitles only — iOS voices are the weakest first impression; the player can turn voices on
 function setVoices(off) { VOICES_OFF = off; $('btnVoices').firstChild.textContent = off ? 'Voices off' : 'Voices on'; try { localStorage.setItem('derby-voices', off ? 'off' : 'on'); } catch (e) {} if (off) try { speechSynthesis.cancel(); } catch (e) {} if (off) VCLIP.stopAll(); }
 setVoices(VOICES_OFF);
 $('btnVoices').addEventListener('click', (e) => { e.currentTarget.blur(); setVoices(!VOICES_OFF); });
