@@ -9873,6 +9873,7 @@ let frameErrors = 0;
 // The menu's attract brawl runs at 30, a paused game at 10 (the frozen picture stays on screen), and a phone that is still too slow at the
 // lowest quality drops to a steady 30 ("cool mode") instead of stuttering at 40. The host's game clock (TICK) is separate and unaffected.
 const PACE = { next: 0, iv: 1000 / 60, skipped: 0, drawn: 0, autoCool: false };
+if (navigator.getBattery) navigator.getBattery().then((b) => { const chk = () => { if (b.level < 0.2 || (b.level < 0.35 && !b.charging)) PACE.autoCool = true; }; chk(); b.addEventListener('levelchange', chk); b.addEventListener('chargingchange', chk); }).catch(() => {}); // a dying battery gets cool mode before the phone gets hot, not after
 function paceInterval() {
   let fps = S.fpsCap >= 120 ? 0 : S.fpsCap || 60; // 0 = every vsync
   if (PACE.autoCool && (!fps || fps > 30)) fps = 30;
