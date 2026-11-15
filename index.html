@@ -7311,7 +7311,7 @@ const barks = {
     this.el = $('subs');
     try { const load = () => { this.voices = window.speechSynthesis ? speechSynthesis.getVoices() : []; }; load(); if (window.speechSynthesis) { speechSynthesis.onvoiceschanged = load; try { speechSynthesis.addEventListener('voiceschanged', load); } catch (e) {} } } catch (e) {} // (the list can arrive late, and change when network voices come and go)
     document.addEventListener('visibilitychange', () => { try { this.onVis(); } catch (e) {} });
-    setInterval(() => { try { this.doctor(); } catch (e) {} }, 1000); // watches the engine for the whole session: see doctor()
+    // (the doctor used to run on a 1 s setInterval; it rides the frame loop now — see frameBody — so a hidden tab does literally nothing)
   },
   say(car, ev, force, vars) {
     if (!car || car.isPlayer || !car.persona || game.state !== 'playing') return;
@@ -7722,8 +7722,7 @@ function roastTick() {
   barks.say(a, 'roast', false, { v: b.persona.nick, target: b.persona.nick, car: b.T.name });
   if (a.lastBark !== t0) { ROAST_PAIR.set(k, now); ROAST_PAIR.set(b.persona.nick + '|' + a.persona.nick, now); } // (both ways: one roast per pair per cooldown)
 }
-setInterval(() => { try { roastTick(); } catch (e) {} }, 500);
-setInterval(() => { try { VCLIP.tick(); } catch (e) {} }, 2000);
+// (roastTick and VCLIP.tick used to run on wall-clock setIntervals; they ride the frame loop now — see frameBody)
 
 /* ---------------- Off-screen opponent arrows ---------------- */
 const threatHost = $('threats');
@@ -10282,6 +10281,10 @@ function openBugReport() { // one tap: the full report goes straight to the clip
   ptag('bug report taken'); dropUpload('bug', t);
 }
 function frameBody(now) {
+  { // folded-in timers (were three setIntervals): roast ticker 500 ms, barks doctor 1 s, voice clips 2 s — all driven by the frame loop, so background tabs do nothing at all
+    if (now - (frameBody._rt || 0) > 500) { frameBody._rt = now; try { roastTick(); } catch (e) {} }
+    if (now - (frameBody._dc || 0) > 1000) { frameBody._dc = now; try { barks.doctor(); } catch (e) {} }
+    if (now - (frameBody._vc || 0) > 2000) { frameBody._vc = now; try { VCLIP.tick(); } catch (e) {} } }
   const rawDt = (now - lastDrawT) / 1000; lastDrawT = now;
   TABENV.frame(rawDt); PLAYLOG.frame(rawDt); // the play log: every match, whoever is driving (and autoplay's match loop)
   governQuality(rawDt); NETLOG.frame(rawDt); FLIGHT.rec();
