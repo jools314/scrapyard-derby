@@ -726,6 +726,8 @@ const SETTINGS_DEF = [
   { key: 'fpsCap',              group: 'Match', label: 'Frame rate cap',      unit: 'fps',   min: 30,   max: 120,   step: 30,   def: 60, note: '60 = smooth, and a 120 Hz screen does half the work; 30 = cool mode for phones (less heat, longer battery); 120 = no cap' },
   { key: 'aiCount',             group: 'Match', label: 'Opponents',           unit: '',      min: 1,    max: 12,    step: 1,    def: 6, restart: true },
   { key: 'aiSkill',             group: 'Match', label: 'Opponent aggression', unit: '',      min: 0,    max: 1,     step: 0.05, def: 0.8 },
+  { key: 'matchMinutes',        group: 'Match', label: 'Respawn match length', unit: 'min',  min: 0,    max: 30,    step: 1,    def: 0, note: '0 = endless, until someone calls it on the scoreboard' },
+  { key: 'wreckTarget',         group: 'Match', label: 'Wrecks to win (respawn)', unit: '',  min: 0,    max: 25,    step: 1,    def: 0, note: 'first driver to this many wrecks ends the match; 0 = off' },
   { key: 'sfxVolume',           group: 'Audio', label: 'Effects volume',      unit: '',      min: 0,    max: 1,     step: 0.05, def: 0.85 },
   { key: 'musicVolume',         group: 'Audio', label: 'Music volume',        unit: '',      min: 0,    max: 1,     step: 0.05, def: 0.4 },
   { key: 'voiceVolume',         group: 'Audio', label: 'Driver voices (0 = subtitles only)', unit: '', min: 0, max: 1, step: 0.05, def: 0.9 },
@@ -7784,6 +7786,7 @@ function drawMinimap() {
 /* ---------------- Game flow ---------------- */
 const game = {
   state: 'menu', slowmo: 0, hitStop: 0, fovPunch: 0, countdown: 0, grace: 0, lastCount: 0, stuckT: 0, score: 0, time: 0, paused: false, overTimer: -1, attractReset: -1, shake: 0, flash: 0, propHits: 0, propToast: -9,
+  matchT: 0,
   addScore(n, label) {
     this.score += n;
     if (label && n >= 40) toast(`+${n} ${label}`);
@@ -7794,6 +7797,7 @@ const game = {
     if (killer) killer.kills = (killer.kills || 0) + 1;
     if (PLAYLOG.m) PLAYLOG.wreck(car, killer); if (AUTO.on && car === player) car.respawnType = AUTO.nextType(); // (autoplay: every life a different vehicle)
     SCORE.wreck(car, killer); // (host / solo only: guests get the table from the host)
+    if (!FREE_DRIVE && GAME_MODE === 'respawn' && MP.role !== 'guest' && S.wreckTarget > 0 && killer && (killer.kills || 0) >= S.wreckTarget) { SCORE.finish(); return; } // first to the wreck target ends it
     if (GAME_MODE === 'respawn' && MP.role === 'guest') { if (car.isPlayer) toast('WRECKED', 'bad'); else toast(`${car.name} is wrecked`); return; } // the host brings it back
     if (GAME_MODE === 'respawn' && MP.role !== 'guest') { // nobody is out: the wreck comes back in a few seconds
       car.respawnT = car.isPlayer || car.remote ? RESPAWN_HUMAN : RESPAWN_AI;
@@ -8096,6 +8100,7 @@ function resetMatch() {
   buildPickups();
   spawnCars(); SCORE.reset(); SCORE.show(false);
   game.chatT = 14; game.score = 0; game.time = 0; game.overTimer = -1; game.attractReset = -1; game.shake = 0; game.propHits = 0;
+  game.matchT = S.matchMinutes > 0 ? S.matchMinutes * 60 : 0;
 }
 // Speech only works after a tap or key press. Guests never press Start, and iOS sometimes doesn't confirm the first try:
 // so every tap or key press retries (at most every few seconds) until a voice has actually been heard.
@@ -8109,6 +8114,7 @@ function startMatch() {
   game.state = 'playing'; game.paused = false;
   el.menu.hidden = true; el.over.hidden = true;
   game.countdown = 1.8; game.grace = 8; game.lastCount = 4;
+  else if (GAME_MODE === 'respawn' && (S.matchMinutes > 0 || S.wreckTarget > 0)) toast(S.wreckTarget > 0 ? `FIRST TO ${S.wreckTarget} WRECKS WINS` : `${S.matchMinutes} MINUTE MATCH`, 'cool');
 }
 function showMenu() {
   el.over.hidden = true; el.menu.hidden = false;
@@ -10129,6 +10135,7 @@ function simBody(now) {
       game.stuckT = player.ctrl.throttle !== 0 && Math.abs(player.speed) < 1 && game.countdown <= 0 && !player.wrecked ? game.stuckT + dt : 0;
       if (game.stuckT > 6) { player.flipUpright(); game.stuckT = 0; toast('RESET', 'cool'); }
       game.time += dt;
+      if (GAME_MODE === 'respawn' && !FREE_DRIVE && game.matchT > 0) { const before = Math.ceil(game.matchT); game.matchT -= dt; const after = Math.ceil(game.matchT); if (after !== before && (after === 60 || after === 30 || after === 10)) toast(`${after} SECONDS LEFT`, 'cool'); if (game.matchT <= 0) SCORE.finish(); }
       game.chatT = (game.chatT ?? 14) - dt; // ambient commentary every so often
       if (game.chatT <= 0 && game.countdown <= 0) {
         game.chatT = rand(14, 22);
