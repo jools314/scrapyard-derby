@@ -157,6 +157,8 @@
   #flash { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, transparent 40%, rgba(228, 71, 44, 0.55)); opacity: 0; transition: opacity 0.25s; }
   body.dys { font-family: Verdana, Geneva, Tahoma, sans-serif; letter-spacing: .02em; } /* R2-100: readable-font toggle — heavier letterforms, wider spacing, system fonts only */
   body.dys .hud, body.dys #toasts, body.dys #subs { font-weight: 600; }
+  #cues { position: absolute; inset: 0; pointer-events: none; overflow: hidden; } /* R2-93: visual sound cues on a compass strip */
+  #cues .cue { position: absolute; top: 54px; font-size: 26px; transform: translateX(-50%); text-shadow: 0 2px 6px rgba(0,0,0,.8); transition: left .12s linear; }
 
   .overlay {
     position: absolute; inset: 0; display: grid; place-items: center; overflow-y: auto;
@@ -503,6 +505,7 @@
     <div id="hint"></div>
     <div id="flash"></div>
     <div id="ariaLive" role="status" aria-live="polite" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap"></div>
+    <div id="cues" aria-hidden="true"></div>
     <div id="wet"></div>
     <div id="keys" aria-label="Controls"></div>
     <div id="perf" hidden></div>
@@ -2449,7 +2452,7 @@ const MEGA = { // the deputy on the megaphone / police radio
   backup: ['Dispatch, I need backup! All units to the scrapyard!', 'Ten-thirty-three! Officer needs assistance!', 'Requesting air support! ...What do you mean we don\'t have any?'],
   chase: ['Suspect is fleeing! In pursuit!', 'You have the right to remain wrecked!', 'Step out of the vehicle! ...Or what\'s left of it!'],
 };
-function megaphone(car, kind) { const P = car.persona || COP, pool = MEGA[kind]; if (!pool) return; const line = pool[Math.random() * pool.length | 0]; barks.show(P, new THREE.Color(0x4a7aff), '📢 ' + line); barks.speak(P, line, car.body.position, { fx: 'megaphone' }); }
+function megaphone(car, kind) { const P = car.persona || COP, pool = MEGA[kind]; if (!pool) return; const line = pool[Math.random() * pool.length | 0]; barks.show(P, new THREE.Color(0x4a7aff), '📢 ' + line); barks.speak(P, line, car.body.position, { fx: 'megaphone' }); if (typeof CUES !== 'undefined') CUES.flash('horn', '📢', car.body.position.x, car.body.position.z, 1200); } // R2-93: the horn gets a visual cue too
 function roundHit(car, res, dir, k) { // what a bullet or pellet does to whatever it hits
   if (!res.hasHit) return;
   const hp = res.hitPointWorld, o = res.body;
@@ -6335,6 +6338,7 @@ function updateHUD(dt) {
   { const w = player ? Math.min(1, (player.wet || 0) * 1.3) : 0; if (w !== el.wetO) { el.wetO = w; $('wet').style.opacity = w.toFixed(2); $('wet').style.display = w > 0.01 ? '' : 'none'; } }
   if (hudT > 0) return;
   hudT = 0.1;
+  CUES.update(); // R2-93: visual sound cues ride the HUD's 10 Hz refresh
   hudTxt(el.gforce, `${player.gforce.toFixed(1)} g · ${Math.round(player.mass).toLocaleString()} kg · ${Math.round(S.frontWeight)}/${Math.round(100 - S.frontWeight)} balance`);
   const hp = Math.max(0, player.health);
   hudWidth(el.hpFill, hp + '%');
@@ -7842,6 +7846,33 @@ function drawMinimap() {
     }
   }
 }
+
+/* R2-93 (partial): visual sound cues — the crusher's warning claxon, a bull pawing the ground, an opponent charging you and a megaphone horn are audio-first information. They now also appear as icons on a compass strip at the top of the screen, positioned by bearing, so a muted or deaf player gets the same warnings. (Partial: the hit-direction arc already covers impacts; these four are the positional warnings. VR HUD cues are not covered.) */
+const CUES = {
+  marks: {},
+  set(key, emoji, wx, wz) {
+    const layer = $('cues'); if (!layer) return;
+    let m = this.marks[key];
+    if (!m) { m = this.marks[key] = document.createElement('div'); m.className = 'cue'; layer.appendChild(m); }
+    m.textContent = emoji;
+    const f = tv3; camera.getWorldDirection(f);
+    const rx = f.z, rz = -f.x; // camera right on the ground plane
+    const dx = wx - camera.position.x, dz = wz - camera.position.z;
+    const rel = Math.atan2(dx * rx + dz * rz, dx * f.x + dz * f.z); // -pi..pi, 0 = ahead
+    m.style.left = (clamp(0.5 + rel / 2.4, 0.04, 0.96) * 100).toFixed(1) + '%';
+    m.style.display = '';
+  },
+  clear(key) { const m = this.marks[key]; if (m) m.style.display = 'none'; },
+  flash(key, emoji, wx, wz, ms) { this.set(key, emoji, wx, wz); const m = this.marks[key]; clearTimeout(m && m._ft); if (m) m._ft = setTimeout(() => this.clear(key), ms); },
+  update() {
+    if (!player || game.state !== 'playing' || XRS.on) { for (const k in this.marks) this.clear(k); return; }
+    if (typeof CRUSHER !== 'undefined' && CRUSHER.state === 'warn') this.set('crush', '🏭', CRUSHER.x, CRUSHER.z); else this.clear('crush');
+    let bull = null, bd = 1e9; for (const bl of BULLS) { if ((bl.state === 'paw' || bl.state === 'charge') && bl.angry === player) { const d = bl.body.position.distanceSquared(player.body.position); if (d < bd) { bd = d; bull = bl; } } }
+    if (bull) this.set('bull', '🐂', bull.body.position.x, bull.body.position.z); else this.clear('bull');
+    let ch = null, cd = 35 * 35; for (const c of cars) { if (c.isPlayer || c.wrecked || c.mode !== 'charge') continue; const d = c.body.position.distanceSquared(player.body.position); if (d < cd) { const v = c.body.velocity, dx = player.body.position.x - c.body.position.x, dz = player.body.position.z - c.body.position.z, L = Math.hypot(dx, dz) || 1; if ((v.x * dx + v.z * dz) / L > 3) { cd = d; ch = c; } } }
+    if (ch) this.set('charge', '⚠️', ch.body.position.x, ch.body.position.z); else this.clear('charge');
+  },
+};
 
 /* ---------------- Game flow ---------------- */
 const game = {
