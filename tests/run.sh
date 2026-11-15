@@ -20,6 +20,7 @@ quick() {
   TAG=-a t drive 900 "" ONLY=outrider,viper,towtruck,forklift,sandflea
   TAG=-b t drive 900 "" ONLY=camper,mixer,firetruck,hellbender,cruiser
   TAG=-c t drive 900 "" ONLY=tiger,dozer,combine,bertha,tanker
+  TAG=-spider t drive 900 "" ONLY=spider
   t tracks 900 "TRACKS PASS"
   t blade 600 "BLADE PASS"
   t crusheropen 600 "CRUSHEROPEN PASS"
@@ -55,6 +56,7 @@ quick() {
   t voicelines 300 "VOICELINES PASS"
   t broadphase 600 "BROADPHASE PASS"
   t updatecheck 300 "UPDATECHECK PASS"
+  t spider 1200 "SPIDER PASS"
 }
 release() {
   quick

@@ -750,6 +750,9 @@ const CAR_TYPES = {
   bertha: { heavy: true, special: 'dump', maxSpeed: 12, handling: { steer: 0.55, rate: 0.5, spring: 1.3, damp: 1.4, rear: 1.2, drag: 1.6, roll: 0.5 }, name: 'Big Bertha', blurb: 'Big Bertha: a 26-tonne mining dump truck with 2.7 m tyres. Rolls over anything; F tips the bed and drops a load of boulders on whoever is following.', style: 'dump', mass: 26000, L: 11, W: 5.2, H: 1.2, hullW: 0.82, wheelR: 1.35, wheelW: 0.9, wb: 6.2, axles: [3.3, -2.7], track: 4.1, power: 3.4, grip: 1.05, armor: 0.35, cabin: { l: 1.8, h: 1.4, w: 1.9, x: 3.7 }, color: 0xe0607a, redline: 2100, idle: 520, cyl: 6, noWheelLoss: true },
   tanker: { heavy: true, pour: 'fuel', handling: { steer: 0.7, rate: 0.6, spring: 1.2, damp: 1.3, rear: 1.15, drag: 1.4, roll: 0.55 }, name: 'Tanker', blurb: 'Fuel truck, 7.5 t on six wheels. F spills gasoline; once the tank is ruptured the trail catches fire. Explodes spectacularly.', style: 'tanker', mass: 7500, L: 9.2, W: 2.5, H: 0.75, wheelR: 0.56, wheelW: 0.46, wb: 5.65, axles: [3.3, -1.6, -3.05], track: 2.1, frontDrive: 0, power: 2.3, grip: 0.95, armor: 0.55, cabin: { l: 2.0, h: 1.35, w: 2.3, x: 3.05 }, color: 0x8c3a22, blast: 22, redline: 3000, idle: 600, cyl: 3 },
 };
+// Anansi the Spider-Walker: eight scrap-pipe legs instead of wheels (no RaycastVehicle: hover springs + drive forces, legs animated on top, see walkStep/updateLegs).
+// Its "wheels" are its legs: wheelBase = the 8 hips (front pair first, even = left), wheelLost = a leg snapped off. Fewer legs: slower, limps; under 6 it can't climb; under 4 it's a wreck.
+CAR_TYPES.spider = { walker: true, special: 'web', noPlant: true, handling: { steer: 1.2, rate: 1.4, spring: 1, damp: 1, rear: 1, drag: 1.1, roll: 0.5 }, name: 'Spider-Walker', blurb: 'Anansi\'s eight-legged scrap spider. Scuttles fast, climbs onto containers and walls, drops onto cars. F fires a steel web that pins the car in front for 3 s. Heavy rams snap its legs: every leg lost makes it slower.', style: 'spider', mass: 1600, L: 2.4, W: 1.7, H: 0.6, wheelR: 0.3, wheelW: 0.2, wb: 1.5, axles: [0.75, 0.25, -0.25, -0.75], track: 1.44, power: 1.0, grip: 1.1, armor: 1.0, cabin: { l: 0.9, h: 0.45, w: 0.95, x: 0.7 }, color: 0x7a5232, redline: 5200, idle: 900, cyl: 2 };
 
 const S = {};
 const STORE_KEY = 'scrapyard-derby-settings-v9';
@@ -1237,6 +1240,7 @@ DET.fireTxt = DET.text('FIRE DEPT', 'rgba(0,0,0,0)', '#f2d24a'); DET.policeTxt =
 /* ---------------- Static arena ---------------- */
 const mapShapes = [];       // minimap footprints
 const ELEVATED = [];        // platforms the AI can route onto: {x0,x1,z0,z1,y,ramps:[{foot,top}]}
+const PERCHES = [];         // high ground a spider can climb straight onto and wait on: {x, z, y (top)}
 let groundBody = null;
 const tmpQ = new THREE.Quaternion(), tmpV = new THREE.Vector3();
 
@@ -1575,10 +1579,12 @@ function buildArena() {
   for (const [x, z, yaw, stack] of [[-60, -148.6, 0, 2], [-60, -146.1, 0, 1], [-30, -148.6, 0, 3], [-30, -146.1, 0, 1], [30, -148.6, 0, 2], [60, -146.1, 0, 1], [60, -148.6, 0, 2], // flush against the wall: no dead-end alley behind them
     [92, -110, Math.PI / 2, 1], [-95, -118, Math.PI / 4, 2]]) {
     for (let l = 0; l < stack; l++) addContainer(x, z, yaw, l, ctColors[ci++ % ctColors.length]);
+    if (stack === 1) PERCHES.push({ x, z, y: 2.6 }); // one container high: a spider walks straight up its side
   }
   // Crushed-car stacks (east-north)
   for (let i = 0; i < 4; i++) for (let l = 0; l < 3; l++) {
     const m = new THREE.MeshStandardMaterial({ color: [0x7a3a2a, 0x3f5a6a, 0x6b6a3a, 0x4a3f55][(i + l) % 4], roughness: 0.6, metalness: 0.4, flatShading: true });
+    if (l === 0) PERCHES.push({ x: 100 + i * 6, z: -60, y: 2.7 });
     addStaticBox(2.3, 0.45, 1.0, { x: 100 + i * 6, y: 0.45 + l * 0.9, z: -60 + rand(-0.4, 0.4) }, yawPitchQuat(rand(-0.15, 0.15), 0), m, { obstacle: true, map: l === 0 ? 'block' : false, what: 'car stack' });
     if (l === 0) { const band = new THREE.Mesh(new THREE.BoxGeometry(4.7, 0.3, 2.1), new THREE.MeshStandardMaterial({ map: hazardTex(3), roughness: 0.7 })); band.position.set(100 + i * 6, 0.15, -60); scene.add(band); }
   }
@@ -2503,6 +2509,7 @@ function hornLine(car) { // a horn press gets an in-character shout (not every p
   if (!TALK.gate(P, line, car.isPlayer ? 3 : 1)) return;
   barks.show(P, car.baseColor || new THREE.Color(0xffffff), line); barks.speak(P, line, car.body.position);
 }
+HORN_LINES.spider = ["Agoo! Agoo! Spider coming through!", "Ei! Move, move, my legs are in a hurry!", "Ha ha ha! Beep beep, it is Anansi!"];
 const MEGA = { // the deputy on the megaphone / police radio
   shoot: ['Pull over! PULL OVER!', 'This is your final warning!', 'Hands where I can see them!', 'Stop resisting!'],
   spikes: ['Deploying spike strip!', 'Stop stick out! Stop stick out!', 'Let\'s see you outrun this!'],
@@ -2834,6 +2841,25 @@ const WEAPONS = {
     tick(car, dt) { car.dumpT += dt; if (car.dumpT > 0.7 && car.dumpN < 5 && car.dumpT > 0.7 + car.dumpN * 0.12) { car.dumpN++; dropBoulder(car); if (car.dumpN === 5) car.bedLoaded = 0; } },
     end(car) {},
     update(car, dt) { const up = car.specialT > 0.6 ? 1 : 0; car.forkH = lerp(car.forkH || 0, up, clamp(dt * (up ? 2.2 : 1.5), 0, 1)); if ((car.bedLoaded ?? 1) < 1 && !(car.specialT > 0)) car.bedLoaded = Math.min(1, (car.bedLoaded || 0) + dt / 7); },
+  },
+  web: { label: 'WEB', cd: 6, dur: 3.2, // Anansi's steel web: a cable at the car in front that pins it to the ground for ~3 s, then a cooldown
+    start(car) {
+      const t = frontTarget(car, 32, 0.6);
+      if (!t) { car.specialCd = 1.5; car.specialT = 0.35; car.web = { t: null, miss: car.body.pointToWorldFrame(new CANNON.Vec3(14, 0, 0)) }; car.web.miss.y = 0.05; webLine(car); if (car.isPlayer) toast('MISSED · NOTHING IN FRONT', 'bad'); sfx.at(car.body.position).zing(wv(car) * 0.6); return; }
+      const tp = t.body.position; t.webbedT = 3; t.webAt = { x: tp.x, z: tp.z }; t.webBy = car; t.lastAttacker = car; t.lastAttackTime = simTime; t.body.wakeUp();
+      car.web = { t, at: { x: tp.x, z: tp.z } }; webLine(car);
+      t.applyDamage(4 * S.damage * t.T.armor, car, 'top', null, 0); sparks(t.body.position, 12);
+      if (PLAYLOG.m) { const V = PLAYLOG.V(car.type); V.webs = (V.webs || 0) + 1; }
+      sfx.at(car.body.position).zing(wv(car)); sfx.at(tp).clank(wv(car) * 0.8);
+      if (game.state === 'playing') { if (car.isPlayer) toast(`WEBBED ${t.name}!`); else if (t.isPlayer) toast(`${car.name} WEBBED YOU!`, 'bad'); barks.announce('web', { a: car.isPlayer ? 'Our hero' : car.name, v: t.isPlayer ? 'our hero' : t.name }, true); if (!t.isPlayer && Math.random() < 0.5) barks.say(t, 'gotHit', true); }
+    },
+    update(car) { // a guest sees the cable from the web flag in the snapshot
+      if (MP.role !== 'guest') return; let best = null, bd = 36;
+      for (const c of cars) if (c !== car && c.netWebbed) { const d = c.body.position.distanceTo(car.body.position); if (d < bd) { bd = d; best = c; } }
+      if (best) { if (!car.web || car.web.t !== best) car.web = { t: best, at: { x: best.body.position.x, z: best.body.position.z } }; webLine(car); } else if (car.web && car.web.t) { car.web = null; webLine(car); }
+    },
+    tick(car) { const w = car.web; if (!w) return; if (w.t && (w.t.wrecked || !cars.includes(w.t))) { car.web = null; webLine(car); return; } webLine(car); },
+    end(car) { const w = car.web; if (w && w.t && w.t.webBy === car) { w.t.webbedT = 0; w.t.webAt = null; } car.web = null; webLine(car); },
   },
   ram: { label: 'ROCKET RAM', cd: 7, dur: 1.2, // nitro lunge that hits twice as hard
     start(car) { const f = car.fwd; car.body.velocity.x += f.x * 12; car.body.velocity.z += f.z * 12; car.ramT = 1.2; sfx.at(car.body.position).rocketLaunch(wv(car)); if (car.isPlayer) { game.fovPunch = 10; sfx.noiseHit('lowpass', 500, 0.7, 0.6, 0.8); } },
@@ -3865,6 +3891,40 @@ function chamferBox(hx, hy, hz, c, inset, under = 0) { // under: how far the und
 
 // how much extra pull keeps a car planted: heavy trucks most, the tank and forklift (already planted, special handling) none
 function plantK(T) { return T.heavy ? S.truckWeight : T.noPlant ? 1 : S.carWeight; }
+// ---------- the Spider-Walker's kit ----------
+function walkerRig(n, body) { // stands in for a RaycastVehicle: the code that loops over "wheels" sees eight legs that do nothing on their own
+  const wheelInfos = []; for (let i = 0; i < n; i++) wheelInfos.push({ isInContact: false, raycastResult: { body: null, hitPointWorld: new CANNON.Vec3() }, frictionSlip: 1, engineForce: 0, suspensionLength: 0.3, radius: 0.3,
+    chassisConnectionPointLocal: new CANNON.Vec3(), chassisConnectionPointWorld: new CANNON.Vec3(), worldTransform: { position: new CANNON.Vec3(), quaternion: new CANNON.Quaternion() }, sliding: false, skidInfo: 1 });
+  return { wheelInfos, chassisBody: body, addWheel() {}, addToWorld(w) { w.addBody(body); }, removeFromWorld(w) { w.removeBody(body); }, applyEngineForce() {}, setBrake() {}, setSteeringValue() {}, updateWheelTransform() {} };
+}
+let _spider = null;
+function SPIDER() { // shared by every spider, made once: one pipe material, two leg segments (femur with its knee, tibia with its foot)
+  if (_spider) return _spider; const A = 1.15, B = 1.55;
+  const pipe = new THREE.MeshStandardMaterial({ color: 0x8a6a4e, roughness: 0.5, metalness: 0.75, map: grimeTex });
+  const fem = mergeGeometries([new THREE.CylinderGeometry(0.075, 0.1, A, 8).translate(0, A / 2, 0), new THREE.SphereGeometry(0.13, 10, 8).translate(0, A, 0), new THREE.CylinderGeometry(0.115, 0.115, 0.1, 8).translate(0, A * 0.35, 0)], false);
+  const tib = mergeGeometries([new THREE.CylinderGeometry(0.035, 0.075, B, 8).translate(0, B / 2, 0), new THREE.CylinderGeometry(0.09, 0.09, 0.08, 8).translate(0, B * 0.3, 0), new THREE.SphereGeometry(0.07, 8, 6).translate(0, B, 0)], false);
+  fem.userData.shared = tib.userData.shared = true;
+  const cap = new THREE.MeshStandardMaterial({ roughness: 0.8, map: canvasTex(64, (g, s) => { const c = ['#e8b81a', '#1d7a3a', '#c8281e', '#e8b81a', '#151311', '#1d7a3a', '#e8b81a', '#c8281e']; for (let i = 0; i < 8; i++) { g.fillStyle = c[i]; g.fillRect(i * s / 8, 0, s / 8, s); } g.fillStyle = '#151311'; for (let y = 0; y < s; y += 16) g.fillRect(0, y, s, 3); }, 1, 1) }); // a kente-pattern cap for the driver
+  const web = new THREE.LineBasicMaterial({ color: 0xe8e4dc, transparent: true, opacity: 0.9 });
+  return (_spider = { A, B, pipe, fem, tib, cap, web, skin: new THREE.MeshStandardMaterial({ color: 0x4a2c1a, roughness: 0.7 }), zero: new THREE.Matrix4().makeScale(0, 0, 0) });
+}
+const _wf = new CANNON.Vec3(), _wt = new CANNON.Vec3(), _wr = new CANNON.RaycastResult(), _wF = new CANNON.Vec3(), _wR = new CANNON.Vec3(), _wQ = new CANNON.Quaternion(), _wA = new CANNON.Vec3(), _wL = new CANNON.Vec3(), _wP = new CANNON.Vec3();
+const _walkRay = { skipBackfaces: true, collisionFilterMask: ~LIGHT }; // feet stand on the ground, scenery, heavy props and cars (not on debris or crates)
+const _lq = new THREE.Quaternion(), _lqi = new THREE.Quaternion(), _lh = new THREE.Vector3(), _lk = new THREE.Vector3(), _lf = new THREE.Vector3(), _ld = new THREE.Vector3(), _lp = new THREE.Vector3(), _lo = new THREE.Vector3(), _lm = new THREE.Matrix4(), _lY = new THREE.Vector3(0, 1, 0), _lS = new THREE.Vector3(1, 1, 1), _lqq = new THREE.Quaternion();
+function webLine(car) { // the steel web: one cable from the spinneret to the victim's roof, three more from the roof to the ground (one draw)
+  const w = car.web; let L = car.webLine; if (!w) { if (L) L.visible = false; return; }
+  if (!L) { L = car.webLine = new THREE.LineSegments(new THREE.BufferGeometry(), SPIDER().web); L.geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(8 * 3), 3)); L.frustumCulled = false; scene.add(L); }
+  const a = car.body.pointToWorldFrame(_wP.set(1.15, 0.3, 0), _wL), P = L.geometry.attributes.position; P.setXYZ(0, a.x, a.y, a.z);
+  if (w.t) { const tp = w.t.body.position, ty = tp.y + w.t.T.H * 0.5 + 0.4, r = w.t.T.W * 0.7 + 0.8; P.setXYZ(1, tp.x, ty, tp.z);
+    for (let k = 0; k < 3; k++) { const an = k * 2.094 + 0.5; P.setXYZ(2 + k * 2, tp.x, ty, tp.z); P.setXYZ(3 + k * 2, (w.at ? w.at.x : tp.x) + Math.cos(an) * r, 0.05, (w.at ? w.at.z : tp.z) + Math.sin(an) * r); } }
+  else { const m = w.miss; for (let k = 1; k < 8; k++) P.setXYZ(k, m.x, m.y, m.z); }
+  P.needsUpdate = true; L.visible = true;
+}
+function spiderWebShot(car) { // AI: web whatever is running in front, or anything light that is close
+  const t = frontTarget(car, 28, 0.5); if (!t || t.webbedT > 0) return false;
+  const run = Math.hypot(t.body.velocity.x, t.body.velocity.z) > 5;
+  return run || t.body.mass < 2600 || car.body.position.distanceTo(t.body.position) < 12;
+}
 // Materials that differ only in colour, roughness, metalness and glow share one draw: those move into the vertices (colour, pbr, emi)
 // and a folded material reads them back per pixel, so every pixel comes out the same. Only plain MeshStandardMaterials nothing changes
 // at runtime are folded; one folded material per look (maps, env strength...), shared by every car (never disposed).
@@ -3926,12 +3986,13 @@ class Car {
     if (T.style === 'fire') b.addShape(new CANNON.Box(new CANNON.Vec3(2.6, 0.5, 1.2)), new CANNON.Vec3(-1.8, HULL_Y0 + T.H + 0.5, 0));
     if (T.style === 'tank') for (const sd of [-1, 1]) b.addShape(chamferBox(T.L * 0.48, 0.42, 0.3, 0.12, 0.02, 0.5), new CANNON.Vec3(0, -0.36, sd * T.track / 2)); // tracks
     if (T.dozer) b.addShape(this.bladeShape = new CANNON.Box(new CANNON.Vec3(0.2, 0.68, T.W * 0.56)), new CANNON.Vec3(T.L / 2 + 0.55, HULL_Y0 + 0.83, 0)); // the blade is solid steel: it pushes, it doesn't sink into what it hits
+    if (T.walker) b.addShape(new CANNON.Box(new CANNON.Vec3(1.25, 0.35, 1.2)), new CANNON.Vec3(0, -0.85, 0)); // the leg cage: low cars hit the legs, not thin air under the body
     this.baseOffsets = b.shapeOffsets.map((o) => o.clone());
-    b.position.set(x, 1.6, z);
+    b.position.set(x, T.walker ? 2.2 : 1.6, z);
     b.quaternion.setFromAxisAngle(AX_Y, yaw);
     b.car = this;
 
-    const v = this.vehicle = new CANNON.RaycastVehicle({ chassisBody: b, indexRightAxis: 2, indexForwardAxis: 0, indexUpAxis: 1 });
+    const v = this.vehicle = T.walker ? walkerRig(8, b) : new CANNON.RaycastVehicle({ chassisBody: b, indexRightAxis: 2, indexForwardAxis: 0, indexUpAxis: 1 });
     // Wheels come in pairs per axle, front axle first: even index = left (-z), odd = right (+z)
     this.axles = T.axles || [T.wb / 2, -T.wb / 2];
     const rearAvg = this.axles.slice(1).reduce((a, x) => a + x, 0) / (this.axles.length - 1);
@@ -3979,6 +4040,7 @@ class Car {
 
   /* ---------- visual model ---------- */
   buildModel() {
+    if (this.T.walker) return this.buildSpider();
     const T = this.T, C = T.cabin, L = T.L, W = T.W, H = T.H, st = T.style;
     const g = this.group = new THREE.Group();
     const root = this.root = new THREE.Group();
@@ -4779,6 +4841,7 @@ class Car {
     if (this.blob) scene.remove(this.blob);
     for (const k of world.constraints.slice()) if (k.bodyA === this.body || k.bodyB === this.body) world.removeConstraint(k); // tow hooks, forks, magnets, harpoons
     if (this.towLine) scene.remove(this.towLine);
+    if (this.webLine) { scene.remove(this.webLine); this.webLine.geometry.dispose(); } if (this.web && this.web.t && this.web.t.webBy === this) { this.web.t.webbedT = 0; this.web.t.webAt = null; }
     this.vehicle.removeFromWorld(world);
     scene.remove(this.group);
     for (const w of this.wheelMeshes) if (w) scene.remove(w);
@@ -4802,7 +4865,7 @@ class Car {
 
   // Move the centre of mass fore/aft: everything else shifts the other way in the body frame
   applyBalance() {
-    const d = this.axleMid + (S.frontWeight / 100 - 0.5 + (this.T.comBias || 0)) * this.T.wb;
+    const d = this.T.walker ? 0 : this.axleMid + (S.frontWeight / 100 - 0.5 + (this.T.comBias || 0)) * this.T.wb; // (a walker hangs from its hips: no weight balance to shift)
     const b = this.body;
     b.shapeOffsets.forEach((o, i) => { o.x = this.baseOffsets[i].x - d; });
     this.vehicle.wheelInfos.forEach((w, i) => { w.chassisConnectionPointLocal.x = this.wheelBase[i][0] - d; });
@@ -4829,6 +4892,8 @@ class Car {
   /* ---------- physics, every fixed sub-step ---------- */
   physicsStep(dt) {
     if (this.ghost) return; // a guest's copy of someone else's simulation: the host drives it
+    if (this.webbedT > 0) this.webHold(dt); // pinned by Anansi's web: it can spin its wheels all it likes
+    if (this.T.walker) return this.walkStep(dt);
     const b = this.body, v = this.vehicle, T = this.T;
     b.quaternion.vmult(AX_X, this.fwd);
     b.quaternion.vmult(AX_Y, this.up);
@@ -5331,7 +5396,8 @@ class Car {
       this.blob.position.set(b.position.x, 0.03, b.position.z); this.blob.rotation.z = yaw; this.blob.scale.set(T.L * (1.15 + (1 - k) * 0.4), T.W * (1.35 + (1 - k) * 0.4), 1); this.blob.material.opacity = 0.62 * k; this.blob.visible = k > 0.02; }
     // Wheels, springs, skid marks, dust
     let skid = 0;
-    for (let i = 0; i < this.nW; i++) {
+    if (T.walker) this.updateLegs(dt);
+    else for (let i = 0; i < this.nW; i++) {
       const wi = v.wheelInfos[i], inContact = wi.isInContact;
       v.updateWheelTransform(i);
       wi.isInContact = inContact; // updateWheelTransform clears the contact flag; keep it for the next physics step
@@ -5373,6 +5439,233 @@ class Car {
     }
     this.skidAmt = lerp(this.skidAmt, skid / this.nW * clamp(Math.abs(this.speed) / 8, 0, 1), 0.2);
     if (this.bakedParts && this.bakedParts.length) this.checkBaked(); // a panel that started to swing, sag or got shoved this frame is drawn by itself from now on
+  }
+
+  /* ---------- the Spider-Walker ---------- */
+  buildSpider() { // Anansi's machine: an oil-drum abdomen, a hubcap-domed cockpit, eight eyes (two of them headlights), mandible claws, and eight scrap-pipe legs (two instanced draws)
+    const T = this.T, g = this.group = new THREE.Group(), root = this.root = new THREE.Group(), SP = SPIDER(), D2 = DET2(); g.add(root); scene.add(g);
+    this.paint = (QUALITY.level ?? 0) <= 2
+      ? new THREE.MeshPhysicalMaterial({ color: this.baseColor.clone(), map: grimeTex, roughness: 0.38, metalness: 0.45, envMapIntensity: 1.3, clearcoat: 0.65, clearcoatRoughness: 0.18 })
+      : new THREE.MeshStandardMaterial({ color: this.baseColor.clone(), map: grimeTex, roughness: 0.34, metalness: 0.5, envMapIntensity: 1.25 });
+    this.glassMat = M.glass.clone(); this.lampMat = M.lamp; this.lampMeshes = []; this.tailMat = M.tail.clone();
+    this.tailGlow = new THREE.SpriteMaterial({ map: glowTex, color: 0xff2a1a, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.35 });
+    this.parts = []; this.deform = []; this.exhaust = []; this.wheelMeshes = []; this.springs = [];
+    const add = (geo, mat, x, y, z, parent = root) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; parent.add(m); return m; };
+    const part = (mesh, zone, at, side) => { this.parts.push({ mesh, zone, at: at * 0.6, side, detached: false }); return mesh; };
+    // abdomen: a rusty oil drum lying fore-aft, ribbed, with chrome hubcaps for side armour (they come off) and a lid at the back
+    const drumGeo = new THREE.CylinderGeometry(0.62, 0.62, 1.5, 18, 4); drumGeo.rotateZ(Math.PI / 2);
+    const drum = add(drumGeo, this.paint, -0.55, 0.15, 0); this.deform.push({ mesh: drum, orig: drumGeo.attributes.position.array.slice() });
+    for (const x of [-1.15, -0.55, 0.05]) add(new THREE.CylinderGeometry(0.645, 0.645, 0.07, 18), M.steel, x, 0.15, 0).rotation.z = Math.PI / 2;
+    for (const x of [-0.85, -0.25]) add(new THREE.CylinderGeometry(0.635, 0.635, 0.16, 18), D2.rust, x, 0.15, 0).rotation.z = Math.PI / 2;
+    for (const s of [-1, 1]) { const hc = add(new THREE.CylinderGeometry(0.34, 0.34, 0.05, 16), M.chrome, -0.55, 0.2, s * 0.64); hc.rotation.x = Math.PI / 2; part(hc, s < 0 ? 'left' : 'right', 55, s); }
+    { const lid = add(new THREE.CylinderGeometry(0.56, 0.56, 0.05, 18), M.steel, -1.32, 0.15, 0); lid.rotation.z = Math.PI / 2; part(lid, 'rear', 50, 0); }
+    add(new THREE.CylinderGeometry(0.08, 0.12, 0.22, 8), D2.dark, -1.42, -0.15, 0).rotation.z = Math.PI / 2; // the spinneret
+    // thorax: a hubcap dome over a dark belly plate, the hips round its rim
+    const dome = add(new THREE.SphereGeometry(0.72, 18, 8, 0, Math.PI * 2, 0, Math.PI / 2), M.chrome, 0.45, 0.05, 0); dome.scale.set(1, 0.5, 0.92);
+    add(new THREE.CylinderGeometry(0.74, 0.6, 0.2, 18), D2.dark, 0.45, -0.05, 0);
+    for (let i = 0; i < 8; i++) { const k = i >> 1, s = i % 2 ? 1 : -1; add(new THREE.SphereGeometry(0.15, 10, 8), M.steel, T.axles[k], 0.0, s * 0.72); }
+    // the cockpit: a glass bubble with Kwaku Anansi in his kente cap
+    const bub = add(new THREE.SphereGeometry(0.42, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), this.glassMat, 0.55, 0.32, 0); bub.scale.set(1.15, 1, 1);
+    add(new THREE.SphereGeometry(0.12, 10, 8), SP.skin, 0.5, 0.52, 0); add(new THREE.CylinderGeometry(0.115, 0.125, 0.09, 10), SP.cap, 0.5, 0.62, 0); add(new THREE.BoxGeometry(0.16, 0.18, 0.3), SP.cap, 0.5, 0.36, 0);
+    // head: eight eyes (the two big ones are the headlights), mandible claws, the cable spool that throws the web
+    const head = add(new THREE.BoxGeometry(0.5, 0.36, 0.7), this.paint, 1.05, 0.12, 0); this.deform.push({ mesh: head, orig: head.geometry.attributes.position.array.slice() });
+    for (const s of [-1, 1]) { const e = add(new THREE.SphereGeometry(0.11, 10, 8), M.lamp, 1.3, 0.2, s * 0.17); this.lampMeshes.push(e); }
+    for (const [y, z] of [[0.3, 0.07], [0.3, -0.07], [0.06, 0.3], [0.06, -0.3], [0.24, 0.29], [0.24, -0.29]]) add(new THREE.SphereGeometry(0.05, 8, 6), this.tailMat, 1.29, y, z);
+    for (const s of [-1, 1]) { const f = add(new THREE.ConeGeometry(0.06, 0.45, 6), M.steel, 1.42, -0.16, s * 0.16); f.rotation.z = -Math.PI / 2 - 0.6; f.rotation.x = s * 0.35; }
+    part(add(new THREE.BoxGeometry(0.08, 0.1, 0.8), M.steel, 1.33, -0.05, 0), 'front', 50, 0); // bumper bar
+    add(new THREE.CylinderGeometry(0.1, 0.1, 0.34, 10), D2.cable, 0.95, 0.36, 0).rotation.x = Math.PI / 2;
+    for (const s of [-1, 1]) this.exhaust.push(add(new THREE.CylinderGeometry(0.05, 0.06, 0.5, 8), M.chrome, -0.85, 0.85, s * 0.25));
+    this.stacks = [{ x: -0.85, y: 1.1, z: 0.25 }, { x: -0.85, y: 1.1, z: -0.25 }];
+    // legs: femurs and tibias as two instanced meshes on the body's frame (feet are planted in the world, the IK runs in updateLegs)
+    this.legIM = [SP.fem, SP.tib].map((geo) => { const m = new THREE.InstancedMesh(geo, SP.pipe, 8); m.instanceMatrix.setUsage(THREE.DynamicDrawUsage); m.castShadow = true; m.receiveShadow = true;
+      m.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, -0.6, 0), 4.2); m.boundingBox = new THREE.Box3(new THREE.Vector3(-3, -2.4, -3), new THREE.Vector3(3, 1.4, 3)); m.userData.lodR = 0.7; // (beyond ~120 m the legs aren't drawn)
+      for (let i = 0; i < 8; i++) m.setMatrixAt(i, SP.zero); g.add(m); return m; });
+    const restX = [1.5, 0.55, -0.55, -1.55];
+    this.legs = [];
+    for (let i = 0; i < 8; i++) { const k = i >> 1, s = i % 2 ? 1 : -1;
+      this.legs.push({ i, k, side: s, grp: (k + (s > 0 ? 1 : 0)) % 2, hip: new THREE.Vector3(T.axles[k], 0, s * 0.72), rest: new THREE.Vector3(restX[k], 0, s * 2.0), foot: null, from: new THREE.Vector3(), to: new THREE.Vector3(), t: -1 }); }
+  }
+  groundAt(x, z, k) { // where a foot lands: the front feet reach up onto things (climbing), the rest look down
+    const p = this.body.position;
+    _wf.set(x, p.y + (k === 0 && this.canClimb ? 2.4 : 1.0), z); _wt.set(x, p.y - (this.ride || 1.45) - 1.8, z); _wr.reset();
+    world.raycastClosest(_wf, _wt, _walkRay, _wr);
+    return _wr.hasHit && _wr.body !== this.body ? _wr.hitPointWorld.y : p.y - (this.ride || 1.45);
+  }
+  walkStep(dt) { // no wheels: four feelers find the ground (container tops included), a spring holds the body at standing height over the highest, and the legs push it along
+    const b = this.body, T = this.T, m = b.mass, g = S.gravity, v = b.velocity;
+    b.quaternion.vmult(AX_X, this.fwd); b.quaternion.vmult(AX_Y, this.up);
+    let lostL = 0, lostR = 0; for (let i = 0; i < this.nW; i++) if (this.wheelLost[i]) { if (i % 2) lostR++; else lostL++; }
+    const legs = this.legsLeft = this.nW - lostL - lostR;
+    const legK = clamp(0.5 + (legs - 4) * 0.125, 0.3, 1); // 8 legs: full speed; 6: three quarters; 4: half
+    const canClimb = this.canClimb = legs >= 6 && !this.wrecked;
+    const ride = this.ride = this.wrecked ? 0.5 : 1.2 + 0.25 * clamp((legs - 4) / 4, 0, 1);
+    const fh = Math.hypot(this.fwd.x, this.fwd.z) || 1, fx = this.fwd.x / fh, fz = this.fwd.z / fh, rx = -fz, rz = fx;
+    const speed = this.speed = v.x * fx + v.z * fz, vr = v.x * rx + v.z * rz;
+    const thr = this.wrecked ? 0 : this.ctrl.throttle;
+    this.boosting = !this.wrecked && this.ctrl.nitro && this.nitro > 0.01 && thr > 0;
+    if (this.boosting) this.nitro = Math.max(0, this.nitro - dt * 0.3);
+    this.rpm = lerp(this.rpm, lerp(T.idle, T.redline, clamp(Math.abs(speed) / 15 + Math.abs(thr) * 0.25, 0, 1)), clamp(dt * 8, 0, 1)); this.gear = 1;
+    // the feelers: the front pair reach high (that is how it walks up a container's side), the rear pair just follow
+    const H = this.feel || (this.feel = [0, 0, 0, 0]); let top = -Infinity, hits = 0, under = null;
+    for (let k = 0; k < 4; k++) {
+      const lx = k < 2 ? 1.75 : -1.75, lz = k % 2 ? 1.15 : -1.15, wx = b.position.x + fx * lx + rx * lz, wz = b.position.z + fz * lx + rz * lz;
+      _wf.set(wx, b.position.y + (k < 2 && canClimb && thr >= 0 ? 2.4 : 0.9), wz); _wt.set(wx, b.position.y - ride - 1.6, wz); _wr.reset();
+      world.raycastClosest(_wf, _wt, _walkRay, _wr);
+      if (_wr.hasHit && _wr.body !== b) { H[k] = _wr.hitPointWorld.y; hits++; if (H[k] > top) { top = H[k]; under = _wr.body; } } else H[k] = NaN;
+    }
+    const h = (x) => (Number.isNaN(x) ? top : x);
+    this.gait = (this.gait || 0) + Math.abs(speed) * dt / 2.2;
+    const want = top + ride + (legs < 8 && Math.abs(speed) > 1 ? Math.sin(this.gait * 6.283) * 0.05 * (8 - legs) : 0); // fewer legs: it bobs and limps
+    const grounded = hits > 0 && !(this.jumpCd > 0.65) && b.position.y < want + 0.6 && !this.craned && !this.carriedBy && !this.wrecked;
+    this.contacts = grounded ? 4 : 0;
+    const wi = this.vehicle.wheelInfos; for (let i = 0; i < wi.length; i++) wi[i].isInContact = grounded && !this.wheelLost[i];
+    const qi = b.quaternion.conjugate(_wQ), wl = qi.vmult(b.angularVelocity, _wA);
+    if (grounded) {
+      if (this.airT > 0.35 && v.y < -3 && under && under.car && under.car !== this && !under.car.wrecked) this.pounce(under.car, -v.y); // dropped onto a car from above
+      this.airT = 0;
+      const climbing = want - b.position.y > 0.5;
+      const vyT = clamp((want - b.position.y) * 7, -5, climbing ? 6.5 : 4), Fy = m * clamp(g + (vyT - v.y) * 14, 0, g * 5);
+      _wF.set(0, Fy, 0); b.applyForce(_wF);
+      if (under && under.type === CANNON.Body.DYNAMIC) { _wF.set(0, -Math.min(Fy, m * g * 1.2), 0); under.applyForce(_wF); } // (its weight rests on whatever it stands on)
+      // stance: pitch and roll follow what the feet stand on (nose up while it climbs)
+      const pitchT = clamp(Math.atan2(Math.max(h(H[0]), h(H[1])) - Math.max(h(H[2]), h(H[3])), 3.5), -0.45, 0.5), rollT = clamp((Math.max(h(H[1]), h(H[3])) - Math.max(h(H[0]), h(H[2]))) / 2.3, -0.35, 0.35);
+      const right = b.quaternion.vmult(AX_Z, _wR), k = clamp(dt * 12, 0, 1);
+      wl.z = lerp(wl.z, (pitchT - Math.asin(clamp(this.fwd.y, -1, 1))) * 7, k);
+      wl.x = lerp(wl.x, -(rollT - right.y) * 7, k);
+      // steering: it turns on the spot, or like a car on the move (reversing turns the other way); missing legs drag it to that side
+      const yawMax = lerp(2.4, 1.3, clamp(Math.abs(speed) / 15, 0, 1)) * T.handling.steer;
+      const yawT = this.ctrl.steer * yawMax * (speed < -0.8 ? -1 : 1) - (lostR - lostL) * 0.09 * clamp(Math.abs(speed) / 5, 0, 1);
+      wl.y = lerp(wl.y, yawT, clamp(dt * 9, 0, 1));
+      // drive: the legs push it to the speed you ask for, and grip sideways (oil, water and the fire hose knock them loose)
+      const vMax = 15 * legK * (this.boosting ? 1.35 : 1) * (this.inMud ? 0.55 : 1) * (this.stuckConcrete ? 0.3 : 1) * (climbing ? 0.45 : 1) * (1 - this.engineDmg * 0.3);
+      const grip = (this.onOil ? 0.25 : this.inWater ? 0.8 : 1) * (1 - Math.min(0.85, (this.wet || 0) * 0.9));
+      const hb = (this.ctrl.handbrake || this.ctrl.brake) && !this.wrecked;
+      let aF;
+      if (hb) aF = -clamp(speed * 8, -22, 22);
+      else if (thr !== 0 && Math.abs(speed) > 0.6 && Math.sign(thr) !== Math.sign(speed)) aF = -Math.sign(speed) * 20 * Math.abs(thr);
+      else if (thr !== 0) aF = clamp((thr * (thr > 0 ? vMax : 7 * legK) - speed) * 4, -16, 16);
+      else aF = clamp(-speed * 3, -12, 12);
+      const aR = clamp(-vr * 9, -24, 24);
+      _wF.set((fx * aF + rx * aR) * m * grip, 0, (fz * aF + rz * aR) * m * grip); b.applyForce(_wF);
+      this.braking = (hb || (thr !== 0 && Math.sign(thr) !== Math.sign(speed))) && Math.abs(speed) > 0.5;
+    } else {
+      this.airT = (this.airT || 0) + dt; this.braking = false;
+      if (!this.wrecked) { const upL = qi.vmult(AX_Y, _wR), k = clamp(dt * 3, 0, 1); wl.z = lerp(wl.z, clamp(-upL.x, -0.9, 0.9) * 3, k); wl.x = lerp(wl.x, clamp(upL.z, -0.9, 0.9) * 3, k); } // in the air: legs out, land on its feet
+    }
+    b.quaternion.vmult(wl, b.angularVelocity);
+    if (!this.wrecked && this.up.y < 0.35 && Math.hypot(v.x, v.z) < 3 && (this.flipTimer || 0) > 0.8) this.flipUpright(); // a spider on its back rolls itself over
+    // the yard underfoot
+    this.stuckConcrete = hits > 0 && !this.wrecked && inConcrete(this);
+    this.onFire = !this.wrecked && !(this.douse > 0) && inFire(this);
+    if (this.douse > 0) this.douse -= dt;
+    if (this.wet > 0) this.wet = Math.max(0, this.wet - dt * 0.45);
+    this.inWater = hits > 0 && !!puddleAt(b.position.x, b.position.z, 'water', 0.3);
+    this.onOil = hits > 0 && !this.wrecked && !!puddleAt(b.position.x, b.position.z, 'oil', 0.5);
+    this.inMud = false; if (hits > 0 && b.position.y < 3.5) for (const mu of ARENA.mud) if ((b.position.x - mu.x) ** 2 + (b.position.z - mu.z) ** 2 < mu.r * mu.r) { this.inMud = true; break; }
+    const sp = v.length(); if (sp > 0.1) { const kd = -S.airDrag * T.handling.drag * sp; _wF.set(v.x * kd, v.y * kd, v.z * kd); b.applyForce(_wF); }
+  }
+  webHold(dt, post) { // pinned by the web: whatever its wheels do, it stays where it was caught (before the step, and again after it: the engine's push that step is undone too)
+    const b = this.body, a = this.webAt; if (!post) this.webbedT -= dt;
+    if (!a || this.wrecked) { this.webbedT = 0; this.webAt = null; return; }
+    const k = 1 - Math.exp(-dt * 30); b.velocity.x += ((a.x - b.position.x) * 3 - b.velocity.x) * k; b.velocity.z += ((a.z - b.position.z) * 3 - b.velocity.z) * k; b.angularVelocity.y *= 0.85;
+    if (this.webbedT <= 0) { this.webAt = null; this.webBy = null; }
+  }
+  pounce(c, vy) { // dropped from above onto a car's roof
+    if (simTime - (this.pounceT ?? -9) < 1.5 || MP.role === 'guest' || game.state !== 'playing') return; this.pounceT = simTime;
+    const roof = new THREE.Vector3(0, HULL_Y0 + c.T.H + c.T.cabin.h, 0);
+    c.applyDamage((10 + vy * 3) * S.damage * c.T.armor, this, 'top', roof, vy); c.dent(roof, { x: 0, y: 1, z: 0 }, 10 + vy * 2);
+    sparks(c.body.position, 25); if (player) sfx.at(c.body.position).crash(wv(this), 10 + vy);
+    this.body.velocity.y = 4; this.jumpCd = 0.9; // and springs off again
+    if (PLAYLOG.m) { const V = PLAYLOG.V(this.type); V.pounce = (V.pounce || 0) + 1; }
+    if (this.isPlayer) { toast(`POUNCED ON ${c.name}!`); game.addScore(Math.round(150 + vy * 30), null); } else if (c.isPlayer) toast(`${this.name} POUNCED ON YOU!`, 'bad');
+    barks.announce('pounce', { a: this.isPlayer ? 'Our hero' : this.name, v: c.isPlayer ? 'our hero' : c.name }, true);
+    if (!this.isPlayer && Math.random() < 0.6) barks.say(this, 'hitYou', true, { target: c.name, car: c.T.name });
+  }
+  snapNearestLeg(model, by) {
+    let best = -1, bd = Infinity; for (let i = 0; i < this.nW; i++) { if (this.wheelLost[i]) continue; const [wx, wz] = this.wheelBase[i], d = Math.hypot(model.x - wx, model.z - wz * 2.5); if (d < bd) { bd = d; best = i; } }
+    if (best >= 0) this.loseWheel(best, by);
+  }
+  snapLeg(i, by) { // the weak spot: a leg snaps off at the hip and flies; under four legs it's a wreck
+    if (this.wheelLost[i]) return; this.wheelLost[i] = true; this.wheelDmg[i] = 100;
+    const left = this.nW - this.wheelLost.filter(Boolean).length, l = this.legs && this.legs[i];
+    if (PLAYLOG.m) { const V = PLAYLOG.V(this.type); V.legs = (V.legs || 0) + 1; }
+    if (l) { const SP = SPIDER(); for (const im of this.legIM) { im.setMatrixAt(i, SP.zero); im.instanceMatrix.needsUpdate = true; }
+      const hip = this.body.pointToWorldFrame(new CANNON.Vec3(l.hip.x, l.hip.y, l.hip.z)), leg = new THREE.Group(), f = new THREE.Mesh(SP.fem, SP.pipe), tb = new THREE.Mesh(SP.tib, SP.pipe);
+      tb.position.y = SP.A; tb.rotation.z = 2.2; f.castShadow = tb.castShadow = true; leg.add(f, tb); leg.position.set(hip.x, hip.y, hip.z); leg.quaternion.setFromAxisAngle(new THREE.Vector3(1, 0, 0), l.side * 1.2); scene.add(leg);
+      const sw = this.body.vectorToWorldFrame(new CANNON.Vec3(0, 0, l.side)), bv = this.body.velocity;
+      addDebris(leg, new CANNON.Box(new CANNON.Vec3(0.13, 0.9, 0.13)), new CANNON.Vec3(0, 0.9, 0), undefined, 18, new CANNON.Vec3(bv.x + sw.x * rand(3, 7), bv.y + rand(3, 6), bv.z + sw.z * rand(3, 7)), new CANNON.Vec3(rand(-6, 6), rand(-6, 6), rand(-6, 6)));
+      sparks(hip, 24); for (let k = 0; k < 6; k++) emit('smoke', hip.x, hip.y, hip.z, rand(-1, 1), rand(1, 2), rand(-1, 1), rand(0.6, 1.1), rand(0.25, 0.45)); }
+    if (player) sfx.at(this.body.position).clank(clamp(1 - player.body.position.distanceTo(this.body.position) / 90, 0, 1));
+    if (MP.role !== 'guest' && !this.wrecked && left < 4) { if (by && by !== this) { this.lastAttacker = by; this.lastAttackTime = simTime; } this.health = 0; this.wreck(); return; }
+    if (game.state === 'playing' && !this.wrecked) {
+      if (this.isPlayer) toast(`LEG SNAPPED · ${left} LEFT`, 'bad');
+      else if (by && by.isPlayer) game.addScore(250, `${this.name} LOST A LEG`);
+      if (!this.isPlayer) { if (Math.random() < 0.5) barks.say(this, 'wheel', true); else barks.announce('legOff', { v: this.name, a: by ? (by.isPlayer ? 'our hero' : by.name) : 'somebody' }); }
+    }
+  }
+  updateLegs(dt) { // feet stay planted where they landed; a foot that falls too far behind swings to a new spot ahead (four at a time, alternating), lands where a ray finds the ground
+    const L = this.legs; if (!L) return;
+    const b = this.body, p = b.position, q = b.quaternion, v = b.velocity, SP = SPIDER();
+    if (this.ghost) { // a remote spider: no physics here, so read standing and leg count off the snapshot
+      const legs = this.nW - this.wheelLost.filter(Boolean).length; this.ride = this.wrecked ? 0.5 : 1.2 + 0.25 * clamp((legs - 4) / 4, 0, 1); this.canClimb = legs >= 6;
+      this.contacts = !this.wrecked && Math.abs(v.y) < 4 ? 4 : 0; }
+    const cam = camera.position, d = Math.hypot(cam.x - p.x, cam.z - p.z);
+    this.legDt = (this.legDt || 0) + dt; this.legFrame = (this.legFrame || 0) + 1;
+    if (d > 125 && this.legInit) return; // too far to see legs (carLOD hides them): no work at all
+    if (this.legInit && d > 60 && this.legFrame % (d > 90 ? 3 : 2)) return; // far: every second or third frame
+    const ldt = Math.min(0.1, this.legDt); this.legDt = 0;
+    const ride = this.ride || 1.45, grounded = this.contacts > 0 && !this.wrecked, hv = Math.hypot(v.x, v.z), yawR = Math.abs(b.angularVelocity.y);
+    const stride = 0.45 + Math.min(0.7, hv * 0.05), swingT = clamp(0.3 - hv * 0.013, 0.11, 0.3), lift = 0.25 + Math.min(0.3, hv * 0.02);
+    _lq.set(q.x, q.y, q.z, q.w); _lqi.copy(_lq).invert();
+    let swingA = 0, swingB = 0; for (const l of L) if (l.t >= 0) { if (l.grp) swingB++; else swingA++; }
+    const A = SP.A, B = SP.B;
+    for (const l of L) {
+      if (this.wheelLost[l.i]) { if (hv > 2 && Math.random() < ldt * 2.5) { _lh.copy(l.hip).applyQuaternion(_lq).add(p); sparks(_lh, 2); } continue; } // a sparking stump
+      _ld.copy(l.rest).applyQuaternion(_lq); const ix = p.x + _ld.x + v.x * 0.12, iz = p.z + _ld.z + v.z * 0.12;
+      if (!l.foot || !this.legInit) { (l.foot || (l.foot = new THREE.Vector3())).set(ix, this.groundAt(ix, iz, l.k), iz); l.t = -1; }
+      if (!grounded) { const k = Math.min(1, ldt * 6); l.foot.x += (ix - l.foot.x) * k; l.foot.z += (iz - l.foot.z) * k; l.foot.y += (p.y - ride * (this.wrecked ? 0.45 : 0.8) - l.foot.y) * k; l.t = -1; }
+      else if (l.t < 0) {
+        const dx = l.foot.x - ix, dz = l.foot.z - iz, f2 = dx * dx + dz * dz, dy = l.foot.y - (p.y - ride);
+        if (f2 > 16) { l.foot.set(ix, this.groundAt(ix, iz, l.k), iz); continue; } // teleported (respawn, crane): just stand
+        const need = f2 > stride * stride || Math.abs(dy) > 1.3 || (hv < 0.5 && yawR > 0.5 && f2 > 0.06);
+        if (need && (l.grp ? swingA : swingB) === 0) { l.from.copy(l.foot); l.to.set(ix + v.x * swingT * 0.7, 0, iz + v.z * swingT * 0.7); l.to.y = this.groundAt(l.to.x, l.to.z, l.k); l.t = 0; if (l.grp) swingB++; else swingA++; }
+      } else {
+        l.t += ldt / swingT;
+        if (l.t >= 1) { l.foot.copy(l.to); l.t = -1; if (l.grp) swingB--; else swingA--; if (d < 30 && (this === player || this === camTarget()) && sfx.ctx && simTime - (this.stepSndT || 0) > 0.07) { this.stepSndT = simTime; sfx.at(l.foot).noiseHit('bandpass', rand(1800, 2800), 5, 0.06, 0.03); } if (hv > 6 && Math.random() < 0.3) emit('dust', l.foot.x, l.foot.y + 0.1, l.foot.z, rand(-0.6, 0.6), rand(0.3, 0.8), rand(-0.6, 0.6), rand(0.4, 0.7), rand(0.25, 0.45)); }
+        else { l.foot.lerpVectors(l.from, l.to, l.t); l.foot.y += Math.sin(Math.PI * l.t) * lift; }
+      }
+      // two-bone IK in the body's frame: knee up and out, like a spider's
+      _lh.copy(l.hip); _lf.copy(l.foot).sub(p).applyQuaternion(_lqi);
+      _ld.subVectors(_lf, _lh); let dd = _ld.length(); const reach = A + B - 0.02; if (dd > reach) { _ld.multiplyScalar(reach / dd); _lf.copy(_lh).add(_ld); dd = reach; } else if (dd < 0.4) { dd = 0.4; } _ld.normalize();
+      _lp.set(0, 1, l.side * 0.35); _lp.addScaledVector(_ld, -_lp.dot(_ld)).normalize();
+      const ca = clamp((A * A + dd * dd - B * B) / (2 * A * dd), -1, 1), sa = Math.sqrt(1 - ca * ca);
+      _lk.copy(_lh).addScaledVector(_ld, A * ca).addScaledVector(_lp, A * sa);
+      _ld.subVectors(_lk, _lh).normalize(); _lqq.setFromUnitVectors(_lY, _ld); _lm.compose(_lh, _lqq, _lS); this.legIM[0].setMatrixAt(l.i, _lm);
+      _ld.subVectors(_lf, _lk).normalize(); _lqq.setFromUnitVectors(_lY, _ld); _lm.compose(_lk, _lqq, _lS); this.legIM[1].setMatrixAt(l.i, _lm);
+    }
+    this.legIM[0].instanceMatrix.needsUpdate = true; this.legIM[1].instanceMatrix.needsUpdate = true;
+    this.legInit = true;
+  }
+  spiderTactics(dt, t, dist, throttle, steer) { // AI: keep clear of heavies coming head-on, climb to high ground and wait, drop on light cars passing below
+    const b = this.body, p = b.position;
+    const steerTo = (x, z) => { const l = b.pointToLocalFrame(new CANNON.Vec3(x, p.y, z)); return clamp(Math.atan2(-l.z, l.x) * 1.8, -1, 1); };
+    for (const c of cars) { // a heavy with its nose pointed at us: sidestep, don't trade blows (rams snap legs)
+      if (c === this || c.wrecked || c.body.mass < 5000) continue; const l = b.pointToLocalFrame(c.body.position); if (l.x < 0 || Math.hypot(l.x, l.z) > 22) continue;
+      const cl = c.body.pointToLocalFrame(p); if (cl.x > 0 && Math.abs(cl.z) < 4 + cl.x * 0.3) { this.perch = null; this.dodgeT = simTime; return { throttle: 1, steer: l.z > 0 ? 1 : -1 }; }
+    }
+    if (!this.perch && this.legsLeft >= 6 && this.mode !== 'flee' && simTime > (this.perchNext ?? (this.perchNext = simTime + rand(4, 12)))) {
+      this.perchNext = simTime + rand(16, 28); let best = null, bd = 75;
+      for (const P of PERCHES) { const dd = Math.hypot(P.x - p.x, P.z - p.z); if (dd < bd && !cars.some((c) => c !== this && Math.hypot(c.body.position.x - P.x, c.body.position.z - P.z) < 3)) { bd = dd; best = P; } }
+      if (best) this.perch = { x: best.x, z: best.z, y: best.y, until: simTime + 22, sit: 0 };
+    }
+    const P = this.perch; if (!P) return { throttle, steer };
+    if (simTime > P.until || this.legsLeft < 6) { this.perch = null; return { throttle, steer }; }
+    if (p.y < P.y + 0.7) return { throttle: 0.9, steer: steerTo(P.x, P.z) }; // walk to it and straight up its side
+    P.sit += dt; P.until = Math.max(P.until, simTime + 1);
+    let prey = null, pd = 18; for (const c of cars) if (c !== this && !c.wrecked && c.body.mass < 2600 && c.body.position.y < p.y - 1) { const dd = Math.hypot(c.body.position.x - p.x, c.body.position.z - p.z); if (dd < pd) { pd = dd; prey = c; } }
+    if (prey) { this.perch = null; this.perchNext = simTime + rand(12, 20); this.target = prey; this.mode = 'charge'; this.modeT = 3; barks.say(this, 'charge'); return { throttle: 1, steer: steerTo(prey.body.position.x, prey.body.position.z) }; } // drop on it
+    if (P.sit > 8) this.perch = null;
+    return { throttle: 0, steer: t ? steerTo(t.body.position.x, t.body.position.z) * 0.6 : 0 }; // wait up there, watching
   }
 
   updateGun(dt) {
@@ -5634,6 +5927,10 @@ class Car {
 
     // Which face took the hit
     const zone = zoneOf(nl);
+    if (this.T.walker && otherCar && !this.wrecked && MP.role !== 'guest' && zone !== 'bottom' && simTime - (this.legSnapT ?? -9) > 0.35) { // the weak spot: a heavy ram (or a very fast one) snaps a leg off
+      const hard = dv * (Mo >= 3000 ? 1.5 : 0.85);
+      if (hard > 10.5) { this.legSnapT = simTime; this.snapNearestLeg(model, otherCar); if (hard > 18 && !this.wrecked) this.snapNearestLeg(model, otherCar); }
+    }
     if (this.T.dozer && otherCar && zone !== 'front' && zone !== 'bottom') dv = Math.max(dv, vImp * 0.55); // 14 t barely moves, but a car punched into its flank still caves the panels in
     if (this.trackHp && otherCar && (zone === 'left' || zone === 'right') && vImp > 4 && local.y < 0.4) { // a car slamming into the running gear: momentum, not the tank's tiny dv, is what snaps links
       this.hurtTrack(zone === 'left' ? 0 : 1, (vImp - 4) * Math.pow(Mo / 1500, 0.7) * 3.5 * (otherCar.ramT > 0 ? 1.6 : 1), otherCar);
@@ -5851,6 +6148,7 @@ class Car {
   }
 
   refitWheel(i) { // a repair puts a fresh wheel back on
+    if (this.T.walker) { this.wheelLost[i] = false; this.wheelDmg[i] = 0; if (this.legs) { this.legs[i].foot = null; this.legs[i].t = -1; } return; } // (a spider grows a new leg)
     const T = this.T, w = this.vehicle.wheelInfos[i];
     this.wheelLost[i] = false; this.wheelDmg[i] = 0;
     w.radius = T.wheelR; this.applyWheelSettings();
@@ -5862,6 +6160,7 @@ class Car {
   }
 
   loseWheel(i, by) {
+    if (this.T.walker) return this.snapLeg(i, by);
     if (this.T.noWheelLoss) return;
     this.wheelLost[i] = true;
     // no wheels left to drive on (all but one gone): it's a wreck, not a car stuck on its belly forever (bug report: Tanker with 6 of 6 wheels gone, 20 hp, stranded)
@@ -6077,6 +6376,7 @@ class Car {
         if (st === 'chaos') s *= rand(0.3, 1.7);
         if (st === 'coward' && c.isPlayer) s *= 2.5;                        // prefers easier prey
         if (c.T.gun && !this.T.gun) s *= st === 'brawler' ? 1.6 : 3;        // nobody sane picks a fight with a tank
+        if (this.T.walker) s *= c.body.mass >= 5000 ? 2.2 : c.body.mass < 2600 ? 0.6 : 1; // the spider hunts light, fast cars and leaves the heavies alone
         if (s < bestScore) { bestScore = s; best = c; }
       }
       this.target = best; this.retarget = this.persona && this.persona.style === 'chaos' ? rand(1, 2.5) : rand(2, 4);
@@ -6221,7 +6521,7 @@ class Car {
     if (this.T.special && !this.specialCd && Math.random() < 0.12) { // AI weapon use: every driver knows their gadget
       const sp = this.T.special, l = b.pointToLocalFrame(t.body.position), ahead = l.x > 0 && Math.abs(l.z) < Math.max(2.5, l.x * 0.6);
       const behind = cars.some((c) => c !== this && !c.wrecked && (() => { const q = b.pointToLocalFrame(c.body.position); return q.x < -this.T.L / 2 && q.x > -32 && Math.abs(q.z) < 7 + -q.x * 0.15; })());
-      if ((sp === 'harpoon' && ((ahead && dist > 10 && dist < 40) || !!frontTarget(this, 40, 0.4))) || (sp === 'flame' && ahead && dist < 10) || (sp === 'reel' && !this.reelOn && ahead && dist < 18) || (sp === 'dump' && behind) || (sp === 'blade' && ahead && dist < 7.5) || (sp === 'water' && ahead && dist < 22) || (sp === 'ram' && ahead && dist > 8 && dist < 28) || ((sp === 'oil' || sp === 'bomb') && behind && sp !== 'bomb') || (sp === 'spikes' && ahead && dist < 28) || (sp === 'bomb' && ahead && dist > 12 && dist < 50) || (sp === 'lift' && (this.carry ? this.carry.t > 2.4 && (!this.delivery || this.delivery.gaveUp) : forkReady(this))) || (sp === 'tow' && (this.tow ? this.tow.t > 3.5 && Math.abs(this.speed) > 6 && (!this.delivery || this.delivery.gaveUp) : towable(this))) || (sp === 'minigun' && this.mgTarget && dist < 55) || (sp === 'rockets' && !!frontTarget(this, 90, 0.45) && dist > 10)) ctrl.fire = true;
+      if ((sp === 'harpoon' && ((ahead && dist > 10 && dist < 40) || !!frontTarget(this, 40, 0.4))) || (sp === 'flame' && ahead && dist < 10) || (sp === 'reel' && !this.reelOn && ahead && dist < 18) || (sp === 'dump' && behind) || (sp === 'blade' && ahead && dist < 7.5) || (sp === 'water' && ahead && dist < 22) || (sp === 'ram' && ahead && dist > 8 && dist < 28) || ((sp === 'oil' || sp === 'bomb') && behind && sp !== 'bomb') || (sp === 'spikes' && ahead && dist < 28) || (sp === 'bomb' && ahead && dist > 12 && dist < 50) || (sp === 'lift' && (this.carry ? this.carry.t > 2.4 && (!this.delivery || this.delivery.gaveUp) : forkReady(this))) || (sp === 'tow' && (this.tow ? this.tow.t > 3.5 && Math.abs(this.speed) > 6 && (!this.delivery || this.delivery.gaveUp) : towable(this))) || (sp === 'minigun' && this.mgTarget && dist < 55) || (sp === 'rockets' && !!frontTarget(this, 90, 0.45) && dist > 10) || (sp === 'web' && spiderWebShot(this))) ctrl.fire = true;
     }
     if (this.T.pour && !this.pourT && this.load > 0.4) { // mixer: pour when someone is right behind
       for (const c of cars) { if (c === this || c.wrecked) continue; const l = b.pointToLocalFrame(c.body.position); if (l.x < -this.T.L / 2 && l.x > -38 && Math.abs(l.z) < 9 && Math.random() < 0.08) { ctrl.fire = true; break; } }
@@ -6243,6 +6543,7 @@ class Car {
       const lr = b.pointToLocalFrame(new CANNON.Vec3(this.reverseTo.x, b.position.y, this.reverseTo.z)), ang = Math.atan2(-lr.z, -lr.x);
       throttle = -0.65; steer = clamp(-ang * 1.6, -1, 1);
     }
+    if (this.T.walker && !this.delivery) ({ throttle, steer } = this.spiderTactics(dt, t, dist, throttle, steer));
     ctrl.throttle = throttle; ctrl.steer = steer; ctrl.pitch = 0;
     ctrl.handbrake = Math.abs(angle) > 1.2 && this.speed > 14 && S.aiSkill > 0.4;
     ctrl.nitro = (this.mode === 'charge' && Math.abs(angle) < 0.35) || this.mode === 'flee' || (Math.abs(angle) < 0.2 && dist > 35 && this.nitro > 0.35 && S.aiSkill > 0.3);
@@ -6298,6 +6599,7 @@ function platformOf(p) {
 }
 
 world.addEventListener('preStep', () => { for (const c of cars) c.physicsStep(FIXED); });
+world.addEventListener('postStep', () => { for (const c of cars) if (c.webbedT > 0 && !c.ghost) c.webHold(FIXED, true); }); // (Anansi's web)
 // Weight matters: a light car can't lever up one more than 2.5x its weight. Its sloped nose can wedge under a heavy car's side and
 // the contact then points upward; for those side contacts the push is made horizontal (before the solver runs), so the tank
 // gets shoved, not lifted. Landing on a roof, and driving over a wreck, are left alone.
@@ -6463,7 +6765,7 @@ function updateHUD(dt) {
   let hint = '';
   if (game.state === 'playing') {
     if (game.paused) hint = 'Paused · press P to resume';
-    else if (player.wheelLost.filter(Boolean).length >= 2 || player.engineDmg > 0.9) hint = isTouchUI() ? 'Car disabled · tap Restart for a fresh one' : 'Car disabled · press N to restart';
+    else if ((!player.T.walker && player.wheelLost.filter(Boolean).length >= 2) || player.engineDmg > 0.9) hint = isTouchUI() ? 'Car disabled · tap Restart for a fresh one' : 'Car disabled · press N to restart';
     else if (player.flipTimer > 0.8) hint = 'Stuck on your roof? Press R to flip upright';
     else if (player.onOil) hint = 'OIL SLICK! Ease off and steer gently';
     else if (player.stuckConcrete) hint = 'STUCK IN CONCRETE! Keep the power on to claw out';
@@ -6815,6 +7117,24 @@ const CAR_CAST = {
       flee: ['I gotta see a guy about a thing.', 'Business elsewhere!'],
     } },
 };
+// Kwaku Anansi: the laughing trickster storyteller of Akan (Ghanaian) folk tales, the small clever one who outwits the big animals.
+// He narrates the fight as a story he is winning, with Twi words: Agoo (excuse me, coming through), Ɛyɛ (it's good), Ei!, Akwaaba (welcome), Medaase (thank you), Ayekoo (well done).
+CAR_CAST.spider = { nick: 'Kwaku Anansi', hand: 0.75, style: 'vulture', from: 'Kwaku Anansi, the laughing trickster storyteller of Ghanaian folk tales, who outwits creatures far bigger than himself', lang: 'en-GH', pitch: 1.1, rate: 1.05, color: '#c89a2a',
+  words: { ex: ['Ei', 'Ɛyɛ', 'Agoo', 'Chale', 'Ao'], insult: ['you big slow leopard', 'you python with no plan', 'you hornet with no sting', 'you kwasia'], kin: ['wife Aso', 'son Ntikuma', 'grandmother'], thing: ['story pot', 'sandals', 'pot of wisdom'], boast: ['Ɛyɛ! And that is how the story goes!', 'The small one wins again! Ha ha ha!'], voice: ['Google UK English Male', 'Daniel', 'Arthur'] },
+  lines: {
+    start: ["Agoo! Agoo! Make way, everybody! Kwaku Anansi has come to tell you a story!", "Gather round, my friends. Let me tell you a story... and it ends with YOU in pieces! Ha ha ha!", "We do not really mean, we do not really mean that what I say is true... but today it is VERY true!"],
+    hitYou: ["Ɛyɛ! Good! The little spider bites the big animal!", "Ha ha ha! You walked right into my story!", "Ei! Did you feel that? That is the clever part of the story!", "Eight legs, one bite, and no more car for you!"],
+    gotHit: ["Ei! You stepped on my legs! Do you know how long it takes to tie eight shoes?", "Ao! Who invited the elephant into my story?", "Ei, ei, ei! My beautiful legs! Aso will be so angry!"],
+    wheel: ["Ei! My leg has run away to tell its own story!", "One leg gone! No problem, Anansi still has plenty. I think. Let me count..."],
+    low: ["My web is torn and my legs are wobbling! This story is getting dark!", "Ntikuma, my son, if you are listening... Papa is in trouble!"],
+    wrecked: ["This is my story which I have told. If it was sweet, or not sweet... take some elsewhere!", "Ei! The spider falls... but Anansi always climbs back up his thread!"],
+    gloat: ["And so the big one was caught, and Anansi laughed and laughed! Ha ha ha!", "Ɛyɛ! Another story for the sky god's box!", "The smallest creature in the yard, and the cleverest! Ayekoo, Anansi! Well done!"],
+    air: ["Wheee! Anansi is swinging on his thread!", "I am flying up to the sky god to tell him all about this!"],
+    taunt: ["Come closer, my friend. The leopard said that too, and look what happened to the leopard!", "You are big and strong. I am small and clever. Guess who wins in every story?", "Hello, my friend! Wo ho te sɛn? How are you? Not for long! Ha ha!"],
+    fire: ["Web! Catch them!", "Hold still! Anansi wants to tie you up like a parcel!", "Sticky, sticky! Just like the gum doll!"],
+    charge: ["Agoo! Spider coming through!", "Eight legs, full speed! Here comes the clever part!"],
+    flee: ["This is not running! This is a clever plan! Very clever!", "Every good trickster knows when to leave the story!"],
+  } };
 for (const P of Object.values(CAR_CAST)) PERSONAS.push(P); // (pushed last: guests look characters up by index)
 const CAST_SET = new Set(Object.values(CAR_CAST));
 const ANNOUNCER = { nick: 'Crash Cam Kev', caller: true, lang: 'en-AU', pitch: 0.95, rate: 1.18, words: { voice: ['Lee', 'Gordon', 'Karen', 'Catherine', 'Google UK English Male', 'Daniel', 'Ralph'] } }; // an over-the-top Aussie play-by-play caller
@@ -6861,6 +7181,11 @@ const ANN_LINES = {
   barrelBurst: ['KABOOM! {a} fired a bent gun and it peeled open like a banana!', 'The gun just blew up in {a}\'s face! That is going to sting!', 'Note to {a}: never fire a bent barrel!'],
   sandwich: ['It\'s a {v} sandwich! Hold the mayo!', 'Squished in the middle like the last biscuit in the packet!', 'SANDWICH! {v} just got pressed like a panini!', 'Ooh, {v} caught in the middle! That is a club sandwich!'],
 };
+Object.assign(ANN_LINES, { // the Spider-Walker: Kev calls it like a nature documentary about something with too many legs
+  web: ['{a} has WEBBED {v}! Stuck like a fly on a dunny door!', 'And {v} is caught in the web! In the wild, this is where it all goes wrong for the prey!', 'Steel web! {v} is going absolutely nowhere, folks!', 'Look at that! {v} is tied up like a Christmas present!'],
+  pounce: ['{a} drops from above onto {v}! Just like the documentaries, mate!', 'POUNCE! {v} never even looked up!', 'From high ground, the spider strikes! {v} is squashed!', 'Death from above! {v} has a spider on the roof!'],
+  legOff: ['There goes a leg! {v} is limping now, folks!', 'Snap! One of {v}\'s legs is off and flying!', 'Oh, the spider has lost a leg! Fewer legs, slower spider!', 'A leg, a LEG! Somebody catch that leg!'],
+});
 // Kev's co-commentator: Lulu takes every other call (the odd-numbered lines of each pool, plus her own below)
 const SHAZZA = { nick: 'Lulu', caller: true, lang: 'zh-HK', pitch: 1.35, rate: 1.22, words: { voice: ['Sin-ji', 'Sinji', 'Google 粵語（香港）', 'Ting-Ting'] } }; // Lulu Chan, a hyperactive Hong Kong commentator
 const SHAZZA_LINES = {
@@ -6985,6 +7310,8 @@ const MUSIC = {
   } },
 };
 const MUSIC_FOR = { hellbender: 'hillbilly', mule: 'hillbilly', cruiser: 'funk', tiger: 'march', viper: 'synth', commuter: 'synth', hearse: 'dirge', forklift: 'funk', towtruck: 'country', sandflea: 'surf', tanker: 'country', mixer: 'country', firetruck: 'country', camper: 'country', outrider: 'rock' };
+HORNS.spider = { f: [523.3, 659.3, 784], wave: 'triangle', drive: 2, lp: 3200, gain: 0.09, attack: 0.008, vibrato: 6 }; // a cheeky three-note xylophone toot
+MUSIC_FOR.spider = 'funk';
 const PLAN_WEIGHTS = { // relative odds of each tactic per personality
   brawler: { hunt: 5, flank: 2, runup: 2, circle: 1, ambush: 0.5 },
   runup:   { runup: 4, hunt: 2, flank: 2, circle: 1, ambush: 1 },
@@ -7139,6 +7466,14 @@ const CAST_MORE = {
     gotHit: ['Assaulting an officer! That\'s a felony!', 'That\'s city property, sugar!', 'Oh, you done it now!'],
   },
 };
+CAST_MORE.spider = {
+  rival: ["{v}! You remind me of Osebo the leopard. Big teeth, small brain!", "Ei, {v}! Your {vcar} is so slow, even the tortoise is laughing at you!", "{v}, my friend, I will tie you up like Onini the python!", "{v}! In my story you are the big animal who gets tricked. Sorry!", "Hey {v}! Your mother drives a shopping trolley, and even she escaped my web!"],
+  respawn: ["Ha ha! You thought the story was finished? A new chapter!", "Anansi is back! A spider always climbs up his thread again!", "Akwaaba! Welcome back, Anansi! Thank you, thank you!"],
+  kill: ["And that is the end of {v}'s part of the story! Ha ha ha!", "Ɛyɛ! {v} is caught, tied up and finished!", "{v} was big. {v} was loud. {v} is scrap. The end!"],
+  taunt: ["Every story in the world belongs to me. Even yours!", "I bought all the stories from the sky god himself. What did you buy? That car? Ha!", "I caught a python, a leopard and a whole swarm of hornets. You will be easy!", "Come, come, sit on my web. It is very comfortable!"],
+  hitYou: ["Ei! That one goes into the story book!", "Small spider, big bite! Ha ha!", "Medaase! Thank you for standing exactly there!"],
+  gotHit: ["Ei! Careful! Those are my best legs!", "Ao! Now you have made Anansi angry, and an angry Anansi is a clever Anansi!", "You hit like a falling coconut! It hurts, but it is not clever!"],
+};
 for (const [type, more] of Object.entries(CAST_MORE)) {
   const P = type === 'cruiser' ? COP : CAR_CAST[type]; if (!P) continue;
   for (const [ev, list] of Object.entries(more)) {
@@ -7149,6 +7484,7 @@ for (const [type, more] of Object.entries(CAST_MORE)) {
 const BURGER_LINES = { camper: ['B|Yo, Mr. White, we made a burger! Science!', 'Perfectly cooked. Ninety-nine percent beef.'], tiger: ['Ah, a little snack. With cheese, please.', 'Flame-grilled. How delightfully efficient.'], firetruck: ['I\'m supposed to PUT OUT fires! ...Smells great though.'],
   tanker: ["Opa! Cheeseburger! In my village, this is a wedding feast!", "Is cooked bull! I take some home for my goat!"], hellbender: ["A FEAST! Ragnar eats the whole bull! SKÅL!", "Flame-grilled, like the old days!"], sandflea: ["Chai! Suya! Bring the pepper, abeg!","Ehen! Lunch is served, hot and spicy!"], outrider: ["Och, a burger! Somebody fetch the brown sauce!"], viper: ['Family barbecue, everybody!'],
   towtruck: ['Hoo-wee! Somebody bring the pickles!', 'Lordy, that\'s the biggest burger in the county!'], forklift: ['C|I made a burger of your bull, English pig-dog!', 'Bring out your... burgers!'], mixer: ['Gabagool! Nah, cheeseburger.', 'Now THAT\'s a family meal.'], cruiser: ['That\'s a barbecue violation, but I\'ll allow it!'] };
+BURGER_LINES.spider = ["Ei! Grilled beef! Somebody bring the shito pepper!", "A bull burger! I will tell everybody I caught it myself!"];
 for (const [type, list] of Object.entries(BURGER_LINES)) { const P = type === 'cruiser' ? COP : CAR_CAST[type]; if (P) P.lines.burger = list; }
 // generic fallbacks so the extras (custom drivers) can join in too
 // ---------- Even more lines for the car characters (so a long match doesn't wear them out), and roasts aimed at each other by name ----------
@@ -7384,6 +7720,37 @@ const ROASTS = {
   mixer: { camper: "White, you cook, I pour. Guess who's got the bigger truck, stupido.", tiger: "Ay! Klaus, you got a gun, I got cement. Cement wins. Always.", firetruck: "Captain, you put out fires, I put out people. Kiddin'. Mostly. Madonna mia.", tanker: "Bogdan, one spark and you're a firework, pal. Your goat too. Mannaggia.", hellbender: "Ragnar, you look like a hood ornament that grew a beard and got ambitious.", sandflea: "Ay! Emeka, kid, you haggle with everything. Here's my price: cement shoes.", outrider: "MacTavish, you got a mouth like a foghorn. My ma would love you. I don't.", viper: "Madonna mia, Dom, family? I got family. Bigger family. Meaner family.", towtruck: "Cletus, you tow cars? I make 'em disappear. Capisce?", forklift: "Ay! King Arthur, you wanna be king? There's only one boss here, and it ain't you.", combine: "Jacques, take your cows and go home, pal. Your mother misses you. She told me.", bertha: "Madonna mia, Bertha, you remind me of my ma. Terrifying. Bigger, though.", dozer: "Bob, you push, I pour. Together we build a nice parking lot outta youse.", cruiser: "Ay! Sheriff, I didn't see nothin'. I don't know nothin'. Fuhgeddaboudit." },
   cruiser: { camper: "Mr. White, that RV has more violations than wheels, and it stinks to high heaven!", tiger: "Klaus, sugar, a tank is NOT street legal, and neither is that moustache!", firetruck: "Maeve, honey, sirens are for the law, not for showin' off, you hose-happy hothead!", tanker: "Bogdan, I got you for speedin', spillin', no license, and an unregistered goat!", hellbender: "Ragnar, raidin' is a felony in this county, and so is that smell, darlin'!", sandflea: "Emeka, that buggy ain't registered, and neither is that horn!", outrider: "MacTavish, disturbin' the peace! I can hear you through my damn sunglasses!", viper: "Dom, I clocked you at way too fast and way too pretty, and both are crimes!", towtruck: "Cletus, I know that hook. It's on my wanted poster, and so's your mama!", forklift: "Your Majesty, kings still need a license, sugar. And a better hat!", combine: "Jacques, that combine is wider than the law allows, and louder than your mouth!", bertha: "Bertha, Mama, please, you are blockin' four lanes and my last nerve!", dozer: "Bob, that blade is a deadly weapon, and your chili is a public hazard!", mixer: "Tony Cement, I know you're up to somethin', and I'll prove it, you slippery son of a gun!" },
 };
+CAST_EXTRA.spider = {
+  start: ["Akwaaba, everybody! Welcome to my story! Please do not leave before the ending!", "Grandmother always said: the small one must be the clever one. Today I am VERY clever!"],
+  hitYou: ["Ha ha ha! Tied up and tricked!", "Ɛyɛ paa! Very good!", "Ei! You never saw the spider coming!"],
+  gotHit: ["Agoo! I said AGOO! Excuse me means MOVE!", "Ei! My poor web! I spun that all morning!"],
+  low: ["My legs are knocking together like talking drums!", "Even a spider can only wobble so much!"],
+  wrecked: ["Ao... Anansi is tangled in his own web. That is a different story...", "Yɛbɛhyia bio! We will meet again!"],
+  taunt: ["The pot of wisdom fell and broke, and I kept the biggest piece! You got none!", "Little by little, the spider catches everything. Including you!"],
+  fire: ["One thread, two threads, three threads! Caught!", "Here is a present for you! It is a steel web!"],
+  air: ["Ei! I forgot that spiders cannot fly!", "Hold on to my thread! Hold on!"],
+  crash: ["Ei! Who put this wall in my story?", "I meant to climb that. I did climb that. With my face."],
+  respawn: ["New legs! Eight of them! Shiny!"],
+  onFire: ["Ei! Hot, hot! My legs are cooking like kebabs!", "Fire! Somebody bring water! Or a story about water!"],
+  rodeo: ["Ha! I have caught Osebo the leopard! No, wait. It is a cow!"],
+};
+// Anansi roasts everybody, and everybody roasts the spider (added here, not inside each table, so each line stays one line)
+ROASTS.spider = { camper: "Mr. White! You cook in your little van, but I cook up stories, and mine do not smell like burnt socks!", tiger: "Oberst Klaus! A great big tank, and you still cannot catch one little spider! Ha ha!", firetruck: "Captain Maeve! Your hose is very strong, but my web is stronger, and it does not drip!", tanker: "Uncle Bogdan! Your goat is the cleverest one in that truck, and she knows it!", hellbender: "Ragnar! So much beard, so much shouting! Even the hornets said you were too noisy!", sandflea: "Raju! You are the hero of your movie? Ei! In my story, you are the snack!", outrider: "Maxine! You shout like thunder, but I have tricked the sky god himself!", viper: "Dom! Fast, fast, fast! A fly is fast too, and the fly always ends up in the web!", towtruck: "Cletus! You drag cars with a hook? I drag them with a story! Much more stylish!", forklift: "King Arthur! A king on a forklift? In my village even the king walks on his own legs!", combine: "Papa Jacques! You cut the wheat, I weave the web. Only one of us catches cars!", bertha: "Big Bertha! You are the biggest thing in the yard, and in my stories the biggest ones fall the hardest!", dozer: "Bob! You push the dirt, and I walk right over your head! Ha ha!", mixer: "Tony! Your cement shoes will never fit me. I have eight feet!", cruiser: "Sheriff! Arrest me if you can, but first you must catch me, and nobody catches Anansi!" };
+Object.assign(ROASTS.camper, { spider: "B|Yo, Mr. White! There's a giant spider out there telling STORIES, yo! I hate spiders!" });
+Object.assign(ROASTS.tiger, { spider: "Herr Anansi, eight legs and not one of them can march in step. Disgraceful." });
+Object.assign(ROASTS.firetruck, { spider: "Anansi, ye wee eight-legged chancer! One squirt o' me hose an' ye're off that wall!" });
+Object.assign(ROASTS.tanker, { spider: "Anansi! In my village, spiders live in the barn! You can live in the barn too, with my goat!" });
+Object.assign(ROASTS.hellbender, { spider: "Spider! Ragnar will snap your legs like breadsticks and pick his teeth with them! HAH!" });
+Object.assign(ROASTS.sandflea, { spider: "Arre, Anansi! Too many legs, too many stories! In my film you are only a small cameo!" });
+Object.assign(ROASTS.outrider, { spider: "Anansi, ye great hairy jam jar! I'll harpoon ye aff that container, ye wee scunner!" });
+Object.assign(ROASTS.viper, { spider: "Anansi, eight legs and still slower than my abuela with her mop, hermano." });
+Object.assign(ROASTS.towtruck, { spider: "Lordy, Anansi, that's the biggest daddy longlegs I ever seen! Mama'd be gettin' the broom!" });
+Object.assign(ROASTS.forklift, { spider: "Foul eight-legged beast! The crown commands thee back under thy rock!" });
+Object.assign(ROASTS.combine, { spider: "Anansi! Spiders in my barn, spiders in my derby! Zut alors, where is my broom?!" });
+Object.assign(ROASTS.bertha, { spider: "Anansi, sugar, I've squashed bigger spiders than you with my house slipper." });
+Object.assign(ROASTS.dozer, { spider: "Anansi, partner, I'll bulldoze that web and all eight of your little legs with it." });
+Object.assign(ROASTS.mixer, { spider: "Anansi, you like stories? Here's one: a spider walks into wet cement. The end. Capisce?" });
+Object.assign(ROASTS.cruiser, { spider: "Anansi, sugar, eight legs means eight tickets for jaywalkin'!" });
 const CAST_ACCENT = { // the recast drivers' own words (captions show them as written)
   tiger: { start: ['Achtung! Achtung! Ze panzer is here. Wunderbar.'], hitYou: ['Jawohl! Direct hit! Wunderbar!', 'Ach, you crumple so beautifully. Danke schön.'], gotHit: ['Was ist das?! You have scratched my beautiful panzer!'], gloat: ['Wunderbar. Simply wunderbar.'], taunt: ['Achtung, little rabbit. I am coming for you. Langsam. Slowly.'], fire: ['Feuer! Feuer frei!'], wrecked: ['Ach du lieber! My panzer!'], air: ['Mein Gott! Panzers do not fly!'] },
   mixer: { hitYou: ['Madonna mia, that was beautiful! Capisce?', 'Basta! You had enough? I think you had enough.'], gotHit: ['Ay, ay, ay! Mannaggia! My truck!'], taunt: ['You and me, we gonna have a little chat. Capisce?'], gloat: ['Bada bing, bada boom. Basta.'], start: ['Eh, buongiorno, everybody. Tony\'s here. Nobody panic.'], wrecked: ['Madonna mia... call my mother.'], fire: ['Cement shoes, extra large! Capisce?'] },
@@ -8295,7 +8662,7 @@ function aimHintFor(type) { if (!canAim(CAR_TYPES[type])) return; let n = 0; try
 function setControlsFor(type) {
   document.body.classList.toggle('has-gun', !!(CAR_TYPES[type].gun || CAR_TYPES[type].pour || CAR_TYPES[type].special));
   { const T0 = CAR_TYPES[type]; // the controls strip and the touch FIRE button follow your car
-    const act = T0.gun ? 'fire 3-round burst' : T0.pour ? (T0.pour === 'fuel' ? 'dump fuel' : 'pour concrete') : ({ reel: 'reel on / off', dump: 'dump boulders', blade: 'raise / slam blade', lift: 'lift / toss', tow: 'hook / release (back up first)', minigun: 'minigun', rockets: 'rocket salvo', water: 'water cannon', harpoon: 'harpoon', flame: 'flamethrower', bomb: 'propane bomb', spikes: 'shotgun · Z stop stick', oil: 'oil slick', ram: 'rocket ram' })[T0.special];
+    const act = T0.gun ? 'fire 3-round burst' : T0.pour ? (T0.pour === 'fuel' ? 'dump fuel' : 'pour concrete') : ({ reel: 'reel on / off', dump: 'dump boulders', blade: 'raise / slam blade', lift: 'lift / toss', tow: 'hook / release (back up first)', minigun: 'minigun', rockets: 'rocket salvo', water: 'water cannon', harpoon: 'harpoon', flame: 'flamethrower', bomb: 'propane bomb', spikes: 'shotgun · Z stop stick', oil: 'oil slick', ram: 'rocket ram', web: 'web the car in front' })[T0.special];
     const kb = (k, t, cls) => `<span${cls ? ' class="sp"' : ''}><b>${k}</b> ${t}</span>`;
     const parts = [kb('W A S D', 'drive'), kb('Space', 'handbrake'), kb('Shift', 'nitro'), kb('J', 'jump')];
     if (act) parts.push(kb('F', act, true));
@@ -8305,7 +8672,7 @@ function setControlsFor(type) {
     document.body.classList.toggle('has-aim', canAim(T0));
     parts.push(kb('H', 'horn'), kb('C', 'camera'), kb('R', 'flip'), kb('N', 'new car'), kb('P', 'pause'));
     $('keys').innerHTML = parts.join(' · ');
-    const ICON = { reel: ['🌾', 'Reel'], dump: ['🪨', 'Boulders'], blade: ['🚜', 'Blade'], harpoon: ['🔱', 'Harpoon'], oil: ['🛢️', 'Oil'], spikes: ['💥', 'Shotgun'], flame: ['🔥', 'Flames'], bomb: ['💣', 'Propane'], water: ['💧', 'Water'], minigun: ['🔫', 'Minigun'], rockets: ['🚀', 'Rockets'], lift: ['⬆️', 'Lift'], tow: ['🪝', 'Hook'], ram: ['🚀', 'Ram'] };
+    const ICON = { reel: ['🌾', 'Reel'], dump: ['🪨', 'Boulders'], blade: ['🚜', 'Blade'], harpoon: ['🔱', 'Harpoon'], oil: ['🛢️', 'Oil'], spikes: ['💥', 'Shotgun'], flame: ['🔥', 'Flames'], bomb: ['💣', 'Propane'], water: ['💧', 'Water'], minigun: ['🔫', 'Minigun'], rockets: ['🚀', 'Rockets'], lift: ['⬆️', 'Lift'], tow: ['🪝', 'Hook'], ram: ['🚀', 'Ram'], web: ['🕸️', 'Web'] };
     const [ic, lb] = T0.gun ? ['💥', 'Cannon'] : T0.pour ? (T0.pour === 'fuel' ? ['⛽', 'Fuel'] : ['🧱', 'Concrete']) : ICON[T0.special] || ['💥', 'Fire'];
     $('fireIco').textContent = ic; $('fireLab').textContent = lb;
     document.body.classList.toggle('has-siren', !!(T0.police || T0.siren));
@@ -9557,7 +9924,7 @@ const MP = {
     const r = (v, k = 100) => Math.round(v * k);
     const cs = cars.map((c) => { const b = c.body, p = b.position, q = b.quaternion, v = b.velocity, z = c.zones;
       return [r(p.x), r(p.y), r(p.z), r(q.x, 1e4), r(q.y, 1e4), r(q.z, 1e4), r(q.w, 1e4), r(v.x, 10), r(v.y, 10), r(v.z, 10), Math.round(c.health),
-        (c.wrecked ? 1 : 0) | (c.boosting ? 2 : 0) | (c.braking ? 4 : 0) | (c.sirenOn ? 8 : 0) | (c.turretGone ? 16 : 0) | (c.burnT > 0 ? 32 : 0),
+        (c.wrecked ? 1 : 0) | (c.boosting ? 2 : 0) | (c.braking ? 4 : 0) | (c.sirenOn ? 8 : 0) | (c.turretGone ? 16 : 0) | (c.burnT > 0 ? 32 : 0) | (c.webbedT > 0 ? 64 : 0),
         [z.front, z.rear, z.left, z.right, z.top].map((x) => Math.round(x)).join('.'),
         c.parts.reduce((a, pt, i) => (pt.detached ? a.concat(i) : a), []), c.wheelLost.reduce((a, l, i) => a | (l ? 1 << i : 0), 0),
         r(c.rpm || 0, 0.01), r(c.steerVal || 0), r(c.turretYaw || 0), r(c.forkH || 0), c.kills || 0]; });
@@ -9727,7 +10094,8 @@ const MP = {
       const zs = String(B[12]).split('.').map(Number), zn = ['front', 'rear', 'left', 'right', 'top'];
       zn.forEach((z, zi) => { const before = c.zones[z], now = zs[zi] || 0; if (now > before) { for (const th of [30, 55, 80]) if (before < th && now >= th) c.crumple(z, th / 100); c.zones[z] = now; } });
       for (const pi of B[13] || []) if (c.parts[pi] && !c.parts[pi].detached) c.detach(c.parts[pi], null);
-      for (let w = 0; w < c.nW; w++) if ((B[14] >> w) & 1 && !c.wheelLost[w]) c.loseWheel(w, null);
+      for (let w = 0; w < c.nW; w++) if ((B[14] >> w) & 1 && !c.wheelLost[w]) c.loseWheel(w, null); else if (c.T.walker && !((B[14] >> w) & 1) && c.wheelLost[w] && !c.wrecked) c.refitWheel(w); // (a repaired spider grows its leg back here too)
+      c.netWebbed = !!(B[11] & 64); // caught in a web: the spider draws the cable
       c.health = B[10];
       if ((B[11] & 1) && !c.wrecked) c.wreck();
       if ((B[11] & 16) && c.T.gun && !c.turretGone) c.blowBarrel();
