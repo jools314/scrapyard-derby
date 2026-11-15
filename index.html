@@ -8279,6 +8279,7 @@ function showOver() {
 /* ---------------- Garage (car select) ---------------- */
 const garage = $('garage');
 const maxPW = Math.max(...Object.values(CAR_TYPES).map((t) => t.power / t.mass));
+let garagePend = false; function buildGarageSoon() { if (garagePend) return; garagePend = true; requestAnimationFrame(() => { garagePend = false; buildGarage(); }); } // slider drags ask for a rebuild per tick; the dock only needs it per frame
 function buildGarage() {
   garage.innerHTML = '';
   for (const [key, T] of Object.entries(CAR_TYPES)) {
@@ -8335,7 +8336,7 @@ function applySetting(key) {
     case 'aiMassScale': for (const c of cars) if (!c.isPlayer) c.setMass(c.T.mass * S.aiMassScale); break;
     case 'frontWeight': for (const c of cars) c.applyBalance(); break;
     case 'carWeight': case 'truckWeight': case 'suspensionStiffness': case 'suspensionDamping': case 'rideHeight': case 'suspensionTravel': for (const c of cars) c.applyWheelSettings(); break;
-    case 'enginePower': buildGarage(); break;
+    case 'enginePower': buildGarageSoon(); break;
     case 'sfxVolume': case 'musicVolume': sfx.setVolumes(); break;
     case 'touchLayout': applyTouchLayout(); break;
   }
