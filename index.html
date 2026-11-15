@@ -6170,6 +6170,10 @@ class Car {
 }
 // Cars locked together (wedged, or one sitting on another) for over a second get pushed apart
 const wedged = new Map();
+function aiBeachCheck(dt) { // an AI beached on a roof or mesa edge shouldn't sit out the whole match: no drive and no movement for 4 s — flip it like the player's R key
+  if (game.state !== 'playing') return;
+  for (const c of cars) { if (c.isPlayer || c.remote || c.wrecked) continue; const stuck = Math.abs(c.speed) < 0.6 && c.body.velocity.length() < 0.8 && game.countdown <= 0; c.beachT = stuck ? (c.beachT || 0) + dt : 0; if (c.beachT > 4) { c.beachT = 0; c.flipUpright(); } }
+}
 function unwedge(dt) {
   for (let i = 0; i < cars.length; i++) for (let j = i + 1; j < cars.length; j++) {
     const a = cars[i], b = cars[j], pa = a.body.position, pb = b.body.position;
@@ -10213,7 +10217,7 @@ function simBody(now) {
       for (const c of cars) { c.ctrl.throttle = 0; c.ctrl.handbrake = true; c.ctrl.nitro = false; c.ctrl.jump = false; }
     } else if (game.state === 'playing') game.grace -= dt;
     SEC.run('cars', () => { for (const c of cars) c.frameUpdate(dt); });
-    if (MP.role !== 'guest') unwedge(dt);
+    if (MP.role !== 'guest') { unwedge(dt); aiBeachCheck(dt); }
     for (const c of cars) if (c.shieldT > 0) { c.shieldT -= dt; if (Math.random() < dt * 6) { const p = c.body.position; emit('spark', p.x + rand(-1, 1), p.y + 0.8, p.z + rand(-1, 1), 0, 1, 0, 0.4, 0.1, pickupMat.shield); } } // shield pickups burn down and shimmer
     SEC.run('arena', () => { updateCrane(dt); updateBulls(dt); updateBumps(dt); updateCrawlerCrush(dt); updateBoulders(dt); updateLobs(dt); });
     SEC.run('lod', () => updatePropActivity(dt));
