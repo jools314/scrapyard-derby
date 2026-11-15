@@ -5,6 +5,7 @@ Any agent may pick an item. **Claim it in WORKBOARD.md first** (AGENTS.md explai
 Current state of the game: [RELEASES.md](RELEASES.md). Data to work from: the `play-logs` branch (LOGS.md).
 
 ## Bugs and stability (do these first)
+- **New stuck hotspot at (-94, -144)** (south-west wall): 13× / 148 s in the 18:39 report, fire truck, tanker, Hellbender, Cruiser, mixer, touching wall + debris. **Done:** a lane for it in `tests/stuckspots.js` passes, and the next report shows it gone or below 5×.
 - **Chromebook (Intel HD 620, 4 cores, 2560×1440) is barely playable:** the 1% low is 20 fps at the lowest quality and 50% render scale, with 177–400 slow seconds per hour. The physics/AI step is the slow part (1,685 s at quality 7), then draw calls (783 s). Done when this device's 1% low is ≥ 30 fps, e.g. cheaper physics at low quality (fewer substeps, sleeping props, fewer active bodies) and a lower internal resolution on very large screens.
 - **Physics hotspot in the NE corner (x≈100–109, z≈87–90)**, plus a second spot at (122–130, 100). In one session it caused repeated "solver kick undone" catches: the Camper (×12 in 4 s), Big Bertha, Forklift, Outrider and Viper. A Sandflea hit 226 m/s and a bull 186 m/s. **Done:** a test that drives cars into that spot shows no catches, and physics catches per hour fall in the report.
 - **Speed bumps at the yard centre never collide** (stale collision boxes, so wheels pass through). Fixing it naively gets tanks stuck. **Done:** tanks and light cars both feel the bumps, with a tracks test.
