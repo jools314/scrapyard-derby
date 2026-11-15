@@ -12,12 +12,13 @@ const SPOTS = [
   ['SW container -95,-118 (Bertha)', [[-60, -124, -120, -130], [-120, -130, -60, -120], [-87, -100, -90, -146], [-110, -140, -70, -105]]],
   ['south launch ramp -1,-106', [[0, -135, 0, -70], [-20, -110, 20, -100], [15, -112, -20, -104]]],
   ['west lane -145,-83 (Gap mesa / bank end)', [[-146, -84, -146, -20], [-144, -20, -138, -82], [-120, -85, -148, -80]]],
+  ['west -105,-90 (combine/Bertha, play logs build 82-88)', [[-60, -92, -140, -88], [-140, -88, -60, -92], [-105, -50, -105, -130], [-105, -130, -105, -50]]],
   ['quarter pipe ends', [[146, -60, 146, 60], [146, 60, 146, -60], [120, -40, 147, 10]]],
 ];
 const TRACE = process.env.TRACE || '';
 // QUICK=1 (the quick suite): the first two approaches to each spot, fire truck + mixer + Bertha (the cars the play logs caught most)
 const QUICK = !!process.env.QUICK;
-const TYPES = (process.env.TYPES || (QUICK ? 'firetruck,mixer,bertha' : 'firetruck,forklift,mixer,dozer,bertha')).split(',');
+const TYPES = (process.env.TYPES || (QUICK ? 'firetruck,mixer,bertha,combine' : 'firetruck,forklift,mixer,dozer,bertha,combine,tanker')).split(',');
 if (QUICK) for (const sp of SPOTS) sp[1] = sp[1].slice(0, 2);
 (async () => {
   const { browser, page, errors } = await open({ viewport: { width: 200, height: 140 } }); if (TRACE) page.on('console', (m) => { if (m.type() === 'log') console.log(m.text()); }); await page.waitForTimeout(1200);
