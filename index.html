@@ -749,6 +749,8 @@ const SETTINGS_DEF = [
   { key: 'aiSkill',             group: 'Match', label: 'Opponent aggression', unit: '',      min: 0,    max: 1,     step: 0.05, def: 0.8 },
   { key: 'matchMinutes',        group: 'Match', label: 'Respawn match length', unit: 'min',  min: 0,    max: 30,    step: 1,    def: 0, note: '0 = endless, until someone calls it on the scoreboard' },
   { key: 'wreckTarget',         group: 'Match', label: 'Wrecks to win (respawn)', unit: '',  min: 0,    max: 25,    step: 1,    def: 0, note: 'first driver to this many wrecks ends the match; 0 = off' },
+  { key: 'tiltDead',            group: 'Controls', label: 'Tilt dead zone',   unit: '°',     min: 0,    max: 8,     step: 0.5,  def: 2.5 },
+  { key: 'tiltFull',            group: 'Controls', label: 'Tilt full lock at', unit: '°',    min: 12,   max: 45,    step: 1,    def: 25 },
   { key: 'sfxVolume',           group: 'Audio', label: 'Effects volume',      unit: '',      min: 0,    max: 1,     step: 0.05, def: 0.85 },
   { key: 'musicVolume',         group: 'Audio', label: 'Music volume',        unit: '',      min: 0,    max: 1,     step: 0.05, def: 0.4 },
   { key: 'voiceVolume',         group: 'Audio', label: 'Driver voices (0 = subtitles only)', unit: '', min: 0, max: 1, step: 0.05, def: 0.9 },
@@ -8489,8 +8491,8 @@ function tiltRead(e) {
   if (tilt.zero === null) tilt.zero = r;
   let d = r - tilt.zero; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2;
   tilt.roll = clamp(d, -0.8, 0.8);
-  const deg = tilt.roll * 57.3, dz = 2.5;
-  tilt.steer = Math.abs(deg) < dz ? 0 : clamp((deg - Math.sign(deg) * dz) / 22, -1, 1); // ~25 degrees of twist = full lock
+  const deg = tilt.roll * 57.3, dz = S.tiltDead;
+  tilt.steer = Math.abs(deg) < dz ? 0 : clamp((deg - Math.sign(deg) * dz) / Math.max(4, S.tiltFull - S.tiltDead), -1, 1); // dead zone and full-lock angle are settings now (Controls group)
 }
 async function setTilt(on) {
   // iPhone/iPad: the page must ask, and only from a real tap (touchend/click, not touch-down), and only if the
