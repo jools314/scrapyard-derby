@@ -5408,6 +5408,7 @@ class Car {
     if (this.trackBroken[sd] || this.wrecked) return;
     this.trackHp[sd] -= amt;
     if (amt > 6) sparks(this.body.pointToWorldFrame(new CANNON.Vec3(0, -0.4, (sd ? 1 : -1) * this.T.track / 2)), 12);
+    if (this.trackHp[sd] < 55 && !this['trackTell' + sd]) { this['trackTell' + sd] = true; const tp2 = this.body.pointToWorldFrame(new CANNON.Vec3(0, -0.4, (sd ? 1 : -1) * this.T.track / 2)); sparks(tp2, 18); emit('smoke', tp2.x, tp2.y + 0.4, tp2.z, 0, 1.5, 0, 1.2, 0.5); } // halfway gone: sparks and smoke before the snap, for AI and player alike
     if (this.trackHp[sd] <= 0) this.breakTrack(sd, by);
     else if (this.trackHp[sd] < 45 && !this['trackWarn' + sd] && game.state === 'playing') { this['trackWarn' + sd] = true; if (this.isPlayer) toast(`${sd ? 'RIGHT' : 'LEFT'} TRACK DAMAGED`, 'cool'); else if (by && by.isPlayer) toast(`${this.name.toUpperCase()}'S TRACK IS LOOSE!`); }
   }
