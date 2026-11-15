@@ -2651,6 +2651,7 @@ const WEAPONS = {
         if (al > 0 && al < 34 && lat < 1.8 + al * 0.15) {
           if (!c.wrecked) { const k = Math.min(c.body.mass, 7000) * 30 * (1 - al / 40); c.body.applyForce(new CANNON.Vec3(f.x * k, k * 0.15, f.z * k)); c.body.wakeUp(); if (c.body.mass < 2200 && al < 18) { const tq = c.body.mass * 16 * (1 - al / 18); c.body.applyTorque(new CANNON.Vec3(f.z * tq, 0, -f.x * tq)); } } // light cars get rolled over by the jet // ~3 g up close: shoves a car off its line, even nudges a tank
           c.leakT = 0; c.wet = Math.min(1, (c.wet || 0) + dt * 2.5); // a windscreen full of water: can't see a thing
+          if (!c.wrecked) { c.lastAttacker = car; c.lastAttackTime = simTime; } // rolled into a wall or a hazard by the hose: the fire truck's wreck
           if (Math.random() < 0.4) emit('steam', c.body.position.x + rand(-1, 1), c.body.position.y + 1, c.body.position.z + rand(-1, 1), rand(-3, 3), rand(1, 3), rand(-3, 3), rand(0.4, 0.8), rand(0.4, 0.7));
         } }
       for (const pd of CONCRETE.list) if (pd.burning > 0) { const l = b.pointToLocalFrame(new CANNON.Vec3(pd.x, 0, pd.z)); if (l.x > 0 && l.x < 28 && Math.abs(l.z) < 4) { pd.burning = 0; for (let k = 0; k < 6; k++) emit('steam', pd.x + rand(-1, 1), 0.4, pd.z + rand(-1, 1), 0, rand(1.5, 3), 0, rand(1, 1.8), rand(0.5, 0.9)); } }
@@ -6204,7 +6205,7 @@ class Car {
       const inFront = ux * tf.x + uz * tf.z; // 1 = right in front of the target's nose
       const heavy = t.body.mass > b.mass * 2.2 || !!t.T.gun || (t.T.dozer && !t.bladeRaised);
       const breakOff = (k, from) => { this.breakT = k; this.breakSide = Math.random() < 0.5 ? 1 : -1; this.breakFrom = from || null; };
-      const light = b.mass < 5000 || this.leaking || (this.T.special === 'water' && this.water !== undefined && this.water < 0.15);
+      const light = b.mass < 5000 || this.leaking || this.leakT > 0 || role === 'kite' || (this.T.special === 'water' && this.water !== undefined && this.water < 0.15);
       if (!(this.breakT > 0) && light && role !== 'gun') { // a counter (or a heavy) coming straight at us: sidestep it
         for (const o of cars) { if (o === this || o.wrecked) continue; const ox = b.position.x - o.body.position.x, oz = b.position.z - o.body.position.z, od = Math.hypot(ox, oz) || 1;
           if (od > 14) continue; const ov = o.body.velocity, closing = -(ov.x * ox + ov.z * oz) / od, facing = (ox * o.fwd.x + oz * o.fwd.z) / od;
@@ -6213,12 +6214,14 @@ class Car {
         if (role !== 'gun' && simTime - this.lastHitT < 0.2 && (heavy || this.health < 50)) breakOff(rand(1.3, 2.1)); // hit a heavy (or hurt): get out of there; a light target gets finished off
         if (role === 'gun') { for (const o of cars) if (o !== this && !o.wrecked && AI_ROLE[o.type] === 'skirm' && o.body.position.distanceTo(b.position) < 16) { breakOff(rand(1.6, 2.4), o.body.position); break; } // fast cars after the barrel: drive out to range
           if (!(this.breakT > 0) && dist < 18) breakOff(rand(1.6, 2.4)); }
+        if (role === 'lob' && dist < 14 && heavy) breakOff(rand(1.2, 1.8)); // the camper is plywood: lob from range, don't get rammed
         if (this.T.special === 'rockets' && this.specialT > 0 && this.specialCd > WEAPONS.rockets.cd - 0.6) breakOff(rand(1.4, 2.0)); // salvo away: swoop past and out
         if (this.mgJam > 0 || this.mgHeat > 0.85) breakOff(1.2); // barrels glowing: back off while they cool
       }
-      if (this.T.police && !(this.breakT > 0)) { // kite whoever's tailing us straight over the stop-sticks
+      if ((this.T.police || role === 'kite') && !(this.breakT > 0)) { // kite whoever's tailing us straight over the stop-sticks (the tanker: over its fuel slick)
         const tail = cars.some((c) => c !== this && !c.wrecked && (() => { const q = b.pointToLocalFrame(c.body.position); return q.x < -this.T.L / 2 && q.x > -26 && Math.abs(q.z) < 6; })());
-        if (tail && (this.health < 70 || cars.some((c) => c !== this && !c.wrecked && c.body.mass > b.mass * 2 && c.body.position.distanceTo(b.position) < 26))) { this.kiteT = 1.2; } // something big (or we're hurt): lead it over the sticks; otherwise fight if (this.kiteT > 0) { this.kiteT -= dt; aim.set(clamp(b.position.x + this.fwd.x * 40, -A + 18, A - 18), 0, clamp(b.position.z + this.fwd.z * 40, -A + 18, A - 18)); }
+        if (tail && (role === 'kite' || this.health < 70 || cars.some((c) => c !== this && !c.wrecked && c.body.mass > b.mass * 2 && c.body.position.distanceTo(b.position) < 26))) { this.kiteT = 1.2; } // something big (or we're hurt): lead it over the sticks; otherwise fight
+        if (this.kiteT > 0) { this.kiteT -= dt; aim.set(clamp(b.position.x + this.fwd.x * 40, -A + 18, A - 18), 0, clamp(b.position.z + this.fwd.z * 40, -A + 18, A - 18)); }
       }
       if (this.breakT > 0) { // run out at an angle, then turn back in
         this.breakT -= dt; const f = this.breakFrom; let vx = ux, vz = uz; if (f) { const fx = b.position.x - f.x, fz = b.position.z - f.z, fl = Math.hypot(fx, fz) || 1; vx = fx / fl; vz = fz / fl; }
@@ -6228,9 +6231,19 @@ class Car {
       } else if (role === 'gun') { // stand off at 25-45 m: circle at range while the turret works
         if (this.mode === 'charge' || this.mode === 'backup') { this.mode = 'hunt'; this.modeT = 2; }
         if (dist < 45) { const side = this.flankSide || 1; aim.set(tp.x + (ux * Math.cos(0.5 * side) - uz * Math.sin(0.5 * side)) * 35, 0, tp.z + (ux * Math.sin(0.5 * side) + uz * Math.cos(0.5 * side)) * 35); }
-      } else if (role === 'skirm' && t.T.gun && !t.gunBlown && t.muzzle && dist < 20) { // close to a tank: go for the barrel
+      } else if (role === 'lob') { // camper: hang at 20-32 m and lob propane, circling so the nose comes round onto the target
+        if (this.mode === 'charge' || this.mode === 'backup') { this.mode = 'hunt'; this.modeT = 2; }
+        if (dist < 34) { const side = this.flankSide || 1; aim.set(tp.x + (ux * Math.cos(0.35 * side) - uz * Math.sin(0.35 * side)) * 26, 0, tp.z + (ux * Math.sin(0.35 * side) + uz * Math.cos(0.35 * side)) * 26); }
+      } else if (this.T.special === 'flame' && dist < 26 && !(heavy && inFront > 0.5)) { // sandflea: orbit the target tight and fast, laying a ring of fire, then hose it as the nose comes round
+        const side = this.flankSide || 1, a = 1.25 * side; aim.set(tp.x + (ux * Math.cos(a) - uz * Math.sin(a)) * 8, 0, tp.z + (ux * Math.sin(a) + uz * Math.cos(a)) * 8);
+        if (this.mode === 'charge' || this.mode === 'ambush' || this.mode === 'backup') { this.mode = 'circle'; this.modeT = 3; }
+      } else if (role === 'skirm' && t.T.gun && !t.gunBlown && t.muzzle && dist < 30) { // close to a tank: go for the barrel
         t.muzzle.getWorldPosition(tmpV); aim.set(tmpV.x, 0, tmpV.z); if (this.mode !== 'charge') { this.mode = 'charge'; this.modeT = 1.5; }
-      } else if (role && heavy && !t.T.gun && inFront > -0.3) { // approach anything heavy from its rear quarter, never through its nose
+      } else if (role === 'skirm' && t.type === 'bertha' && dist < 40) { // Bertha drops boulders on tailgaters but can't see under her nose: come in at the front corner
+        const side = (ux * -tf.z + uz * tf.x) >= 0 ? 1 : -1, fwdK = t.T.L / 2 + 2, offK = t.T.W / 2 + 1;
+        aim.set(tp.x + tf.x * fwdK - tf.z * side * offK, 0, tp.z + tf.z * fwdK + tf.x * side * offK);
+        if (this.mode === 'backup' || this.mode === 'ambush') { this.mode = 'hunt'; this.modeT = 2; }
+      } else if (role && role !== 'kite' && heavy && !t.T.gun && inFront > -0.3) { // approach anything heavy from its rear quarter, never through its nose
         const side = (ux * -tf.z + uz * tf.x) >= 0 ? 1 : -1, back = this.T.special === 'rockets' ? (dist > 30 && !this.specialCd ? -4 : 16) : 9, off = this.T.special === 'rockets' ? 6 : 9; // the Viper lines up further back, for the rockets
         aim.set(tp.x - tf.x * back - tf.z * side * off, 0, tp.z - tf.z * back + tf.x * side * off);
         if (this.mode === 'charge' || this.mode === 'backup' || this.mode === 'ambush') { this.mode = 'flank'; this.modeT = 3; }
@@ -7031,10 +7044,10 @@ const MUSIC = {
   } },
 };
 const MUSIC_FOR = { hellbender: 'hillbilly', mule: 'hillbilly', cruiser: 'funk', tiger: 'march', viper: 'synth', commuter: 'synth', hearse: 'dirge', forklift: 'funk', towtruck: 'country', sandflea: 'surf', tanker: 'country', mixer: 'country', firetruck: 'country', camper: 'country', outrider: 'rock' };
-const AI_ROLE = { viper: 'skirm', sandflea: 'skirm', outrider: 'skirm', cruiser: 'skirm', tiger: 'gun', forklift: 'opp', towtruck: 'opp' }; // tactics by vehicle (see think)
+const AI_ROLE = { viper: 'skirm', sandflea: 'skirm', outrider: 'skirm', cruiser: 'skirm', tiger: 'gun', forklift: 'opp', towtruck: 'opp', camper: 'lob', tanker: 'kite' }; // tactics by vehicle (see think)
 const AI_PREY = { // who each car counters, so hunts first (car-roles)
-  tiger: ['dozer', 'bertha', 'combine', 'mixer', 'tanker', 'firetruck', 'camper'], viper: ['dozer', 'bertha', 'combine', 'mixer', 'tanker'], outrider: ['viper', 'sandflea', 'cruiser', 'forklift', 'towtruck'],
-  sandflea: ['tanker', 'camper', 'tiger'], tanker: [], firetruck: ['sandflea', 'tanker', 'hellbender', 'camper', 'viper'], hellbender: ['tanker', 'camper', 'viper', 'sandflea', 'outrider', 'bertha'],
+  tiger: ['dozer', 'bertha', 'combine', 'mixer', 'tanker', 'firetruck', 'camper'], viper: ['dozer', 'bertha', 'combine', 'mixer', 'tanker', 'tiger'], outrider: ['viper', 'sandflea', 'cruiser', 'forklift', 'towtruck', 'tiger'],
+  sandflea: ['tanker', 'camper', 'tiger'], tanker: [], firetruck: ['sandflea', 'tanker', 'hellbender', 'camper'], hellbender: ['tanker', 'camper', 'viper', 'sandflea', 'outrider', 'bertha'],
   cruiser: ['viper', 'outrider'], dozer: [], bertha: [], combine: ['viper', 'sandflea', 'outrider', 'cruiser', 'forklift'], mixer: ['viper', 'sandflea', 'outrider', 'cruiser'],
   camper: ['dozer', 'bertha', 'combine', 'mixer', 'tanker'], forklift: ['viper', 'sandflea', 'outrider', 'cruiser'], towtruck: ['viper', 'sandflea', 'outrider', 'cruiser', 'forklift', 'camper'] };
 const AI_COUNTER = { // who beats each car (avoid them)
