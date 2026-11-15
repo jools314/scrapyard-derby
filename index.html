@@ -6808,7 +6808,7 @@ const MUSIC = {
     if (s === 0 && bar % 2 === 0) { const o = A.mVoice('sine', hz(root + 24), t, 1.4, 0.07, 3000); o.frequency.linearRampToValueAtTime(hz(root + 28), t + 0.5); } // pedal steel
   } },
 };
-const MUSIC_FOR = { hellbender: 'hillbilly', mule: 'hillbilly', cruiser: 'funk', tiger: 'march', viper: 'synth', commuter: 'synth', hearse: 'dirge', forklift: 'funk', towtruck: 'country', sandflea: 'surf', tanker: 'country', mixer: 'country', firetruck: 'country', camper: 'country', outrider: 'rock' };
+const MUSIC_FOR = { hellbender: 'hillbilly', cruiser: 'funk', tiger: 'march', viper: 'synth', forklift: 'funk', towtruck: 'country', sandflea: 'surf', tanker: 'country', mixer: 'country', firetruck: 'country', camper: 'country', outrider: 'rock', dozer: 'dirge', bertha: 'march', combine: 'hillbilly' }; // R2-68: mule/commuter/hearse no longer exist and dozer/bertha/combine had no entry (they silently fell back to 'rock')
 const PLAN_WEIGHTS = { // relative odds of each tactic per personality
   brawler: { hunt: 5, flank: 2, runup: 2, circle: 1, ambush: 0.5 },
   runup:   { runup: 4, hunt: 2, flank: 2, circle: 1, ambush: 1 },
