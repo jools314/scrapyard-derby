@@ -6022,7 +6022,9 @@ class Car {
       this.mode = 'flee'; this.modeT = rand(2.5, 4.5); barks.say(this, 'flee');
     }
     if (this.modeT <= 0 && this.mode !== 'backup' && this.mode !== 'charge') {
-      const W = PLAN_WEIGHTS[style] || PLAN_WEIGHTS.brawler;
+      const W = { ...(PLAN_WEIGHTS[style] || PLAN_WEIGHTS.brawler) }; // per-car layer on the persona weights: heavies want head-ons, light cars want hit-and-run
+      if (this.body.mass > 6000) { W.hunt = (W.hunt || 0) * 1.5; W.runup = (W.runup || 0) * 1.4; W.flank = (W.flank || 0) * 0.6; W.circle = (W.circle || 0) * 0.6; }
+      else if (this.body.mass < 1400) { W.flank = (W.flank || 0) * 1.5; W.circle = (W.circle || 0) * 1.4; W.runup = (W.runup || 0) * 0.6; W.ambush = (W.ambush || 0) * 1.2; }
       const opts = Object.entries(W).filter(([k]) => k !== this.lastPlan && !(k === 'runup' && (tPlat || Math.abs(t.speed) > 8)));
       let r = Math.random() * opts.reduce((a, [, w]) => a + w, 0), pick = opts[0][0];
       for (const [k, w] of opts) { if ((r -= w) <= 0) { pick = k; break; } }
