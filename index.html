@@ -95,6 +95,7 @@
   #hitDir { position: fixed; left: 50%; top: 50%; width: 54vmin; height: 54vmin; margin: -27vmin 0 0 -27vmin; border-radius: 50%; pointer-events: none; z-index: 24; background: conic-gradient(from -25deg, transparent 0deg, rgba(228,71,44,.55) 50deg, transparent 100deg); -webkit-mask: radial-gradient(closest-side, transparent 60%, #000 61%, #000 88%, transparent 89%); mask: radial-gradient(closest-side, transparent 60%, #000 61%, #000 88%, transparent 89%); }
   .floatScore { position: fixed; z-index: 26; font-family: var(--display); color: var(--accent); text-shadow: 0 2px 0 #000; pointer-events: none; animation: floatUp 1.1s forwards; font-size: clamp(16px, 3vw, 24px); }
   @keyframes floatUp { from { transform: translate(-50%, 0); opacity: 1; } to { transform: translate(-50%, -56px); opacity: 0; } }
+  @media (max-width: 900px) and (orientation: landscape) { .stats { max-height: 58px; overflow: hidden; } .stats:hover, .stats:active { max-height: 82vh; overflow-y: auto; } }
   .toast.bad { color: var(--danger); }
   .toast.cool { color: var(--nitro); }
   @keyframes pop {
