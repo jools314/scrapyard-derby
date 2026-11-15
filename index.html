@@ -663,6 +663,10 @@
         <div><span class="label">Wrecked</span><span class="num" id="rWrecks">0</span></div>
       </div>
       <div class="result" id="overStats">
+        <div><span class="label">Biggest hit</span><span class="num" id="rHit">0</span></div>
+        <div><span class="label">Props flattened</span><span class="num" id="rProps">0</span></div>
+        <div><span class="label">Best air</span><span class="num" id="rAir">0s</span></div>
+        <div><span class="label">Accuracy</span><span class="num" id="rAcc">—</span></div>
         <div><span class="label">Your best</span><span class="num" id="rBest">0</span></div>
       </div>
       <div id="overBoard" hidden><table class="sbt" id="overTable"></table></div>
@@ -2356,6 +2360,7 @@ function fireBullet(car) {
   const ej = car.mgEject; ej.updateWorldMatrix(true, false); const ep = new THREE.Vector3().setFromMatrixPosition(ej.matrixWorld), side = new THREE.Vector3(0, 0, 1).transformDirection(ej.matrixWorld), bv = car.body.velocity;
   emit('debris', ep.x, ep.y, ep.z, bv.x + side.x * rand(2.5, 4.5) + rand(-0.5, 0.5), rand(2.5, 4.5), bv.z + side.z * rand(2.5, 4.5) + rand(-0.5, 0.5), rand(1.2, 2), 0.045, brassMat); // spent casing
   if (player) { const d = player.body.position.distanceTo(car.body.position); sfx.noiseHit('bandpass', rand(1300, 1700), 1.3, clamp(1 - d / 110, 0, 1) * 0.22, 0.04); }
+  if (car.isPlayer) game.shots++;
   roundHit(car, res, dir, 1);
 }
 function shotgunBlast(car) { // eight pellets in a cone out of the passenger window, then a pump
@@ -2372,7 +2377,7 @@ function shotgunBlast(car) { // eight pellets in a cone out of the passenger win
   for (let i = 0; i < 3; i++) emit('flame', pos.x + aim.x * 0.4, pos.y, pos.z + aim.z * 0.4, aim.x * 6 + b.velocity.x, 0, aim.z * 6 + b.velocity.z, 0.12, 0.45);
   emit('smoke', pos.x + aim.x, pos.y, pos.z + aim.z, aim.x * 2 + b.velocity.x, 0.5, aim.z * 2 + b.velocity.z, 0.8, 0.35);
   const v = wv(car, 160); sfx.at(pos).shotgun(v); setTimeout(() => sfx.at(car.body.position).pump(v), 380);
-  if (car.isPlayer) { game.fovPunch = Math.max(game.fovPunch, 3); game.shake = Math.max(game.shake, 0.25); }
+  if (car.isPlayer) { game.fovPunch = Math.max(game.fovPunch, 3); game.shake = Math.max(game.shake, 0.25); game.shots++; }
   if (!car.isPlayer && Math.random() < 0.3) megaphone(car, 'shoot');
 }
 function addSpikeStrip(x, z, yaw, owner) { // a folding police stop-stick laid across the road behind the cruiser
@@ -2426,6 +2431,7 @@ function roundHit(car, res, dir, k) { // what a bullet or pellet does to whateve
   if (o && o.car && o.car !== car) {
     const c = o.car, local = c.body.pointToLocalFrame(hp), model = new THREE.Vector3(local.x + c.comShift, local.y, local.z), nl = c.body.quaternion.conjugate().vmult(new CANNON.Vec3(-dir.x, -dir.y, -dir.z));
     c.applyDamage(0.6 * k * S.damage * c.T.armor, car, zoneOf(nl.negate()), model, 0);
+    if (car.isPlayer) game.hits++;
     if (Math.random() < 0.08 * k) c.dent(model, nl.negate(), 3 + k);
     if (k > 1 && Math.random() < 0.25) c.breakLamp(Math.random() < 0.5 ? 0 : 1);
     if (Math.random() < 0.006) { const loose = c.parts.filter((pt) => !pt.detached && pt.mesh.visible); if (loose.length) c.detach(loose[Math.random() * loose.length | 0], car); }
@@ -2451,6 +2457,7 @@ function fireRocket(car, k) {
   const tb = car.rkTubes[k % car.rkTubes.length]; tb.updateWorldMatrix(true, false);
   const pos = new THREE.Vector3().setFromMatrixPosition(tb.matrixWorld), f = car.fwd, bv = car.body.velocity;
   const mesh = new THREE.Mesh(rocketGeo, rocketMat); mesh.position.copy(pos); scene.add(mesh);
+  if (car.isPlayer) game.shots++;
   shells.push({ pos, vel: new THREE.Vector3(f.x * 45 + bv.x, 2.5, f.z * 45 + bv.z), owner: car, life: 3.2, mesh, rocket: true, target: car.rkTarget, scale: 0.42 });
   for (let i = 0; i < 8; i++) emit('smoke', pos.x - f.x, pos.y, pos.z - f.z, -f.x * rand(2, 5) + rand(-1, 1), rand(0, 1.5), -f.z * rand(2, 5) + rand(-1, 1), rand(0.8, 1.4), rand(0.4, 0.7));
   if (player) { const d = player.body.position.distanceTo(car.body.position); sfx.noiseHit('highpass', 900, 0.7, clamp(1 - d / 140, 0, 1) * 0.45, 0.5); }
@@ -2942,7 +2949,7 @@ function explodeShell(hp, hitBody, owner, scale = 1) {
       const local = c.body.pointToLocalFrame(P), model = new THREE.Vector3(local.x + c.comShift, local.y, local.z);
       const nl = c.body.quaternion.conjugate().vmult(P.vsub(c.body.position).unit());
       const direct = o === hitBody;
-      if (direct) hitCar = c;
+      if (direct) { hitCar = c; if (owner.isPlayer) game.hits++; }
       c.applyDamage(((direct ? 30 : 0) + 22 * f) * scale * S.damage * c.T.armor, owner, zoneOf(nl), model, (14 * f + (direct ? 8 : 0)) * scale); // ~30% hull per direct hit: a full burst wrecks a car
       c.dent(model, nl, (10 + 12 * f) * Math.sqrt(scale));
       if (Math.random() < f * scale) { const loose = c.parts.filter((pt) => !pt.detached); if (loose.length) c.detach(loose[Math.random() * loose.length | 0], owner); }
@@ -5648,6 +5655,9 @@ class Car {
     this.paint.color.copy(this.baseColor).lerp(new THREE.Color(0x3a2a1e), k * 0.75); // rusty, dusty, scorched
     this.paint.roughness = 0.42 + k * 0.5; this.paint.metalness = 0.45 - k * 0.3; if (this.paint.clearcoat !== undefined) this.paint.clearcoat = Math.max(0.03, 0.65 * (1 - k * 1.3)); // the shine goes as the dents come
     this.updateDamageEffects(by);
+    if (by && by.isPlayer && !this.isPlayer && dmg > 0) { // the player's own record of violence
+      game.biggestHit = Math.max(game.biggestHit || 0, dv * 3.6);
+    }
     if (this.health <= 0.01) this.wreck();
   }
 
@@ -7790,7 +7800,7 @@ function drawMinimap() {
 /* ---------------- Game flow ---------------- */
 const game = {
   state: 'menu', slowmo: 0, hitStop: 0, fovPunch: 0, countdown: 0, grace: 0, lastCount: 0, stuckT: 0, score: 0, time: 0, paused: false, overTimer: -1, attractReset: -1, shake: 0, flash: 0, propHits: 0, propToast: -9,
-  matchT: 0,
+  matchT: 0, biggestHit: 0, bestAir: 0, bestWheelie: 0, shots: 0, hits: 0,
   addScore(n, label) {
     this.score += n;
     if (label && n >= 40) toast(`+${n} ${label}`);
@@ -8111,7 +8121,7 @@ function resetMatch() {
   buildPickups();
   spawnCars(); SCORE.reset(); SCORE.show(false);
   game.chatT = 14; game.score = 0; game.time = 0; game.overTimer = -1; game.attractReset = -1; game.shake = 0; game.propHits = 0;
-  game.matchT = S.matchMinutes > 0 ? S.matchMinutes * 60 : 0;
+  game.matchT = S.matchMinutes > 0 ? S.matchMinutes * 60 : 0; game.biggestHit = 0; game.bestAir = 0; game.bestWheelie = 0; game.shots = 0; game.hits = 0;
 }
 // Speech only works after a tap or key press. Guests never press Start, and iOS sometimes doesn't confirm the first try:
 // so every tap or key press retries (at most every few seconds) until a voice has actually been heard.
@@ -8138,6 +8148,10 @@ function showOver() {
   $('rTime').textContent = `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
   const ai = cars.filter((c) => !c.isPlayer);
   $('rWrecks').textContent = GAME_MODE === 'respawn' ? String(player.kills || 0) : `${ai.filter((c) => c.wrecked).length} / ${ai.length}`;
+  $('rHit').textContent = Math.round(game.biggestHit) + ' km/h';
+  $('rProps').textContent = String(game.propHits);
+  $('rAir').textContent = game.bestAir.toFixed(1) + 's';
+  $('rAcc').textContent = game.shots > 0 ? Math.round(game.hits / game.shots * 100) + '%' : '—';
   { const b = bestFor(GAME_MODE, player.type); $('rBest').textContent = b ? b.score.toLocaleString() : '—'; }
   $('overBoard').hidden = GAME_MODE !== 'respawn'; if (GAME_MODE === 'respawn') $('overTable').innerHTML = SCORE.table();
   el.over.hidden = false;
@@ -10160,12 +10174,13 @@ function simBody(now) {
           else if (near.length) barks.say(near[Math.random() * near.length | 0], 'taunt'); }
       }
       if (player.wheelieOn) player.wheelieT = (player.wheelieT || 0) + sdt;
-      else if (player.wheelieT > 1) { const pts = Math.round(player.wheelieT * 80); game.addScore(pts, `WHEELIE ${player.wheelieT.toFixed(1)}s`); if (pts < 40) toast(`WHEELIE ${player.wheelieT.toFixed(1)}s`, 'cool'); player.wheelieT = 0; }
+      else if (player.wheelieT > 1) { game.bestWheelie = Math.max(game.bestWheelie, player.wheelieT); const pts = Math.round(player.wheelieT * 80); game.addScore(pts, `WHEELIE ${player.wheelieT.toFixed(1)}s`); if (pts < 40) toast(`WHEELIE ${player.wheelieT.toFixed(1)}s`, 'cool'); player.wheelieT = 0; }
       else player.wheelieT = 0;
       if (player.contacts === 0 && !player.wrecked) player.airTime += sdt;
       else {
         if (player.airTime > 1.0 && player.type === 'sandflea' && !player.wrecked) landingBlast(player); // the buggy lands in a fireball
         if (player.airTime > 0.8) {
+          game.bestAir = Math.max(game.bestAir, player.airTime);
           const pts = Math.round(player.airTime * 100);
           player.nitro = Math.min(1, player.nitro + player.airTime * 0.12);
           game.addScore(pts, `AIR ${player.airTime.toFixed(1)}s`);
