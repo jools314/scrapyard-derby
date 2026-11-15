@@ -3568,6 +3568,12 @@ const sfx = {
   whoop() { this.tone('square', 600, 1500, 0.06, 0.28); this.tone('square', 1500, 700, 0.05, 0.25, false, 0.28); },
   macdonald() { const n = [392, 392, 392, 293.7, 329.6, 329.6, 293.7, 0, 493.9, 493.9, 440, 440, 392]; let t = 0; for (const f of n) { if (f) { this.tone('square', f, f, 0.08, 0.26, false, t); this.tone('sawtooth', f / 2, f / 2, 0.05, 0.26, false, t); } t += f ? 0.3 : 0.15; } },
   cucaracha() { const n = [392, 392, 392, 523.3, 659.3, 392, 392, 392, 523.3, 659.3]; const d = [0.12, 0.12, 0.12, 0.3, 0.32, 0.12, 0.12, 0.12, 0.3, 0.32]; let t = 0; for (let i = 0; i < n.length; i++) { this.tone('square', n[i], n[i], 0.09, d[i] * 0.9, false, t); this.tone('sawtooth', n[i] / 2, n[i] / 2, 0.04, d[i] * 0.9, false, t); t += d[i] + (i === 4 ? 0.25 : 0.02); } },
+  trombone(half) { // the saddest sound in the yard: wah, wah, wah, wahhh — and for a really early wreck it gives up halfway through the second note
+    const seq = [233.08, 220, 207.65, 196], n = half ? 2 : 4;
+    for (let i = 0; i < n; i++) { const last = i === n - 1, f = seq[i];
+      this.tone('sawtooth', f, last ? f * 0.8 : f * 0.97, 0.13, last ? 0.5 : 0.22, true, i * 0.24);
+      this.tone('square', f / 2, last ? f * 0.4 : f * 0.485, 0.05, last ? 0.5 : 0.22, false, i * 0.24); }
+  },
   coconut(v) { this.noiseHit('bandpass', 1150, 7, 0.7 * v, 0.05); setTimeout(() => this.noiseHit('bandpass', 880, 7, 0.6 * v, 0.05), 150); }, // clip-clop
   honk(type, vol, dur) { // short honk from another car
     if (!this.ctx || vol < 0.03) return;
@@ -7842,6 +7848,7 @@ function drawMinimap() {
 }
 
 /* ---------------- Game flow ---------------- */
+function sadTromboneKind(t) { return t <= 5 ? 'half' : t <= 10 ? 'full' : null; } // SAD TROMBONE: a wreck this early in the match earns one; within 5 s the trombone gives up halfway through the note
 const game = {
   state: 'menu', slowmo: 0, hitStop: 0, fovPunch: 0, countdown: 0, grace: 0, lastCount: 0, stuckT: 0, score: 0, time: 0, paused: false, overTimer: -1, attractReset: -1, shake: 0, flash: 0, propHits: 0, propToast: -9,
   addScore(n, label) {
@@ -7850,6 +7857,7 @@ const game = {
   },
   onWreck(car) {
     if (this.state !== 'playing') return;
+    if (!this.tromboneDone) { const k = sadTromboneKind(this.time); if (k) { this.tromboneDone = true; this.tromboneKind = k; sfx.trombone(k === 'half'); } } // one sad trombone per match, for the first wreck if it comes embarrassingly early
     let killer = car.lastAttacker && car.lastAttacker !== car && simTime - (car.lastAttackTime || 0) < 6 ? car.lastAttacker : null;
     // towed / carried into the crusher, wrecking ball, fire…: the tow truck or forklift that delivered it gets the wreck
     const drag = car.towedBy || car.carriedBy || (car.__relBy && simTime - (car.__relT || -99) < 6 ? car.__relBy : null);
@@ -8150,7 +8158,7 @@ function resetMatch() {
   buildProps(); batchProps();
   buildPickups();
   spawnCars(); SCORE.reset(); SCORE.show(false);
-  game.chatT = 14; game.score = 0; game.time = 0; game.overTimer = -1; game.attractReset = -1; game.shake = 0; game.propHits = 0;
+  game.chatT = 14; game.score = 0; game.time = 0; game.overTimer = -1; game.attractReset = -1; game.shake = 0; game.propHits = 0; game.tromboneDone = false; game.tromboneKind = null;
 }
 // Speech only works after a tap or key press. Guests never press Start, and iOS sometimes doesn't confirm the first try:
 // so every tap or key press retries (at most every few seconds) until a voice has actually been heard.
@@ -9587,7 +9595,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '79'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '80'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
@@ -11194,7 +11202,7 @@ const IDLE = { ms: 3 * 60 * 1000, last: performance.now(), on: !/[?&]noidle=1\b/
   } };
 for (const ev of ['keydown', 'pointerdown', 'pointermove', 'wheel', 'touchstart', 'touchmove']) addEventListener(ev, (e) => { if (e.isTrusted || window.__idleTest) IDLE.poke(); }, { capture: true, passive: true });
 setInterval(() => IDLE.check(), 5000);
-window.__derby = { AUTO, PLAYLOG, BOULDERS, get mapShapes() { return mapShapes; }, respawnCar: (o, t) => respawnCar(o, t), PHYS, cockpitEye: (c) => cockpitEye(c), wakeProp: (pr) => wakeProp(pr), addConcrete: (x, z, r, k) => addConcrete(x, z, r, k), igniteProp: (pr, t) => igniteProp(pr, t), cookBull: (bl, by, dt) => cookBull(bl, by, dt), hoseBull: (car, bl, p, f, dt) => hoseBull(car, bl, p, f, dt), DUCKS, goldConeReveal: (pr) => goldConeReveal(pr), tankerBoom: (p, c) => tankerBoom(p, c), CAR_TYPES, sfx, CANNON, barks, PERF, shells, NETLOG, nearHostAdd: () => nearHostAdd(), nearJoin: () => nearJoin(), JUMBO, BALL, BOLLARDS, GASQ, updateArenaPub: (dt) => updateArena(dt), CRUSHER, crushNow: () => crushNow(), applyNight: () => applyNight(), FIREWORKS, ARENA, CROWD, MP, QUALITY, applyQuality: (i) => applyQuality(i), MERGED, camera, updatePropActivity: (dt) => updatePropActivity(dt), renderer, scene, spawnFree: (x, z, r) => spawnFree(x, z, r), BULLS, updateBulls: (dt) => updateBulls(dt), updateShells, tilt, setTilt, get CRANE() { return CRANE; }, updateCrane: (dt) => updateCrane(dt), CONCRETE, THREE, craters, shells, pickups, barks, PERSONAS, TUNE, game, cars, S, world, CAR_TYPES, sfx, touch, drawGauge, get player() { return player; }, keys, startMatch, selectCar, setValue, debris, props, platformOf, get simTime() { return simTime; }, set simTime(v) { simTime = v; } }; // console tinkering + tests
+window.__derby = { AUTO, PLAYLOG, BOULDERS, get mapShapes() { return mapShapes; }, respawnCar: (o, t) => respawnCar(o, t), PHYS, cockpitEye: (c) => cockpitEye(c), wakeProp: (pr) => wakeProp(pr), addConcrete: (x, z, r, k) => addConcrete(x, z, r, k), igniteProp: (pr, t) => igniteProp(pr, t), cookBull: (bl, by, dt) => cookBull(bl, by, dt), hoseBull: (car, bl, p, f, dt) => hoseBull(car, bl, p, f, dt), DUCKS, goldConeReveal: (pr) => goldConeReveal(pr), sadTromboneKind: (t) => sadTromboneKind(t), tankerBoom: (p, c) => tankerBoom(p, c), CAR_TYPES, sfx, CANNON, barks, PERF, shells, NETLOG, nearHostAdd: () => nearHostAdd(), nearJoin: () => nearJoin(), JUMBO, BALL, BOLLARDS, GASQ, updateArenaPub: (dt) => updateArena(dt), CRUSHER, crushNow: () => crushNow(), applyNight: () => applyNight(), FIREWORKS, ARENA, CROWD, MP, QUALITY, applyQuality: (i) => applyQuality(i), MERGED, camera, updatePropActivity: (dt) => updatePropActivity(dt), renderer, scene, spawnFree: (x, z, r) => spawnFree(x, z, r), BULLS, updateBulls: (dt) => updateBulls(dt), updateShells, tilt, setTilt, get CRANE() { return CRANE; }, updateCrane: (dt) => updateCrane(dt), CONCRETE, THREE, craters, shells, pickups, barks, PERSONAS, TUNE, game, cars, S, world, CAR_TYPES, sfx, touch, drawGauge, get player() { return player; }, keys, startMatch, selectCar, setValue, debris, props, platformOf, get simTime() { return simTime; }, set simTime(v) { simTime = v; } }; // console tinkering + tests
 requestAnimationFrame(frame);
 window.__derby.IDLE = IDLE; window.__derby.TALK = TALK; window.__derby.DROP = DROP; window.__derby.SCORE = SCORE; window.__derby.UPDATE = UPDATE; window.__derby.TABENV = TABENV; window.__derby.PERFREP = PERFREP; // (test hooks)
 window.__derby.VR = VR; window.__derby.XRS = XRS; window.__derby.composer = composer;

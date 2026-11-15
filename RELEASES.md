@@ -4,6 +4,7 @@ Newest first. Every push to `main` goes live; each one bumps `BUILD` and adds a 
 
 | build | date | highlights |
 |---|---|---|
+| 80 | 2026-11-15 | Sad Trombone: the first wreck of a match earns one sad trombone if it happens within ten seconds of the start — and if it happens within five, the trombone gives up halfway through the note. Sound only (a new sfx sting), no new lines. Test: tests/trombone.js |
 | 79 | 2026-11-15 | The Golden Cone: exactly one cone per match is secretly gold underneath the orange. Knock it over and it reveals itself — confetti, a little fanfare and a toast — and stays gold (drawn on its own, out of the prop batch) for the rest of the match. Test: tests/goldcone.js |
 | 78 | 2026-11-15 | Instant Ground Beef: a bull that wanders into the Combine's spinning reel no longer just gets tossed — it comes out the back as a burger, no fire required, and the Combine's harvest counter counts it like anything else the reel takes in. Test: tests/groundbeef.js |
 | 77 | 2026-11-15 | Soggy Burger: hose a bull-burger and it goes limp and friction-free — one shove and it slides across the yard like a curling stone, sagging wide and flat, until it dries out after 8 s and sits proud again. It still counts as a burger everywhere burgers count. Test: tests/soggy.js |
