@@ -10382,13 +10382,29 @@ function bugReport() {
 // The drop: reports go to a public ntfy.sh topic (free, no account; text kept 12 h, big reports become a file kept 3 h)
 // so Claude can fetch them directly instead of you copying and pasting. Nothing secret is in them.
 const DROP = { topic: 'scrapyard-derby-f74277e052a2', sent: 0 };
+function bugPic() { // R2-84: a picture for the bug report — half the bugs this game gets ("the car looked wrong") are visual, and the text report can't show them
+  try {
+    const src = renderer.domElement; if (!src || !src.width || !src.height) return null;
+    if (!XRS.on && !window.__noRender) renderer.render(scene, camera); // the canvas has no preserveDrawingBuffer, so re-render synchronously to hold a fresh frame (raw scene, no post chain — plenty for a bug picture)
+    const w = Math.min(640, src.width), h = Math.max(2, Math.round(src.height * w / src.width));
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const g = c.getContext('2d'); if (!g) return null; g.drawImage(src, 0, 0, w, h);
+    const px = g.getImageData(0, 0, w, h).data; let lo = 765, hi = 0; // a (near-)blank buffer — an XR mirror can hand back black — must not upload as noise
+    for (let i = 0; i < px.length; i += 64) { const l = px[i] + px[i + 1] + px[i + 2]; if (l < lo) lo = l; if (l > hi) hi = l; }
+    if (hi - lo < 12) return null;
+    return c.toDataURL('image/jpeg', 0.72);
+  } catch (e) { return null; } // tainted canvas, no 2D context, whatever: the text report still goes
+}
 function dropUpload(kind, text) {
   if (!window.fetch || window.__noDrop) return Promise.resolve(false);
   const dev = (/iPhone|iPad|Mac|Android|Windows/.exec(navigator.userAgent) || ['web'])[0], stamp = new Date().toISOString().replace(/[:.]/g, '-');
   const name = `${kind}-b${BUILD}-${dev}-${stamp}.txt`;
-  return fetch('https://ntfy.sh/' + DROP.topic, { method: 'PUT', body: text, headers: { Filename: name, Title: `${kind} · build ${BUILD} · ${dev}`, Tags: kind } })
+  const pic = kind === 'bug' ? bugPic() : null; // R2-84: grab the frame NOW, alongside the report — not whenever the upload happens to land
+  const sent = fetch('https://ntfy.sh/' + DROP.topic, { method: 'PUT', body: text, headers: { Filename: name, Title: `${kind} · build ${BUILD} · ${dev}`, Tags: kind } })
     .then((r) => { if (!r.ok) throw new Error(r.status); DROP.sent++; if (kind === 'bug') { toast('🐞 SENT TO CLAUDE ✓', 'cool'); const el = $('nlSum'); if (el) el.textContent = 'Sent to Claude automatically, and copied. (Also kept on this device.)'; } return true; })
     .catch(() => { if (kind === 'bug') { const el = $('nlSum'); if (el) el.textContent = 'Copied! Paste it to Claude (auto-send was blocked here). Also kept on this device.'; } return false; });
+  if (pic) fetch(pic).then((r) => r.blob()).then((blob) => fetch('https://ntfy.sh/' + DROP.topic, { method: 'PUT', body: blob, headers: { Filename: name.replace(/\.txt$/, '.jpg'), Title: `bug picture · build ${BUILD} · ${dev}`, Tags: 'bug' } })).catch(() => {}); // R2-84: the picture rides as its own drop message (ntfy carries one file per message), same topic, same stamp in the name so the pair sorts together; its failure never fails the report
+  return sent;
 }
 window.dropUpload = window.dropUpload || dropUpload; // the play log looks for it here (a test may install its own first)
 function openBugReport() { // one tap: the full report goes straight to the clipboard (and to Claude's drop); a dialog only if the browser won't allow copying

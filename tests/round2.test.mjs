@@ -132,6 +132,7 @@ test('R2-81', 'playlog-diff runs on fixtures with correct deltas', () => {
 });
 test('R2-82', 'perf budgets asserted at match end (BUDGET FAIL)', () => { has(/BUDGET FAIL/); has(/r\.budget/); });
 test('R2-83', 'VR telemetry in the match record', () => has(/R2-83/));
+test('R2-84', 'bug reports carry a downscaled JPEG of the last frame', () => { has(/function bugPic\(\)/); has(/toDataURL\('image\/jpeg', 0\.72\)/); has(/kind === 'bug' \? bugPic\(\)/); has(/R2-84/); });
 test('R2-85', 'BUILD_HASH stamping point wired into records', () => { has(/const BUILD_HASH = '';/); has(/hash: BUILD_HASH/); });
 test('R2-87', 'blowup pose capture into phys.blow', () => { has(/m\.blow/); has(/R2-87/); });
 test('R2-88', 'autoplay presets elim/full/lite', () => { has(/autoplay=\(1\|elim\|full\|lite\)/); has(/R2-88/); });
