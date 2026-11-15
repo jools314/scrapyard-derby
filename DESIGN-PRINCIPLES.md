@@ -10,3 +10,4 @@ Read this before suggesting or building features. For the *taste* behind these r
 6. **Balance is judged by play-log metrics, not guesses.** The game logs every match: K/D per car, who wrecks whom, stuck spots, physics glitches and fps. Balance changes wait for that data.
 7. **It's a kids' game.** Old-fashioned cussing and foreign cusses are OK; no F-bombs or slurs. Characters are original, with no imitation of real people.
 8. **Never ship untested code**, and every bug gets a regression test.
+9. **Show everything once.** Be efficient with screen real estate: never display the same information twice. If a name/health display already identifies a player, their score belongs on that display — not in a second panel repeating the names. Screen space is for the fight.
