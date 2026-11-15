@@ -6360,7 +6360,7 @@ function updateHUD(dt) {
   } else $('reticle').hidden = true;
   hudWidth(el.nosFill, (player.nitro * 100).toFixed(1) + '%');
   { const hd = $('hitDir'), age = simTime - (game.hitDirT ?? -9); if (hd) { if (age < 0.6 && game.state === 'playing') { hd.hidden = false; hd.style.transform = `rotate(${(game.hitDirA * 57.3).toFixed(0)}deg)`; hd.style.opacity = ((1 - age / 0.6) * (game.hitDirS || 1)).toFixed(2); } else hd.hidden = true; } }
-  { const fb = document.querySelector('#touch .tb.fire'); if (fb) { const cd = (player.specialCd || 0) + (player.reload || 0); fb.style.setProperty('--cd', cd > 0 ? clamp(cd / Math.max((WEAPONS[player.T.special] || {}).cd || 0, 2.8), 0, 1).toFixed(2) : '0'); } } // the FIRE button itself shows the weapon isn't ready, with a sweep of how long is left
+  { const fb = document.querySelector('#touch .tb.fire'); if (fb) { const cd = (player.specialCd || 0) + (player.reload || 0); fb.classList.toggle('cooling', cd > 0); fb.style.opacity = cd > 0 ? '0.55' : ''; fb.style.setProperty('--cd', cd > 0 ? clamp(cd / Math.max((WEAPONS[player.T.special] || {}).cd || 0, 2.8), 0, 1).toFixed(2) : '0'); } } // the FIRE button itself shows the weapon isn't ready, with a sweep of how long is left
   game.flash = Math.max(0, game.flash - dt * 2);
   { const f = game.flash.toFixed(2); if (f !== el.flashO) { el.flashO = f; el.flash.style.opacity = f; el.flash.style.display = f > 0 ? '' : 'none'; } } // full-screen layers leave the page when unused: tablets pay for them every frame
   { const w = player ? Math.min(1, (player.wet || 0) * 1.3) : 0; if (w !== el.wetO) { el.wetO = w; $('wet').style.opacity = w.toFixed(2); $('wet').style.display = w > 0.01 ? '' : 'none'; } }
