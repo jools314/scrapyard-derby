@@ -91,6 +91,7 @@
   .gforce { font: 500 11px var(--ui); color: var(--muted); letter-spacing: 0.06em; white-space: nowrap; }
   #toasts { position: absolute; top: calc(116px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); display: grid; gap: 4px; justify-items: center; }
   .toast { font-family: var(--display); font-size: clamp(18px, 4vw, 28px); color: var(--accent); text-shadow: 0 3px 0 #000; white-space: nowrap; animation: pop 1.7s forwards; }
+  .toast.chip { font-size: clamp(13px, 2.4vw, 17px); opacity: .92; }
   #hitDir { position: fixed; left: 50%; top: 50%; width: 54vmin; height: 54vmin; margin: -27vmin 0 0 -27vmin; border-radius: 50%; pointer-events: none; z-index: 24; background: conic-gradient(from -25deg, transparent 0deg, rgba(228,71,44,.55) 50deg, transparent 100deg); -webkit-mask: radial-gradient(closest-side, transparent 60%, #000 61%, #000 88%, transparent 89%); mask: radial-gradient(closest-side, transparent 60%, #000 61%, #000 88%, transparent 89%); }
   .toast.bad { color: var(--danger); }
   .toast.cool { color: var(--nitro); }
@@ -6332,11 +6333,12 @@ const zoneEls = ZONES.map((z) => $('z-' + z)), wheelEls = [0, 1, 2, 3].map((i) =
 function dmgColor(v) { return v < 30 ? '#8cc76f' : v < 65 ? '#f2a20c' : '#e4472c'; }
 function toast(text, kind) {
   const d = document.createElement('div');
-  d.className = 'toast' + (kind ? ' ' + kind : '');
+  const chip = typeof text === 'string' && text.startsWith('+'); // score toasts stack as small chips; warnings and callouts get the big type and a longer life, so a +1000 can't erase the warning that mattered
+  d.className = 'toast' + (kind ? ' ' + kind : '') + (chip ? ' chip' : '');
   d.textContent = text;
   el.toasts.appendChild(d);
   while (el.toasts.children.length > 4) el.toasts.firstChild.remove();
-  setTimeout(() => d.remove(), 1700);
+  setTimeout(() => d.remove(), kind === 'bad' || kind === 'cool' ? 2600 : 1700);
 }
 function buildOpponentList() {
   el.opp.innerHTML = '';
