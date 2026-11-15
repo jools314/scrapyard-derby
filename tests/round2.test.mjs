@@ -137,6 +137,15 @@ test('R2-90', 'active transport named in log headers', () => { has(/activeVia\(\
 
 test('R2-98', 'minimap shape-coding: nemesis/bounty ring completes the set', () => { has(/R2-98/); has(/rivalNemesis\(\)/); });
 
+test('R2-78', 'smoke harness runs (pass) or honestly skips (no browser)', () => {
+  let out = '', code = 0;
+  try { out = execFileSync(process.execPath, [join(root, 'tests/smoke.mjs'), '--secs=5'], { encoding: 'utf8' }); }
+  catch (e) { code = e.status; out = String(e.stdout || '') + String(e.stderr || ''); }
+  if (code === 3) { if (!/SKIPPED/.test(out)) throw new Error('skip without saying so'); return; } // no browser in this sandbox: the skip IS the verified behaviour here
+  if (code !== 0) throw new Error('smoke failed: ' + out.split('\n').slice(-2).join(' '));
+  if (!/SMOKE PASS/.test(out)) throw new Error('exit 0 without a PASS line: ' + out);
+});
+
 // ---- accessibility (92-100) ----
 test('R2-92', 'reduce-flashing: setting + strobe caps', () => { has(/flashSafe/); has(/R2-92/); });
 test('R2-94', 'HUD scale setting applied to HUD + toasts', () => { has(/uiScale/); has(/R2-94/); });
