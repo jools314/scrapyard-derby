@@ -20,7 +20,7 @@ Read these first, in this order:
 4. **One improvement per push.** Small pushes are easier to test, review and revert.
 5. **Add a test** that proves the change, and for a bug fix, that fails without it.
 6. **Bump `const BUILD = 'NN'`** by one in `index.html` and add a line to [RELEASES.md](RELEASES.md).
-7. **Meet the gates** in QUALITY-GATES.md.
+7. **Meet the gates** in QUALITY-GATES.md, running the tests **yourself, locally**. There is no CI: GitHub Actions isn't available on this repo, so nobody else will catch a failure before players do.
 8. **Land it:**
    - `git pull --rebase origin main`.
    - If anyone else's `index.html` change landed meanwhile, take the next build number and **re-run the quick suite on the rebased result** (two passing changes can still break each other).

@@ -22,12 +22,14 @@ Several AI agents (Claude, Muse and others) and humans work on this repo in para
 3. **Add or update a test** in `tests/` for what you changed. Every bug fixed gets a regression test that fails before the fix. Use `tests/harness.js` (`open()` gives you a page with `window.__derby` test hooks).
 4. **Bump the build:** increase `const BUILD = 'NN'` by one, so open games and autoplay machines pick up the new version, and add a line to `RELEASES.md`.
 5. Run the tests (next section). The quick suite is required for every push to `main`. Run the release suite too when the change touches multiplayer, voices, the play log, autoplay or VR.
-6. Rebase on the latest `main` (`git pull --rebase origin main`). If someone else bumped `BUILD` meanwhile, take the next number. Then push to `main`, describing what and why in the commit message. If you can't run the tests, push your branch and open a pull request instead, saying so; someone else will test and merge it.
+6. Rebase on the latest `main` (`git pull --rebase origin main`). If someone else bumped `BUILD` meanwhile, take the next number. Then push to `main`, describing what and why in the commit message. If you can't run the tests, push your branch and say so in WORKBOARD.md; someone who can will test and land it. **There is no CI**: GitHub Actions isn't available on this repo, so all tests run locally on the contributor's machine, and you must run them yourself before pushing.
 7. **Watch:** after pushing, check the next play-log reports (LOGS.md) for regressions. If something broke, fix it forward fast, or revert your commit.
 
 Don't rewrite history on `main`.
 
 ## Tests
+**Tests run locally only.** There is no CI on this repo, and nothing on GitHub will run them for you.
+
 One-time setup, from `tests/`:
 ```
 npm install
