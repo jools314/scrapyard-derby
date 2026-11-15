@@ -1905,11 +1905,11 @@ function updateJumbo(dt) {
   JUMBO.tick++;
   const gq = Math.min(S.gfx, S.autoGfx ? (QUALITY.gfxCap ?? 2) : 2);
   JUMBO.due = (JUMBO.due || 0) - dt; // a second full scene render: 10 a second is plenty for a big screen (by the clock: a 120 Hz screen or the host's tick must not make it 20), 6 on the lighter steps
-  if (window.__noRender || gq === 0 || XRS.on || JUMBO.due > 0) return; JUMBO.due = QUALITY.level >= 3 ? 1 / 6 : 0.1;
-  // only bother when the screen is in view
+  if (window.__noRender || gq === 0 || JUMBO.due > 0) return; JUMBO.due = XRS.on || QUALITY.level >= 3 ? 1 / 6 : 0.1; // R2-1: render in VR too (at the lite rate) — the screen used to freeze on its last flat frame for the whole headset session
+  // only bother when the screen is in view (flat screen only: the XR camera's matrices are three's array camera, so the frustum test would cull wrongly in VR — and in the yard the screen is near enough anyway)
   const fr = JUMBO.fr || (JUMBO.fr = new THREE.Frustum()), m4 = JUMBO.m4 || (JUMBO.m4 = new THREE.Matrix4()), sp = JUMBO.sp || (JUMBO.sp = new THREE.Sphere(JUMBO.screen.position, 18));
   fr.setFromProjectionMatrix(m4.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
-  if (!fr.intersectsSphere(sp) || camera.position.distanceTo(JUMBO.screen.position) > 330) return;
+  if (!XRS.on && (!fr.intersectsSphere(sp) || camera.position.distanceTo(JUMBO.screen.position) > 330)) return;
   const R = JUMBO.replay, cam = JUMBO.cam;
   let restore = null;
   if (R) { // replay: put every car back where it was, slow motion, orbiting the crash
