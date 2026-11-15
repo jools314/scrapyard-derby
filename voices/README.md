@@ -27,6 +27,8 @@ The game normally speaks its lines with the browser's Web Speech voices. This fo
 7. **Try it locally.** Run `python3 -m http.server` in the site folder and open http://localhost:8000/. Clips do not load from `file://`. Start a match. In the browser console, `__derby.VCLIP.stats` counts the clips played, the generic-version swaps, the Web Speech lines and the failures. `__derby.VCLIP.log` lists the last lines played. Add `?clips=off` to the URL to hear the old voices.
 8. **Publish.** Commit `voices/`: lines.json, cast.json, manifest.json, clips/, extract.mjs, render.mjs and README.md. Leave out `voices/design/`. Push, and GitHub Pages serves the clips next to the game.
 
+**Mama Wanjiru (the Steam Elephant, added after voice round 5)** is in `cast.json` with no `voice_id` yet, and her ~99 lines plus everyone's roast of her and the new Kev/Lulu calls are in `lines.json`; until they are rendered they play as Web Speech with subtitles. Rendering her is: `node voices/render.mjs --design mama-wanjiru`, then `--design-keep mama-wanjiru <generated_voice_id>`, then `node voices/render.mjs --only mama-wanjiru` (Flash model, about 5k characters, so roughly 2.5k credits: check the budget in docs/voices/round5-brief.md first).
+
 After you add or change lines in the game: run `extract.mjs`, then `render.mjs` (it renders only the new ids), then optionally `render.mjs --prune` to delete clips for lines that no longer exist.
 
 ## Status (Build 70, voice round 5)

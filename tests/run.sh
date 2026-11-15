@@ -27,13 +27,14 @@ quick() {
   t memguard 900 "MEMGUARD PASS"
   TAG=-spider t drive 900 "" ONLY=spider
   TAG=-spider t crusheropen 600 "CRUSHEROPEN PASS" TYPE=spider
+  TAG=-d t drive 900 "" ONLY=elephant
   t tracks 900 "TRACKS PASS"
   t blade 600 "BLADE PASS"
   t crusheropen 600 "CRUSHEROPEN PASS"
   t lightcount 600 "LIGHTCOUNT PASS"
   t portalstart 900 "PORTALSTART PASS"
   t watchdog 600 "WATCHDOG PASS"
-  t interact 1200 "^16/16"
+    t interact 1200 "^18/18"
   t twothumb 600 "TWO-THUMB PASS"
   t touchcam 600 "TOUCHCAM PASS"
   t gearmenu 600 "GEARMENU PASS"
@@ -69,6 +70,7 @@ quick() {
   t updatecheck 300 "UPDATECHECK PASS"
   t spider 1200 "SPIDER PASS"
   t spidertricks 600 "SPIDERTRICKS PASS"
+  t elephant 1500 "ELEPHANT PASS"
 }
 release() {
   quick

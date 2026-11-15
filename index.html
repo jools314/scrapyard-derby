@@ -2551,6 +2551,7 @@ const HORN_LINES = { // what each driver shouts when you lean on the horn (in ch
   tanker: ["Beep beep! Uncle Bogdan is coming! Move or become pancake!", "Opa! Make way for Lyudmila! She is very big lady!", "Hello! Excuse me! I am tanker! You are not!"],
   combine: ['Allez, allez! Get out of my field!', 'Sacré bleu! Move, you pigeons!', 'Oh là là, crunch crunch, here comes the harvest!'],
   bertha: ['Honey, I\'m three storeys up. I can\'t see you, and I\'m not lookin\'.', 'Bless your heart, you\'re in my way!', 'Sugar, I\'ve hauled bigger rocks than you before breakfast!'],
+  elephant: ['Make way, make way! The elephant is coming!', 'Twende! Out of my road, little kuku!', 'Haraka, haraka! Malkia does not stop for anybody!'], // (the horn itself is Malkia trumpeting)
   dozer: ['Move it or lose it!', 'Beep beep beep! That\'s a dozer, and it don\'t care!', 'Clear the job site, folks!'],
 };
 function hornLine(car) { // a horn press gets an in-character shout (not every press: kids lean on the horn)
@@ -3747,6 +3748,7 @@ const sfx = {
       return;
     }
     const now = performance.now(), edge = on && !this.hornWas; this.hornWas = on;
+    if (type === 'elephant') { if (edge) this.trumpet(1); return; } // no horn: Malkia trumpets
     if (type === 'tiger') { if (edge) this.radio(); return; } // a tank has no horn: the commander gets on the radio
     if (type === 'camper') { if (on && now >= (this.hornNext || 0)) { this.hornNext = now + 900; this.aooga(); } return; } // A-OO-GAH
     if (type === 'cruiser' && on && now >= (this.hornNext || 0)) { this.hornNext = now + 650; this.whoop(); } // whoop-whoop over the steady horn
@@ -3780,10 +3782,12 @@ const sfx = {
       this.tone('sawtooth', f, last ? f * 0.8 : f * 0.97, 0.13, last ? 0.5 : 0.22, true, i * 0.24);
       this.tone('square', f / 2, last ? f * 0.4 : f * 0.485, 0.05, last ? 0.5 : 0.22, false, i * 0.24); }
   },
+  trumpet(v) { this.tone('sawtooth', 330, 640, 0.16 * v, 0.35, true); this.tone('sawtooth', 640, 500, 0.14 * v, 0.6, true, 0.3); this.tone('square', 165, 320, 0.06 * v, 0.85); this.noiseHit('bandpass', 1300, 1.5, 0.1 * v, 0.8); }, // an elephant's trumpet: a brassy rising blare
   coconut(v) { this.noiseHit('bandpass', 1150, 7, 0.7 * v, 0.05); setTimeout(() => this.noiseHit('bandpass', 880, 7, 0.6 * v, 0.05), 150); }, // clip-clop
   honk(type, vol, dur) { // short honk from another car
     if (!this.ctx || vol < 0.03) return;
     if (type === 'forklift') { this.coconut(vol); return; }
+    if (type === 'elephant') { this.trumpet(vol); return; }
     const H = HORNS[type] || HORNS.outrider, c = this.ctx, t = c.currentTime;
     const out = c.createGain(); out.gain.value = vol; out.connect(this.out());
     const v = this.hornChain(H, out);
@@ -4210,7 +4214,7 @@ const WALK = {
     const slow = (c.stuckConcrete ? 0.35 : 1) * (c.inMud ? 0.6 : 1) * (1 - c.engineDmg * 0.3), vmax = WALK.VMAX * (c.boosting ? 1.3 : 1) * slow;
     const want = brake ? 0 : thr > 0 ? thr * vmax : thr * WALK.VREV * slow, gnd = contacts / 4;
     if (gnd > 0 && !c.craned) {
-      const acc = brake ? 9 : thr !== 0 && Math.sign(thr) !== Math.sign(vF) && Math.abs(vF) > 0.5 ? 6 : thr === 0 ? 5 : 3.2;
+      const acc = brake || c.stallT > 0 ? 12 : thr !== 0 && Math.sign(thr) !== Math.sign(vF) && Math.abs(vF) > 0.5 ? 6 : thr === 0 ? 5 : 3.2;
       const aF = clamp((want - vF) * 4, -acc, acc) * gnd, shoved = simTime - (c.blastT ?? -9) < 0.5, aL = shoved ? 0 : clamp(-vL * 5, -10, 10) * gnd; // feet don't slide sideways
       WALK.F.set((fx * aF - fz * aL) * b.mass, 0, (fz * aF + fx * aL) * b.mass); b.applyForce(WALK.F);
       const yawW = steer * WALK.YAW * (vF < -0.5 && thr < 0 ? -1 : 1) * (brake ? 0.5 : 1); // turns on the spot too; backing up steers like a car
@@ -4302,7 +4306,7 @@ const WALK = {
   trunkStart(c) {
     if (c.stallT > 0) { c.specialT = 0; c.specialCd = 0.4; if (c.isPlayer) toast('BOILER STALLED!', 'bad'); return; }
     if (c.hold) { c.specialT = 0; return; }
-    const t = WALK.grabbable(c), b = c.body;
+    const t = WALK.grabbable(c), b = c.body; c.trunkUses = (c.trunkUses || 0) + 1;
     if (t) {
       c.specialT = 0; c.specialCd = 2.6; c.steamOn = false;
       const vb = t.body; t.massSave = vb.mass; vb.mass = 300; vb.updateMassProperties(); vb.wakeUp();
@@ -4352,7 +4356,7 @@ const WALK = {
     if (c.burnT > 0) c.burnT = 0; c.douse = Math.max(c.douse || 0, 1);
     const inCone = (q, r) => { const vx = q.x - tip.x, vz = q.z - tip.z, al = vx * fx + vz * fz; return al > -1 && al < r && Math.abs(vx * fz - vz * fx) < 1.4 + Math.max(0, al) * 0.35 ? Math.max(0, al) : -1; };
     for (const o of cars) { if (o === c || (c.hold && c.hold.c === o)) continue; const al = inCone(o.body.position, 15); if (al < 0) continue;
-      if (!o.wrecked) { const k = Math.min(o.body.mass, 7000) * 16 * (1 - al / 17); WALK.F.set(fx * k, k * 0.1, fz * k); o.body.applyForce(WALK.F); o.body.wakeUp(); o.applyDamage(2.5 * dt * S.damage * o.T.armor, c, 'front', null, 0); o.lastAttacker = c; o.lastAttackTime = simTime; }
+      if (!o.wrecked) { const dv = 14 * dt * (1 - al / 18) * Math.min(1, 3500 / o.body.mass); o.body.velocity.x += fx * dv; o.body.velocity.z += fz * dv; o.body.velocity.y += dv * 0.08; o.body.wakeUp(); // (a velocity change per frame: a force would only last one physics sub-step) o.applyDamage(2.5 * dt * S.damage * o.T.armor, c, 'front', null, 0); o.lastAttacker = c; o.lastAttackTime = simTime; }
       o.wet = Math.min(1, (o.wet || 0) + dt * 1.5);
       if (o.burnT > 0) { o.burnT = 0; if (c.isPlayer && game.state === 'playing') toast(`FIRE OUT · ${o.name}`, 'cool'); }
       o.douse = Math.max(o.douse || 0, o.wrecked ? 20 : 6); }
@@ -4384,13 +4388,13 @@ const WALK = {
     WALK.m4.compose(c.group.position, c.group.quaternion, WALK.one); c.root.updateMatrix(); WALK.m4.multiply(c.root.matrix).invert(); const inv = WALK.m4;
     const off = (f, i) => { const h = b.pointToWorldFrame(c.vehicle.wheelInfos[i].chassisConnectionPointLocal, WALK.v1); return Math.hypot(f.p.x - h.x, f.p.z - h.z); };
     let cad = c.wrecked ? 0 : hv / CYC + yr * 0.3; if (cad < 0.1) cad = 0;
-    if (!cad && !c.wrecked && G.feet.some((f, i) => f.sw || off(f, i) > 0.45)) cad = 0.9; // stopping: finish the step and stand square
+    const settle = !cad && !c.wrecked && G.feet.some((f, i) => f.sw || off(f, i) > 0.45); if (settle) cad = 0.9; // stopping: finish the step and stand square (only feet that are out of place lift)
     G.ph = (G.ph + cad * ldt) % 1;
     const lead = cad ? DUTY / Math.max(cad, 0.5) * 0.5 : 0;
     for (let i = 0; i < 4; i++) {
       const f = G.feet[i], L = c.legs[i], h = b.pointToWorldFrame(c.vehicle.wheelInfos[i].chassisConnectionPointLocal, WALK.v1), nx = h.x + v.x * lead, nz = h.z + v.z * lead;
       if (!f.init || Math.hypot(f.p.x - h.x, f.p.z - h.z) > 2.4 || Math.abs(f.p.y - (b.position.y - WALK.REST)) > 2.5) { f.p.set(nx, WALK.ground(nx, nz, b.position.y), nz); f.init = true; f.sw = false; }
-      const lp = (G.ph + WALK.OFF[i]) % 1, sw = cad > 0 && lp >= DUTY;
+      const lp = (G.ph + WALK.OFF[i]) % 1, sw = cad > 0 && lp >= DUTY && (!settle || f.sw || off(f, i) > 0.3);
       if (sw) { const s = (lp - DUTY) / (1 - DUTY); if (!f.sw) { f.sw = true; f.from.copy(f.p); f.gy = WALK.ground(nx, nz, b.position.y); }
         const e = s * s * (3 - 2 * s); f.p.set(lerp(f.from.x, nx, e), lerp(f.from.y, f.gy, e) + Math.sin(Math.PI * s) * (0.3 + Math.min(0.3, hv * 0.05)), lerp(f.from.z, nz, e)); }
       else if (f.sw) { f.sw = false; f.p.set(nx, f.gy, nz); WALK.stomp(c, i, f.p, cd); }
@@ -4403,6 +4407,7 @@ const WALK = {
   },
   chuff(c, k) { const q = c.body.pointToWorldFrame(WALK.v1.set(2.6, c.funnelY, 0)); emit('smoke', q.x, q.y, q.z, rand(-0.3, 0.3) - c.fwd.x * 1.5, rand(2, 3.5), rand(-0.3, 0.3) - c.fwd.z * 1.5, rand(0.9, 1.5), rand(0.2, 0.35) * (0.6 + k)); },
   stomp(c, i, p, cd) { // a foot comes down: dust, a thump you feel, a chuff from the funnel, and crates under it go flat
+    c.stompN = (c.stompN || 0) + 1;
     if (i < 2 && cd < 80) WALK.chuff(c, 1);
     if (cd < 60) for (let n = 0; n < (QUALITY.lite ? 2 : 4); n++) { const a = rand(0, 6.28); emit('dust', p.x + Math.cos(a) * 0.5, p.y + 0.15, p.z + Math.sin(a) * 0.5, Math.cos(a) * rand(1.5, 3), rand(0.3, 0.9), Math.sin(a) * rand(1.5, 3), rand(0.5, 0.9), rand(0.4, 0.7)); }
     if (player) { const pd = player.body.position.distanceTo(c.body.position);
@@ -7656,10 +7661,38 @@ CAR_CAST.spider = { nick: 'Kwaku Anansi', hand: 0.75, style: 'vulture', from: 'K
     charge: ["Agoo! Spider coming through!", "Eight legs, full speed! Here comes the clever part!"],
     flee: ["This is not running! This is a clever plan! Very clever!", "Every good trickster knows when to leave the story!"],
   } };
+// The Brass Steam Elephant's driver: Mama Wanjiru, a booming, laughing Kenyan safari ranger, and Malkia ("queen"), her elephant. Swahili: Twende (let's go),
+// pole pole (slowly), hakuna shida (no problem), haraka (hurry), kumbe (well, what do you know), mtoto (child), kuku (chicken), karibu (welcome), kwaheri (goodbye), lala salama (sleep well).
+CAR_CAST.elephant = { nick: 'Mama Wanjiru', hand: 0.85, style: 'brawler', from: 'a booming, laughing Kenyan safari ranger who drives Malkia, a Victorian brass steam elephant', lang: 'en-KE', pitch: 0.9, rate: 1.0, color: '#c8963a',
+  words: { ex: ['Kumbe', 'Eh-heh', 'Aiya', 'Wewe', 'Pole pole'], insult: ['you little kuku', 'you naughty mtoto', 'you rusty matatu', 'you lost tourist'], kin: ['my Malkia', 'my grandchildren', 'the rangers of Tsavo'], thing: ['my chai', 'my ranger hat', 'Malkia\'s trunk'], boast: ['Hakuna shida!', 'Malkia never forgets!'], voice: ['Tessa', 'Google UK English Female', 'Karen', 'Samantha'] },
+  lines: {
+    start: ['Twende, Malkia! Let us go and teach these little cars some manners!', 'Karibu, everybody! Welcome to my yard. Now get out of my way!', 'I have walked with real elephants in Tsavo. You are not scary. You are kuku!', 'Pole pole, Malkia... slowly, slowly... then STOMP!', 'Mama Wanjiru is here! Sit down, buckle up, and say your prayers, children!'],
+    hitYou: ['STOMP! Hakuna shida!', 'Eh-heh! Malkia says hello! With her foot!', 'You see? An elephant never forgets. And she will not forget YOU!', 'Ha ha ha! Flat like a chapati!', 'Kumbe! You bounced! Do it again!', 'That is what we call a tembo hug, my dear!'],
+    gotHit: ['Aiya! Who taught you to drive? Your mother? I am calling her!', 'Wewe! You scratched my Malkia! She was polished this morning!', 'Eh! Do that again and I sit on you!', 'Pole pole! Gently with the brass, you hooligan!', 'You hit an elephant? Mtoto, that was a very big mistake. Very big.'],
+    wheel: ['A leg? She has four! Hakuna shida!', 'Malkia is limping! Somebody fetch my big spanner!'],
+    low: ['Malkia is wheezing like my uncle on the stairs!', 'Pole pole, my queen, do not die on Mama now!', 'Steam everywhere! She is crying brass tears!', 'Eh, the rivets are popping like popcorn!'],
+    wrecked: ['Aiya! Malkia, my queen! Lie down and rest, my darling.', 'Kumbe... the elephant is sleeping. Do not wake her. She wakes up angry.', 'Even a tembo must sit down sometimes!', 'Ai ai ai! Somebody call the rangers! And a welder!'],
+    gloat: ['Ha ha ha! The elephant wins again! Asante sana!', 'Who is the queen of this yard? Malkia! And Mama!', 'Sawa sawa. Next!', 'In the bush, the elephant goes where she likes. Same here, my dear.', 'Clean yard! Mama likes a tidy yard!'],
+    air: ['Kumbe! Elephants do not FLY!', 'Eh! Malkia has wings now! Twende juu!', 'Ai! My hat! Somebody hold my hat!'],
+    taunt: ['Come here, little kuku! Malkia wants to play!', 'Run, run! Pole pole, I will catch you anyway!', 'I have chased lions faster than you, mtoto!', 'You drive like a lost tourist looking for the toilet!', 'My grandmother walks faster, and she carries the water on her head!', 'Haraka, haraka! Hurry up and get flattened!'],
+    fire: ['Trunk! Grab him!', 'Malkia, pick it up! We do not leave litter in the yard!', 'Fwoosh! Steam bath, my dear!', 'Up you go, little kuku!', 'Throw it, Malkia! Throw it far!'],
+    charge: ['Twende! TWENDE!', 'Haraka, Malkia! Stomp, stomp, STOMP!', 'Make way! The elephant is coming!', 'Charge! Like the big bull in Amboseli!'],
+    flee: ['Pole pole, Malkia, we go around... quickly!', 'Even an elephant knows when to walk away!', 'Back to the waterhole! Haraka!'],
+    crash: ['Who put that wall in my path? An elephant does not go around!', 'Eh! Malkia, look where you put your feet!', 'Kumbe! That wall was harder than it looked.'],
+    respawn: ['Mama is back! And Malkia is freshly polished!', 'You thought the elephant was finished? Ha! An elephant never forgets!', 'New boiler, same Mama! Twende!', 'Karibu tena! Welcome back... to your doom!'],
+    onFire: ['Fire! Fire on my Malkia! Steam! STEAM!', 'Aiya, my bottom is hot! The howdah is burning!', 'Somebody bring water! Or a very big cup of chai!'],
+    rodeo: ['Eh! I am riding an elephant AND a bull! Today is a good day!'],
+    burger: ['Nyama choma! Who brought the ugali?', 'Ha! Roasted bull! In Nairobi we call that Sunday lunch!'],
+    rival: ['{v}! Your {vcar} is a toy. Malkia eats toys for breakfast!', '{v}, my dear, come closer so I can see you. Then I sit on you!', 'Eh, {v}! I have seen warthogs drive better!', '{v}! Pole pole... I am coming for you, slowly, slowly!', '{v}, you are very brave. Very brave, and very soon very flat.', 'Wewe, {v}! Get out of my yard!'],
+    kill: ['Lala salama, {v}! Sleep well!', '{v} is finished! Malkia never forgets, and you will never forget Malkia!', 'Ha ha ha! {v}, you have been stomped!', 'Asante, {v}! Thank you for playing!', 'Kwaheri, {v}! Bye-bye!'],
+    boiler: ['Aiya! The boiler! Malkia is blowing her top!', 'Kumbe! Too much steam! Everybody duck!', 'Pole pole, Malkia, breathe, breathe!', 'Ai! My hat flew off! Who did that to my boiler?!', 'Eh! She is angry now! Give her four seconds!'],
+  } };
 for (const P of Object.values(CAR_CAST)) PERSONAS.push(P); // (pushed last: guests look characters up by index)
 const CAST_SET = new Set(Object.values(CAR_CAST));
 const ANNOUNCER = { nick: 'Crash Cam Kev', caller: true, lang: 'en-AU', pitch: 0.95, rate: 1.18, words: { voice: ['Lee', 'Gordon', 'Karen', 'Catherine', 'Google UK English Male', 'Daniel', 'Ralph'] } }; // an over-the-top Aussie play-by-play caller
 const ANN_LINES = {
+  trunk: ['{a} just picked up {v} with the trunk and THREW it! Look at it fly!', 'The elephant has {v}! Up, up and AWAY!', '{v} has been flung by an elephant! You don\'t see that every day, folks!', 'Trunk, lift and toss! {a} is playing catch with {v}!'],
+  boiler: ['The elephant has blown its top! Steam everywhere!', 'KABOOM! {v}\'s boiler just went! That elephant is going nowhere!', 'Ooh, too much pressure! {v} is having a little lie-down!', 'There goes the safety valve! {v} is parked in a cloud!'],
   harvest: ['{a} is HARVESTING {v}! Straw bales out the back, folks!', 'Oh no, {v} has gone into the combine! Bit of a rough cut there!', 'That\'s not wheat, {a}! That\'s {v}!', 'Papa Jacques had a {v}, and now he has a bale!'],
   crushed: ['{a} just PANCAKED {v}! Flat as a tack!', 'Oh, {v} has been squashed like a bug on a windscreen!', '{a} parks fourteen tonnes on {v}. Rude!', 'That\'s not a car anymore, that\'s a sandwich press special!'],
   followUp: ['And ANOTHER one, just for good measure!', 'Oh, they\'ve gone back for seconds! Cheeky!', 'Hit \'em again! A little top-up for {v}!', 'Double tap! {v} did not need that, but {a} gave it anyway!', 'One for the road! Absolutely unnecessary, absolutely beautiful!'],
@@ -7830,7 +7863,7 @@ const MUSIC = {
     if (s === 0 && bar % 2 === 0) { const o = A.mVoice('sine', hz(root + 24), t, 1.4, 0.07, 3000); o.frequency.linearRampToValueAtTime(hz(root + 28), t + 0.5); } // pedal steel
   } },
 };
-const MUSIC_FOR = { hellbender: 'hillbilly', mule: 'hillbilly', cruiser: 'funk', tiger: 'march', viper: 'synth', commuter: 'synth', hearse: 'dirge', forklift: 'funk', towtruck: 'country', sandflea: 'surf', tanker: 'country', mixer: 'country', firetruck: 'country', camper: 'country', outrider: 'rock' };
+const MUSIC_FOR = { elephant: 'march', hellbender: 'hillbilly', mule: 'hillbilly', cruiser: 'funk', tiger: 'march', viper: 'synth', commuter: 'synth', hearse: 'dirge', forklift: 'funk', towtruck: 'country', sandflea: 'surf', tanker: 'country', mixer: 'country', firetruck: 'country', camper: 'country', outrider: 'rock' };
 HORNS.spider = { f: [523.3, 659.3, 784], wave: 'triangle', drive: 2, lp: 3200, gain: 0.09, attack: 0.008, vibrato: 6 }; // a cheeky three-note xylophone toot
 MUSIC_FOR.spider = 'funk';
 const PLAN_WEIGHTS = { // relative odds of each tactic per personality
@@ -8272,6 +8305,9 @@ Object.assign(ROASTS.bertha, { spider: "Anansi, sugar, I've squashed bigger spid
 Object.assign(ROASTS.dozer, { spider: "Anansi, partner, I'll bulldoze that web and all eight of your little legs with it." });
 Object.assign(ROASTS.mixer, { spider: "Anansi, you like stories? Here's one: a spider walks into wet cement. The end. Capisce?" });
 Object.assign(ROASTS.cruiser, { spider: "Anansi, sugar, eight legs means eight tickets for jaywalkin'!" });
+// Mama Wanjiru roasts everyone, and everyone roasts Mama Wanjiru (kept in their own block so other new drivers merge cleanly)
+ROASTS.elephant = { camper: "Mr. White, your camper smells like a burnt cooking pot. Open a window, my dear!", tiger: "Klaus, a tank with a hat! In Kenya we keep water in tanks. That is all yours is good for!", firetruck: "Captain McCaffrey, put away your little hose. Malkia has a whole trunk full of steam!", tanker: "Bogdan! Bring your goat to my farm. She can mow the grass while I flatten you!", hellbender: "Ragnar, that beard is so big, birds are building nests in it! I can see the eggs!", sandflea: "Little buggy, little driver, little brain! Pole pole, mtoto, Mama will catch you!", outrider: "Maxine, you shout louder than a hippo in the mud. And you smell the same!", viper: "Dom, your car is so low, my Malkia keeps stepping on it and saying sorry!", towtruck: "Cletus, you want to tow an elephant? Come, try! Malkia will tow YOU, by the ear!", forklift: "King Arthur! Your little forks cannot lift Mama's lunch! Malkia will lift YOU!", combine: "Papa Jacques, your farm machine is slower than a tortoise with a sore foot!", bertha: "Bertha, my sister! Big truck, big heart! But Malkia still wins the beauty contest!", dozer: "Bob, you push dirt all day? In my village we call that sweeping. Get a broom!", mixer: "Tony, you make cement shoes? Malkia already has brass shoes. Size forty-five!", cruiser: "Sheriff, you cannot give an elephant a ticket! Where would you even stick it?" };
+for (const [k, line] of Object.entries({ camper: "Mrs. Wanjiru. A Victorian boiler on four legs. I respect the engineering. Not the driving.", tiger: "Frau Wanjiru, your elephant is magnificent. Ze boiler on its back is also a magnificent target.", firetruck: "Wanjiru, ye've a kettle on legs! I'll hose your fire AND your boiler, ye daft article!", tanker: "Mama Wanjiru! Your elephant is beautiful! In my village we have goat. Is smaller. Is not brass.", hellbender: "Wanjiru! A brass beast! Ragnar will melt it down and make a helmet! A VERY big helmet!", sandflea: "Mama Wanjiru! Your elephant is so slow, I can finish a whole song and dance before it turns around!", outrider: "Wanjiru, yer big tin elephant's got a kettle on its back! I'll have it whistlin', hen!", viper: "Mama, your elephant does zero to sixty in a week. ¡Órale! A long week.", towtruck: "Miss Wanjiru, I'd tow that there elephant, but I reckon she'd tow me first. Dagnabbit.", forklift: "Lady Wanjiru! A brass elephant! We shall build a large wooden rabbit and leave it at your feet!", combine: "Madame Wanjiru, your elephant just stepped on my cabbages! All of them! Sacré bleu!", bertha: "Wanjiru, sugar, that elephant's prettier than my Sunday hat. I'm still gonna run her over.", dozer: "Mama Wanjiru, that elephant ain't on my site plan, and she sure ain't up to code.", mixer: "Mama Wanjiru, an elephant? My family says, don't talk about the elephant in the room. Now it's in the yard. Capisce?", cruiser: "Mama Wanjiru, that elephant ain't registered, ain't insured, and it's blowin' steam at an officer!" })) if (ROASTS[k]) ROASTS[k].elephant = line;
 const CAST_ACCENT = { // the recast drivers' own words (captions show them as written)
   tiger: { start: ['Achtung! Achtung! Ze panzer is here. Wunderbar.'], hitYou: ['Jawohl! Direct hit! Wunderbar!', 'Ach, you crumple so beautifully. Danke schön.'], gotHit: ['Was ist das?! You have scratched my beautiful panzer!'], gloat: ['Wunderbar. Simply wunderbar.'], taunt: ['Achtung, little rabbit. I am coming for you. Langsam. Slowly.'], fire: ['Feuer! Feuer frei!'], wrecked: ['Ach du lieber! My panzer!'], air: ['Mein Gott! Panzers do not fly!'] },
   mixer: { hitYou: ['Madonna mia, that was beautiful! Capisce?', 'Basta! You had enough? I think you had enough.'], gotHit: ['Ay, ay, ay! Mannaggia! My truck!'], taunt: ['You and me, we gonna have a little chat. Capisce?'], gloat: ['Bada bing, bada boom. Basta.'], start: ['Eh, buongiorno, everybody. Tony\'s here. Nobody panic.'], wrecked: ['Madonna mia... call my mother.'], fire: ['Cement shoes, extra large! Capisce?'] },
