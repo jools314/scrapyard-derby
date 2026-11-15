@@ -9030,7 +9030,7 @@ const MP = {
     this.code = typeof fixed === 'string' ? fixed : Math.random().toString(36).slice(2, this.transport === 'peer' ? 10 : 7); const fam = this.code === fixed;
     if (!fam) { this.family = false; famSet(false); }
     try {
-      if (this.transport === 'peer') { this.status('opening a game…'); try { this.room = await relayHost(this.code); this.via = 'relay'; } catch (e) { if (fam) throw e; this.info('The relay was unreachable, using the backup server…'); await loadPeerJS(); this.room = await peerRoom(this.code, true); this.via = 'peerjs'; } }
+      if (this.transport === 'peer') { this.status('opening a game…'); try { this.room = await relayHost(this.code); this.via = 'relay'; } catch (e) { if (fam) throw e; NETLOG.incident('me', 'relay unreachable: fell back to the PeerJS backup server'); this.info('The relay was unreachable, using the backup server…'); await loadPeerJS(); this.room = await peerRoom(this.code, true); this.via = 'peerjs'; } } // R2-33: fallbacks are named in the log, not just felt
       else this.room = await this.lobby.join('derby-' + this.code);
     } catch (e) { this.status('could not open a game'); this.info('Could not open a game: ' + this.explain(e.type || e.message || 'error')); return; }
     this.role = 'host';
@@ -9046,14 +9046,14 @@ const MP = {
     if (!(this.lobby || this.transport === 'peer') || this.role !== 'solo') return;
     if (code !== famCode(famName())) { this.family = false; famSet(false); } // a friend's link: an ordinary game
     try {
-      if (this.transport === 'peer') { const pj = /^p-/.test(code); this.status(`joining ${code} · build ${BUILD} · ${pj ? 'peerjs' : 'relay'}…`); if (pj) { await loadPeerJS(); this.room = await peerRoom(code.slice(2), false); } else this.room = await relayJoin(code); }
+      if (this.transport === 'peer') { const pj = /^p-/.test(code); this.via = pj ? 'peerjs' : 'relay'; this.status(`joining ${code} · build ${BUILD} · ${pj ? 'peerjs' : 'relay'}…`); if (pj) { await loadPeerJS(); this.room = await peerRoom(code.slice(2), false); } else this.room = await relayJoin(code); } // R2-33: the guest's transport is recorded too (it is dictated by the host's link prefix — a guest cannot switch sides of the chain)
       else this.room = await this.lobby.join('derby-' + code);
     } catch (e) { this.status('could not join'); this.info('Could not join: ' + this.explain(e.type || e.message || 'error')); return; }
     this.role = 'guest'; this.code = code; this.snaps = []; this.builtRk = ''; this.rt = 0; this.seen = 0; this.joinT = Date.now();
     try { const rc = localStorage.getItem('derby-car-room-' + code); if (rc && CAR_TYPES[rc]) playerType = rc; } catch (e) {} // R2-38: your car is remembered per room — the car you use in Dad's yard is restored on join, and your solo default is left alone
     if (this.lobby) this.lobby.presence({ host: null });
     this.sendWant();
-    $('btnHost').hidden = true; $('btnFamily').hidden = true; $('btnLeave').hidden = false; $('btnStart').hidden = true; this.status(this.family && code === famCode(famName()) ? 'in the family yard' : `in game ${code}`); this.renderGames();
+    $('btnHost').hidden = true; $('btnFamily').hidden = true; $('btnLeave').hidden = false; $('btnStart').hidden = true; this.status(this.family && code === famCode(famName()) ? 'in the family yard' : `in game ${code}${this.via ? ' · ' + this.via : ''}`); this.renderGames(); // R2-33: the status line names the transport you are actually on
     $('mpInfo').textContent = 'Joined! Pick your car; the host starts the round.'; $('qcRow').hidden = false; // R2-26
   },
   async leave(keepFamily) { // the Leave button: back to playing alone (and stay out of the family yard on reload)
