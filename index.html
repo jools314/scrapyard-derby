@@ -9226,6 +9226,10 @@ const MP = {
   hostFrame(dt) {
     if (!this.room) return;
     this.qcWatch(); // R2-26
+    { // R2-32: the lag vote. If at least half the yard has flagged this host as crawling for 10 s straight, say so once — the host can then hand over (or rotate) instead of wondering why everyone left
+      const gs = this.guests(), lagN = gs.filter((g) => g.presence && g.presence.lag).length;
+      if (gs.length && lagN * 2 >= gs.length) { if (!this.lagSince) this.lagSince = performance.now(); else if (!this.lagSaid && performance.now() - this.lagSince > 10000) { this.lagSaid = true; NETLOG.incident('host', `lag vote: ${lagN}/${gs.length} guests report a crawling host for 10 s+`); toast('GUESTS REPORT LAG — HAND OVER OR ROTATE THE ROOM?', 'cool'); } } else { this.lagSince = 0; this.lagSaid = false; }
+    }
     const nowMs = performance.now(); if (nowMs < this.nextSnap) return; this.nextSnap = Math.max(nowMs - 25, (this.nextSnap || 0) + 50); // 20 a second by the wall clock (game time slows down on a struggling host)
     const r = (v, k = 100) => Math.round(v * k);
     const cs = cars.map((c) => { const b = c.body, p = b.position, q = b.quaternion, v = b.velocity, z = c.zones;
@@ -9343,6 +9347,7 @@ const MP = {
     const crawling = this.builtRk && game.state === 'playing' && nowS - this.crawlSince > 6 && !!this.lastSnapAt;
     const hiddenHost = hp && hp.presence && hp.presence.hid && this.lastSnapAt && nowS - this.lastSnapAt > 0.6;
     if ((crawling || hiddenHost) && !this.crawlSaid) { this.crawlSaid = true; NETLOG.incident('me', crawling ? `host is crawling (${this.snapHist ? this.snapHist.length : 0} updates in 6 s): taking over` : 'host page is in the background: taking over'); }
+    if (!!crawling !== !!this.lagSent) { this.lagSent = crawling; if (this.room) this.room.presence({ lag: crawling ? 1 : null }).catch(() => {}); } // R2-32: publish the lag vote — the host counts these (see hostFrame)
     const stale = (this.lastSnapAt && nowS - this.lastSnapAt > 2 && game.state === 'playing') || crawling || hiddenHost;
     if (!hp || stale) { if (this.builtRk) this.hostLost(dt, crawling || hiddenHost); if (this.role !== 'guest' || !hp) return; } else if (this.lost) this.hostBack();
     if (hp.fy && this.family) { this.famMove('our host joined another'); return; }
