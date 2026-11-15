@@ -41,6 +41,14 @@ const { open } = require('./harness');
     P.slow({ secs: 1.5, fps: 12, worst: 900, verdict: 'test verdict', parts: 'render 5.0', q: 1, cars: 8, particles: 3, fires: 1, booms: 0, mem: '', worstF: null, before: [], calls: 432, tris: 123456, sim: 3.1, draw: 4.2, wait: 9.3, res: 100 });
     const e = P.m.inc[P.m.inc.length - 1]; return e && { calls: e.calls, tris: e.tris, sim: e.sim, draw: e.draw, wait: e.wait, res: e.res }; });
   ok(slowCap && slowCap.calls === 432 && slowCap.tris === 123456 && slowCap.sim === 3.1 && slowCap.draw === 4.2 && slowCap.wait === 9.3 && slowCap.res === 100, 'slow incidents keep calls/tris and the sim/draw/wait split: ' + JSON.stringify(slowCap));
+  // stuck capture (build 74): a stuck entry says what the car is touching (the `why` field)
+  const stuckWhy = await page.evaluate(() => new Promise((res) => { const P = __derby.PLAYLOG, D = __derby; if (!P.m) return res(null);
+    let tries = 0; const iv = setInterval(() => { tries++;
+      for (const car of D.cars) { const w = P.stuckWhy(car); if (w) { clearInterval(iv);
+        car.__apS = { t: 6, x: Math.round(car.body.position.x), z: Math.round(car.body.position.z), why: w }; P.stuckDone(car);
+        const list = P.m.stuck; return res({ why: w, entry: list.length ? list[list.length - 1] : null }); } }
+      if (tries > 130) { clearInterval(iv); res({ why: null, entry: null }); } }, 150); }));
+  ok(stuckWhy && typeof stuckWhy.why === 'string' && stuckWhy.why.length > 0 && stuckWhy.entry && stuckWhy.entry.why === stuckWhy.why, 'stuck entries record what the car is touching (why): ' + JSON.stringify(stuckWhy));
   const good = ms.every((x) => x.build && /^\d{4}-\d\d-\d\dT/.test(x.start) && /^\d{4}-\d\d-\d\dT/.test(x.end) && x.end >= x.start && x.sid && x.dev && x.role === 'solo' && x.mode && x.device.includes('GPU') && x.ua && x.cores && x.screen && x.me.length && x.fps && x.fps.med > 0 && x.q && x.phys && x.stuck && x.veh && x.weap && x.voice && x.net && x.errs && x.mem && Number.isFinite(x.mem.calls) && Number.isFinite(x.mem.tris) && x.ev.length >= 2); // (mem.calls/tris: build 73)
   ok(good, 'every match: build, ISO start/end, session, device, role, mode, cars driven, fps, quality, phys, stuck, vehicles, weapons, voice, net, errors, memory, events');
   console.log('sample match:', JSON.stringify({ ...ms[0], ev: ms[0].ev.slice(0, 8), slow: { ...ms[0].slow, list: ms[0].slow.list.slice(0, 1) } }).slice(0, 1600));

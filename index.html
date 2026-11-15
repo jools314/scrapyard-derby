@@ -9534,7 +9534,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '73'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '74'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
@@ -10801,15 +10801,28 @@ Object.assign(PLAYLOG, {
         if (Math.abs(v.y) > 25) { if (!c.__apL) { c.__apL = 1; m.launch++; const L = { car: c.type, vy: Math.round(v.y), y: Math.round(q.y), x: Math.round(q.x), z: Math.round(q.z), t: Math.round(game.time) }; if (m.launchW.length < 8) m.launchW.push(L); this.ev('launch', `${c.type} vy ${L.vy} at ${L.x},${L.z}`); } } else c.__apL = 0;
         if (q.y < -1) m.below++;
         const st = !c.wrecked && !c.carriedBy && !c.craned && Math.abs(c.ctrl.throttle) > 0.3 && Math.hypot(v.x, v.z) < 1;
-        if (st) { if (!c.__apS) c.__apS = { t: 0, x: Math.round(q.x), z: Math.round(q.z) }; c.__apS.t += 0.5;
+        if (st) { if (!c.__apS) c.__apS = { t: 0, x: Math.round(q.x), z: Math.round(q.z) }; c.__apS.t += 0.5; const wy = this.stuckWhy(c); if (wy) c.__apS.why = wy;
           if (c.__apS.t >= 10 && !c.__apS.big) { c.__apS.big = 1; this.ev('stuck', `${c.type}${c === player ? '(you)' : ''} 10 s at ${c.__apS.x},${c.__apS.z}`); this.soon('stuck car'); } }
         else if (c.__apS) this.stuckDone(c);
       }
     }
   },
+  stuckWhy(c) { // what is this car touching right now? (a stuck hotspot coordinate only helps if the record says what is in the way)
+    try {
+      for (const ct of world.contacts) {
+        const o = ct.bi === c.body ? ct.bj : ct.bj === c.body ? ct.bi : null; if (!o || o === c.body) continue;
+        if (o.car && o.car !== c) return o.car.type;
+        if (o.prop || o.propKind) return 'prop (' + (o.propKind || o.prop.kind || 'metal') + ')';
+        if (o.bull) return 'bull';
+        if (o.mass === 0) return Math.abs(ct.ni.y) > 0.5 ? 'ground' : 'wall';
+        return 'debris';
+      }
+    } catch (e) {}
+    return undefined;
+  },
   stuckDone(c) {
     const s = c.__apS, m = this.m; c.__apS = null; if (!s || s.t < 4 || !m) return; m.stuckN++; m.stuckS += s.t;
-    const e = { car: c.type, secs: s.t, x: s.x, z: s.z, me: c === player || undefined, t: Math.round(game.time) };
+    const e = { car: c.type, secs: s.t, x: s.x, z: s.z, me: c === player || undefined, t: Math.round(game.time), why: s.why };
     if (m.stuck.length < 12) m.stuck.push(e); else { const lo = m.stuck.reduce((a, x, i) => (x.secs < m.stuck[a].secs ? i : a), 0); if (s.t > m.stuck[lo].secs) m.stuck[lo] = e; }
     if (s.t >= 10) this.ev('unstuck', `${c.type} after ${s.t} s`);
   },
@@ -10865,7 +10878,7 @@ Object.assign(PLAYLOG, {
     for (const v of Object.values(veh)) { v.dmg = Math.round(v.dmg); v.taken = Math.round(v.taken); v.life = Math.round(v.life / Math.max(1, v.lives)); }
     const vsD = {}; for (const [k, v] of Object.entries(m.vsD)) if (v >= 1) vsD[k] = Math.round(v);
     const me = m.me.slice(); if (m.meCur) me.push({ car: m.meCur.car, secs: Math.round(simTime - m.meCur.t0), k: m.meCur.k, dmg: Math.round(m.meCur.dmg), alive: true });
-    const stuck = m.stuck.slice(); for (const c of cars) if (c.__apS && c.__apS.t >= 4 && stuck.length < 16) stuck.push({ car: c.type, secs: c.__apS.t, x: c.__apS.x, z: c.__apS.z, me: c === player || undefined, ongoing: true });
+    const stuck = m.stuck.slice(); for (const c of cars) if (c.__apS && c.__apS.t >= 4 && stuck.length < 16) stuck.push({ car: c.type, secs: c.__apS.t, x: c.__apS.x, z: c.__apS.z, me: c === player || undefined, ongoing: true, why: c.__apS.why });
     const causes = {}; for (const x of m.inc) causes[x.why] = r1((causes[x.why] || 0) + x.secs);
     const bs = barks.stats || {}, b0 = m.bark0, K = m.kinds;
     return { v: 2, kind, id: m.id, n: m.n, sid: this.sid, dev: this.devId, build: BUILD, start: new Date(m.at).toISOString(), end: new Date(now).toISOString(), ended,
