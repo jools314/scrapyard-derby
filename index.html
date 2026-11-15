@@ -629,6 +629,7 @@
           <dt>Touch</dt><dd>Drag left side to steer, pedals on the right</dd>
         </dl>
       </details>
+      <p id="menuBest" class="quiet" style="margin:0"></p>
       <div class="actions">
         <span class="modes" role="group" aria-label="Game mode"><button type="button" class="mode" data-mode="respawn" aria-pressed="true">Respawn</button><button type="button" class="mode" data-mode="elim" aria-pressed="false">Elimination</button></span>
         <button id="btnStart" class="primary" type="button">Start derby</button>
@@ -660,6 +661,9 @@
         <div><span class="label">Score</span><span class="num" id="rScore">0</span></div>
         <div><span class="label">Time</span><span class="num" id="rTime">0:00</span></div>
         <div><span class="label">Wrecked</span><span class="num" id="rWrecks">0</span></div>
+      </div>
+      <div class="result" id="overStats">
+        <div><span class="label">Your best</span><span class="num" id="rBest">0</span></div>
       </div>
       <div id="overBoard" hidden><table class="sbt" id="overTable"></table></div>
       <div class="actions">
@@ -7828,6 +7832,7 @@ const game = {
   },
   endMatch(won) {
     this.state = 'over';
+    if (player) saveBest(GAME_MODE, player.type, this.score, player.kills || 0);
     this.overTimer = won ? 2 : 1.2;
     $('overEyebrow').textContent = won ? 'Last car running' : 'Match over';
     $('overTitle').textContent = won ? 'Yard cleared' : 'Wrecked';
@@ -8023,6 +8028,12 @@ $('gmScore').addEventListener('click', (e) => { e.stopPropagation(); gearOpen(fa
 $('sbClose').addEventListener('click', () => SCORE.show(false));
 $('sbEnd').addEventListener('click', () => SCORE.finish());
 $('sboard').addEventListener('click', (e) => { if (e.target === e.currentTarget) SCORE.show(false); }); // a tap outside closes it
+/* Best score per mode + car: something to beat when you come back */
+function bestKey(mode, type) { return mode + ':' + type; }
+function loadBest() { try { return JSON.parse(localStorage.getItem('derby-best-v1') || '{}'); } catch (e) { return {}; } }
+function saveBest(mode, type, score, wrecks) { if (FREE_DRIVE || MP.role === 'guest') return; const B = loadBest(), k = bestKey(mode, type), old = B[k] || { score: 0, wrecks: 0 }; if (score > old.score || wrecks > old.wrecks) { B[k] = { score: Math.max(old.score, score), wrecks: Math.max(old.wrecks, wrecks) }; try { localStorage.setItem('derby-best-v1', JSON.stringify(B)); } catch (e) {} } }
+function bestFor(mode, type) { return loadBest()[bestKey(mode, type)] || null; }
+function refreshBestLine() { const b = bestFor(GAME_MODE, playerType), e = $('menuBest'); if (e) e.textContent = b ? `Your best in the ${CAR_TYPES[playerType].name} (${GAME_MODE === 'elim' ? 'Elimination' : 'Respawn'}): ${b.score.toLocaleString()} pts · ${b.wrecks} wrecks` : ''; }
 function spawnCars() {
   for (const c of cars) c.dispose();
   cars.length = 0;
@@ -8119,7 +8130,7 @@ function startMatch() {
 function showMenu() {
   el.over.hidden = true; el.menu.hidden = false;
   game.state = 'menu';
-  resetMatch();
+  resetMatch(); refreshBestLine();
 }
 function showOver() {
   $('rScore').textContent = game.score.toLocaleString();
@@ -8127,6 +8138,7 @@ function showOver() {
   $('rTime').textContent = `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
   const ai = cars.filter((c) => !c.isPlayer);
   $('rWrecks').textContent = GAME_MODE === 'respawn' ? String(player.kills || 0) : `${ai.filter((c) => c.wrecked).length} / ${ai.length}`;
+  { const b = bestFor(GAME_MODE, player.type); $('rBest').textContent = b ? b.score.toLocaleString() : '—'; }
   $('overBoard').hidden = GAME_MODE !== 'respawn'; if (GAME_MODE === 'respawn') $('overTable').innerHTML = SCORE.table();
   el.over.hidden = false;
 }
@@ -8150,6 +8162,7 @@ function buildGarage() {
     garage.appendChild(b);
   }
   $('blurb').textContent = CAR_TYPES[playerType].blurb;
+  refreshBestLine();
 }
 function selectCar(key) {
   playerType = key;
