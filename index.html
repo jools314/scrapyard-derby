@@ -7806,6 +7806,7 @@ const game = {
     if (killer && MP.role !== 'guest') rivalRecord(rivalName(killer), rivalName(car)); // R2-44: host/solo are authoritative (guests would double-count from snapshots)
     if (killer && MP.role !== 'guest' && Math.random() < 0.5) { const [kw] = rivalPair(rivalName(killer), rivalName(car)); if (kw >= 3) barks.announce('grudge', { a: rivalName(killer), v: rivalName(car), n: kw }, true); } // R2-62: the announcers remember a one-sided history and say so — {a} has now wrecked {v} {n} times across matches
     if (car.bounty && killer === player) { this.score += car.bounty; toast(`🎯 BOUNTY CLAIMED +${car.bounty}`, 'cool'); car.bounty = 0; } // R2-58
+    if (killer === player) firstMark('wreck', 'WRECK'); // R2-56
     if (PLAYLOG.m) PLAYLOG.wreck(car, killer); if (AUTO.on && car === player) car.respawnType = AUTO.nextType(); // (autoplay: every life a different vehicle)
     SCORE.wreck(car, killer); // (host / solo only: guests get the table from the host)
     if (GAME_MODE === 'respawn' && MP.role === 'guest') { if (car.isPlayer) toast('WRECKED', 'bad'); else toast(`${car.name} is wrecked`); return; } // the host brings it back
@@ -7966,6 +7967,9 @@ function rivalRecord(winner, loser) {
 }
 function rivalPair(a, b) { const p = rivalLoad()[[a, b].sort().join('|')] || {}; return [p[a] || 0, p[b] || 0]; }
 function rivalNemesis() { const R = rivalLoad(); let best = null, n = 0; for (const k in R) { const [a, b] = k.split('|'), foe = a === 'You' ? b : b === 'You' ? a : null; if (foe && (R[k][foe] || 0) > n) { n = R[k][foe]; best = foe; } } return best ? { name: best, n } : null; }
+/* R2-56: first-time ceremonies — the first wreck, first win and first 1,000-point match are marked once, on the day they happen ('derby-firsts-v1'), toasted in the moment and listed on the career screen (R2-43). */
+function firstsLoad() { try { return JSON.parse(localStorage.getItem('derby-firsts-v1') || '{}'); } catch (e) { return {}; } }
+function firstMark(key, label) { const F = firstsLoad(); if (F[key]) return false; F[key] = new Date().toISOString().slice(0, 10); try { localStorage.setItem('derby-firsts-v1', JSON.stringify(F)); } catch (e) {} toast(`🏆 FIRST ${label}!`, 'cool'); return true; }
 const SCORE = {
   rows: new Map(), open: false, leader: null, gotJ: '', sentAt: -1e9, dirtyNet: false, lastHtml: '',
   pts(r) { return r.k * 100 - r.s * 50; },
@@ -8150,6 +8154,7 @@ function showOver() {
   const ai = cars.filter((c) => !c.isPlayer);
   $('rWrecks').textContent = GAME_MODE === 'respawn' ? String(player.kills || 0) : `${ai.filter((c) => c.wrecked).length} / ${ai.length}`;
   { const nm = rivalNemesis(); $('rNemesis').textContent = nm ? `${nm.name} ×${nm.n}` : '—'; } // R2-44: who has wrecked you most, across every match on this device
+  { const won = /Yard cleared|You win!/.test($('overTitle').textContent); if (won) firstMark('win', 'WIN'); if (game.score >= 1000) firstMark('k1000', '1,000-POINT MATCH'); } // R2-56: match-level firsts are judged here, where the final numbers are known
   $('overBoard').hidden = GAME_MODE !== 'respawn'; if (GAME_MODE === 'respawn') $('overTable').innerHTML = SCORE.table();
   el.over.hidden = false;
 }
