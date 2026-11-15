@@ -7800,6 +7800,7 @@ const game = {
     const killer = car.lastAttacker && car.lastAttacker !== car && simTime - (car.lastAttackTime || 0) < 6 ? car.lastAttacker : null;
     if (killer) killer.kills = (killer.kills || 0) + 1;
     if (killer && MP.role !== 'guest') rivalRecord(rivalName(killer), rivalName(car)); // R2-44: host/solo are authoritative (guests would double-count from snapshots)
+    if (car.bounty && killer === player) { this.score += car.bounty; toast(`🎯 BOUNTY CLAIMED +${car.bounty}`, 'cool'); car.bounty = 0; } // R2-58
     if (PLAYLOG.m) PLAYLOG.wreck(car, killer); if (AUTO.on && car === player) car.respawnType = AUTO.nextType(); // (autoplay: every life a different vehicle)
     SCORE.wreck(car, killer); // (host / solo only: guests get the table from the host)
     if (GAME_MODE === 'respawn' && MP.role === 'guest') { if (car.isPlayer) toast('WRECKED', 'bad'); else toast(`${car.name} is wrecked`); return; } // the host brings it back
@@ -8071,6 +8072,7 @@ function spawnCars() {
     ai.persona = P;
     cars.push(ai);
   }
+  { const nm = rivalNemesis(); if (nm && nm.n >= 3) { const c = cars.find((x) => !x.isPlayer && !x.remote && rivalName(x) === nm.name); if (c) { c.bounty = 500; setTimeout(() => { if (game.state === 'playing') toast(`🎯 BOUNTY: WRECK ${nm.name.toUpperCase()} FOR +500`, 'cool'); }, 3500); } } } // R2-58: your all-time nemesis (3+ wrecks on you, from the R2-44 store) carries a bounty when they show up in this field — claimed once per match, below in game.onWreck
   buildOpponentList();
   if (MP.role === 'host') MP.publishRoster();
 }
