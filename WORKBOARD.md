@@ -16,19 +16,15 @@ Format: `- [agent] topic — branch — claimed YYYY-MM-DD HH:MM UTC — notes`
 - [claude] Player target picking: Tab / one 🎯 button cycles visible targets for the Tiger cannon, minigun, rockets — claude/target-pick — claimed 2026-11-15 05:55 UTC
 - [claude] Voice round 5: Emeka "Danfo" Okafor replaces Raju (Sandflea), recordings for Bogdan/Ragnar/Maxine/Emeka, 60+ new rude/quirky/old-school commentary lines each for Kev and Shazza, 15 more per driver, and repeats fixed using the heard-log (brief: docs/voices/round5-brief.md) — claude/voices-round5 — claimed 2026-11-15 05:55 UTC — paused by usage limit until ~10:00 UTC
 - [muse] bob/improvements-round2 — branch exists; landing plan to follow (not yet claimed)
-- [muse] Play-log analyser: use the physics census (phys.kinds/undos/escapes/rescues/fixes/clamps) for totals, add fixes/clamps per hour, label the per-vehicle catch list as a capped sample — muse/log-analyser-census — claimed 2026-11-15 07:12 UTC — tools/logs only, no game code
-- [muse] Play-log analyser: slow-incident breakdown (cause × quality level × game-time phase, top incidents with parts/worstF) — muse/log-analyser-slow — claimed 2026-11-15 07:12 UTC — tools/logs only
-- [muse] Play-log analyser: balance table v2 (damage taken/life, avg life seconds, weapon fires from veh[]) — muse/log-analyser-balance — claimed 2026-11-15 07:12 UTC — tools/logs only
-- [muse] Play-log analyser: physics-catch heatmap (listed catches clustered on the same 12 m grid as stuck spots) — muse/log-analyser-heatmap — claimed 2026-11-15 07:12 UTC — tools/logs only
-- [muse] Play-log analyser: voice counters in the report (sent vs started vs errors from the voice record) — muse/log-analyser-voice — claimed 2026-11-15 07:12 UTC — tools/logs only
-- [muse] Play log capture: keep draw calls, triangles and the sim/draw/wait split in slow-incident records (PLAYLOG.slow) — muse/playlog-slow-fields — claimed 2026-11-15 07:12 UTC — logging only, no behaviour change; release suite before landing
-- [muse] Play log capture: record draw calls + triangles in the per-match memory snapshot so the draw-call budget is checkable from logs — muse/playlog-mem-render — claimed 2026-11-15 07:12 UTC — logging only; release suite before landing
-- [muse] Play log capture: stuck entries record what the car is touching (the `why` field the analyser and LOGS.md already expect) — muse/playlog-stuck-why — claimed 2026-11-15 07:12 UTC — capture only, hotspot fixes stay with claude/ai-stuck (note under that line); release suite before landing
-- [muse] HUD dedup (owner's direct instruction): each driver's score moves onto their existing name/health row in the opponents list, and the separate small leaderboard panel is removed — same information, shown once, less screen used — muse/hud-score-on-opponents — claimed 2026-11-15 07:20 UTC — HUD/touch hot spot; phone overlap tests must stay green; the on-demand full table (L key) stays
 
 ## Ready to land (needs the test gate)
 
 ## Done
+- [muse] Build 75: HUD dedup — score on each driver's opponents-list name/health row, separate small leaderboard removed (full table still on L); hudscore test in the quick suite — build 75
+- [muse] Build 74: play log stuck entries record what the car is touching (`why`) — build 74
+- [muse] Build 73: play log per-match snapshot records draw calls + triangles — build 73
+- [muse] Build 72: play log slow incidents keep draw calls, triangles and the sim/draw/wait split — build 72
+- [muse] Play-log analyser bundle (first improvement cycle): physics census totals + fixes/clamps per hour; slow-incident breakdown by cause × quality × phase; balance table v2 (taken/life, avg life, fires); physics-catch heatmap on the stuck grid; voice counters (sent vs started vs errors) — tools/logs only, no build; fixture test tools/logs/test_analyze.py
 - [claude] Code review of bob/improvements-100: verdicts + bugs to fix as items land, in REVIEW-improvements-100.md and docs/review-improvements-100-code.md. **Muse lands those items itself.**
 - [muse] Dozer blade concave-forward fix: the mouldboard was bent convex toward travel (a plough); reversed to a concave scoop (edges +0.12, face −0.10, scoop 0.22) — visual geometry only, the CANNON.Box physics blade is untouched; regression test tests/blade.js reads the built geometry off the live dozer — build 71
 - [claude] Build 70: bug-report fixes (wheel-less car → wreck, broken speech engine left alone, upload batching + 429 back-off), voice-line repeat logging, steadier perf test — build 70
