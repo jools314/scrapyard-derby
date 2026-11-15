@@ -11144,6 +11144,12 @@ Object.assign(PLAYLOG, {
     for (const c of cars) if (c.__apS) this.stuckDone(c);
     this.ev('end', ended);
     let r = null; try { r = this.rec('match', ended); } catch (e) {}
+    if (r && r.fps) { // R2-82: perf budgets as assertions — a finished match is checked against its device class's floor, and failures are stamped into the record itself (r.budget) and the net log, so a regression cannot hide in an aggregate nobody opened
+      const phone = /^(iPhone|Android)/.test(r.device || ''), floor = phone ? 25 : 45, fails = [];
+      if (r.fps.p5 < floor) fails.push(`fps p5 ${r.fps.p5} < ${floor} (${phone ? 'phone' : 'desktop/tablet'} budget)`);
+      if (r.phys && r.phys.blowups > 0) fails.push(`physics blowups ${r.phys.blowups} > 0`);
+      if (fails.length) { r.budget = fails; for (const f of fails) NETLOG.incident('me', `BUDGET FAIL: ${f}`); }
+    }
     this.m = null; this.closed = true; this.clearCur();
     const o = this.meta(); this.dropCk(o, m.id); this.saveMeta(o);
     if (r && (r.game >= 3 || r.errs.n || r.phys.list.length)) { this.add(r); this.upload('match end'); } // (a round thrown away in its first seconds says nothing)
