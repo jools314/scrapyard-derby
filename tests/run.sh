@@ -35,6 +35,7 @@ quick() {
   t hudscore 600 "HUDSCORE PASS"
   t duck 600 "DUCK PASS"
   t soggy 600 "SOGGY PASS"
+  t groundbeef 600 "GROUNDBEEF PASS"
 }
 release() {
   quick
