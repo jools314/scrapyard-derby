@@ -593,6 +593,7 @@
       <div id="mpBox" class="mp">
         <p class="label" style="margin:0">Multiplayer <span id="mpStatus" class="quiet"></span></p>
         <div class="mprow"><input id="mpNick" maxlength="14" placeholder="Your name" aria-label="Your name"><button id="btnFamily" type="button" class="join">Play together</button><button id="btnHost" type="button">Host with a link</button><button id="btnLeave" type="button" hidden>Leave</button><button id="btnNewCode" type="button" hidden>New room code</button></div>
+        <div class="mprow" id="qcRow" hidden><span class="quiet">Say:</span><button type="button" data-qc="0">GG!</button><button type="button" data-qc="1">Ouch!</button><button type="button" data-qc="2">Nice hit!</button><button type="button" data-qc="3">Rematch?</button><button type="button" data-qc="4">Help!</button><button type="button" data-qc="5">One more!</button></div>
         <p id="famWho" class="quiet" style="margin:0" aria-live="polite"></p>
         <div class="mprow" id="nearRow" hidden><button id="btnNearHost" type="button">Add nearby player</button><button id="btnNearJoin" type="button">Join nearby</button><span class="quiet">No internet service: the phones scan each other's screens, then talk over your Wi-Fi.</span></div>
         <div id="mpGames" class="mprow"></div>
@@ -8978,6 +8979,7 @@ function cleanNick(v, hostNick) { // R2-30: light hygiene for names that land on
   if (hostNick && s.toLowerCase() === String(hostNick).trim().toLowerCase()) s = (s + ' (guest)').slice(0, 20);
   return s;
 }
+const QC_PHRASES = ['GG!', 'Ouch!', 'Nice hit!', 'Rematch?', 'Help!', 'One more!']; // R2-26
 const MP = {
   inbox: [], role: 'solo', api: null, lobby: null, room: null, code: '', snaps: [], rt: 0, ev: [], evSeq: 0, seen: 0, rk: '', builtRk: '',
   inN: { fire: 0, jump: 0 }, rsSeen: new Map(), sidN: 0, slotRv: [], sentIn: '', snapT: 0, lastFire: new Map(), lastJump: new Map(), statusTxt: '',
@@ -9035,7 +9037,7 @@ const MP = {
     if (this.transport === 'peer' && !fam) { const url = location.origin + location.pathname + '?v=' + BUILD + '#join-' + (this.via === 'peerjs' ? 'p-' : '') + this.code; $('mpLink').value = url; $('mpShare').hidden = false; drawQR(url); MP.info(`Your game is live (${this.via === 'peerjs' ? 'backup server' : 'relay'}). Friends scan the QR code.`); this.status(`hosting · build ${BUILD} · ${this.via}`); }
     this.epoch = 1; this.room.presence({ host: 1, nick: this.nick() });
     this.room.onPeers(() => { const n = this.guests().length; if (this.lobby) this.lobby.presence({ n }); $('mpInfo').textContent = n ? `Players in your game: ${this.guests().map((g) => g.presence.nick || 'Player').join(', ')}. Press Start when ready.` : 'Waiting for players… share this page link. Press Start to play anyway.'; });
-    $('btnHost').hidden = true; $('btnFamily').hidden = true; $('btnLeave').hidden = false; $('btnNewCode').hidden = fam; this.status(fam ? `hosting the family yard · build ${BUILD}` : this.transport === "peer" ? `hosting · build ${BUILD} · ${this.via}` : `hosting game ${this.code}`); this.renderGames(); // R2-39: a link-host may rotate the room code (the family yard's code is name-derived and does not rotate)
+    $('btnHost').hidden = true; $('btnFamily').hidden = true; $('btnLeave').hidden = false; $('btnNewCode').hidden = fam; $('qcRow').hidden = false; this.status(fam ? `hosting the family yard · build ${BUILD}` : this.transport === "peer" ? `hosting · build ${BUILD} · ${this.via}` : `hosting game ${this.code}`); this.renderGames(); // R2-39: a link-host may rotate the room code (the family yard's code is name-derived and does not rotate)
     $('mpInfo').textContent = fam ? 'You are hosting the family yard. Everyone else taps Play together. Press Start when ready.' : 'Waiting for players… share this page link. Press Start to play anyway.';
     if (fam) { this.famT0 = Date.now(); this.famNextProbe = 0; }
   },
@@ -9051,7 +9053,7 @@ const MP = {
     if (this.lobby) this.lobby.presence({ host: null });
     this.sendWant();
     $('btnHost').hidden = true; $('btnFamily').hidden = true; $('btnLeave').hidden = false; $('btnStart').hidden = true; this.status(this.family && code === famCode(famName()) ? 'in the family yard' : `in game ${code}`); this.renderGames();
-    $('mpInfo').textContent = 'Joined! Pick your car; the host starts the round.';
+    $('mpInfo').textContent = 'Joined! Pick your car; the host starts the round.'; $('qcRow').hidden = false; // R2-26
   },
   async leave(keepFamily) { // the Leave button: back to playing alone (and stay out of the family yard on reload)
     if (keepFamily !== true) { this.family = false; famSet(false); clearTimeout(this.famRT); }
@@ -9060,7 +9062,7 @@ const MP = {
     this.room = null; const was = this.role; this.role = 'solo'; this.code = '';
     if (this.lobby) this.lobby.presence({ host: null });
     $('mpShare').hidden = true; if (location.hash.startsWith('#join-')) history.replaceState(null, '', location.pathname);
-    $('btnHost').hidden = false; $('btnFamily').hidden = false; $('btnLeave').hidden = true; $('btnNewCode').hidden = true; $('btnStart').hidden = false; $('mpInfo').textContent = ''; this.status('online'); this.renderGames(); this.renderFam();
+    $('btnHost').hidden = false; $('btnFamily').hidden = false; $('btnLeave').hidden = true; $('btnNewCode').hidden = true; $('qcRow').hidden = true; $('btnStart').hidden = false; $('mpInfo').textContent = ''; this.status('online'); this.renderGames(); this.renderFam();
     if (was === 'guest') { game.state = 'menu'; resetMatch(); el.menu.hidden = false; }
   },
   guests() { return this.room ? this.room.peers().filter((p) => !p.sameTab && p.presence && !p.presence.host) : []; },
@@ -9202,6 +9204,7 @@ const MP = {
   event(e) { if (!this.room) return; e.n = ++this.evSeq; this.ev.push(e); while (this.ev.length > 10) this.ev.shift(); },
   hostFrame(dt) {
     if (!this.room) return;
+    this.qcWatch(); // R2-26
     const nowMs = performance.now(); if (nowMs < this.nextSnap) return; this.nextSnap = Math.max(nowMs - 25, (this.nextSnap || 0) + 50); // 20 a second by the wall clock (game time slows down on a struggling host)
     const r = (v, k = 100) => Math.round(v * k);
     const cs = cars.map((c) => { const b = c.body, p = b.position, q = b.quaternion, v = b.velocity, z = c.zones;
@@ -9312,6 +9315,7 @@ const MP = {
     buildOpponentList(); this.builtRv = hp.rv; this.lastRoster = hp.roster;
   },
   guestFrame(dt) {
+    this.qcWatch(); // R2-26
     const hp = this.hostPresence();
     const nowS = performance.now() / 1000, hk = (hp ? hp.peer : '') + '@' + this.epoch; if (hk !== this.crawlKey) { this.crawlKey = hk; this.crawlSince = nowS + 4; this.snapHist = []; this.crawlSaid = false; } // a new host gets a fresh start (and a few seconds to settle in)
     if (!this.crawlSince || (this.snapHist && this.snapHist.length >= 15)) this.crawlSince = Math.max(this.crawlSince || 0, nowS); // fewer than ~3 updates a second for 6 s: the host is crawling (backgrounded or swamped)
@@ -9400,6 +9404,14 @@ const MP = {
       const inp = [Math.round(ct.throttle * 100), Math.round(ct.steer * 100), f, this.inN.fire, this.inN.jump], key = inp.join(',');
       if (key !== this.sentIn && performance.now() - (this.inAt || 0) >= 45) { this.sentIn = key; this.inAt = performance.now(); this.room.presence({ in: inp }, true).catch(() => {}); } // R2-29: clamp guest inputs to roughly the snapshot rate (20/s). The dedupe key alone was defeated by analogue-stick jitter — the rounded steer/throttle changed every frame and flooded the room. Nothing is lost: fire/jump are cumulative counters, so a press inside the gate still changes the key and goes out when it opens.
     }
+  },
+  qcSend(i) { // R2-26: quick chat — six fixed phrases, carried on your own presence as [counter, phraseIndex]; fixed phrases only, so there is nothing to moderate and nothing to type while driving
+    if (this.role === 'solo' || !this.room) return; this.qcN = (this.qcN || 0) + 1; this.room.presence({ qc: [this.qcN, i] }).catch(() => {}); toast('💬 ' + QC_PHRASES[i], 'cool');
+  },
+  qcWatch() { // (host) show guests' phrases; (guest) show the host's — called from hostFrame/guestFrame
+    const seen = this.qcSeen || (this.qcSeen = new Map());
+    if (this.role === 'host') for (const g of this.guests()) { const q = g.presence && g.presence.qc; if (Array.isArray(q) && q[0] && seen.get(g.peer) !== q[0]) { seen.set(g.peer, q[0]); toast(`💬 ${g.presence.nick || 'Player'}: ${QC_PHRASES[q[1]] || ''}`); } }
+    else if (this.role === 'guest') { const hp = this.hostPresence(), q = hp && hp.presence && hp.presence.qc; if (Array.isArray(q) && q[0] && this.qcHostSeen !== q[0]) { this.qcHostSeen = q[0]; toast(`💬 ${(hp.presence && hp.presence.nick) || 'Host'}: ${QC_PHRASES[q[1]] || ''}`); } }
   },
   applyCrane() {
     const s = this.snaps[this.snaps.length - 1]; if (!s || !s.k) return false;
@@ -9668,6 +9680,7 @@ function mpShim() {
 }
 $('btnHost').addEventListener('click', () => MP.host());
 $('btnNewCode').addEventListener('click', async () => { if (MP.role !== 'host' || MP.family) return; await MP.leave(true); await MP.host(); toast('NEW ROOM CODE — SHARE THE NEW LINK', 'cool'); }); // R2-39: retire a shared-out code: the old room closes, a fresh code and link are issued; guests rejoin via the new link
+document.querySelectorAll('#qcRow [data-qc]').forEach((b) => b.addEventListener('click', () => MP.qcSend(+b.dataset.qc))); // R2-26
 $('btnFamily').addEventListener('click', () => MP.famJoin());
 $('famName').value = famName(); $('famName').addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter') $('btnFamName').click(); });
 $('famMotd').value = famMotd();
