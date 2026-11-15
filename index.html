@@ -10261,7 +10261,7 @@ function simBody(now) {
     else if (game.state === 'playing' && game.countdown > 0) { // 3-2-1: everyone holds on the brakes
       game.countdown -= dt;
       const n = Math.ceil(game.countdown / 0.6); // 3-2-1 at 0.6 s a beat
-      if (n !== game.lastCount) { game.lastCount = n; toast(n > 0 ? String(n) : 'GO!', n > 0 ? '' : 'cool'); if (n <= 0) { sfx.cheer(0.8); if (game.tut === 0) { game.tut = 1; toast('HIT THEM NOSE-FIRST — YOUR BUMPER TAKES HALF DAMAGE', 'cool'); } const c = cars[1 + (Math.random() * (cars.length - 1) | 0)]; setTimeout(() => barks.say(c, 'start', true), 600); } else sfx.clank(0.3); }
+      if (n !== game.lastCount) { game.lastCount = n; toast(n > 0 ? String(n) : 'GO!', n > 0 ? '' : 'cool'); if (n <= 0) { sfx.cheer(0.8); if (player) sfx.at(player.body.position).honk(player.type, 0.8, 0.5); if (game.tut === 0) { game.tut = 1; toast('HIT THEM NOSE-FIRST — YOUR BUMPER TAKES HALF DAMAGE', 'cool'); } const c = cars[1 + (Math.random() * (cars.length - 1) | 0)]; setTimeout(() => barks.say(c, 'start', true), 600); } else if (player) sfx.at(player.body.position).honk(player.type, 0.5, 0.16 + (3 - n) * 0.05); } // the countdown is your own horn, rising
       for (const c of cars) { c.ctrl.throttle = 0; c.ctrl.handbrake = true; c.ctrl.nitro = false; c.ctrl.jump = false; }
     } else if (game.state === 'playing') game.grace -= dt;
     SEC.run('cars', () => { for (const c of cars) c.frameUpdate(dt); });
