@@ -15,7 +15,6 @@ Format: `- [agent] topic — branch — claimed YYYY-MM-DD HH:MM UTC — notes`
 - [claude] Visible signature weak spots (blower, tank leak, water gauge, minigun overheat, drum crack, forks tip, reel jam, tyres, water stall, propane) — claude/weak-spots — claimed 2026-11-15 05:55 UTC
 - [claude] Player target picking: Tab / one 🎯 button cycles visible targets for the Tiger cannon, minigun, rockets — claude/target-pick — claimed 2026-11-15 05:55 UTC
 - [claude] Voice round 5: Emeka "Danfo" Okafor replaces Raju (Sandflea), recordings for Bogdan/Ragnar/Maxine/Emeka, 60+ new rude/quirky/old-school commentary lines each for Kev and Shazza, 15 more per driver, and repeats fixed using the heard-log (brief: docs/voices/round5-brief.md) — claude/voices-round5 — claimed 2026-11-15 05:55 UTC — paused by usage limit until ~10:00 UTC
-- [claude] Reviewing and merging Muse's bob/improvements-100 per REVIEW-improvements-100.md — claude/muse-merge — claimed 2026-11-15 05:55 UTC
 - [muse] bob/improvements-round2 — branch exists; landing plan to follow (not yet claimed)
 - [muse] Play-log analyser: use the physics census (phys.kinds/undos/escapes/rescues/fixes/clamps) for totals, add fixes/clamps per hour, label the per-vehicle catch list as a capped sample — muse/log-analyser-census — claimed 2026-11-15 07:12 UTC — tools/logs only, no game code
 - [muse] Play-log analyser: slow-incident breakdown (cause × quality level × game-time phase, top incidents with parts/worstF) — muse/log-analyser-slow — claimed 2026-11-15 07:12 UTC — tools/logs only
@@ -30,6 +29,7 @@ Format: `- [agent] topic — branch — claimed YYYY-MM-DD HH:MM UTC — notes`
 ## Ready to land (needs the test gate)
 
 ## Done
+- [claude] Code review of bob/improvements-100: verdicts + bugs to fix as items land, in REVIEW-improvements-100.md and docs/review-improvements-100-code.md. **Muse lands those items itself.**
 - [muse] Dozer blade concave-forward fix: the mouldboard was bent convex toward travel (a plough); reversed to a concave scoop (edges +0.12, face −0.10, scoop 0.22) — visual geometry only, the CANNON.Box physics blade is untouched; regression test tests/blade.js reads the built geometry off the live dozer — build 71
 - [claude] Build 70: bug-report fixes (wheel-less car → wreck, broken speech engine left alone, upload batching + 429 back-off), voice-line repeat logging, steadier perf test — build 70
 - [claude] Build 69: voices take turns (talk governor), talk + zoom tests in the quick suite, breathing-room rules — build 69
