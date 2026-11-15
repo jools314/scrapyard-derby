@@ -769,6 +769,7 @@ const SETTINGS_DEF = [
   { key: 'voiceVolume',         group: 'Audio', label: 'Driver voices (0 = subtitles only)', unit: '', min: 0, max: 1, step: 0.05, def: 0.9 },
 ];
 const GRAVITY_PRESETS = [['Moon', 1.62], ['Mars', 3.71], ['Earth', 9.81], ['Jupiter', 24.79]];
+const PHYSICS_PRESETS = [['Ice rink', { tireGrip: 0.55, restitution: 0.5 }], ['Moon derby', { gravity: 1.62, damage: 0.8, jumpStrength: 1.4 }], ['Tank world', { damage: 0.5, playerMassScale: 1.6, aiMassScale: 1.6 }]]; // one-tap physics personalities, applied across the settings table like the gravity presets
 
 // Car line-up. Dimensions in metres, mass in kg, power/grip/armor as multipliers.
 // axles: x positions of each axle (front first). redline/idle in rpm, cyl = firing pulses per revolution (engine sound).
@@ -8369,6 +8370,15 @@ function setValue(key, v) {
           pr.appendChild(b);
         }
         g.appendChild(pr);
+        const pr2 = document.createElement('div');
+        pr2.className = 'presets';
+        for (const [name, vals] of PHYSICS_PRESETS) {
+          const b = document.createElement('button');
+          b.type = 'button'; b.textContent = name;
+          b.addEventListener('click', () => { for (const [k2, v2] of Object.entries(vals)) setValue(k2, v2); b.blur(); });
+          pr2.appendChild(b);
+        }
+        g.appendChild(pr2);
       }
     }
     const row = document.createElement('div');
