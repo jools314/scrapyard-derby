@@ -2375,7 +2375,7 @@ const rocketGeo = new THREE.CylinderGeometry(0.06, 0.06, 0.7, 8).rotateX(Math.PI
 function fireBullet(car) {
   const mz = car.mgMuzzle; mz.updateWorldMatrix(true, false);
   const pos = new THREE.Vector3().setFromMatrixPosition(mz.matrixWorld), dir = new THREE.Vector3(1, 0, 0).transformDirection(mz.matrixWorld);
-  const tg = car.mgTarget; if (tg && Math.abs(car.mgYawA - (car.mgWant || 0)) < 0.25) { const tp = tg.body.position; dir.set(tp.x - pos.x, tp.y + 0.2 - pos.y, tp.z - pos.z).normalize(); } // the gunner walks the rounds onto the car
+  const tg = car.mgTarget; if (tg && Math.abs(car.mgYawA - (car.mgWant || 0)) < 0.25) { const tp = tg.body.position, tv = tg.body.velocity, lead = clamp(Math.hypot(tp.x - pos.x, tp.z - pos.z) / 300, 0, 0.35); dir.set(tp.x + tv.x * lead - pos.x, tp.y + 0.2 - pos.y, tp.z + tv.z * lead - pos.z).normalize(); } // the gunner leads the target: rounds are walked onto where it's going, not where it was
   dir.x += rand(-0.03, 0.03); dir.y += rand(-0.02, 0.025); dir.z += rand(-0.03, 0.03); dir.normalize();
   const end = pos.clone().addScaledVector(dir, 90), ob = car.body, resp = ob.collisionResponse; ob.collisionResponse = false;
   const res = new CANNON.RaycastResult();
