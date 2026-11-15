@@ -2250,10 +2250,11 @@ const SIGN_PROPS = []; // every yard sign, collected as the yard is built (HELIC
 function updateSigns(dt) { // HELICOPTER SIGN: knock a sign spinning fast enough and it lifts, helicopters wildly for two seconds, then clatters down as a normal sign
   for (const pr of SIGN_PROPS) {
     if (pr.dormant) continue;
-    if (pr.heliT > 0) { pr.heliT -= dt; if (pr.body.position.y < 5) pr.body.velocity.y = Math.max(pr.body.velocity.y, 6.5); if (pr.heliT <= 0) pr.heliT = 0; continue; }
+    if (pr.heliT > 0) { pr.heliT -= dt; if (pr.body.position.y < 3) pr.body.velocity.y = Math.max(pr.body.velocity.y, 6.5); if (pr.heliT <= 0) pr.heliT = 0; continue; } // hover capped at 3 m (was 5): a flight stays a hop over the fence line, not a 13 m climb that drops the sign into traffic (82->88 regression fix)
     const av = pr.body.angularVelocity;
     if (pr.body.position.y < 2.5 && av.x * av.x + av.y * av.y + av.z * av.z > 81) { // spinning faster than 9 rad/s, still near the ground: it takes off
       pr.heliT = 2; pr.heliFlights = (pr.heliFlights || 0) + 1; pr.body.velocity.y = Math.max(pr.body.velocity.y, 7);
+      const l = Math.sqrt(av.x * av.x + av.y * av.y + av.z * av.z); if (l > 7) { const k = 7 / l; av.x *= k; av.y *= k; av.z *= k; } // bleed the spin to 7 rad/s, under the 9 rad/s lift threshold: one knock, one flight. A sign that lands in a pile still whirling must not chain straight into another flight — chained flights kept signs airborne in the busiest corners and drove the 82->88 physics-catches regression
       if (game.state === 'playing') toast('🚁 HELICOPTER SIGN!', 'cool');
     }
   }
@@ -9700,7 +9701,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '90'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '91'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
