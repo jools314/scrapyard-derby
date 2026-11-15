@@ -16,15 +16,15 @@ Format: `- [agent] topic — branch — claimed YYYY-MM-DD HH:MM UTC — notes`
 - [claude] Player target picking: Tab / one 🎯 button cycles visible targets for the Tiger cannon, minigun, rockets — claude/target-pick — claimed 2026-11-15 05:55 UTC
 - [claude] Voice round 5: Emeka "Danfo" Okafor replaces Raju (Sandflea), recordings for Bogdan/Ragnar/Maxine/Emeka, 60+ new rude/quirky/old-school commentary lines each for Kev and Shazza, 15 more per driver, and repeats fixed using the heard-log (brief: docs/voices/round5-brief.md) — claude/voices-round5 — claimed 2026-11-15 05:55 UTC — paused by usage limit until ~10:00 UTC
 - [muse] bob/improvements-round2 — branch exists; landing plan to follow (not yet claimed)
-- [muse] Smash Burger: a burger under the Dozer's blade slam or in the crusher comes out wide, flat and proud on a paper tray, still a burger everywhere — muse/smash-burger — claimed 2026-11-15 15:05 UTC
-- [muse] It Remembers: a fresh bull returning after a burger expires has a 1-in-10 chance of wearing a sesame bun hat until cooked or match end — muse/bun-hat — claimed 2026-11-15 15:05 UTC
-- [muse] The Shake-Off: a fully soaked bull shakes itself dry as it dries out, spraying nearby cars with a 3 s grip penalty — muse/shake-off — claimed 2026-11-15 15:05 UTC
-- [muse] Potty Cannon: a porta-potty on a geyser when it blows gets the full cannon flight (extra height, tumble, counted per potty) — muse/potty-cannon — claimed 2026-11-15 15:05 UTC
-- [muse] Read the Bales: an occasional Combine bale comes out with a printed message (HELP / SEND NITRO / I WAS A VIPER / …) — muse/bale-messages — claimed 2026-11-15 15:05 UTC
-- [muse] Helicopter Sign: a yard sign spinning fast enough lifts off, helicopters for 2 s, then clatters down as a normal sign — muse/heli-sign — claimed 2026-11-15 15:05 UTC
 ## Ready to land (needs the test gate)
 
 ## Done
+- [muse] Build 88: Helicopter Sign — a yard sign spinning over 9 rad/s lifts off, helicopters for 2 s, then clatters down as a normal sign; helisign test in the quick suite — build 88
+- [muse] Build 87: Read the Bales — ~15% of Combine bales come out printed with a message (HELP / SEND NITRO / I WAS A VIPER / …), one cached texture per message; bales test in the quick suite — build 87
+- [muse] Build 86: Potty Cannon — a porta-potty on a geyser when it blows gets the full cannon flight (vy 26, tumble, counted once per blow); pottycannon test in the quick suite — build 86
+- [muse] Build 85: The Shake-Off — a fully soaked bull shakes itself dry as it dries out, spraying nearby cars with a 3 s grip penalty (slipT halves wheel friction); shakeoff test in the quick suite — build 85
+- [muse] Build 84: It Remembers — a fresh bull returning after a burger expires has a 1-in-10 chance of wearing a sesame bun hat until cooked or match end; remembers test in the quick suite — build 84
+- [muse] Build 83: Smash Burger — a burger in the crusher or under the Dozer's blade slam comes out wide, flat and proud on a paper tray, still a burger everywhere; smash test in the quick suite — build 83
 - [muse] Build 82: Crusher Confetti — crushing a cardboard box in the press erupts 36 confetti scraps from the top vent; confetti test in the quick suite — build 82
 - [muse] Build 81: Honk Back — honking at a bull gets a moo pitched like the horn; a second honk within 6 s harmonises a fifth up; honkback test in the quick suite — build 81
 - [muse] Build 80: Sad Trombone — the match's first wreck within 10 s of the start earns one sad trombone (within 5 s it gives up halfway); trombone test in the quick suite — build 80
