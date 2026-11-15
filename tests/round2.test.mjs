@@ -127,6 +127,7 @@ test('R2-98', 'minimap shape-coding: nemesis/bounty ring completes the set', () 
 // ---- accessibility (92-100) ----
 test('R2-92', 'reduce-flashing: setting + strobe caps', () => { has(/flashSafe/); has(/R2-92/); });
 test('R2-94', 'HUD scale setting applied to HUD + toasts', () => { has(/uiScale/); has(/R2-94/); });
+test('R2-100', 'readable-font toggle (body.dys, Verdana stack)', () => { has(/dysFont/); has(/body\.dys/); });
 
 // ---- run ----
 let pass = 0, fail = 0;

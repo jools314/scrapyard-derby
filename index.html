@@ -155,6 +155,8 @@
   body.touch #keys { display: none; }
   #wet { position: absolute; inset: 0; pointer-events: none; opacity: 0; backdrop-filter: blur(6px) saturate(0.75); -webkit-backdrop-filter: blur(6px) saturate(0.75); background: radial-gradient(circle at 20% 30%, rgba(200,225,240,.35) 0 6%, transparent 7%), radial-gradient(circle at 70% 60%, rgba(200,225,240,.3) 0 9%, transparent 10%), radial-gradient(circle at 45% 80%, rgba(200,225,240,.3) 0 5%, transparent 6%), radial-gradient(circle at 85% 20%, rgba(200,225,240,.3) 0 4%, transparent 5%), rgba(120, 150, 170, 0.28); }
   #flash { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, transparent 40%, rgba(228, 71, 44, 0.55)); opacity: 0; transition: opacity 0.25s; }
+  body.dys { font-family: Verdana, Geneva, Tahoma, sans-serif; letter-spacing: .02em; } /* R2-100: readable-font toggle — heavier letterforms, wider spacing, system fonts only */
+  body.dys .hud, body.dys #toasts, body.dys #subs { font-weight: 600; }
 
   .overlay {
     position: absolute; inset: 0; display: grid; place-items: center; overflow-y: auto;
@@ -717,6 +719,7 @@ const SETTINGS_DEF = [
   { key: 'restitution',         group: 'World', label: 'Bounciness',          unit: '',      min: 0,    max: 1,     step: 0.05, def: 0.15 },
   { key: 'flashSafe',           group: 'World', label: 'Reduce flashing',     unit: '',      min: 0,    max: 1,     step: 1,    def: 0, note: 'R2-92: photosensitivity — steady crusher lamps (no 8 Hz strobe), damage flash capped, fireworks reduced to a single gentle burst' },
   { key: 'uiScale',             group: 'World', label: 'HUD scale',           unit: '%',     min: 100,  max: 150,   step: 25,   def: 100, note: 'R2-94: scales the whole HUD layer — numerals, gauge labels, toasts — for small screens and tired eyes' },
+  { key: 'dysFont',             group: 'World', label: 'Readable font',       unit: '',      min: 0,    max: 1,     step: 1,    def: 0, note: 'R2-100: a heavier, wider-spaced face (Verdana stack) across menus, HUD and subtitles — easier letter shapes for dyslexic readers, no download needed' },
   { key: 'playerMassScale',     group: 'Car',   label: 'Your car weight',     unit: '×',     min: 0.3,  max: 4,     step: 0.05, def: 1, mass: 'player' },
   { key: 'aiMassScale',         group: 'Car',   label: 'Opponent weight',     unit: '×',     min: 0.3,  max: 4,     step: 0.05, def: 1 },
   { key: 'frontWeight',         group: 'Car',   label: 'Weight on front axle', unit: '%',    min: 35,   max: 65,    step: 1,    def: 50 },
@@ -8374,6 +8377,7 @@ function applySetting(key) {
     case 'enginePower': buildGarage(); break;
     case 'sfxVolume': case 'musicVolume': sfx.setVolumes(); break;
     case 'uiScale': { const z = (S.uiScale || 100) / 100; $('hud').style.zoom = z; $('toasts').style.zoom = z; break; } // R2-94
+    case 'dysFont': document.body.classList.toggle('dys', !!S.dysFont); break; // R2-100
   }
 }
 function setValue(key, v) {
@@ -8419,7 +8423,7 @@ function setValue(key, v) {
     groups[d.group].appendChild(row);
   }
 })();
-applySetting('uiScale'); // R2-94: apply the saved HUD scale at boot (the panel build above is the first moment both S and the DOM exist)
+applySetting('uiScale'); applySetting('dysFont'); // R2-94 + R2-100: apply the saved display settings at boot (the panel build above is the first moment both S and the DOM exist)
 function togglePanel(show) { el.panel.hidden = show === undefined ? !el.panel.hidden : !show; }
 $('btnTune').addEventListener('click', (e) => { togglePanel(); e.currentTarget.blur(); });
 $('btnClose').addEventListener('click', () => togglePanel(false));
