@@ -613,7 +613,7 @@
         <div class="mprow" id="codeRow"><input id="mpCode" maxlength="40" placeholder="Game code" aria-label="Game code" autocomplete="off" autocapitalize="off" spellcheck="false"><button id="btnJoinCode" type="button">Join with code</button></div>
         <p id="mpCodeShow" class="quiet" style="margin:0" hidden></p>
         <p id="mpInfo" class="quiet" style="margin:0"></p>
-        <details id="famSet"><summary class="quiet">Family yard name</summary><div class="mprow" style="margin-top:6px"><input id="famName" maxlength="40" aria-label="Family yard name" style="width:14em"><button id="btnFamName" type="button">Save</button></div><div class="mprow" style="margin-top:6px"><input id="famPin" maxlength="4" inputmode="numeric" placeholder="PIN (optional)" aria-label="Family yard PIN" style="width:9em"><button id="btnFamPin" type="button">Save PIN</button></div><p class="quiet" style="margin:4px 0 0">Everyone whose game has the same name here lands in the same yard when they tap Play together. Pick something only your family knows — and for a yard nobody can guess, set the same 4-digit PIN on every device.</p></details>
+        <details id="famSet"><summary class="quiet">Family yard name</summary><div class="mprow" style="margin-top:6px"><input id="famName" maxlength="40" aria-label="Family yard name" style="width:14em"><button id="btnFamName" type="button">Save</button></div><div class="mprow" style="margin-top:6px"><input id="famPin" maxlength="4" inputmode="numeric" placeholder="PIN (optional)" aria-label="Family yard PIN" style="width:9em"><button id="btnFamPin" type="button">Save PIN</button></div><p class="quiet" style="margin:4px 0 0">Everyone whose game has the same name here lands in the same yard when they tap Play together. Pick something only your family knows — and for a yard nobody can guess, set the same 4-digit PIN on every device. Up to 11 guests can drive; AI fill the rest of the field.</p></details>
         <div id="mpShare" class="mpshare" hidden><canvas id="mpQR" width="180" height="180" aria-label="QR code to join"></canvas><div><p class="quiet" style="margin:0 0 6px">Scan to join, or send this link:</p><input id="mpLink" readonly aria-label="Join link"><button id="btnShareLink" type="button" class="primary" hidden>Share link</button> <button id="btnCopyLink" type="button">Copy link</button></div></div>
       </div>
       <div>
@@ -8145,7 +8145,7 @@ function spawnCars() {
       car.remote = g.peer; car.did = g.presence.did || null; cars.push(car);
     }
     const left = Object.keys(CAR_TYPES).filter((k) => !taken.has(k)).sort(() => Math.random() - 0.5);
-    types.length = 0; types.push(...left); nAI = Math.min(n, left.length, Math.max(0, 11 - cars.length));
+    types.length = 0; types.push(...left); nAI = Math.min(left.length, Math.max(0, 11 - cars.length), MP.family ? Math.max(0, Math.round(S.aiCount) + 1 - cars.length) : n); // family yard: AI backfill to a fixed total field (you + aiCount cars), so two humans still get a full derby; the yard never holds more than 12
   }
   for (let i = 0; i < nAI; i++) {
     const a = (-165 + (n === 1 ? 75 : i * 150 / (n - 1))) * D2R;
