@@ -11273,4 +11273,6 @@ requestAnimationFrame(frame);
 window.__derby.SCORE = SCORE; window.__derby.UPDATE = UPDATE; window.__derby.TABENV = TABENV; window.__derby.PERFREP = PERFREP; // (test hooks)
 window.__derby.VR = VR; window.__derby.XRS = XRS; window.__derby.composer = composer;
 window.__derby.VCLIP = VCLIP; window.__derby.ROAST_BY = ROAST_BY; window.__derby.ROAST_PAIR = ROAST_PAIR; window.__derby.SHAZZA = SHAZZA; window.__derby.CAR_CAST = CAR_CAST; window.__derby.ANNOUNCER = ANNOUNCER; window.__derby.COP = COP; window.__derby.megaphone = megaphone; window.__derby.hornLine = hornLine;
+if (/[?&]smoke\b/.test(location.search)) { // headless smoke check (the CI hook): boot, start a match, run ~5 s, report on the title + console. In an environment without WebGL the module never gets here — which is itself the failure signal.
+  window.addEventListener('load', () => setTimeout(() => { try { startMatch(); let n = 0; const iv = setInterval(() => { if (++n < 5) return; clearInterval(iv); const ok = frameErrors === 0 && game.state === 'playing'; document.title = ok ? 'SMOKE OK' : 'SMOKE FAIL'; console.log('SMOKE', ok ? 'OK' : 'FAIL', 'frameErrors', frameErrors, 'state', game.state); }, 1000); } catch (e) { document.title = 'SMOKE FAIL'; console.error('SMOKE FAIL', e); } }, 1500)); }
 </script>
