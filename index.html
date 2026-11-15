@@ -680,6 +680,7 @@
       <div id="overBoard" hidden><table class="sbt" id="overTable"></table></div>
       <div class="actions">
         <button id="btnAgain" class="primary" type="button">Drive again</button>
+        <button id="btnReplay" type="button">↻ Watch the wreck</button>
         <button id="btnGarage" type="button">Change car</button>
         <span class="quiet">or press Enter</span>
       </div>
@@ -7819,6 +7820,7 @@ const game = {
   },
   onWreck(car) {
     if (this.state !== 'playing') return;
+    ARENA.lastWreck = car.body.position.clone();
     const killer = car.lastAttacker && car.lastAttacker !== car && simTime - (car.lastAttackTime || 0) < 6 ? car.lastAttacker : null;
     if (killer) killer.kills = (killer.kills || 0) + 1;
     if (PLAYLOG.m) PLAYLOG.wreck(car, killer); if (AUTO.on && car === player) car.respawnType = AUTO.nextType(); // (autoplay: every life a different vehicle)
@@ -7827,7 +7829,7 @@ const game = {
     if (GAME_MODE === 'respawn' && MP.role === 'guest') { if (car.isPlayer) toast('WRECKED', 'bad'); else toast(`${car.name} is wrecked`); return; } // the host brings it back
     if (GAME_MODE === 'respawn' && MP.role !== 'guest') { // nobody is out: the wreck comes back in a few seconds
       car.respawnT = car.isPlayer || car.remote ? RESPAWN_HUMAN : RESPAWN_AI;
-      if (car.isPlayer) { toast('WRECKED', 'bad'); const g = killer && !killer.wrecked ? killer : null; if (g && Math.random() < 0.6) barks.say(g, 'gloat', true); else barks.announce('youWrecked', {}, true); return; }
+      if (car.isPlayer) { toast('WRECKED', 'bad'); startReplay(car.body.position); const g = killer && !killer.wrecked ? killer : null; if (g && Math.random() < 0.6) barks.say(g, 'gloat', true); else barks.announce('youWrecked', {}, true); return; }
       if (killer && !killer.isPlayer && !killer.remote && Math.random() < 0.55) barks.say(killer, 'kill', true, { v: car.isPlayer ? 'you' : car.name, vcar: car.T.name, target: 'you', car: car.T.name });
       else if (Math.random() < 0.5) barks.say(car, 'wrecked', true, killer && !killer.isPlayer && killer.persona ? { v: killer.persona.nick, target: killer.persona.nick, car: killer.T.name } : undefined); else barks.announce('wreck', { v: car.name, vcar: car.T.name }, true);
       sfx.cheer(1);
@@ -8371,6 +8373,7 @@ const unlockAudio = () => sfx.init();
 window.addEventListener('pointerdown', unlockAudio, { once: true });
 window.addEventListener('keydown', unlockAudio, { once: true });
 $('btnStart').addEventListener('click', startMatch);
+$('btnReplay').addEventListener('click', () => { if (ARENA.lastWreck) { el.over.hidden = true; game.replayBack = true; game.replayBackT = clock + 7; startReplay(ARENA.lastWreck); toast('REPLAY ON THE BIG SCREEN', 'cool'); } });
 $('btnAgain').addEventListener('click', startMatch);
 $('btnGarage').addEventListener('click', showMenu);
 
@@ -10205,6 +10208,7 @@ function simBody(now) {
         player.airTime = 0;
       }
     }
+    if (game.replayBack && (!JUMBO.replay || clock > game.replayBackT)) { game.replayBack = false; if (game.state === 'over') el.over.hidden = false; }
     if (game.state === 'over' && game.overTimer > 0) {
       game.overTimer -= dt;
       if (game.overTimer <= 0) showOver();
