@@ -599,7 +599,7 @@
         <div class="mprow" id="codeRow"><input id="mpCode" maxlength="40" placeholder="Game code" aria-label="Game code" autocomplete="off" autocapitalize="off" spellcheck="false"><button id="btnJoinCode" type="button">Join with code</button></div>
         <p id="mpCodeShow" class="quiet" style="margin:0" hidden></p>
         <p id="mpInfo" class="quiet" style="margin:0"></p>
-        <details id="famSet"><summary class="quiet">Family yard name</summary><div class="mprow" style="margin-top:6px"><input id="famName" maxlength="40" aria-label="Family yard name" style="width:14em"><button id="btnFamName" type="button">Save</button></div><p class="quiet" style="margin:4px 0 0">Everyone whose game has the same name here lands in the same yard when they tap Play together. Pick something only your family knows.</p></details>
+        <details id="famSet"><summary class="quiet">Family yard name</summary><div class="mprow" style="margin-top:6px"><input id="famName" maxlength="40" aria-label="Family yard name" style="width:14em"><button id="btnFamName" type="button">Save</button></div><div class="mprow" style="margin-top:6px"><input id="famMotd" maxlength="80" placeholder="Welcome line shown when family arrives (optional)" aria-label="Family yard welcome line" style="width:22em"></div><p class="quiet" style="margin:4px 0 0">Everyone whose game has the same name here lands in the same yard when they tap Play together. Pick something only your family knows. The welcome line is set by whoever is hosting and shown to everyone who joins.</p></details>
         <div id="mpShare" class="mpshare" hidden><canvas id="mpQR" width="180" height="180" aria-label="QR code to join"></canvas><div><p class="quiet" style="margin:0 0 6px">Scan to join, or send this link:</p><input id="mpLink" readonly aria-label="Join link"><button id="btnShareLink" type="button" class="primary" hidden>Share link</button> <button id="btnCopyLink" type="button">Copy link</button></div></div>
       </div>
       <div>
@@ -8935,6 +8935,7 @@ function updateBulls(dt) {
 // Whoever arrives first hosts; the next ones find that host by asking on the topic; a dropped or reloaded device rejoins by itself.
 const FAM_DEFAULT = 'scrapyard-family-yard-q7k2m9';
 function famName() { try { return localStorage.getItem('derby-famname') || FAM_DEFAULT; } catch (e) { return FAM_DEFAULT; } }
+function famMotd() { try { return (localStorage.getItem('derby-fam-motd') || '').slice(0, 80); } catch (e) { return ''; } } // R2-34: the yard's one-line welcome, set by whoever hosts
 function famCode(name) { // 12 characters, a-z0-9: also a valid join code
   const t = String(name || '').trim().toLowerCase(); let a = 0x811c9dc5, b = 0x9e3779b9;
   for (const ch of t) { const c = ch.codePointAt(0); a = Math.imul(a ^ c, 16777619); b = Math.imul(b ^ c, 2246822519); b ^= b >>> 13; }
@@ -9080,6 +9081,7 @@ const MP = {
         if (!this.family || this.role !== 'solo') return;
         if (found === null) throw { type: 'network' };
         NETLOG.incident('me', found.length ? `family yard: ${found.map((m) => m.nick || '?').join(', ')} hosting, joining` : 'family yard: nobody hosting, hosting it'); if (found.length) await this.join(code); else await this.host(code);
+        if (found.length && found[0].mo && this.role === 'guest') { const mo = String(found[0].mo).slice(0, 80); toast('🏠 ' + mo.toUpperCase(), 'cool'); this.info('Family yard: ' + mo); } // R2-34: the host's welcome line, shown on arrival
         if (this.role === 'host') setTimeout(() => this.famProbe(), 1200 + Math.random() * 1800); // two arriving at once both host: the check settles who keeps it
       }
     } catch (e) { this.famBusy = false; this.status('family yard unreachable'); this.info('Could not reach the family yard: ' + this.explain(e.type || e.message || 'error') + ' Trying again…'); }
@@ -9096,7 +9098,7 @@ const MP = {
     if (!this.family || this.role !== 'host' || this.famProbes.has(m.fq)) return;
     const mine = this.famKey();
     if (Array.isArray(m.k) && m.k.length === 4 && famCmp(m.k, mine) > 0) { this.famYield(m.nick); return; } // another host, stronger claim: we go to them
-    ntfyPub('sd-' + code + '-g' + m.fq, JSON.stringify({ fz: mine, nick: this.nick() })).catch(() => {});
+    ntfyPub('sd-' + code + '-g' + m.fq, JSON.stringify({ fz: mine, nick: this.nick(), mo: famMotd() || undefined })).catch(() => {}); // R2-34: the welcome line rides the host's beacon answer
   },
   famYield(who) { // another device hosts the family yard: take our players along and join it
     if (this.famYielding || this.role !== 'host') return; this.famYielding = true;
@@ -9658,7 +9660,8 @@ function mpShim() {
 $('btnHost').addEventListener('click', () => MP.host());
 $('btnFamily').addEventListener('click', () => MP.famJoin());
 $('famName').value = famName(); $('famName').addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter') $('btnFamName').click(); });
-$('btnFamName').addEventListener('click', async () => { const v = $('famName').value.trim().slice(0, 40); try { if (!v || v === FAM_DEFAULT) localStorage.removeItem('derby-famname'); else localStorage.setItem('derby-famname', v); } catch (e) {} $('famName').value = famName();
+$('famMotd').value = famMotd();
+$('btnFamName').addEventListener('click', async () => { const v = $('famName').value.trim().slice(0, 40); try { if (!v || v === FAM_DEFAULT) localStorage.removeItem('derby-famname'); else localStorage.setItem('derby-famname', v); const mo = $('famMotd').value.trim().slice(0, 80); if (mo) localStorage.setItem('derby-fam-motd', mo); else localStorage.removeItem('derby-fam-motd'); } catch (e) {} $('famName').value = famName();
   toast('FAMILY YARD NAME SAVED', 'cool'); if (MP.family && MP.role !== 'solo' && MP.code !== famCode(famName())) { await MP.leave(true); MP.famJoin(); } else MP.renderFam(); });
 document.addEventListener('visibilitychange', () => { if (document.hidden || !MP.family) return; if (MP.role === 'host') setTimeout(() => MP.famProbe(), 800); else if (MP.role === 'solo' && famOn()) MP.famRetry(); }); // back from the background: make sure we're still in the one yard
 $('btnLeave').addEventListener('click', () => MP.leave());
