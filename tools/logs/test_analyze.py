@@ -82,6 +82,10 @@ def main():
     vrow = next((l for l in md.split('\n') if l.startswith('| viper |')), '')
     ok('| 70 | 33 | 120 |' in vrow, 'A3 viper row: taken/life 70 (700/10), avg life 33 s, 120 fires — got: ' + vrow)
 
+    # A4: physics-catch heatmap — listed catches that carry a position are clustered
+    # on the same 12 m grid as the stuck hotspots (the position-less one is skipped).
+    ok('catch locations' in md and '(36, -107): 1×' in md, 'A4 catch heatmap cell (36, -107) with the one positioned catch')
+
     print('FAILED ' + str(len(fails)) if fails else 'ALL PASS')
     return 1 if fails else 0
 

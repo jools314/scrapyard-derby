@@ -130,6 +130,15 @@ gm = max(0.1, mins(real)); perh = lambda v: round(v / gm * 60)
 L.append('- totals (full census): ' + ', '.join(f'{k} {v}' for k, v in tot.items()) + f" · safety-net work: fixes {tot['fixes']} ({perh(tot['fixes'])}/h), clamps {tot['clamps']} ({perh(tot['clamps'])}/h)" + (' · kinds (census): ' + ', '.join(f'{k} {v}' for k, v in cen.most_common()) if cen else ''))
 L.append('- by vehicle (listed catches only — the game lists at most 40 per match, so this is a capped sample): ' + ', '.join(f'{k} {v}' for k, v in ph.most_common(8)) + ' · listed kinds: ' + ', '.join(f'{k} {v}' for k, v in phk.most_common()) + '\n')
 J['phys'] = dict(ph); J['physCensus'] = dict(cen)
+pc = collections.defaultdict(list)
+for m in real:
+    for e in (m.get('phys', {}).get('list') or []):
+        if e.get('x') is not None and e.get('z') is not None: pc[(round(e['x'] / 12), round(e['z'] / 12))].append(e)
+if pc:
+    cells = sorted(pc.items(), key=lambda kv: -len(kv[1]))[:8]
+    cent = lambda xs: (round(sum(s['x'] for s in xs) / len(xs)), round(sum(s['z'] for s in xs) / len(xs)))
+    L.append('- catch locations (listed catches with a position, same 12 m grid as stuck — do the two maps agree?): ' + '; '.join(f"({cent(xs)[0]}, {cent(xs)[1]}): {len(xs)}× · " + ', '.join(f'{k} {n}' for k, n in collections.Counter(s.get('kind') for s in xs).most_common(2)) for (g, xs) in cells))
+    J['physHot'] = {f'{cent(xs)[0]},{cent(xs)[1]}': len(xs) for (g, xs) in cells}
 # --- balance
 L.append('## Balance (all real matches)\n')
 vb = collections.defaultdict(lambda: collections.Counter())
