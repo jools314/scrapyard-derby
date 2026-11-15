@@ -10804,6 +10804,7 @@ const VR = (() => {
       { t: 'row', h: 100, b: [B('RESUME', () => { game.paused = false; }, { primary: true })] },
       { t: 'row', b: [B('Reset car (flip upright)', () => { game.paused = false; if (!player.wrecked) player.flipUpright(); }), B(GAME_MODE === 'respawn' ? 'Respawn / new car' : 'New car (restart)', () => { V.page = 'cars'; })] },
       { t: 'row', b: [B('Restart match', () => startMatch(), { dis: guest }), B(guest ? 'Leave game' : 'Quit to garage', () => { if (guest) MP.leave(); else showMenu(); })] },
+      { t: 'row', b: [B('🐞 Report a bug', () => { const t = bugReport(); try { localStorage.setItem('derby-bug-last', t.slice(0, 400000)); } catch (e) {} ptag('bug report taken'); dropUpload('bug', t); })] }, // R2-14: report from inside VR — openBugReport() is DOM/clipboard-only (the headset has neither), so the pause page calls bugReport() + dropUpload() directly; the report is kept on this device exactly like the 2D path
       { t: 'row', b: [B('VR settings', () => { V.page = 'settings'; }), B('Recenter', () => recenter()), B('Exit VR', exit)] },
       { t: 'help', s: 'R trigger gas · L trigger brake/reverse · L stick steer · grip drift · A fire · B nitro · X jump · Y recenter (hold: view) · R stick click pause' }];
     if (st === 'playing') { V.replaySaid = false; return null; } // driving: no menu · R2-12: re-arm the over-page replay auto-play

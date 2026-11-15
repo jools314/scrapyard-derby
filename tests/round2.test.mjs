@@ -52,6 +52,7 @@ test('R2-8', 'governor steps back up on sustained headroom', () => { has(/V\.fas
 test('R2-9', '120 Hz requested when the headset offers it', () => has(/R2-9/));
 test('R2-12', 'VR game-over page offers the wreck replay', () => has(/R2-12/));
 test('R2-13', 'low-hull vignette in VR', () => has(/R2-13/));
+test('R2-14', 'bug report from the VR pause page (bugReport + dropUpload, no DOM)', () => { has(/R2-14/); has(/B\('🐞 Report a bug'/); });
 test('R2-16', 'VR tune page (match settings from the headset)', () => has(/R2-16/));
 test('R2-17', 'controller-lost toast in VR', () => has(/R2-17/));
 test('R2-18', 'per-car seat height in VR', () => has(/R2-18/));
