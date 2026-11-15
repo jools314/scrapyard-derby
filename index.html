@@ -502,6 +502,7 @@
     <div id="toasts"></div>
     <div id="hint"></div>
     <div id="flash"></div>
+    <div id="ariaLive" role="status" aria-live="polite" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap"></div>
     <div id="wet"></div>
     <div id="keys" aria-label="Controls"></div>
     <div id="perf" hidden></div>
@@ -587,7 +588,7 @@
     </div>
   </aside>
 
-  <div id="menu" class="overlay">
+  <div id="menu" class="overlay" role="main" aria-label="Main menu">
     <div class="card">
       <p class="eyebrow">Demolition derby · physics sandbox</p>
       <h1>Scrapyard Derby</h1>
@@ -608,7 +609,7 @@
       </div>
       <div>
         <p class="label" style="margin:0 0 8px">Pick your car</p>
-        <div class="garage" id="garage"></div>
+        <div class="garage" id="garage" role="group" aria-label="Pick your car"></div>
       </div>
       <p id="blurb"></p>
       <p id="driverCard" class="quiet" style="margin:0"></p>
@@ -6275,6 +6276,7 @@ const el = {
 };
 const zoneEls = ZONES.map((z) => $('z-' + z)), wheelEls = [0, 1, 2, 3].map((i) => $('w-' + i));
 function dmgColor(v) { return v < 30 ? '#8cc76f' : v < 65 ? '#f2a20c' : '#e4472c'; }
+function ariaSay(text) { const el = $('ariaLive'); if (el) el.textContent = text; } // R2-99: screen-reader announcements (match start/end) via the polite live region
 function toast(text, kind) {
   const d = document.createElement('div');
   d.className = 'toast' + (kind ? ' ' + kind : '');
@@ -8254,6 +8256,7 @@ function startMatch() {
   if (barks.speechOK !== true) barks.unlock(); // Start is a tap/keypress: unlock speech here
   game.state = 'playing'; game.paused = false;
   el.menu.hidden = true; el.over.hidden = true;
+  ariaSay(`Match started. ${GAME_MODE === 'elim' ? 'Elimination' : 'Respawn'} mode${player ? ', driving the ' + player.T.name : ''}.`); // R2-99
   game.countdown = 1.8; game.grace = 8; game.lastCount = 4;
   { const sk = streakLoad(); if (sk.n >= 3) setTimeout(() => barks.announce('streak', { n: sk.n }, true), 2600); } // R2-53: a live streak of 3+ gets called out as the next match starts
 }
@@ -8273,6 +8276,7 @@ function showOver() {
   { const won = /Yard cleared|You win!/.test($('overTitle').textContent); if (won) firstMark('win', 'WIN'); if (game.score >= 1000) firstMark('k1000', '1,000-POINT MATCH'); const sk = streakNote(won); if (won && sk.n >= 2) toast(`🔥 WIN STREAK: ${sk.n}`, 'cool'); chalMatchEnd(game.score, won); weekMatchEnd(game.score, won, playerType); scrapAdd(Math.floor(game.score / 100)); } // R2-56: match-level firsts are judged here, where the final numbers are known · R2-53: and the streak is counted here, once per match · R2-45: and the daily challenge is judged · R2-57: and the weekly trio · R2-47: match-end scrap (1 per 100 pts)
   $('overBoard').hidden = GAME_MODE !== 'respawn'; if (GAME_MODE === 'respawn') $('overTable').innerHTML = SCORE.table();
   el.over.hidden = false;
+  ariaSay(`${$('overTitle').textContent || 'Match over'}. Final score ${game.score.toLocaleString()}.`); // R2-99
 }
 
 /* ---------------- Garage (car select) ---------------- */
