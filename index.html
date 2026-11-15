@@ -6069,11 +6069,13 @@ class Car {
         aim.set(aim.x + kr.x * side * 25, 0, aim.z + kr.z * side * 25); this.tankDodge = true;
       }
     }
-    if (this.health < 45 && this.mode !== 'charge') { // hurt: detour to the nearest live repair
-      let best = null, bd = 70;
+    const mendAt = style === 'coward' ? 45 : style === 'brawler' ? 25 : 35; // hurt: route to a repair — cowards go early, brawlers only when desperate
+    if (this.health < mendAt && this.mode !== 'charge') {
+      let best = null, bd = this.health < 20 ? 400 : 70; // badly hurt: worth crossing the yard for
       for (const pk of pickups) if (pk.kind === 'repair' && pk.respawn <= 0 && pk.y < 3) { const d = Math.hypot(pk.x - b.position.x, pk.z - b.position.z); if (d < bd) { bd = d; best = pk; } }
-      if (best) aim.set(best.x, 0, best.z);
+      if (best) { aim.set(best.x, 0, best.z); if (this.health < 20) this.mode = 'mend'; }
     }
+    if (this.mode === 'mend' && this.health >= mendAt + 10) { this.mode = 'hunt'; this.modeT = 2; }
     // Forklift with a car on its forks, tow truck with one on the hook: deliver it to the crusher or under the wrecking ball
     const load = this.carry ? this.carry.c : this.tow ? this.tow.c : null;
     if (load && !this.isPlayer && !this.remote) {
