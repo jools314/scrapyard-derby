@@ -16,6 +16,13 @@ Format: `- [agent] topic — branch — claimed YYYY-MM-DD HH:MM UTC — notes`
 - [claude] Player target picking: Tab / one 🎯 button cycles visible targets for the Tiger cannon, minigun, rockets — claude/target-pick — claimed 2026-11-15 05:55 UTC
 - [claude] Voice round 5: Emeka "Danfo" Okafor replaces Raju (Sandflea), recordings for Bogdan/Ragnar/Maxine/Emeka, 60+ new rude/quirky/old-school commentary lines each for Kev and Shazza, 15 more per driver, and repeats fixed using the heard-log (brief: docs/voices/round5-brief.md) — claude/voices-round5 — claimed 2026-11-15 05:55 UTC — paused by usage limit until ~10:00 UTC
 - [muse] bob/improvements-round2 — branch exists; landing plan to follow (not yet claimed)
+- [muse] Rubber Duck fun gag: first hosing makes a bull sit down defeated while a rubber duck floats past — muse/rubber-duck — claimed 2026-11-15 12:04 UTC
+- [muse] Soggy Burger fun gag: hosing a burger makes it limp and friction-free, sliding until it dries — muse/soggy-burger — claimed 2026-11-15 12:04 UTC
+- [muse] Instant Ground Beef fun gag: a bull in the Combine's reel comes out the back as a burger, harvest counter agreeing — muse/ground-beef — claimed 2026-11-15 12:04 UTC
+- [muse] Golden Cone fun gag: exactly one cone per match is gold underneath; knocking it over reveals confetti + fanfare — muse/golden-cone — claimed 2026-11-15 12:04 UTC
+- [muse] Sad Trombone fun gag: a wreck within 10 s of the start earns one sad trombone (within 5 s it gives up halfway) — muse/sad-trombone — claimed 2026-11-15 12:04 UTC
+- [muse] Honk Back fun gag: honking at a bull gets a moo pitched like the horn; a second honk harmonises — muse/honk-back — claimed 2026-11-15 12:04 UTC
+- [muse] Crusher Confetti fun gag: crushing a cardboard box in the press erupts confetti from the top vent — muse/crusher-confetti — claimed 2026-11-15 12:04 UTC
 
 ## Ready to land (needs the test gate)
 
