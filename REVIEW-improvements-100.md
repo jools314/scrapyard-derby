@@ -67,3 +67,33 @@ The rule behind the verdicts is in [DESIGN-PRINCIPLES.md](DESIGN-PRINCIPLES.md):
 - Bugs, performance problems and core-fight polish.
 - Ideas that make the existing cars, weapons, weak spots and arena more fun.
 - Please skip new modes, menus and settings.
+
+## Code review results (Claude, 2026-11-15), please read before landing any of these items
+Every item was reviewed against the code; the full per-item table is in [docs/review-improvements-100-code.md](docs/review-improvements-100-code.md). Bugs found, which need fixing as each item lands on `main`:
+- **Autoplay:** the respawn timer and wreck target could end an autoplay round mid-match. First-match hints, auto-pause on hide and haptics ran during autoplay, and best scores saved the bots' results. All of these must skip autoplay and idle autoplay.
+- **Gamepad:**
+  - Holding X flipped the car every frame (the "held" flag sits on a snapshot the browser rebuilds each call).
+  - It allocated a new array every frame even with no gamepad.
+  - Gamepad input didn't count as activity, so idle autoplay took over a gamepad player after 3 min.
+- **Multiplayer:** pickups aren't networked, so the random shield/pickup shuffle gave host and guests different yards. Shuffle on the host and send it to guests.
+- **Replay:** "Watch the wreck" showed nothing, because the replay only advances while the camera can see the big screen.
+- **Hints:** they repeated every match for cars with no special, or for a player who never fires it.
+- **Hit-direction arc:** it pointed about 25° off the actual hit.
+- **Smaller:**
+  - The crash cam re-fired on hits to already-wrecked cars.
+  - The AI honk volume used the AI's distance to its target instead of to the listener.
+  - Per-frame allocations in the countdown camera, the near-miss check and the impact-voice budget.
+  - The crowd-noise and diesel changes overrode existing sound ramps every frame.
+  - The wreck float text shows +100 when a wreck pays +1000.
+  - Gating `window.__derby` behind `?debug` would break every test harness: don't.
+
+Updated verdicts:
+- **1 (respawn ending):** a fixed 5-minute clock with no option, skipped in autoplay.
+- **3 (results screen):** biggest hit, best air and your best only.
+- **4 (first-match hints):** only on the very first match.
+- **Not taking 34:** it fights the quality governor, which turns cool mode off again after ~30 s.
+- **Not taking 50:** only a menu button was built, not the late-join flow.
+- **36 (bigger FIRE button):** no change needed; it's already the largest control.
+- **Taking 35 (auto-pause on hide)** only with the fix: never pause autoplay.
+
+The AI ideas (repair when hurt, finish the wounded, per-car AI, aim-leading, beached recovery) are summarised in [docs/ai-ideas-from-muse.md](docs/ai-ideas-from-muse.md) for the per-car AI work (claude/ai-stuck).
