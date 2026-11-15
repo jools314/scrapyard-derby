@@ -5672,6 +5672,10 @@ class Car {
       if (game.tut === 1) { game.tut = 2; toast('NOW HOLD SHIFT FOR NITRO', 'cool'); }
     }
     if (this.health <= 0.01) this.wreck();
+    if (this.wrecked && (this.isPlayer || by === player) && game.state === 'playing' && simTime - (game.crashCamT || -99) > 7) { // the hit that wrecks someone always gets the crash cam (the 70% dice only governs ordinary hits)
+      game.crashCamT = simTime; const bp = this.body.position, bf = this.fwd || { x: 1, z: 0 };
+      game.crashCam = { t: 1.1, p: new THREE.Vector3(bp.x, bp.y, bp.z), side: Math.random() < 0.5 ? 1 : -1, n: new THREE.Vector3(bf.x, 0, bf.z).normalize() }; game.slowmo = Math.max(game.slowmo, 0.9);
+    }
   }
 
   updateDamageEffects(by) {
