@@ -3414,6 +3414,7 @@ const sfx = {
     if (p && live) {
       const load = p.shiftT > 0 ? 0.15 : Math.abs(p.ctrl.throttle);
       this.setEngine(this.eng, p.rpm * (p.health < 30 ? 0.88 + Math.sin(t * 31) * 0.02 : 1), load, p.T.cyl, 1); // a dying engine drops a cylinder: detuned and rough under 30% hull
+      if (p.T.heavy || p.T.skid) { this.eng.bp.frequency.setTargetAtTime(75, t, 0.05); this.eng.lp.frequency.setTargetAtTime(320, t, 0.05); } // diesel knock under the heavy metal
       this.sq.gain.setTargetAtTime(p.skidAmt * 0.14, t, 0.05);
       this.sqn.gain.setTargetAtTime(p.skidAmt * 0.07, t, 0.05);
       const v = Math.abs(p.speed) / 70;
