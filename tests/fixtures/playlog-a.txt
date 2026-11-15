@@ -1,0 +1,4 @@
+#derby-playlog v2 dev=test sid=s1 build=67 sent=2026-11-14T00:00:00Z why=test seq=1-2
+{"v":2,"kind":"session","build":"67"}
+{"v":2,"kind":"match","build":"67","game":180,"score":4200,"fps":{"med":58,"p5":41,"low1":22},"errs":{"n":1},"phys":{"fixes":300,"clamps":40,"blowups":2},"slow":{"secs":3.5}}
+{"v":2,"kind":"match","build":"67","game":150,"score":3800,"fps":{"med":55,"p5":38,"low1":20},"errs":{"n":0},"phys":{"fixes":260,"clamps":30,"blowups":1},"slow":{"secs":2.0}}
