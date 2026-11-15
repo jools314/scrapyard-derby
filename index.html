@@ -717,7 +717,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-const SELF_HTML = '<!doctype html>\n' + document.documentElement.outerHTML; // the page as loaded: lets the game reopen itself in its own tab (needed for iPhone tilt inside an embedded viewer)
+let SELF_HTML = null; function selfHtml() { if (SELF_HTML === null) SELF_HTML = '<!doctype html>\n' + document.documentElement.outerHTML; return SELF_HTML; } // captured lazily on the first tilt tap that needs it: serialising the whole page at boot cost every player a >1 MB string for a path almost nobody takes
 
 /* =====================================================================
    ENVIRONMENT VARIABLES
@@ -8576,7 +8576,7 @@ window.addEventListener('orientationchange', () => { tilt.zero = null; });
 let tiltTapT = 0;
 function openOwnTab() { // a top-level tab can ask iOS for motion access; an embedded frame without permission can't
   let w = null;
-  try { w = window.open(URL.createObjectURL(new Blob([SELF_HTML], { type: 'text/html' })), '_blank'); } catch (e) { w = null; }
+  try { w = window.open(URL.createObjectURL(new Blob([selfHtml()], { type: 'text/html' })), '_blank'); } catch (e) { w = null; }
   if (!w) toast('THIS VIEWER WON\'T OPEN A NEW TAB · TILT NEEDS A SELF-HOSTED COPY', 'bad'); else toast('OPENED IN A NEW TAB · TAP TILT THERE', 'cool');
 }
 const tiltTap = (e) => { e.stopPropagation(); if (e.cancelable) e.preventDefault(); const now = performance.now(); if (now - tiltTapT < 400) return; tiltTapT = now; if (tilt.denied && window.top !== window) { openOwnTab(); return; } setTilt(!tilt.on); };
