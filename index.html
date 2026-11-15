@@ -3949,6 +3949,7 @@ function SPIDER() { // shared by every spider, made once: one pipe material, two
   return (_spider = { A, B, pipe, fem, tib, cap, web, skin: new THREE.MeshStandardMaterial({ color: 0x4a2c1a, roughness: 0.7 }), zero: new THREE.Matrix4().makeScale(0, 0, 0) });
 }
 const _wf = new CANNON.Vec3(), _wt = new CANNON.Vec3(), _wr = new CANNON.RaycastResult(), _wF = new CANNON.Vec3(), _wR = new CANNON.Vec3(), _wQ = new CANNON.Quaternion(), _wA = new CANNON.Vec3(), _wL = new CANNON.Vec3(), _wP = new CANNON.Vec3();
+const _nz = (x, top) => (Number.isNaN(x) ? top : x); // (a feeler that found nothing counts as the highest one)
 const _walkRay = { skipBackfaces: true, collisionFilterMask: ~LIGHT }; // feet stand on the ground, scenery, heavy props and cars (not on debris or crates)
 const _lq = new THREE.Quaternion(), _lqi = new THREE.Quaternion(), _lh = new THREE.Vector3(), _lk = new THREE.Vector3(), _lf = new THREE.Vector3(), _ld = new THREE.Vector3(), _lp = new THREE.Vector3(), _lo = new THREE.Vector3(), _lm = new THREE.Matrix4(), _lY = new THREE.Vector3(0, 1, 0), _lS = new THREE.Vector3(1, 1, 1), _lqq = new THREE.Quaternion();
 function webLine(car) { // the steel web: one cable from the spinneret to the victim's roof, three more from the roof to the ground (one draw)
@@ -5554,7 +5555,6 @@ class Car {
       world.raycastClosest(_wf, _wt, _walkRay, _wr);
       if (_wr.hasHit && _wr.body !== b) { H[k] = _wr.hitPointWorld.y; hits++; if (H[k] > top) { top = H[k]; under = _wr.body; } } else H[k] = NaN;
     }
-    const h = (x) => (Number.isNaN(x) ? top : x);
     this.gait = (this.gait || 0) + Math.abs(speed) * dt / 2.2;
     const want = top + ride + (legs < 8 && Math.abs(speed) > 1 ? Math.sin(this.gait * 6.283) * 0.05 * (8 - legs) : 0); // fewer legs: it bobs and limps
     const grounded = hits > 0 && !(this.jumpCd > 0.65) && b.position.y < want + 0.6 && !this.craned && !this.carriedBy && !this.wrecked;
@@ -5569,7 +5569,7 @@ class Car {
       _wF.set(0, Fy, 0); b.applyForce(_wF);
       if (under && under.type === CANNON.Body.DYNAMIC) { _wF.set(0, -Math.min(Fy, m * g * 1.2), 0); under.applyForce(_wF); } // (its weight rests on whatever it stands on)
       // stance: pitch and roll follow what the feet stand on (nose up while it climbs)
-      const pitchT = clamp(Math.atan2(Math.max(h(H[0]), h(H[1])) - Math.max(h(H[2]), h(H[3])), 3.5), -0.45, 0.5), rollT = clamp((Math.max(h(H[1]), h(H[3])) - Math.max(h(H[0]), h(H[2]))) / 2.3, -0.35, 0.35);
+      const h0 = _nz(H[0], top), h1 = _nz(H[1], top), h2 = _nz(H[2], top), h3 = _nz(H[3], top), pitchT = clamp(Math.atan2(Math.max(h0, h1) - Math.max(h2, h3), 3.5), -0.45, 0.5), rollT = clamp((Math.max(h1, h3) - Math.max(h0, h2)) / 2.3, -0.35, 0.35);
       const right = b.quaternion.vmult(AX_Z, _wR), k = clamp(dt * 12, 0, 1);
       wl.z = lerp(wl.z, (pitchT - Math.asin(clamp(this.fwd.y, -1, 1))) * 7, k);
       wl.x = lerp(wl.x, -(rollT - right.y) * 7, k);
