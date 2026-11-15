@@ -8610,7 +8610,7 @@ function releaseAllTouch() {
 window.addEventListener('touchend', (e) => { if (e.touches.length === 0) releaseAllTouch(); }, { passive: true });
 window.addEventListener('touchcancel', (e) => { if (e.touches.length === 0) releaseAllTouch(); }, { passive: true });
 window.addEventListener('blur', releaseAllTouch);
-document.addEventListener('visibilitychange', () => { if (document.hidden) releaseAllTouch(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden) { releaseAllTouch(); if (MP.role === 'solo' && game.state === 'playing' && !game.paused) { game.paused = true; game.autoPaused = true; } } else if (game.autoPaused) { game.autoPaused = false; toast('PAUSED WHILE YOU WERE AWAY — P TO RESUME', 'cool'); } }); // solo games pause when the tab hides; multiplayer keeps its host clock
 for (const b of el.touch.querySelectorAll('[data-k]')) {
   const k = b.dataset.k;
   const on = (e) => {
