@@ -6007,6 +6007,7 @@ class Car {
         if (c === this.lastAttacker && simTime - this.lastAttackTime < 5) s *= 0.5; // revenge
         if (st === 'vulture') s *= 0.25 + c.health / 100 * 0.9;           // circles the weakest
         if (c.health < 25 && st !== 'coward') s *= 0.55;                     // finish the wounded: a limping car draws the field
+        if (this === game.rival && c.isPlayer) s *= 0.5;                       // and your rival comes for YOU first
         if (st === 'chaos') s *= rand(0.3, 1.7);
         if (st === 'coward' && c.isPlayer) s *= 2.5;                        // prefers easier prey
         if (c.T.gun && !this.T.gun) s *= st === 'brawler' ? 1.6 : 3;        // nobody sane picks a fight with a tank
@@ -6337,7 +6338,7 @@ function buildOpponentList() {
     if (c.isPlayer) continue;
     const li = document.createElement('li');
     li.innerHTML = `<span class="sw" style="background:#${c.baseColor.getHexString()}"></span><span></span><span class="mini"><i></i></span>`;
-    li.children[1].textContent = `${c.name} · ${c.T.name}`;
+    li.children[1].textContent = `${c.name} · ${c.T.name}${c === game.rival ? ' ⚔ RIVAL' : ''}`;
     li.title = c.persona ? c.persona.from : '';
     c.li = li; c.liBar = li.querySelector('i');
     el.opp.appendChild(li);
@@ -6761,6 +6762,7 @@ const ANN_LINES = {
   crushed: ['{a} just PANCAKED {v}! Flat as a tack!', 'Oh, {v} has been squashed like a bug on a windscreen!', '{a} parks fourteen tonnes on {v}. Rude!', 'That\'s not a car anymore, that\'s a sandwich press special!'],
   crusherWarn: ['The crusher is winding up — {v} is standing right under it!', 'Warning lights on the press! {v}, MOVE!', 'Two seconds, {v}! The press does not do refunds!'],
   craneWarn: ['The magnet crane has its eye on {v}!', 'Crane incoming! {v} is about to go flying!'],
+  rivalDown: ['The rival is DOWN! {v} eats dirt and the feud is settled!', 'Rival wrecked! Somebody check on {v} — and on that grudge!'],
   followUp: ['And ANOTHER one, just for good measure!', 'Oh, they\'ve gone back for seconds! Cheeky!', 'Hit \'em again! A little top-up for {v}!', 'Double tap! {v} did not need that, but {a} gave it anyway!', 'One for the road! Absolutely unnecessary, absolutely beautiful!'],
   aiHit: ['OHHH! {a} has absolutely cleaned up {v}!', 'Bang! {a} into {v} at {kmh} k\'s! Lovely!', '{v} never saw {a} coming. Classic!', 'And {a} sends {v} for a little spin! Round and round she goes!', 'Crunch! {a} and {v}, the worst first date in history!'],
   carFire: ['{v} is ON FIRE! Somebody get the hose!', '{a} just set {v} alight!', 'Is it hot in here, or is it just {v}?', 'Flame-grilled {v}, coming right up!'],
@@ -7869,13 +7871,14 @@ function drawMinimap() {
       mctx.beginPath(); mctx.arc(x, y, 6, 0, 7); mctx.fill(); mctx.stroke();
     }
   }
+  if (game.rival && cars.includes(game.rival) && !game.rival.wrecked) { const p = game.rival.body.position, x = (p.x + A + 4) * s, y = (p.z + A + 4) * s; mctx.strokeStyle = '#ffd23e'; mctx.lineWidth = 2; mctx.beginPath(); mctx.arc(x, y, 10, 0, 7); mctx.stroke(); } // your rival wears a gold ring on the map
   if (game.pingPos && simTime - game.pingT < 2) { const x = (game.pingPos.x + A + 4) * s, y = (game.pingPos.z + A + 4) * s; mctx.strokeStyle = '#ffd23e'; mctx.lineWidth = 3; mctx.beginPath(); mctx.arc(x, y, 8 + (simTime - game.pingT) * 14, 0, 7); mctx.stroke(); } // the double-honk ping, expanding for two seconds
 }
 
 /* ---------------- Game flow ---------------- */
 const game = {
   state: 'menu', slowmo: 0, hitStop: 0, fovPunch: 0, countdown: 0, grace: 0, lastCount: 0, stuckT: 0, score: 0, time: 0, paused: false, overTimer: -1, attractReset: -1, shake: 0, flash: 0, propHits: 0, propToast: -9,
-  matchT: 0, biggestHit: 0, bestAir: 0, bestWheelie: 0, propCombo: 0, propComboT: -9, tut: -1, hitDirA: 0, hitDirT: -9, hitDirS: 0, impactRate: 0, scrapeT: -9, nmT: 0, shots: 0, hits: 0, pingT: -9, pingPos: null, lastHonk: null, honkT: -9, hostSlowT: 0, handoverPrompted: false,
+  matchT: 0, biggestHit: 0, bestAir: 0, bestWheelie: 0, propCombo: 0, propComboT: -9, tut: -1, rival: null, hitDirA: 0, hitDirT: -9, hitDirS: 0, impactRate: 0, scrapeT: -9, nmT: 0, shots: 0, hits: 0, pingT: -9, pingPos: null, lastHonk: null, honkT: -9, hostSlowT: 0, handoverPrompted: false,
   addScore(n, label) {
     this.score += n;
     if (label && n >= 40) toast(`+${n} ${label}`);
@@ -7888,7 +7891,7 @@ const game = {
     if (killer) killer.kills = (killer.kills || 0) + 1;
     if (PLAYLOG.m) PLAYLOG.wreck(car, killer); if (AUTO.on && car === player) car.respawnType = AUTO.nextType(); // (autoplay: every life a different vehicle)
     SCORE.wreck(car, killer); // (host / solo only: guests get the table from the host)
-    if (killer === player && !FREE_DRIVE) { chalDone('firstwreck'); if (car.tossedBy && simTime - car.tossedBy < 8) chalDone('forktoss'); }
+    if (killer === player && !FREE_DRIVE) { chalDone('firstwreck'); if (car.tossedBy && simTime - car.tossedBy < 8) chalDone('forktoss'); if (car === game.rival) { game.addScore(250, 'RIVAL DOWN'); barks.announce('rivalDown', { v: car.name }, true); chalDone('rival'); } }
     if (!FREE_DRIVE && GAME_MODE === 'respawn' && MP.role !== 'guest' && S.wreckTarget > 0 && killer && (killer.kills || 0) >= S.wreckTarget) { SCORE.finish(); return; } // first to the wreck target ends it
     if (!FREE_DRIVE && car.dmgLog) { const others = car.dmgLog.filter((x) => x.by !== car && x.by !== killer && simTime - x.t < 10).sort((a, b) => b.amt - a.amt); if (others[0] && others[0].by === player) { this.score += 250; toast('ASSIST +250', 'cool'); } } // second-biggest damager gets an assist
     if (GAME_MODE === 'respawn' && MP.role === 'guest') { if (car.isPlayer) toast('WRECKED', 'bad'); else toast(`${car.name} is wrecked`); return; } // the host brings it back
@@ -8182,6 +8185,8 @@ function spawnCars() {
     ai.persona = P;
     cars.push(ai);
   }
+  { const pool = cars.filter((c) => !c.isPlayer && !c.remote); game.rival = pool.length ? pool[Math.random() * pool.length | 0] : null; // one AI per match is your rival: they hunt you, and wrecking them pays double
+    if (game.rival) setTimeout(() => { if (game.rival && game.state === 'playing') toast(`YOUR RIVAL: ${game.rival.name.toUpperCase()} — WRECK THEM FOR DOUBLE`, 'cool'); }, 2500); }
   buildOpponentList();
   if (MP.role === 'host') MP.publishRoster();
 }
