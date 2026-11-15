@@ -6045,10 +6045,10 @@ class Car {
       if (this.modeT > 2) aim.set(tp.x + Math.cos(this.circleA) * 24, 0, tp.z + Math.sin(this.circleA) * 24);
       else if (this.modeT > 1.9) barks.say(this, 'charge');
     } else if (this.mode === 'ambush') { // sit still facing the target, then launch when it comes close
-      if (dist < 38 || this.modeT <= 0) { this.mode = 'charge'; this.modeT = 4; barks.say(this, 'charge'); }
+      if (dist < 38 || this.modeT <= 0) { this.mode = 'charge'; this.modeT = 4; barks.say(this, 'charge'); sfx.at(b.position).honk(this.type, clamp(1 - dist / 90, 0.2, 0.8), 0.35); } // a charge gets a horn first: the same warning a person would give
     }
     if (this.mode === 'backup') {
-      if (this.modeT <= 0 || dist > 42) { this.mode = 'charge'; this.modeT = 4; barks.say(this, 'charge'); }
+      if (this.modeT <= 0 || dist > 42) { this.mode = 'charge'; this.modeT = 4; barks.say(this, 'charge'); sfx.at(b.position).honk(this.type, clamp(1 - dist / 90, 0.2, 0.8), 0.35); }
     }
     if (this.mode === 'charge' && (this.modeT <= 0 || dist < 5 || t.wrecked)) { this.mode = 'hunt'; this.modeT = rand(1.5, 3); }
 
@@ -6064,7 +6064,7 @@ class Car {
           aim.set(kp.x - kf.x * 16 + kr.x * side * 13, 0, kp.z - kf.z * 16 + kr.z * side * 13);
           if (this.mode === 'charge' || this.mode === 'backup' || this.mode === 'ambush') { this.mode = 'flank'; this.modeT = 3; }
           this.tankDodge = true;
-        } else if (dist < 34 && this.mode !== 'charge') { this.mode = 'charge'; this.modeT = 3; barks.say(this, 'charge'); } // got its six: ram!
+        } else if (dist < 34 && this.mode !== 'charge') { this.mode = 'charge'; this.modeT = 3; barks.say(this, 'charge'); sfx.at(b.position).honk(this.type, 0.5, 0.35); } // got its six: ram!
       } else if (k !== t && ahead > 0.5 && d < 40) { // someone else's fight, but don't cross in front of the gun
         const kr = { x: -kf.z, z: kf.x }, side = (dx * kr.x + dz * kr.z) >= 0 ? 1 : -1;
         aim.set(aim.x + kr.x * side * 25, 0, aim.z + kr.z * side * 25); this.tankDodge = true;
