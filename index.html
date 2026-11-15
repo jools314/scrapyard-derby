@@ -8150,7 +8150,7 @@ function buildGarage() {
 }
 function selectCar(key) {
   playerType = key;
-  if (MP.role === 'guest') { MP.sendWant(); buildGarage(); toast(`${CAR_TYPES[key].name.toUpperCase()} NEXT ROUND`, 'cool'); return; }
+  if (MP.role === 'guest') { MP.sendWant(); try { if (MP.code) localStorage.setItem('derby-car-room-' + MP.code, key); } catch (e) {} buildGarage(); toast(`${CAR_TYPES[key].name.toUpperCase()} NEXT ROUND`, 'cool'); return; } // R2-38: remember the pick for this room (the global CAR_KEY stays the solo default)
   sfx.setStyle(MUSIC_FOR[key] || 'rock');
   try { localStorage.setItem(CAR_KEY, key); } catch (e) {}
   buildGarage();
@@ -9042,6 +9042,7 @@ const MP = {
       else this.room = await this.lobby.join('derby-' + code);
     } catch (e) { this.status('could not join'); this.info('Could not join: ' + this.explain(e.type || e.message || 'error')); return; }
     this.role = 'guest'; this.code = code; this.snaps = []; this.builtRk = ''; this.rt = 0; this.seen = 0; this.joinT = Date.now();
+    try { const rc = localStorage.getItem('derby-car-room-' + code); if (rc && CAR_TYPES[rc]) playerType = rc; } catch (e) {} // R2-38: your car is remembered per room — the car you use in Dad's yard is restored on join, and your solo default is left alone
     if (this.lobby) this.lobby.presence({ host: null });
     this.sendWant();
     $('btnHost').hidden = true; $('btnFamily').hidden = true; $('btnLeave').hidden = false; $('btnStart').hidden = true; this.status(this.family && code === famCode(famName()) ? 'in the family yard' : `in game ${code}`); this.renderGames();
