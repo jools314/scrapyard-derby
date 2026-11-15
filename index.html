@@ -7827,7 +7827,7 @@ function drawMinimap() {
 /* ---------------- Game flow ---------------- */
 const game = {
   state: 'menu', slowmo: 0, hitStop: 0, fovPunch: 0, countdown: 0, grace: 0, lastCount: 0, stuckT: 0, score: 0, time: 0, paused: false, overTimer: -1, attractReset: -1, shake: 0, flash: 0, propHits: 0, propToast: -9,
-  matchT: 0, biggestHit: 0, bestAir: 0, bestWheelie: 0, propCombo: 0, propComboT: -9, tut: -1, hitDirA: 0, hitDirT: -9, hitDirS: 0, shots: 0, hits: 0,
+  matchT: 0, biggestHit: 0, bestAir: 0, bestWheelie: 0, propCombo: 0, propComboT: -9, tut: -1, hitDirA: 0, hitDirT: -9, hitDirS: 0, nmT: 0, shots: 0, hits: 0,
   addScore(n, label) {
     this.score += n;
     if (label && n >= 40) toast(`+${n} ${label}`);
@@ -10230,6 +10230,9 @@ function simBody(now) {
         player.airTime = 0;
       }
     }
+    game.nmT = (game.nmT || 0) - dt;
+    if (game.state === 'playing' && game.nmT <= 0 && !FREE_DRIVE && MP.role !== 'guest') { game.nmT = 0.15; // near misses: close, fast, and no contact — the cheapest thrill in the yard
+      if (player && !player.wrecked && game.countdown <= 0) for (const c of cars) { if (c === player || c.wrecked || c.remote) continue; const d = player.body.position.distanceTo(c.body.position), rr = (player.T.L + c.T.L) / 2; if (d > rr + 0.4 && d < rr + 3.2 && player.body.velocity.vsub(c.body.velocity).length() > 15 && simTime - (c.nmT || -9) > 3) { c.nmT = simTime; game.addScore(25, 'NEAR MISS'); if (Math.random() < 0.35) barks.say(c, 'taunt'); } } }
     if (game.replayBack && (!JUMBO.replay || clock > game.replayBackT)) { game.replayBack = false; if (game.state === 'over') el.over.hidden = false; }
     if (game.state === 'over' && game.overTimer > 0) {
       game.overTimer -= dt;
