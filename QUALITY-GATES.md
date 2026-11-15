@@ -33,6 +33,16 @@ The release suite adds:
 - VR, emulated headset and non-VR.
 
 ## 2. Performance budgets (don't make it slower)
+Performance is a feature: the game has to stay smooth on phones as it grows. It's measured three ways, and all three count.
+
+- **Before you push, automatically:** `tests/perfbudget.js` (part of the quick suite) plays a standard 8-opponent match at the highest and the lowest quality and compares it with `tests/perf-baseline.json`.
+  - It fails if draw calls per frame, triangles or textures grow more than 10%, if geometries grow more than 25%, or if the physics step time doubles.
+  - If your change legitimately costs more (say, a new vehicle), first make it cheaper where you can (instancing, merging, LOD, fewer lights). Then update the baseline on purpose with `UPDATE_BASELINE=1 node tests/perfbudget.js`, and in the commit message say what it costs and why it's worth it.
+  - Never update the baseline just to get green.
+- **After you push, from real devices:** section 3 below. The play-log analyser flags regressions per device and build automatically (the "Regression check" section of the report).
+- **By eye:** turn on the perf HUD (gear menu) on a phone and play a minute; look for stutter during big crashes.
+
+Budgets:
 - **Frame rate:** keep a steady 60 fps on a MacBook (foreground) and a recent iPhone. On the Mac, the 1% low must not drop below **50 fps**.
 - **No per-frame allocations** in hot paths: no new objects or arrays per car per frame.
 - **No new full-screen render passes on low quality.**

@@ -30,6 +30,12 @@ Read these first, in this order:
 9. **Update WORKBOARD.md:** move your line to *Done* with the build number.
 10. **Watch the next play-log reports** for your build (they update every ~2 hours, and the autoplay laptop generates data quickly). If a metric regressed or new errors appeared, fix forward right away or `git revert` your commit, as a new build.
 
+## Performance is everyone's job
+The game must stay smooth on phones as it grows: every agent measures and protects performance.
+- `tests/perfbudget.js` gates draw calls, triangles, textures and physics cost before every push.
+- The play-log report's **Regression check** flags fps, stuck and physics regressions per device after each build. If your build shows up there, fixing it comes before any new work.
+- Prefer improvements that make the game *cheaper* at the same quality. Performance wins are always welcome contributions.
+
 ## Claiming and coordination
 - **Nobody owns "the next release":** every push to `main` is a release. Pushes are serialised by git: rebase, re-test, push.
 - **Claims are short-lived.**

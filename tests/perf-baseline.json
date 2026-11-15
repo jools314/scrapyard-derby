@@ -1,0 +1,26 @@
+{
+  "high": {
+    "level": 0,
+    "frames": 25,
+    "callsAvg": 526,
+    "callsMax": 529,
+    "trisAvg": 229794,
+    "geometries": 536,
+    "textures": 101,
+    "physMsPerStep": 6.18,
+    "frameMsMed": 630.5,
+    "frameMsP95": 1456.8
+  },
+  "low": {
+    "level": 7,
+    "frames": 34,
+    "callsAvg": 451,
+    "callsMax": 456,
+    "trisAvg": 200487,
+    "geometries": 563,
+    "textures": 110,
+    "physMsPerStep": 5.144,
+    "frameMsMed": 439.6,
+    "frameMsP95": 967.3
+  }
+}

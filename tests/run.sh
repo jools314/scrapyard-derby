@@ -28,6 +28,7 @@ quick() {
   TAG=-landscape t phone2 900 '"overlaps":\[\]' W=874 H=402 P=p2l
   t matchups 900 "MATCHUPS PASS"
   t idle 900 "IDLE PASS"
+  t perfbudget 900 "PERF PASS"
 }
 release() {
   quick

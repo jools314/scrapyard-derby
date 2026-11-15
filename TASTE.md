@@ -14,7 +14,7 @@ A loud, silly, physics-heavy **demolition derby for kids and their family**, pla
 - **Every car is itself, to the extreme.** One clear strength, one *visible* weak spot and a style of play. The Viper darts in, fires rockets and runs. The tank is slow and terrifying, but bend its barrel and its next shot blows it up. The tow truck drags you into the crusher. A good change makes a car **more itself**.
 - **Rivalries and counters.** Every car has prey it bullies and a counter that bullies it (water vs fire, fast flankers vs slow heavies). Kids learn this by playing, not by reading.
 - **Fair surprises.** Hazards are wild (crusher, wrecking ball, crane, geysers, fire pit), but they warn before they strike. Chaos is fun; random unfair death isn't.
-- **Smooth on a phone.** 60 fps on an iPhone matters more than one more effect. A beautiful game that stutters is worse than a simple one that flows.
+- **Smooth on a phone, always.** 60 fps on an iPhone matters more than one more effect. A beautiful game that stutters is worse than a simple one that flows. Every addition has a cost: measure it (tests/perfbudget.js, the play-log regression check), keep it small, and pay for new detail by making something else cheaper.
 
 ## Good improvements (keep doing more of these)
 - **Visible weak spots:** the Tiger's bent barrel blows up the next shot; the tanker leaks fuel once hit.

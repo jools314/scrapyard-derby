@@ -71,6 +71,25 @@ for d in sorted({dev_name(m) for m in real}):
                    'worstMs': max(m['fps']['worstMs'] for m in xs), 'resPct': res, 'slowSecPerHour': round(slow / mn * 60, 1), 'stuckPerHour': round(stk / mn * 60, 1),
                    'physPerHour': round(ph / mn * 60, 1), 'throttledSec': thr if thr != '–' else None})
 L.append('')
+# --- regression check (thresholds from QUALITY-GATES.md section 3): newest build vs the one before it, per device, once it has >= 30 game-minutes
+L.append('### Regression check (newest build vs previous, per device)\n')
+J['regressions'] = []; rc_lines = []
+for d in sorted({r['device'] for r in TR}):
+    rows = sorted([r for r in TR if r['device'] == d], key=lambda r: r['build'])
+    if len(rows) < 2: continue
+    a, b = rows[-1], rows[-2]
+    if a['gameMin'] < 30: rc_lines.append(f"- {d}: build {a['build']} has only {a['gameMin']} game-min (need 30) — not judged yet"); continue
+    bad = []
+    if a['fpsLow1'] < b['fpsLow1'] - 5: bad.append(f"1% low fps {b['fpsLow1']} -> {a['fpsLow1']}")
+    if a['fpsMed'] < b['fpsMed'] - 3: bad.append(f"median fps {b['fpsMed']} -> {a['fpsMed']}")
+    if a['slowSecPerHour'] > b['slowSecPerHour'] * 1.5 + 2: bad.append(f"slow s/h {b['slowSecPerHour']} -> {a['slowSecPerHour']}")
+    if a['stuckPerHour'] > b['stuckPerHour'] * 1.25 + 2: bad.append(f"stuck/h {b['stuckPerHour']} -> {a['stuckPerHour']}")
+    if a['physPerHour'] > b['physPerHour'] * 1.25 + 5: bad.append(f"physics catches/h {b['physPerHour']} -> {a['physPerHour']}")
+    if bad:
+        rc_lines.append(f"- **REGRESSION** {d}: build {b['build']} -> {a['build']}: " + '; '.join(bad)); J['regressions'].append({'device': d, 'from': b['build'], 'to': a['build'], 'what': bad})
+    else: rc_lines.append(f"- OK {d}: build {b['build']} -> {a['build']} (fps low {b['fpsLow1']}->{a['fpsLow1']}, stuck/h {b['stuckPerHour']}->{a['stuckPerHour']}, phys/h {b['physPerHour']}->{a['physPerHour']})")
+L.extend(rc_lines or ['- not enough data yet'])
+L.append('')
 causes = collections.Counter()
 for m in real:
     for k, v in (m.get('slow', {}).get('causes') or {}).items(): causes[k] += v
