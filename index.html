@@ -8230,6 +8230,15 @@ function careerRender() { // R2-43: the lifetime career screen, aggregated from 
     <p class="quiet" style="margin:4px 0">Best match: ${(best.score || 0).toLocaleString()} pts (${best.mode || 'elim'}, ${String(best.start || '').slice(0, 10)})${fav ? ` · favourite car: ${(CAR_TYPES[fav[0]] || {}).name || fav[0]}` : ''}${nm ? ` · nemesis: ${nm.name} (wrecked you ${nm.n}×)` : ''}</p>
     ${firsts ? `<p class="quiet" style="margin:4px 0">🏆 ${firsts}</p>` : ''}${perCar}`;
 }
+function historyRender() { // R2-49: the match-history browser — the same stored records as R2-43, but browsable one match at a time (newest first, tap to expand), instead of only as an aggregate in a diagnostics dialog
+  const elh = $('historyPanel'); if (!elh) return;
+  let recs = []; try { recs = PLAYLOG.matches().filter((r) => (r.game || 0) >= 3).slice(-12).reverse(); } catch (e) {}
+  if (!recs.length) { elh.innerHTML = ''; return; }
+  const rows = recs.map((r) => { const wk = (r.me || []).reduce((x, l) => x + (l.k || 0), 0); const carsDriven = [...new Set((r.me || []).map((l) => (CAR_TYPES[l.car] || {}).name || l.car))].join(', ') || '—';
+    const lives = (r.me || []).map((l) => `${(CAR_TYPES[l.car] || {}).name || l.car}: ${l.k || 0} wrecks, ${Math.round(l.dmg || 0)} damage, ${l.secs || 0}s${l.alive ? ' (survived)' : ''}`).join('<br>');
+    return `<details><summary>${String(r.start || '').slice(0, 10)} · ${r.mode || 'elim'} · ${(r.score || 0).toLocaleString()} pts · ${wk} wrecks</summary><p class="quiet" style="margin:4px 0">Lasted ${Math.floor((r.game || 0) / 60)}:${String(Math.floor((r.game || 0) % 60)).padStart(2, '0')} · ended: ${String(r.ended || '').replace(/</g, '')}<br>Driven: ${carsDriven}<br>${lives}</p></details>`; }).join('');
+  elh.innerHTML = `<div class="lb-h"><span>Recent matches</span><span>${recs.length}</span></div>${rows}`;
+}
 function buildGarage() {
   garage.innerHTML = '';
   const usage = carUsage(); // R2-55
