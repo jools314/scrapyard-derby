@@ -77,6 +77,11 @@ def main():
     ok('preparing the drawing (draw calls) is the slow part · q2 · 15+ min: 3.5' in md, 'A2 draw-prep incident bucketed q2 / 15+ min')
     ok('worst slow incidents' in md and '800 ms: render' in md and '40 particles' in md, 'A2 worst incidents listed with worst-frame detail and particle load')
 
+    # A3: balance table v2 — damage taken per life, average life seconds, weapon fires.
+    ok('taken/life' in md and 'avg life s' in md, 'A3 balance table has taken/life and avg-life columns')
+    vrow = next((l for l in md.split('\n') if l.startswith('| viper |')), '')
+    ok('| 70 | 33 | 120 |' in vrow, 'A3 viper row: taken/life 70 (700/10), avg life 33 s, 120 fires — got: ' + vrow)
+
     print('FAILED ' + str(len(fails)) if fails else 'ALL PASS')
     return 1 if fails else 0
 

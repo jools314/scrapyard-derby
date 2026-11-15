@@ -134,10 +134,10 @@ J['phys'] = dict(ph); J['physCensus'] = dict(cen)
 L.append('## Balance (all real matches)\n')
 vb = collections.defaultdict(lambda: collections.Counter())
 for m in real:
-    for k, v in (m.get('veh') or {}).items(): vb[k].update({'lives': v.get('lives', 0), 'k': v.get('k', 0), 'd': v.get('d', 0), 'dmg': v.get('dmg', 0)})
+    for k, v in (m.get('veh') or {}).items(): vb[k].update({'lives': v.get('lives', 0), 'k': v.get('k', 0), 'd': v.get('d', 0), 'dmg': v.get('dmg', 0), 'taken': v.get('taken', 0), 'fires': v.get('fires', 0), 'lifew': (v.get('life', 0) or 0) * (v.get('lives', 0) or 0)})
 rows = sorted(vb.items(), key=lambda kv: -(kv[1]['k'] / max(1, kv[1]['d'])))
-L.append('| vehicle | lives | kills | deaths | K/D | dmg/life |\n|---|---|---|---|---|---|')
-for k, c in rows: L.append(f"| {k} | {c['lives']} | {c['k']} | {c['d']} | {round(c['k'] / max(1, c['d']), 2)} | {round(c['dmg'] / max(1, c['lives']))} |")
+L.append('| vehicle | lives | kills | deaths | K/D | dmg/life | taken/life | avg life s | fires |\n|---|---|---|---|---|---|---|---|---|')
+for k, c in rows: L.append(f"| {k} | {c['lives']} | {c['k']} | {c['d']} | {round(c['k'] / max(1, c['d']), 2)} | {round(c['dmg'] / max(1, c['lives']))} | {round(c['taken'] / max(1, c['lives']))} | {round(c['lifew'] / max(1, c['lives']))} | {c['fires']} |")
 J['kd'] = {k: round(c['k'] / max(1, c['d']), 2) for k, c in vb.items()}
 L.append('')
 # --- matchups (build 68+): who wrecks whom, how often by dragging into a hazard, damage dealt by pair
