@@ -7870,7 +7870,7 @@ function drawMinimap() {
 /* ---------------- Game flow ---------------- */
 const game = {
   state: 'menu', slowmo: 0, hitStop: 0, fovPunch: 0, countdown: 0, grace: 0, lastCount: 0, stuckT: 0, score: 0, time: 0, paused: false, overTimer: -1, attractReset: -1, shake: 0, flash: 0, propHits: 0, propToast: -9,
-  matchT: 0, biggestHit: 0, bestAir: 0, bestWheelie: 0, propCombo: 0, propComboT: -9, tut: -1, hitDirA: 0, hitDirT: -9, hitDirS: 0, impactRate: 0, scrapeT: -9, nmT: 0, shots: 0, hits: 0, pingT: -9, pingPos: null, lastHonk: null, honkT: -9,
+  matchT: 0, biggestHit: 0, bestAir: 0, bestWheelie: 0, propCombo: 0, propComboT: -9, tut: -1, hitDirA: 0, hitDirT: -9, hitDirS: 0, impactRate: 0, scrapeT: -9, nmT: 0, shots: 0, hits: 0, pingT: -9, pingPos: null, lastHonk: null, honkT: -9, hostSlowT: 0, handoverPrompted: false,
   addScore(n, label) {
     this.score += n;
     if (label && n >= 40) toast(`+${n} ${label}`);
@@ -10269,6 +10269,7 @@ function simBody(now) {
     } else if (game.state === 'playing') game.grace -= dt;
     SEC.run('cars', () => { for (const c of cars) c.frameUpdate(dt); });
     if (MP.role !== 'guest') { unwedge(dt); aiBeachCheck(dt); }
+    if (MP.role === 'host' && game.state === 'playing') { if (PERF.fps > 0 && PERF.fps < 25) { game.hostSlowT += dt; if (game.hostSlowT > 30 && !game.handoverPrompted) { game.handoverPrompted = true; toast('YOUR DEVICE IS STRUGGLING AS HOST — THE NET LOG OFFERS HANDOVER', 'bad'); NETLOG.incident('host', 'sustained under 25 fps for 30 s: handover suggested to the host'); } } else game.hostSlowT = 0; } // a melting host gets prompted, not silently endured
     for (const c of cars) if (c.shieldT > 0) { c.shieldT -= dt; if (Math.random() < dt * 6) { const p = c.body.position; emit('spark', p.x + rand(-1, 1), p.y + 0.8, p.z + rand(-1, 1), 0, 1, 0, 0.4, 0.1, pickupMat.shield); } } // shield pickups burn down and shimmer
     SEC.run('arena', () => { updateCrane(dt); updateBulls(dt); updateBumps(dt); updateCrawlerCrush(dt); updateBoulders(dt); updateLobs(dt); });
     SEC.run('lod', () => updatePropActivity(dt));
