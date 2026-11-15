@@ -13,7 +13,7 @@
 //      documented output on fixtures.
 // Behavioural verification lives in tests/smoke.mjs (browser, CDP) and in the manual
 // playtest list in IMPROVEMENTS-ROUND2.md — this suite never claims those passed.
-import { readFileSync, existsSync, writeFileSync, unlinkSync } from 'node:fs';
+import { readFileSync, existsSync, writeFileSync, unlinkSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -106,6 +106,19 @@ test('R2-72', 'crowd wave on wrecks and lead changes', () => { has(/crowdWave/);
 test('R2-73', 'phase-aware adaptive music', () => { has(/sfx\.phase|phase:/); has(/R2-73/); });
 test('R2-75', 'voice-clip coverage is measurable', () => has(/VCLIP\.coverage|coverage\(\)/));
 test('R2-76', 'announcer duo colour lines', () => { has(/DUO_EVENTS/); has(/R2-76/); });
+
+test('R2-59', 'voice pipeline: render tool ids match the game\'s VCLIP hash/slug', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'derby-voices-'));
+  execFileSync(process.execPath, [join(root, 'tools/render-voices.mjs'), '--lines', join(root, 'tests/fixtures/lines.json'), '--out', dir], { encoding: 'utf8' });
+  const man = JSON.parse(readFileSync(join(dir, 'manifest.json'), 'utf8'));
+  const ids = Object.keys(man.clips || {}); if (ids.length !== 2) throw new Error(`expected 2 clips, got ${ids.length}`);
+  const grab = (re) => { const m = re.exec(html); if (!m) throw new Error('VCLIP function not found: ' + re); return m[0]; };
+  const hashFn = new Function('str', grab(/hash\(str\) \{[\s\S]*?toString\(36\); \}/).replace(/^hash\(str\) \{/, '').replace(/\}$/, ''));
+  const slugFn = new Function('nick', grab(/slug\(nick\) \{[\s\S]*?slice\(0, 32\); \}/).replace(/^slug\(nick\) \{/, '').replace(/\}$/, ''));
+  const want = hashFn(slugFn('Kev') + '|' + 'What a hit!');
+  if (!man.clips[want]) throw new Error(`game id ${want} not in manifest: ${ids}`);
+  if (!String(man.clips[want][0]).startsWith('kev/')) throw new Error('clip path shape wrong: ' + man.clips[want][0]);
+});
 
 // ---- tooling (77-90) ----
 test('R2-77', 'update check is origin-agnostic', () => has(/R2-77/));
