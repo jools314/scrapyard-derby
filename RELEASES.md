@@ -4,6 +4,7 @@ Newest first. Every push to `main` goes live; each one bumps `BUILD` and adds a 
 
 | build | date | highlights |
 |---|---|---|
+| 69 | 2026-11-15 | dozer blade fixed: the mouldboard was bent convex toward travel (a plough); it now curves concave toward the front like a real blade, edges leading, face scooped 0.22 — visual geometry only, the physics blade is unchanged, no voice lines involved; regression test tests/blade.js asserts the scoop numbers |
 | 68 | 2026-11-15 | recorded voices for 14 characters (ElevenLabs clips; 4 recast characters still on the browser voice); who-wrecks-whom matchup tracking (tow-truck/forklift drag kills credited); autoplay banner shows the build and a pending update; silent autoplay after 3 min with nobody playing (not when paused, not in multiplayer or VR); new accents and spicier roasts |
 | 67 | 2026-11-14 | autoplay updates itself to new builds; play log ignores time the browser throttled the tab; test runs tagged |
 | 66 | 2026-11-14 | performance overhaul (60 fps cap, 100% render scale, thermal step-down, 4× fewer car draw calls); women in the cast; menacing Mr. White + Jesse; 210 rival roasts; VR LOD fix |
