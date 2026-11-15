@@ -1678,19 +1678,18 @@ const ARENA = { mud: [{ x: -100, z: 12, r: 11 }, { x: 62, z: -40, r: 7 }], boost
 const CRUSHER = { x: -112, z: -95, hx: 3.8, hz: 2.5, top: 6.4, low: 1.15, y: 6.4, state: 'idle', t: 4, occ: 0, lamps: [] };
 {
   const C = CRUSHER, steelD = new THREE.MeshStandardMaterial({ color: 0x3d3f42, roughness: 0.45, metalness: 0.85, map: grimeTex }), yellow = new THREE.MeshStandardMaterial({ color: 0xe6a316, roughness: 0.5, metalness: 0.4, map: grimeTex });
-  addStaticBox(0.35, 1.8, C.hz + 0.35, { x: C.x - C.hx - 0.35, y: 1.8, z: C.z }, null, steelD, { obstacle: true, map: 'block' });               // back wall
-  for (const s of [-1, 1]) addStaticBox(C.hx + 0.35, 1.8, 0.35, { x: C.x, y: 1.8, z: C.z + s * (C.hz + 0.35) }, null, steelD, { obstacle: true, map: 'block' }); // side walls
+  // (no walls: open on all four sides, so cars can be shoved in from any direction and nothing gets wedged along its sides - owner request + play-log stuck hotspot -105,-90)
   for (const [sx, sz] of [[-1, -1], [-1, 1], [1, -1], [1, 1]]) addStaticBox(0.4, 4.6, 0.4, { x: C.x + sx * (C.hx + 0.35), y: 4.6, z: C.z + sz * (C.hz + 0.75) }, null, yellow, { obstacle: true, map: false });
   for (const s of [-1, 1]) { const beam = new THREE.Mesh(new THREE.BoxGeometry(2 * C.hx + 1.6, 0.9, 0.5), yellow); beam.position.set(C.x, 9, C.z + s * (C.hz + 0.75)); beam.castShadow = true; scene.add(beam); }
   const cross = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.9, 2 * C.hz + 2), yellow); cross.position.set(C.x, 9, C.z); scene.add(cross);
   const floor = new THREE.Mesh(new THREE.BoxGeometry(2 * C.hx, 0.06, 2 * C.hz), new THREE.MeshStandardMaterial({ color: 0x2a2826, roughness: 0.6, metalness: 0.7 })); floor.position.set(C.x, 0.03, C.z); floor.receiveShadow = true; scene.add(floor);
-  const stripe = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 2 * C.hz + 0.7), DET.hazard); stripe.rotation.x = -Math.PI / 2; stripe.position.set(C.x + C.hx + 0.6, 0.035, C.z); scene.add(stripe);
+  const stripe = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 2 * C.hz + 0.7), DET.hazard); stripe.rotation.x = -Math.PI / 2; stripe.position.set(C.x + C.hx + 0.6, 0.035, C.z); scene.add(stripe); const stripe2 = stripe.clone(); stripe2.position.x = C.x - C.hx - 0.6; scene.add(stripe2);
   C.plate = new THREE.Group(); scene.add(C.plate); C.plate.userData.keep = true;
   const pm = new THREE.Mesh(new THREE.BoxGeometry(2 * C.hx - 0.2, 0.8, 2 * C.hz - 0.2), steelD); pm.castShadow = true; C.plate.add(pm);
   const teeth = new THREE.Mesh(new THREE.BoxGeometry(2 * C.hx - 0.3, 0.12, 2 * C.hz - 0.3), DET.hazard); teeth.position.y = -0.46; C.plate.add(teeth);
   C.ram = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 1, 14), M.chrome); C.ram.userData.keep = true; scene.add(C.ram);
   for (const s of [-1, 1]) { const m = new THREE.MeshStandardMaterial({ color: 0x220000, emissive: 0xff2010, emissiveIntensity: 0 }); const l = new THREE.Mesh(new THREE.SphereGeometry(0.28, 10, 8), m); l.position.set(C.x + C.hx + 0.35, 9.7, C.z + s * (C.hz + 0.75)); l.userData.keep = true; scene.add(l); C.lamps.push(m); }
-  mapShapes.push({ kind: 'container', x: C.x, z: C.z, yaw: 0, l: C.hx * 2 + 1.4, w: C.hz * 2 + 1.4 });
+  for (const [sx, sz] of [[-1, -1], [-1, 1], [1, -1], [1, 1]]) mapShapes.push({ kind: 'block', x: C.x + sx * (C.hx + 0.35), z: C.z + sz * (C.hz + 0.75), yaw: 0, l: 0.8, w: 0.8 }); // only the four posts are solid now
 }
 function crusherInside(p, pad = 0) { const C = CRUSHER; return Math.abs(p.x - C.x) < C.hx + pad && Math.abs(p.z - C.z) < C.hz + pad && p.y < 4.5; }
 function crushNow() {
@@ -9690,7 +9689,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '88'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '89'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }

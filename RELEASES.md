@@ -4,6 +4,7 @@ Newest first. Every push to `main` goes live; each one bumps `BUILD` and adds a 
 
 | build | date | highlights |
 |---|---|---|
+| 89 | 2026-11-15 | The crusher is open on all four sides: the back and side walls are gone, only the four yellow corner posts hold the press up, so you can shove a car in from any direction and big trucks no longer wedge against its walls (play-log stuck hotspot at -105,-90). Hazard stripes on both open ends. Fewer physics objects, not more. Test: tests/crusheropen.js |
 | 88 | 2026-11-15 | Helicopter Sign: knock a yard sign spinning fast enough (over 9 rad/s) and it lifts off, helicopters wildly for two seconds, then clatters down somewhere stupid as a normal sign again. No new props — the ten signs were already there. Test: tests/helisign.js |
 | 87 | 2026-11-15 | Read the Bales: occasionally (about one in seven) a Combine bale comes out with a message printed on it — HELP, SEND NITRO, I WAS A VIPER and friends. One printed texture per message, made once and reused; plain bales are untouched. Test: tests/bales.js |
 | 86 | 2026-11-15 | Potty Cannon: a porta-potty sitting on a geyser when it blows no longer gets the ordinary prop launch — it gets the full cannon treatment: a much harder launch (26 vs 16), a wild tumble, and the flight counted on the potty, once per blow. No new props. Test: tests/pottycannon.js |
