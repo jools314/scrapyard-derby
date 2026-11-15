@@ -9076,6 +9076,7 @@ function updateBulls(dt) {
         for (const c of cars) { if (c.wrecked) continue; const col = c.baseColor || c.paint && c.paint.color, red = col ? clamp((col.r - Math.max(col.g, col.b)) * 2.2, 0, 1) : 0; // bulls see red
           const d = c.body.position.distanceTo(p) - (Math.abs(c.speed) > 3 ? 6 : 0) - (c === bl.angry ? 15 : 0) - red * 18; if (d < bd) { bd = d; best = c; } }
         if (grudge) best = bl.angry; // a grudge beats everything
+        if (game.lastHonk && simTime - game.lastHonk.t < 3 && player && !player.wrecked && Math.hypot(game.lastHonk.x - p.x, game.lastHonk.z - p.z) < 40) best = player; // but a fresh honk is a red rag: the bull charges the noise — honk, then dodge, and let it hit whoever is standing there
         if (best && (grudge || Math.random() < 0.55)) { bl.target = best; bl.state = 'paw'; bl.t = rand(0.9, 1.5); }
         else { bl.state = Math.random() < 0.5 ? 'walk' : 'graze'; bl.t = rand(2, 5); bl.want = bl.yaw + rand(-1.5, 1.5); }
       }
