@@ -1,9 +1,9 @@
-// Every vehicle, every basic control: straight, steer left, steer right, reverse, handbrake, (tracked: spin on the spot).
+// Every vehicle, every basic control at the lowest quality: straight, steer left, steer right, reverse, handbrake, (tracked: spin on the spot).
 // Fails (exit 1) if any car can't turn both ways, go straight, or back up. Run before every publish.
 const { open } = require(process.env.H || './harness');
 (async () => {
   const { browser, page, errors } = await open({ viewport: { width: 640, height: 400 } }); await page.waitForTimeout(1200);
-  await page.evaluate(() => { window.__noRender = true; __derby.S.aiCount = 1; __derby.S.autoGfx = false; document.getElementById('btnStart').click(); });
+  await page.evaluate(() => { window.__noRender = true; __derby.S.aiCount = 1; __derby.S.autoGfx = false; __derby.applyQuality(7); if (__derby.world.solver.iterations !== 8 || __derby.QUALITY.subSteps !== 3) throw new Error('lowest-quality physics settings are not active'); document.getElementById('btnStart').click(); });
   await page.waitForFunction(() => __derby.game.countdown <= 0, null, { timeout: 90000 });
   await page.evaluate((e) => { if (e.PX) window.__PX = e.PX; if (e.PZ) window.__PZ = e.PZ; if (e.YAW) window.__YAW = e.YAW; }, { PX: process.env.PX, PZ: process.env.PZ, YAW: process.env.YAW });
   const only = process.env.ONLY ? process.env.ONLY.split(',') : null;

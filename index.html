@@ -9881,7 +9881,7 @@ function applyQuality(i) {
   if (QUALITY.level !== i) ptag('quality ' + QUALITY.level + '→' + i);
   QUALITY.level = i; const q = QSTEPS[i];
   for (const m of SCATTER.meshes) m.visible = i < 6; // ground clutter goes first on weak devices
-  world.solver.iterations = i >= 7 ? 10 : i >= 6 ? 11 : 12; QUALITY.subSteps = i >= 6 ? 3 : i >= 5 ? 5 : 8; // weak devices: a cheaper solver, and never pile up catch-up steps (that spiral is what makes slow devices choke)
+  world.solver.iterations = i >= 7 ? 8 : i >= 6 ? 11 : 12; QUALITY.subSteps = i >= 6 ? 3 : i >= 5 ? 5 : 8; // weak devices: a cheaper solver, and never pile up catch-up steps (that spiral is what makes slow devices choke)
   if (isTouchUI()) world.solver.iterations = 10; // phones and tablets: the lightest solver from the start (12 -> 10 passes; it's what the slowest desktop level already runs). Catch-up steps stay as they are: solo frames are capped at 50 ms (3 steps) anyway, and a phone hosting a match must keep real time
   QUALITY.scale = q.scale; QUALITY.gfxCap = q.gfx;
   if (sun.shadow.mapSize.x !== Math.min(q.shadow, isTouchUI() ? 1024 : 2048)) { sun.shadow.mapSize.set(Math.min(q.shadow, isTouchUI() ? 1024 : 2048), Math.min(q.shadow, isTouchUI() ? 1024 : 2048)); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }

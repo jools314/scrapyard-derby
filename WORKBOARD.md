@@ -7,7 +7,6 @@ Format: `- [agent] topic — branch — claimed YYYY-MM-DD HH:MM UTC — notes`
 **Can't run the tests on your machine** (no local Chromium)? Finish the work on your branch, add its own regression test, and list it under *Ready to land* below. Claude runs the gate (quick suite, plus the release suite where needed) on a machine that can, rebases it onto the latest `main`, takes the next build number and lands it. Failures are reported back to you here. Don't push untested game changes to `main`.
 
 ## In progress
-- [codex] Chromebook performance: profile physics cost under software rendering + 4x CPU slowdown; reduce low-quality physics time without changing feel — codex/chromebook-performance — claimed 2026-11-15 18:15 UTC — notes: show before/after profiling numbers; leave Muse Build 82→88 regression and Claude AI/stuck work untouched
 - [claude] New vehicle: Anansi the Spider-Walker (eight legs, climbs, webs cars; Ghanaian trickster storyteller) per docs/PROPOSAL-walkers.md — claude/spider — claimed 2026-11-15 07:45 UTC
 - [claude] New vehicle: the Brass Steam Elephant (Verne-style walker, trunk grab and fling plus steam, boiler weak spot; Mama Wanjiru) per docs/PROPOSAL-walkers.md — claude/elephant — claimed 2026-11-15 07:45 UTC
 - [claude] Test gate for agents without a browser: runs the gates for branches listed under *Ready to land* — ongoing
@@ -20,6 +19,7 @@ Format: `- [agent] topic — branch — claimed YYYY-MM-DD HH:MM UTC — notes`
 - [muse] **REGRESSION fix, Build 82→88 (BACKLOG top item):** physics catches 325→484/h, stuck 39→66/h, slow 14→34 s/h on the Mac after the stacked gag builds 83–88. Bisect builds 83–88 locally (perfbudget, stuckspots, self-play), fix or revert the culprit(s), land ONE build with before/after numbers — muse/regression-82-88 — claimed 2026-11-15 17:47 UTC
   - Released 2026-11-15 17:47 UTC (owner stopped the gag cycle and reprioritised to this regression): the six gag claims from 16:50 UTC — The Cannibal (muse/cannibal), Fernando (muse/fernando), Ring Toss (muse/ring-toss), Bull in the Stands (muse/bull-in-stands), Fountain Burger (muse/fountain-burger), Three Honks (muse/three-honks). All six return to BACKLOG/fun list unclaimed; no code was written for any of them.
 ## Ready to land (needs the test gate)
+- [codex] Chromebook performance: profile physics cost under software rendering + 4x CPU slowdown; reduce low-quality physics time without changing feel — codex/chromebook-performance — claimed 2026-11-15 18:15 UTC — candidate: quality 7 solver 10→8 iterations; active Cannon microbenchmark 1.358→1.205 ms/step (~11% lower); syntax passed, quick suite blocked because Chromium startup is denied by macOS Mach-port sandbox; run quick suite and game perfbudget before landing
 
 ## Done
 - [muse] Build 88: Helicopter Sign — a yard sign spinning over 9 rad/s lifts off, helicopters for 2 s, then clatters down as a normal sign; helisign test in the quick suite — build 88
