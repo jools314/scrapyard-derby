@@ -596,6 +596,7 @@
     <div class="actions">
       <button id="btnRestart" type="button">Restart match</button>
       <button id="btnDefaults" type="button">Reset to defaults</button>
+      <button id="btnWipe" type="button">Reset all saved data</button>
     </div>
   </aside>
 
@@ -8426,6 +8427,7 @@ $('btnTune').addEventListener('click', (e) => { togglePanel(); e.currentTarget.b
 $('btnClose').addEventListener('click', () => togglePanel(false));
 $('btnRestart').addEventListener('click', (e) => { e.currentTarget.blur(); startMatch(); togglePanel(false); });
 $('btnDefaults').addEventListener('click', (e) => { e.currentTarget.blur(); for (const d of SETTINGS_DEF) setValue(d.key, d.def); });
+$('btnWipe').addEventListener('click', (e) => { e.currentTarget.blur(); if (!confirm('Reset ALL saved Derby data? Settings, best scores, challenges, mastery, family name and PIN, your paint — everything goes, and the game reloads.')) return; const kill = []; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && (k.startsWith('derby-') || k.startsWith('scrapyard-derby'))) kill.push(k); } for (const k of kill) try { localStorage.removeItem(k); } catch (err) {} location.reload(); }); // the escape hatch for when a future build needs to migrate storage: everything the game saves lives under derby-*/scrapyard-derby* keys
 // (Chrome sometimes sits 'speaking' forever and says nothing more: barks.doctor() unsticks it, at a moment when a cancel is safe)
 let VOICES_OFF = false; try { VOICES_OFF = localStorage.getItem('derby-voices') === 'off'; } catch (e) {}
 try { if (!localStorage.getItem('derby-voices') && /iPhone|iPad|iPod/.test(navigator.userAgent)) VOICES_OFF = true; } catch (e) {} // first run on iOS: subtitles only — iOS voices are the weakest first impression; the player can turn voices on
