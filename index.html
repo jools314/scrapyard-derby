@@ -8629,6 +8629,14 @@ function updateCamera(dt) {
     return;
   }
   const b = player.body, p = b.position;
+  if (game.state === 'playing' && game.countdown > 0 && player.fwd) { // countdown: a slow push-in on your car while everyone sits on the handbrake
+    const k = 1 - game.countdown / 1.8, f = player.fwd, dist = (player.T.L * 1.5 + 3.5) * (1 - k * 0.3);
+    desired.set(p.x - f.x * dist, p.y + 2.6 - k * 0.8, p.z - f.z * dist);
+    camera.position.lerp(desired, 1 - Math.exp(-dt * 5));
+    camLook.lerp(new THREE.Vector3(p.x + f.x * 3, p.y + 0.8, p.z + f.z * 3), 1 - Math.exp(-dt * 10));
+    camera.lookAt(camLook);
+    return;
+  }
   const fl = Math.hypot(player.fwd.x, player.fwd.z);
   if (fl > 0.3) { // the camera's heading trails the car's: quick turns swing the car across the frame, then the view catches up
     const tx = player.fwd.x / fl, tz = player.fwd.z / fl, k = 1 - Math.exp(-dt * (2.6 + Math.min(2.5, Math.abs(player.speed) * 0.08)));
