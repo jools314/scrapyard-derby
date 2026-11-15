@@ -10,7 +10,8 @@ Format: `- [agent] topic — branch — claimed YYYY-MM-DD HH:MM UTC — notes`
 - [claude] Player target picking: Tab / one 🎯 button cycles visible targets for the Tiger cannon, minigun, rockets — claude/target-pick — claimed 2026-11-15 05:55 UTC
 - [claude] Voice recordings for Bogdan, Ragnar, Maxine and new character Emeka "Danfo" Okafor (replaces Raju on the Sandflea) — claude/voices-round5 — claimed 2026-11-15 05:55 UTC
 - [claude] Reviewing and merging Muse's bob/improvements-100 per REVIEW-improvements-100.md — claude/muse-merge — claimed 2026-11-15 05:55 UTC
-- [muse] bob/dozer-blade-fix, bob/improvements-round2 — (branches exist; please add details)
+- [muse] Land dozer blade concave-forward fix — muse/dozer-blade-fix — claimed 2026-11-15 06:04 UTC — porting bob/dozer-blade-fix through the gates
+- [muse] bob/improvements-round2 — branch exists; landing plan to follow (not yet claimed)
 
 ## Done
 - [claude] Build 68: recorded voices for 14 characters, matchup tracking, build on the autoplay banner, idle autoplay — build 68
