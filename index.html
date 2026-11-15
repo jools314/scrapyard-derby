@@ -1841,6 +1841,19 @@ function applyNight() {
   makeEnv(on);
 }
 
+/* R2-67 (partial): a living sky — across a long day match the sun drifts: azimuth swings, height falls toward golden hour, colour warms, intensity eases, the sky grade follows halfway. Keyed to game.time (which R2-20 keeps in sync for guests), frozen in menus, and skipped entirely for night derbies. It stops at dusk — a match never plays into full dark unless night mode chose it. */
+const SKY = { base: null,
+  drift() {
+    if (S.night || game.state !== 'playing') return;
+    const u = sky.material.uniforms;
+    if (!this.base) this.base = { top: u.top.value.clone(), mid: u.mid.value.clone(), low: u.low.value.clone(), sunC: sun.color.clone() };
+    const B = this.base, p = clamp(game.time / 600, 0, 1), ang = p * 0.9, y = lerp(SUN_OFF.y, 26, p);
+    this.off = new THREE.Vector3(Math.cos(ang) * SUN_OFF.x - Math.sin(ang) * SUN_OFF.z, y, Math.sin(ang) * SUN_OFF.x + Math.cos(ang) * SUN_OFF.z); // drawBody repositions the sun every frame as target + offset — so the drift bends the offset, not the position
+    sun.intensity = lerp(3.9, 2.6, p); sun.color.copy(B.sunC).lerp(new THREE.Color(0xff9a50), p * 0.7);
+    u.top.value.copy(B.top).lerp(new THREE.Color(0x3a4a7a), p * 0.45); u.mid.value.copy(B.mid).lerp(new THREE.Color(0xd88a4a), p * 0.5); u.low.value.copy(B.low).lerp(new THREE.Color(0x8a5a3a), p * 0.4);
+  },
+};
+
 // ---------- batch 3: gas cylinders, wrecking ball, pop-up bollards, jumbotron ----------
 const GASQ = [];
 function updateGas(dt) {
@@ -7648,6 +7661,7 @@ function roastTick() {
 }
 for (const l of window.__heardSeed || []) barks.used.add(l); // R2-62: seed last-3-days' heard lines as already-used (see the __heardSeed load above barks)
 setInterval(() => { try { EVT.tick(); } catch (e) {} }, 1000); // R2-65
+setInterval(() => { try { SKY.drift(); } catch (e) {} }, 1000); // R2-67
 setInterval(() => { try { roastTick(); } catch (e) {} }, 500);
 setInterval(() => { try { VCLIP.tick(); } catch (e) {} }, 2000);
 
@@ -10443,7 +10457,7 @@ function drawBody(dt) {
   if (player) {
     const pp = player.body.position;
     const sp0 = camTarget().body.position; // the shadow map follows whatever the camera is looking at
-    sun.position.set(sp0.x + SUN_OFF.x, SUN_OFF.y, sp0.z + SUN_OFF.z);
+    const so = SKY.off || SUN_OFF; sun.position.set(sp0.x + so.x, so.y, sp0.z + so.z); // R2-67: SKY.off is the drifted sun offset during a long day match
     sun.target.position.set(sp0.x, 0, sp0.z);
     const live = game.state === 'playing' && running;
     let near = null;
