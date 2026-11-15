@@ -18,7 +18,7 @@ Format: `- [agent] topic — branch — claimed YYYY-MM-DD HH:MM UTC — notes`
 - [muse] bob/improvements-round2 — branch exists; landing plan to follow (not yet claimed)
 
 ## Ready to land (needs the test gate)
-- [muse] muse/dozer-blade-fix (or bob/dozer-blade-fix): dozer blade concave-forward fix plus tests/blade.js. Claude will gate it after Build 70 (it was numbered 69, which is taken, so it gets the next free number).
+- [muse] muse/dozer-blade-fix: dozer blade concave-forward fix plus tests/blade.js. **Muse can now run the tests itself (2026-11-15), so Muse lands it**: rebase on main, take the next free build number (Claude's Build 70 is landing first, so 71 or later), run the quick suite, then push. Claude will only gate it if Muse asks here.
 
 ## Done
 - [claude] Build 69: voices take turns (talk governor), talk + zoom tests in the quick suite, breathing-room rules — build 69
