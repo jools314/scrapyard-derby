@@ -7841,10 +7841,10 @@ const game = {
       return;
     }
     if (car.isPlayer) {
-      toast('WRECKED', 'bad');
+      toast('WRECKED', 'bad'); startReplay(car.body.position); this.slowmo = Math.max(this.slowmo, 1.5); // your own death gets the slow motion your kills get
       const g = car.lastAttacker && !car.lastAttacker.wrecked ? car.lastAttacker : cars.find((c) => !c.isPlayer && !c.wrecked);
       if (g && Math.random() < 0.6) barks.say(g, 'gloat', true); else barks.announce('youWrecked', {}, true);
-      this.endMatch(false); return;
+      this.endMatch(false); this.overTimer = 1.7; return;
     }
     if (Math.random() < 0.5) barks.say(car, 'wrecked', true); else barks.announce('wreck', { v: car.name, vcar: car.T.name }, true);
     const byPlayer = car.lastAttacker === player && simTime - car.lastAttackTime < 4;
