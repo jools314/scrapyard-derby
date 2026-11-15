@@ -37,8 +37,8 @@ npx playwright install chromium
 
 | command | when | time |
 |---|---|---|
-| `bash tests/run.sh quick` | before every check-in to `main` or `release/*` | ~20-30 min |
-| `bash tests/run.sh release` | before publishing a release | ~2-3 h |
+| `bash tests/run.sh quick` | before every push to `main` | ~20-30 min |
+| `bash tests/run.sh release` | before big changes (multiplayer, voices, play log, autoplay, VR) | ~2-3 h |
 | `bash tests/run.sh <name>` | one test, e.g. `matchups` | |
 
 - `GAME=/path/to/index.html` tests another copy of the game.
