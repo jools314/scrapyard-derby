@@ -10577,6 +10577,22 @@ const VR = (() => {
       g.font = '800 30px system-ui, sans-serif'; g.fillStyle = sub.firstChild.style.color || '#f2a20c'; const nick = sub.firstChild.textContent + ': '; g.fillText(nick, 36, 404); const nw = g.measureText(nick).width;
       g.font = '500 30px system-ui, sans-serif'; g.fillStyle = '#f4eadb'; const ls = wrap(g, sub.lastChild.textContent, W - 90 - nw); g.fillText(ls[0] || '', 36 + nw, 404); if (ls[1]) g.fillText(ls.slice(1).join(' ').slice(0, 70), 36, 450);
     } else if (tl || hint) { g.font = '800 40px system-ui, sans-serif'; g.fillStyle = tl && tl.classList.contains('bad') ? '#ff7a50' : '#ffd27a'; g.textAlign = 'center'; g.fillText((tl ? tl.textContent : hint).slice(0, 44), W / 2, 432); }
+    // R2-2: minimap + opponent chevrons. The flat screen's map and threat arrows are DOM-only, so in VR you drove blind to anything outside your view.
+    if (MAP_ON && typeof mm !== 'undefined' && mm.width > 0) {
+      drawMinimap(); // (throttled inside; keeps the shared canvas fresh even though the DOM map isn't on screen in VR)
+      rr(g, 862, 358, 140, 140, 14); g.fillStyle = 'rgba(0,0,0,0.55)'; g.fill(); g.lineWidth = 2; g.strokeStyle = 'rgba(242,162,12,0.5)'; g.stroke();
+      g.drawImage(mm, 868, 364, 128, 128);
+      const pp = player.body.position, fx = player.fwd.x, fz = player.fwd.z;
+      for (const c of cars) { // a chevron on the panel edge for each live opponent outside your forward view
+        if (c.isPlayer || c.wrecked) continue;
+        const dx = c.body.position.x - pp.x, dz = c.body.position.z - pp.z, d = Math.hypot(dx, dz); if (d < 4 || d > 120) continue;
+        const f = dx * fx + dz * fz, r = dx * -fz + dz * fx, a = Math.atan2(r, f); // bearing: 0 ahead, + to your right
+        if (Math.abs(a) < 0.65) continue; // roughly visible already
+        const x = a > 0 ? W - 30 : 30, s = clamp(16 - d * 0.08, 7, 15);
+        g.save(); g.translate(x, 190); g.rotate(a > 0 ? Math.PI / 2 : -Math.PI / 2); g.fillStyle = c.css || (c.css = '#' + c.baseColor.getHexString());
+        g.beginPath(); g.moveTo(0, -s); g.lineTo(s * 0.8, s); g.lineTo(-s * 0.8, s); g.closePath(); g.fill(); g.restore();
+      }
+    }
     hud.tex.needsUpdate = true; V.stats.hudDraws++;
   }
 
