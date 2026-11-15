@@ -2066,10 +2066,7 @@ function propCollide(e) {
   me.lastHit = simTime;
   if (player) sfx.at(me.position).propHit(me.propKind, Math.min(1, v / 20) * clamp(1 - player.body.position.distanceTo(me.position) / 70, 0, 1));
   if (me.prop && v > 5) damageProp(me.prop, v, me.quaternion.conjugate().vmult(e.contact.ni));
-  if (other.car.isPlayer && game.state === 'playing' && v > 6) {
-    game.score += 10; game.propHits++;
-    if (simTime - game.propToast > 1.2) { game.propToast = simTime; toast(`+10 ${PROP_LABEL[me.propKind] || 'SMASH'}`, 'cool'); }
-  }
+  if (v > 6) propScore(me.prop, other.car, PROP_LABEL[me.propKind] || 'SMASH');
 }
 // Crumple cans and drums, squash boxes, splinter crates and fences
 const plankGeo = new THREE.BoxGeometry(1.1, 0.1, 0.22);
@@ -2082,6 +2079,14 @@ const oilGeo = new THREE.CircleGeometry(1, 20);
 const oilMat = new THREE.MeshStandardMaterial({ color: 0x0b0a08, roughness: 0.08, metalness: 0.7, transparent: true, opacity: 0.85, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3 });
 function bits(p, mat, n, spread = 5, up = 5) { for (let i = 0; i < n; i++) emit('debris', p.x, p.y + 0.3, p.z, rand(-spread, spread), rand(1, up), rand(-spread, spread), rand(1.2, 2.5), rand(0.05, 0.16), mat); }
 const flats = [];
+function propScore(pr, by, label) { // flattening pays by the prop's weight, and quick chains multiply
+  if (!by || !by.isPlayer || game.state !== 'playing' || FREE_DRIVE) return;
+  game.propCombo = simTime - (game.propComboT || -9) < 2 ? (game.propCombo || 0) + 1 : 1; game.propComboT = simTime;
+  const mult = game.propCombo >= 5 ? 3 : game.propCombo >= 3 ? 2 : 1;
+  const pts = (5 + Math.min(45, Math.round((pr.body.mass || 10) * 0.5))) * mult;
+  game.score += pts; game.propHits++;
+  if (mult > 1 || simTime - game.propToast > 1.2) { game.propToast = simTime; toast(mult > 1 ? `+${pts} ${label || 'FLATTENED'} ×${mult}` : `+${pts} ${label || 'FLATTENED'}`, 'cool'); }
+}
 function flattenProp(pr, by) { // 11 tonnes of tank: boxes, drums, bins and potties go flat as a pancake
   const i = props.indexOf(pr); if (i < 0 || MP.role === 'guest') return; // guests: the host decides (and says so)
   if (pr.kind === 'wood' || pr.kind === 'rubber') { damageProp(pr, 30, new CANNON.Vec3(0, 1, 0)); if (props.includes(pr)) { /* tyres just get squashed below */ } else return; }
@@ -2099,7 +2104,7 @@ function flattenProp(pr, by) { // 11 tonnes of tank: boxes, drums, bins and pott
     m.position.y = Math.max(m.position.y, 0.02);
     flats.push(m); while (flats.length > 60) scene.remove(flats.shift());
   }
-  if (by.isPlayer && game.state === 'playing') { game.score += 10; game.propHits++; if (simTime - game.propToast > 1.2) { game.propToast = simTime; toast('+10 FLATTENED', 'cool'); } }
+  propScore(pr, by);
 }
 function damageProp(pr, v, nLocal) {
   const m = pr.mesh, p = pr.body.position;
@@ -2956,7 +2961,7 @@ function explodeShell(hp, hitBody, owner, scale = 1) {
     o.wakeUp(); blastImpulse(o, dir, Math.min(o.mass, 4000) * f * 9 * scale); // heavy vehicles get rocked, not launched
     if (o.bull && o.bull.state !== 'burger') { const bl = o.bull; bl.state = 'down'; bl.t = rand(2.5, 3.5); o.fixedRotation = false; o.updateMassProperties(); o.applyImpulse(new CANNON.Vec3(0, o.mass * 6 * f, 0)); o.angularVelocity.set(rand(-4, 4), rand(-4, 4), rand(-4, 4)); bl.cook = (bl.cook || 0) + 0.3 * f; if (f > 0.4 && game.state === 'playing' && Math.random() < 0.5) barks.announce('bullFly', {}); } // the bull goes for a little flight
     if (o.prop && props.includes(o.prop) && f > 0.45 && Math.random() < 0.6) igniteProp(o.prop, 6);
-    if (o.prop && props.includes(o.prop)) { damageProp(o.prop, 12 + 30 * f, o.quaternion.conjugate().vmult(dir.scale(-1))); if (owner.isPlayer && game.state === 'playing') { game.score += 10; game.propHits++; } continue; }
+    if (o.prop && props.includes(o.prop)) { damageProp(o.prop, 12 + 30 * f, o.quaternion.conjugate().vmult(dir.scale(-1))); propScore(o.prop, owner); continue; }
     const c = o.car; if (c) c.blastT = simTime;
     if (c && !c.wrecked && c !== owner) {
       const local = c.body.pointToLocalFrame(P), model = new THREE.Vector3(local.x + c.comShift, local.y, local.z);
@@ -7822,7 +7827,7 @@ function drawMinimap() {
 /* ---------------- Game flow ---------------- */
 const game = {
   state: 'menu', slowmo: 0, hitStop: 0, fovPunch: 0, countdown: 0, grace: 0, lastCount: 0, stuckT: 0, score: 0, time: 0, paused: false, overTimer: -1, attractReset: -1, shake: 0, flash: 0, propHits: 0, propToast: -9,
-  matchT: 0, biggestHit: 0, bestAir: 0, bestWheelie: 0, tut: -1, hitDirA: 0, hitDirT: -9, hitDirS: 0, shots: 0, hits: 0,
+  matchT: 0, biggestHit: 0, bestAir: 0, bestWheelie: 0, propCombo: 0, propComboT: -9, tut: -1, hitDirA: 0, hitDirT: -9, hitDirS: 0, shots: 0, hits: 0,
   addScore(n, label) {
     this.score += n;
     if (label && n >= 40) toast(`+${n} ${label}`);
@@ -8145,7 +8150,7 @@ function resetMatch() {
   buildPickups();
   spawnCars(); SCORE.reset(); SCORE.show(false);
   game.chatT = 14; game.score = 0; game.time = 0; game.overTimer = -1; game.attractReset = -1; game.shake = 0; game.propHits = 0;
-  game.matchT = S.matchMinutes > 0 ? S.matchMinutes * 60 : 0; game.biggestHit = 0; game.bestAir = 0; game.bestWheelie = 0; game.shots = 0; game.hits = 0;
+  game.matchT = S.matchMinutes > 0 ? S.matchMinutes * 60 : 0; game.biggestHit = 0; game.bestAir = 0; game.bestWheelie = 0; game.propCombo = 0; game.shots = 0; game.hits = 0;
 }
 // Speech only works after a tap or key press. Guests never press Start, and iOS sometimes doesn't confirm the first try:
 // so every tap or key press retries (at most every few seconds) until a voice has actually been heard.
