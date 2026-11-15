@@ -7973,7 +7973,10 @@ function aiRespawnType(c) {
   const used = new Set(cars.filter((o) => o !== c).map((o) => o.type));
   const free = Object.keys(CAR_TYPES).filter((k) => !used.has(k));
   if (!free.length) return c.type === 'tiger' ? Object.keys(CAR_TYPES).find((k) => k !== 'tiger') : c.type;
-  const wt = (k) => (k === 'tiger' ? 0.25 : 1); let sum = 0; for (const k of free) sum += wt(k);
+  const guns = ['tiger', 'hellbender', 'cruiser'], gunOut = cars.some((o) => o !== c && guns.includes(o.type));
+  const wt = (k) => { let w = k === 'tiger' ? 0.25 : 1; if (S.aiSkill >= 0.9 && !gunOut && guns.includes(k)) w *= 6; // top difficulty seeds a gun car into the field, so difficulty changes the kind of threat
+    return w; };
+  let sum = 0; for (const k of free) sum += wt(k);
   let r = Math.random() * sum; for (const k of free) { r -= wt(k); if (r <= 0) return k; }
   return free[0];
 }
