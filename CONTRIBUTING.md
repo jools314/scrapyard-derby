@@ -61,7 +61,7 @@ npx playwright install chromium
 5. **Watch:** check the play logs and the Derby Health dashboard for regressions (fps, stuck cars, physics glitches, balance). Fix on `release/NN` if needed and release again as NN, or as NN+1 if it's big.
 
 ## Logs and metrics
-Every game uploads a play log: fps, stuck spots, physics catches, K/D per car, and who wrecks whom. The upload carries the build number and is tagged when it comes from a test run. These are analysed every 2 hours and charted per build on the Derby Health dashboard. Use them to decide what to fix and whether a change helped.
+Every game uploads a play log (fps, stuck spots, physics catches, K/D per car, who wrecks whom). [LOGS.md](LOGS.md) explains how to pull and analyse them, and how to turn them into tested fixes. Use them to decide what to fix and to check whether a change helped.
 
 ## Coordination
 - **Claim before big work:** before starting something big, check open branches (`git ls-remote origin`) and `REVIEW-*.md` so you don't duplicate someone else's work.
