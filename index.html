@@ -9534,7 +9534,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '72'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '73'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
@@ -10881,7 +10881,7 @@ Object.assign(PLAYLOG, {
       veh, me, weap: m.weap,
       voice: { n: m.voiceN, list: m.voice, sent: (bs.sent || 0) - b0.sent, started: (bs.started || 0) - b0.started, errors: (bs.errors || 0) - b0.errors, resets: (bs.resets || 0) - b0.resets, ok: barks.speechOK ?? null, lastErr: barks.lastErr || undefined },
       net: { n: m.netN, list: m.net }, errs: { n: m.errN, list: m.errs },
-      mem: { geo: mi.geometries, tex: mi.textures, heapMB: pm ? Math.round(pm.usedJSHeapSize / 1048576) : null, objs: scene.children.length, debris: debris.length, props: props.length, bodies: world.bodies.length },
+      mem: { geo: mi.geometries, tex: mi.textures, heapMB: pm ? Math.round(pm.usedJSHeapSize / 1048576) : null, objs: scene.children.length, debris: debris.length, props: props.length, bodies: world.bodies.length, calls: renderer.info.render.calls, tris: renderer.info.render.triangles }, // (calls/tris: so the draw-call budget in QUALITY-GATES can be checked from play logs, not just in tests)
       ev: m.ev, evDrop: m.evDrop || undefined };
   },
   finish(ended) {
