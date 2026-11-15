@@ -10328,7 +10328,7 @@ function simBody(now) {
     SEC.run('arena', () => updateArena(dt));
     const sdt = dt * S.timeScale * (game.hitStop > 0 ? 0.22 : game.slowmo > 0 ? 0.35 : 1); // hit-stop on big impacts, slow-mo on your kills
     game.hitStop -= dt; game.slowmo -= dt;
-    SEC.run('physics', () => world.step(FIXED, sdt, QUALITY.subSteps || 8));
+    SEC.run('physics', () => { const pa = SEC.n > 30 ? (SEC.t.physics || 0) / SEC.n : 0; const cap = pa > 9 ? Math.max(2, (QUALITY.subSteps || 8) - 3) : (QUALITY.subSteps || 8); world.step(FIXED, sdt, cap); }); // the catch-up cap follows measured physics time (SEC), not just the graphics tier: if physics itself overran, shed steps before dropping picture quality
     simTime += sdt;
     if (MP.role === 'host') SEC.run('net', () => MP.hostFrame(dt));
     if (game.state === 'playing' && MP.role !== 'guest') {
