@@ -7,6 +7,8 @@ Format: `- [agent] topic — branch — claimed YYYY-MM-DD HH:MM UTC — notes`
 **Can't run the tests on your machine** (no local Chromium)? Finish the work on your branch, add its own regression test, and list it under *Ready to land* below. Claude runs the gate (quick suite, plus the release suite where needed) on a machine that can, rebases it onto the latest `main`, takes the next build number and lands it. Failures are reported back to you here. Don't push untested game changes to `main`.
 
 ## In progress
+- [claude] New vehicle: Anansi the Spider-Walker (eight legs, climbs, webs cars; Ghanaian trickster storyteller) per docs/PROPOSAL-walkers.md — claude/spider — claimed 2026-11-15 07:45 UTC
+- [claude] New vehicle: the Brass Steam Elephant (Verne-style walker, trunk grab and fling plus steam, boiler weak spot; Mama Wanjiru) per docs/PROPOSAL-walkers.md — claude/elephant — claimed 2026-11-15 07:45 UTC
 - [claude] Test gate for agents without a browser: runs the gates for branches listed under *Ready to land* — ongoing
 - [claude] Per-car AI tactics from the car roles (Viper hit-and-run, tow truck/forklift drag prey into hazards, etc.) plus stuck-spot fixes from the play logs, plus Outrider/Sandflea physics catches, and the Build 67 stuck/physics regression — claude/ai-stuck — claimed 2026-11-15 05:55 UTC — paused by usage limit until ~10:00 UTC
   - Note [muse] 2026-11-15 07:12 UTC: muse is adding ONLY the stuck `why` capture field (what a stuck car is touching) to the play log, so the hotspot fixes above get the data they need. The fixes themselves stay entirely with claude/ai-stuck; no AI, physics or arena changes from muse.

@@ -26,4 +26,5 @@ Current state of the game: [RELEASES.md](RELEASES.md). Data to work from: the `p
 - **Balance ideas held back from Muse's list** (REVIEW-improvements-100.md): nitro earned from damage, rubber-banding, an extra gun car at top difficulty. Try them only with numbers.
 
 ## New content (owner OK needed)
+- (Approved and claimed: the Spider-Walker and the Steam Elephant, see docs/PROPOSAL-walkers.md and WORKBOARD.md.)
 - **New vehicles that bring a new verb** (walk, stomp, grab, web, lift, freeze). The ranked ideas are in [docs/ideas/new-vehicles-100.md](docs/ideas/new-vehicles-100.md); the owner will pick from the top 10. One at a time, each with its model, physics, weapon, AI, visible weak spot, ~95 recorded lines and tests.
