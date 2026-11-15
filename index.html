@@ -610,6 +610,7 @@
       </div>
       <p id="blurb"></p>
       <p id="driverCard" class="quiet" style="margin:0"></p>
+      <p id="streakLine" class="quiet" style="margin:0"></p>
       <p class="quiet" style="margin:0">Green wrenches repair you and refit a lost wheel; blue canisters refill nitro. Bright, glowing junk flies when you hit it. Dark objects are heavy and shove back. Hazard stripes mean solid: steer around.</p>
       <details>
         <summary>Controls</summary>
@@ -6715,6 +6716,7 @@ const ANN_LINES = {
   bentGun: ['{a} just bent {v}\'s gun like a drinking straw!', 'That cannon now shoots round corners, folks!', '{a} tied a knot in the TANK! Somebody get a picture!', 'That barrel is a pretzel now! {v} could not hit the yard from inside it!'],
   turretOff: ['KABOOM! {a} fired a bent gun and the TURRET just left the building!', 'The turret is flying! {a} has a convertible now!', 'Rule one of tanks, {a}: never fire a bent barrel!'],
   barrelBurst: ['KABOOM! {a} fired a bent gun and it peeled open like a banana!', 'The gun just blew up in {a}\'s face! That is going to sting!', 'Note to {a}: never fire a bent barrel!'],
+  streak: ['{n} wins on the bounce for the home favourite. The yard is starting to believe.', '{n} straight! Somebody check that car for magnets.', 'A streak of {n} and counting \u2014 the rest of the field is racing for second.', 'Win number {n} in a row if it lands today. No pressure.'], // R2-53: called at match start when a live win streak of 3+ walks in
   grudge: ['{a} has put {v} in the wall {n} times now. That is not racing, that is a hobby.', '{n} times, {a}! {v}, love, at some point it stops being bad luck and starts being a pattern.', 'Again! {a} on {v} \u2014 {n} and counting. Somebody separate these two.', '{a} versus {v} is the oldest story in this yard: {n} wrecks and counting.'], // R2-62: cross-match memory \u2014 fired from game.onWreck when the R2-44 store says a pairing has turned one-sided (Kev even, Shazza odd, as with every pool)
   sandwich: ['It\'s a {v} sandwich! Hold the mayo!', 'Squished in the middle like the last biscuit in the packet!', 'SANDWICH! {v} just got pressed like a panini!', 'Ooh, {v} caught in the middle! That is a club sandwich!'],
 };
@@ -7970,6 +7972,9 @@ function rivalNemesis() { const R = rivalLoad(); let best = null, n = 0; for (co
 /* R2-56: first-time ceremonies — the first wreck, first win and first 1,000-point match are marked once, on the day they happen ('derby-firsts-v1'), toasted in the moment and listed on the career screen (R2-43). */
 function firstsLoad() { try { return JSON.parse(localStorage.getItem('derby-firsts-v1') || '{}'); } catch (e) { return {}; } }
 function firstMark(key, label) { const F = firstsLoad(); if (F[key]) return false; F[key] = new Date().toISOString().slice(0, 10); try { localStorage.setItem('derby-firsts-v1', JSON.stringify(F)); } catch (e) {} toast(`🏆 FIRST ${label}!`, 'cool'); return true; }
+/* R2-53: win streaks ('derby-streak-v1') — counted once per match in showOver (its only caller is the over-timer, host/solo side), shown on the menu, and announced at 3+. */
+function streakLoad() { try { return JSON.parse(localStorage.getItem('derby-streak-v1') || '{"n":0,"best":0}'); } catch (e) { return { n: 0, best: 0 }; } }
+function streakNote(won) { const S = streakLoad(); S.n = won ? S.n + 1 : 0; S.best = Math.max(S.best, S.n); try { localStorage.setItem('derby-streak-v1', JSON.stringify(S)); } catch (e) {} return S; }
 const SCORE = {
   rows: new Map(), open: false, leader: null, gotJ: '', sentAt: -1e9, dirtyNet: false, lastHtml: '',
   pts(r) { return r.k * 100 - r.s * 50; },
@@ -8140,6 +8145,7 @@ function startMatch() {
   game.state = 'playing'; game.paused = false;
   el.menu.hidden = true; el.over.hidden = true;
   game.countdown = 1.8; game.grace = 8; game.lastCount = 4;
+  { const sk = streakLoad(); if (sk.n >= 3) setTimeout(() => barks.announce('streak', { n: sk.n }, true), 2600); } // R2-53: a live streak of 3+ gets called out as the next match starts
 }
 function showMenu() {
   el.over.hidden = true; el.menu.hidden = false;
@@ -8154,7 +8160,7 @@ function showOver() {
   const ai = cars.filter((c) => !c.isPlayer);
   $('rWrecks').textContent = GAME_MODE === 'respawn' ? String(player.kills || 0) : `${ai.filter((c) => c.wrecked).length} / ${ai.length}`;
   { const nm = rivalNemesis(); $('rNemesis').textContent = nm ? `${nm.name} ×${nm.n}` : '—'; } // R2-44: who has wrecked you most, across every match on this device
-  { const won = /Yard cleared|You win!/.test($('overTitle').textContent); if (won) firstMark('win', 'WIN'); if (game.score >= 1000) firstMark('k1000', '1,000-POINT MATCH'); } // R2-56: match-level firsts are judged here, where the final numbers are known
+  { const won = /Yard cleared|You win!/.test($('overTitle').textContent); if (won) firstMark('win', 'WIN'); if (game.score >= 1000) firstMark('k1000', '1,000-POINT MATCH'); const sk = streakNote(won); if (won && sk.n >= 2) toast(`🔥 WIN STREAK: ${sk.n}`, 'cool'); } // R2-56: match-level firsts are judged here, where the final numbers are known · R2-53: and the streak is counted here, once per match
   $('overBoard').hidden = GAME_MODE !== 'respawn'; if (GAME_MODE === 'respawn') $('overTable').innerHTML = SCORE.table();
   el.over.hidden = false;
 }
@@ -8186,6 +8192,7 @@ function buildGarage() {
   $('blurb').textContent = CAR_TYPES[playerType].blurb;
   { const P = playerType === 'cruiser' ? COP : CAR_CAST[playerType]; const dc = $('driverCard'); // R2-70: the driver card — the cast was invisible until they talked; now the picker shows who drives your pick, their style, and your head-to-head with them (R2-44)
     if (P) { const [yw, tw] = rivalPair('You', P.nick); dc.textContent = `Driven by ${P.nick} — ${P.from || ''}${P.style ? ` · style: ${P.style}` : ''}${yw + tw ? ` · vs you: ${yw} wreck${yw === 1 ? '' : 's'} dealt, ${tw} taken` : ''}`; } else dc.textContent = ''; }
+  { const sk = streakLoad(); $('streakLine').textContent = sk.n >= 2 ? `🔥 Win streak: ${sk.n} (best ${sk.best})` : sk.best >= 2 ? `Best win streak: ${sk.best}` : ''; } // R2-53
 }
 function selectCar(key) {
   playerType = key;
