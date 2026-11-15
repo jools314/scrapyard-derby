@@ -928,9 +928,14 @@ world.broadphase = new CANNON.SAPBroadphase(world);
 // sleeping body can only pair with an awake mover, and with ~160 static and ~100 sleeping bodies most of that walk was skipping them one by one.
 // Here a resting body jumps straight from mover to mover (the walk still stops at the same place: only skipped bodies are left out).
 { const bp = world.broadphase, act = [], STATIC = CANNON.Body.STATIC, SLEEPING = CANNON.Body.SLEEPING, base = Object.getPrototypeOf(bp).collisionPairs;
+  const sortByX = (a) => { // insertion sort on position.x - boundingRadius (nearly sorted already from the last step, so this is ~one pass)
+    for (let i = 1, l = a.length; i < l; i++) { const v = a[i], k = v.position.x - v.boundingRadius; let j = i - 1;
+      for (; j >= 0; j--) { const u = a[j]; if (u.position.x - u.boundingRadius <= k) break; a[j + 1] = u; }
+      a[j + 1] = v; }
+  };
   bp.collisionPairs = function (wo, p1, p2) {
     if (this.axisIndex !== 0) return base.call(this, wo, p1, p2);
-    if (this.dirty) { this.sortList(); this.dirty = false; }
+    sortByX(this.axisList); this.dirty = false; // every step, even when not 'dirty' (the wheels' ray queries re-sort this list by AABB mid-step and clear the flag); sorted by the same key the walk stops on (below), not by cannon's AABBs: many static bodies keep the AABB from before they were placed, so they sorted near x=0 and the walk stopped early there - two cars (or a car and a wall) near the middle of the yard could pass straight through each other
     const L = this.axisList, N = L.length; act.length = 0;
     for (let i = 0; i < N; i++) { const b = L[i]; if ((b.type & STATIC) === 0 && b.sleepState !== SLEEPING) act.push(i); }
     for (let i = 0, p = 0; i < N; i++) {
