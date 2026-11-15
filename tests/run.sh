@@ -45,6 +45,7 @@ quick() {
   t shakeoff 600 "SHAKEOFF PASS"
   t pottycannon 600 "POTTYCANNON PASS"
   t bales 600 "BALES PASS"
+  t helisign 600 "HELISIGN PASS"
 }
 release() {
   quick

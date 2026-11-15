@@ -1934,7 +1934,7 @@ function updateJumbo(dt) {
 
 if (S.night) applyNight();
 function updateArena(dt) {
-  updateGas(dt); updateBall(dt); updateBollards(dt); updateJumbo(dt);
+  updateGas(dt); updateBall(dt); updateBollards(dt); updateJumbo(dt); updateSigns(dt);
   updateCrusher(dt); updateGeysers(dt); updateFireworks(dt); updateWeeds(dt); if ((BOARD.tick = (BOARD.tick || 0) - dt) <= 0) { BOARD.tick = 0.5; updateBoard(); }
   if (ARENA.coal) { ARENA.coal.emissiveIntensity = 0.5 + Math.sin(clock * 3) * 0.15 + Math.sin(clock * 7.7) * 0.1; const F = ARENA.firePit; if (Math.hypot(camera.position.x - 43, camera.position.z - F.z) < 150) for (let k = 0; k < 3; k++) emit('fire', rand(F.x0, F.x1), 0.2, F.z + rand(-F.hz, F.hz), rand(-0.3, 0.3), rand(2, 4), rand(-0.3, 0.3), rand(0.4, 0.8), rand(0.8, 1.4)); }
   CROWD.t.value = clock; CROWD.x.value = Math.max(0, CROWD.x.value - dt * 0.25);
@@ -2247,6 +2247,18 @@ function signMesh() { // post + sign board, one rigid object
   const band = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.12, 0.62), M.cone); band.position.y = 0.9; g.add(band);
   return g;
 }
+const SIGN_PROPS = []; // every yard sign, collected as the yard is built (HELICOPTER SIGN watches just these ten)
+function updateSigns(dt) { // HELICOPTER SIGN: knock a sign spinning fast enough and it lifts, helicopters wildly for two seconds, then clatters down as a normal sign
+  for (const pr of SIGN_PROPS) {
+    if (pr.dormant) continue;
+    if (pr.heliT > 0) { pr.heliT -= dt; if (pr.body.position.y < 5) pr.body.velocity.y = Math.max(pr.body.velocity.y, 6.5); if (pr.heliT <= 0) pr.heliT = 0; continue; }
+    const av = pr.body.angularVelocity;
+    if (pr.body.position.y < 2.5 && av.x * av.x + av.y * av.y + av.z * av.z > 81) { // spinning faster than 9 rad/s, still near the ground: it takes off
+      pr.heliT = 2; pr.heliFlights = (pr.heliFlights || 0) + 1; pr.body.velocity.y = Math.max(pr.body.velocity.y, 7);
+      if (game.state === 'playing') toast('🚁 HELICOPTER SIGN!', 'cool');
+    }
+  }
+}
 function buildStreetProps() {
   const binShape = new CANNON.Cylinder(0.3, 0.26, 0.95, 10), lidShape = new CANNON.Cylinder(0.33, 0.33, 0.07, 10);
   const bin = (x, z) => { // galvanised trash can with a loose lid
@@ -2274,6 +2286,7 @@ function buildStreetProps() {
     const a = k / 10 * Math.PI * 2 + 0.2, x = Math.cos(a) * 60, z = Math.sin(a) * 60;
     const b = addProp(sShape, signMesh(), null, 18, x, 1.1, z, -a, 'metal', false);
     b.addShape(boardShape, new CANNON.Vec3(0, 0.9, 0));
+    b.prop.sign = true; SIGN_PROPS.push(b.prop); // HELICOPTER SIGN: signs are marked and watched
   }
 }
 
@@ -9677,7 +9690,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '87'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '88'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
@@ -11284,7 +11297,7 @@ const IDLE = { ms: 3 * 60 * 1000, last: performance.now(), on: !/[?&]noidle=1\b/
   } };
 for (const ev of ['keydown', 'pointerdown', 'pointermove', 'wheel', 'touchstart', 'touchmove']) addEventListener(ev, (e) => { if (e.isTrusted || window.__idleTest) IDLE.poke(); }, { capture: true, passive: true });
 setInterval(() => IDLE.check(), 5000);
-window.__derby = { AUTO, PLAYLOG, BOULDERS, get mapShapes() { return mapShapes; }, respawnCar: (o, t) => respawnCar(o, t), PHYS, cockpitEye: (c) => cockpitEye(c), wakeProp: (pr) => wakeProp(pr), addConcrete: (x, z, r, k) => addConcrete(x, z, r, k), igniteProp: (pr, t) => igniteProp(pr, t), cookBull: (bl, by, dt) => cookBull(bl, by, dt), hoseBull: (car, bl, p, f, dt) => hoseBull(car, bl, p, f, dt), DUCKS, goldConeReveal: (pr) => goldConeReveal(pr), sadTromboneKind: (t) => sadTromboneKind(t), honkBack: (car) => honkBack(car), smashBurger: (bl, how) => smashBurger(bl, how), bladeSlam: (car) => bladeSlam(car), wearBunHat: (bl) => wearBunHat(bl), bunHatRoll: (bl) => bunHatRoll(bl), shakeOff: (bl) => shakeOff(bl), harvestProp: (car, pr) => harvestProp(car, pr), baleMsgRoll: () => baleMsgRoll(), BALE_MSGS, tankerBoom: (p, c) => tankerBoom(p, c), CAR_TYPES, sfx, CANNON, barks, PERF, shells, NETLOG, nearHostAdd: () => nearHostAdd(), nearJoin: () => nearJoin(), JUMBO, BALL, BOLLARDS, GASQ, updateArenaPub: (dt) => updateArena(dt), CRUSHER, crushNow: () => crushNow(), applyNight: () => applyNight(), FIREWORKS, ARENA, CROWD, MP, QUALITY, applyQuality: (i) => applyQuality(i), MERGED, camera, updatePropActivity: (dt) => updatePropActivity(dt), renderer, scene, spawnFree: (x, z, r) => spawnFree(x, z, r), BULLS, updateBulls: (dt) => updateBulls(dt), updateShells, tilt, setTilt, get CRANE() { return CRANE; }, updateCrane: (dt) => updateCrane(dt), CONCRETE, THREE, craters, shells, pickups, barks, PERSONAS, TUNE, game, cars, S, world, CAR_TYPES, sfx, touch, drawGauge, get player() { return player; }, keys, startMatch, selectCar, setValue, debris, props, platformOf, get simTime() { return simTime; }, set simTime(v) { simTime = v; } }; // console tinkering + tests
+window.__derby = { AUTO, PLAYLOG, BOULDERS, get mapShapes() { return mapShapes; }, respawnCar: (o, t) => respawnCar(o, t), PHYS, cockpitEye: (c) => cockpitEye(c), wakeProp: (pr) => wakeProp(pr), addConcrete: (x, z, r, k) => addConcrete(x, z, r, k), igniteProp: (pr, t) => igniteProp(pr, t), cookBull: (bl, by, dt) => cookBull(bl, by, dt), hoseBull: (car, bl, p, f, dt) => hoseBull(car, bl, p, f, dt), DUCKS, goldConeReveal: (pr) => goldConeReveal(pr), sadTromboneKind: (t) => sadTromboneKind(t), honkBack: (car) => honkBack(car), smashBurger: (bl, how) => smashBurger(bl, how), bladeSlam: (car) => bladeSlam(car), wearBunHat: (bl) => wearBunHat(bl), bunHatRoll: (bl) => bunHatRoll(bl), shakeOff: (bl) => shakeOff(bl), harvestProp: (car, pr) => harvestProp(car, pr), baleMsgRoll: () => baleMsgRoll(), BALE_MSGS, updateSigns: (dt) => updateSigns(dt), SIGN_PROPS, tankerBoom: (p, c) => tankerBoom(p, c), CAR_TYPES, sfx, CANNON, barks, PERF, shells, NETLOG, nearHostAdd: () => nearHostAdd(), nearJoin: () => nearJoin(), JUMBO, BALL, BOLLARDS, GASQ, updateArenaPub: (dt) => updateArena(dt), CRUSHER, crushNow: () => crushNow(), applyNight: () => applyNight(), FIREWORKS, ARENA, CROWD, MP, QUALITY, applyQuality: (i) => applyQuality(i), MERGED, camera, updatePropActivity: (dt) => updatePropActivity(dt), renderer, scene, spawnFree: (x, z, r) => spawnFree(x, z, r), BULLS, updateBulls: (dt) => updateBulls(dt), updateShells, tilt, setTilt, get CRANE() { return CRANE; }, updateCrane: (dt) => updateCrane(dt), CONCRETE, THREE, craters, shells, pickups, barks, PERSONAS, TUNE, game, cars, S, world, CAR_TYPES, sfx, touch, drawGauge, get player() { return player; }, keys, startMatch, selectCar, setValue, debris, props, platformOf, get simTime() { return simTime; }, set simTime(v) { simTime = v; } }; // console tinkering + tests
 requestAnimationFrame(frame);
 window.__derby.IDLE = IDLE; window.__derby.TALK = TALK; window.__derby.DROP = DROP; window.__derby.SCORE = SCORE; window.__derby.UPDATE = UPDATE; window.__derby.TABENV = TABENV; window.__derby.PERFREP = PERFREP; // (test hooks)
 window.__derby.VR = VR; window.__derby.XRS = XRS; window.__derby.composer = composer;
