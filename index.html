@@ -11020,7 +11020,7 @@ Object.assign(PLAYLOG, {
     this.m = { n: this.n, id: this.sid + '-' + this.n, at: Date.now(), p0: performance.now(), hidden: 0, hidAt: document.hidden ? performance.now() : 0,
       role: AUTO.on ? 'autoplay' : MP.role, mode: GAME_MODE, q0: QUALITY.level, qNow: QUALITY.level, qCh: [], hist: new Uint32Array(400), frames: 0, ftSum: 0, worst: 0,
       veh: {}, L: new Map(), weap: {}, me: [], meCur: null, meP: null, stuck: [], stuckN: 0, stuckS: 0, launch: 0, launchW: [], below: 0, nan: 0,
-      phys0: { fixes: PHYS.fixes, clamps: PHYS.clamps, blowups: PHYS.blowups }, kinds: {}, physL: [], inc: [], errs: [], errN: 0, voice: [], voiceN: 0, net: [], netN: 0,
+      phys0: { fixes: PHYS.fixes, clamps: PHYS.clamps, blowups: PHYS.blowups }, kinds: {}, physL: [], blow: [], inc: [], errs: [], errN: 0, voice: [], voiceN: 0, net: [], netN: 0, // (blow: R2-87 blowup pose captures)
       ev: [], evDrop: 0, bark0: { sent: bs.sent || 0, started: bs.started || 0, errors: bs.errors || 0, resets: bs.resets || 0 }, sampT: 0 };
     this.ev('start', `${this.m.role} ${GAME_MODE} · ${cars.length} cars · q${QUALITY.level}`);
     this.curT = this.upT = performance.now(); this.soonGap = 60000; this.writeCur();
@@ -11093,6 +11093,10 @@ Object.assign(PLAYLOG, {
   phys(e) {
     const m = this.m; if (!m || !e || e.kind === 'x') return; m.kinds[e.kind] = (m.kinds[e.kind] || 0) + 1;
     if (m.physL.length < 40) { const x = { ...e, gt: Math.round(game.time) }; if (player && e.who === player.T.name) x.flight = FLIGHT.buf.slice(-5); m.physL.push(x); }
+    if ((e.kind === 'solver kick undone' || e.kind === 'blow-up clamped') && m.blow.length < 3) { // R2-87: a blowup saves its run-up — the car's last ~4 s of poses from the jumbotron recorder (every 3rd frame, body pose only), so the event is a repro, not an anecdote
+      const car = cars.find((c) => c.T.name === e.who);
+      if (car && typeof JUMBO !== 'undefined') { const frames = []; for (let i = 0; i < JUMBO.rec.length; i += 3) { const f = JUMBO.rec[i], ci = f.cars.indexOf(car); if (ci < 0) continue; frames.push([Math.round((f.t - clock) * 1000), ...f.p[ci].slice(0, 7).map((v) => Math.round(v * 100) / 100)]); } if (frames.length > 4) m.blow.push({ who: e.who, kind: e.kind, gt: Math.round(game.time), speed: e.speed, frames }); }
+    }
     this.ev('phys', `${e.kind} · ${e.who || '?'}`); this.soon('physics: ' + e.kind);
   },
   slow(x) {
@@ -11133,7 +11137,7 @@ Object.assign(PLAYLOG, {
       vr: (typeof VR !== 'undefined' && VR.session) ? { hz: VR.hz, resStep: (VR.stats && VR.stats.resStep) || 0, clicks: VR.stats.clicks, buzz: VR.stats.buzz, hudDraws: VR.stats.hudDraws, menuDraws: VR.stats.menuDraws } : undefined, // R2-83: VR telemetry was collected (V.stats, V.hz, governor steps) and read nowhere — it now rides the match record whenever a headset session is live (counters are page-session cumulative, as V.stats always was)
       fps: m.frames ? { med: fps(this.pct(m, 0.5)), p5: fps(this.pct(m, 0.95)), low1: fps(this.pct(m, 0.99)), avg: fps(m.ftSum / m.frames), worstMs: Math.round(m.worst), frames: m.frames } : null,
       slow: { n: m.inc.length, secs: r1(m.inc.reduce((a, x) => a + x.secs, 0)), worstMs: m.inc.reduce((a, x) => Math.max(a, x.worst || 0), 0), causes, list: m.inc },
-      phys: { fixes: PHYS.fixes - m.phys0.fixes, clamps: PHYS.clamps - m.phys0.clamps, blowups: PHYS.blowups - m.phys0.blowups, kinds: K, rescues: K['fell through floor, lifted back'] || 0, undos: K['solver kick undone'] || 0, escapes: K['escaped the arena, put back'] || 0, launches: m.launch, launchList: m.launchW, below: m.below, nan: m.nan, list: m.physL },
+      phys: { fixes: PHYS.fixes - m.phys0.fixes, clamps: PHYS.clamps - m.phys0.clamps, blowups: PHYS.blowups - m.phys0.blowups, kinds: K, rescues: K['fell through floor, lifted back'] || 0, undos: K['solver kick undone'] || 0, escapes: K['escaped the arena, put back'] || 0, launches: m.launch, launchList: m.launchW, below: m.below, nan: m.nan, list: m.physL, blow: m.blow.length ? m.blow : undefined }, // (blow: R2-87)
       stuck: { n: m.stuckN, secs: r1(m.stuckS), list: stuck.sort((a, b) => b.secs - a.secs) },
       veh, me, weap: m.weap,
       voice: { n: m.voiceN, list: m.voice, sent: (bs.sent || 0) - b0.sent, started: (bs.started || 0) - b0.started, errors: (bs.errors || 0) - b0.errors, resets: (bs.resets || 0) - b0.resets, ok: barks.speechOK ?? null, lastErr: barks.lastErr || undefined },
