@@ -10352,7 +10352,7 @@ const VR = (() => {
     camMode = V.set.view ? 0 : 2; game.crashCam = null; game.shake = 0; game.fovPunch = 0; V.lastShake = 0;
     const fr = s.supportedFrameRates ? Array.from(s.supportedFrameRates) : [];
     V.hz = s.frameRate || 72; V.resStep = 0; V.baseScale = V.q2 ? 0.85 : 1; // R2-7: governor resolution steps start from the session's base scale
-    if (s.updateTargetFrameRate && fr.length) { const want = !V.q2 && fr.includes(90) ? 90 : 72; if (fr.includes(want)) { V.hz = want; try { const p = s.updateTargetFrameRate(want); if (p && p.catch) p.catch(() => {}); } catch (e) {} } }
+    if (s.updateTargetFrameRate && fr.length) { const want = !V.q2 && fr.includes(120) ? 120 : !V.q2 && fr.includes(90) ? 90 : 72; if (fr.includes(want)) { V.hz = want; try { const p = s.updateTargetFrameRate(want); if (p && p.catch) p.catch(() => {}); } catch (e) {} } } // R2-9: Quest 3 offers 120 Hz in supportedFrameRates — take it when offered (the governor's budget math already keys off V.hz)
     rig.visible = true; V.fade = 1; V.blackT = 0.2; V.lastPlayer = null; V.anchor = null; V.snap = true; V.page = 'main'; V.menuSig = ''; V.recenterAt = 3; V.ft = []; V.gt = 0; V.slow = 0;
     s.addEventListener('visibilitychange', () => { if (s.visibilityState !== 'visible' && game.state === 'playing') game.paused = true; }); // the Quest menu opened over the game
     s.addEventListener('select', (e) => { const src = e.inputSource; if (!src || src.gamepad || !V.menuOpen || !e.frame) return; const p = e.frame.getPose(src.targetRaySpace, V.ref); if (p) clickAt(_m.fromArray(p.transform.matrix)); }); // hand tracking: pinch to click
