@@ -1,7 +1,7 @@
 {
   "_readme": "One entry per voice in lines.json (key = character id). Fill voice_id with a voice from your ElevenLabs account (My Voices, or a Voice Library voice you added). Only stock/library/designed voices: never clone a real person. node voices/render.mjs --suggest <id> searches the Voice Library with library_search + gender/age/accent; --design <id> makes Voice Design previews from description. fallback_voice_id = legacy premade voices (IDs from public lists, NOT verified: used only with --use-fallbacks). fx = the filter the game adds (pa/radio/megaphone/muffled); never bake it into the clip. settings go to voice_settings as-is (speed 0.7-1.2).",
   "defaults": {
-    "model_id": "eleven_multilingual_v2",
+    "model_id": "eleven_flash_v2_5",
     "output_format": "mp3_44100_64",
     "settings": {
       "stability": 0.4,

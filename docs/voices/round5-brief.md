@@ -14,7 +14,7 @@ Work in the repo now: branch `claude/voices-round5` off `main` of /home/user/der
 ## Credit budget (owner decision, 2026-11-15)
 ElevenLabs Starter plan: 40,000 credits a month, reset on the 14th. On 2026-11-15, 13,617 were left. Going over is impossible: requests just fail.
 - **Before every render**, check `GET /v1/user/subscription` (`character_limit - character_count`) and never start a batch that doesn't fit. `render.mjs` prints the estimate first.
-- **Model: `eleven_flash_v2_5` (half the credits per character) for all renders from now on (owner decision 2026-11-15)**, once the owner OKs the Flash samples (Kev, same line on both models). Keep `mp3_44100_64`, like the existing clips. Whole new characters (Emeka, Bogdan, Ragnar, Maxine) are on Flash only, so each sounds consistent.
+- **Model: `eleven_flash_v2_5` (half the credits per character) for all renders from now on (owner decision 2026-11-15)**, OK'd by the owner after hearing Kev on both models (2026-11-15). The default in voices/cast.json is now Flash. Keep `mp3_44100_64`, like the existing clips. Whole new characters (Emeka, Bogdan, Ragnar, Maxine) are on Flash only, so each sounds consistent.
 - **Order:**
   1. Emeka, all lines (~2,200 credits on Flash).
   2. Bogdan, Ragnar and Maxine, all lines (~6,500).
