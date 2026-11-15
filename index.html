@@ -9198,7 +9198,7 @@ const MP = {
         [z.front, z.rear, z.left, z.right, z.top].map((x) => Math.round(x)).join('.'),
         c.parts.reduce((a, pt, i) => (pt.detached ? a.concat(i) : a), []), c.wheelLost.reduce((a, l, i) => a | (l ? 1 << i : 0), 0),
         r(c.rpm || 0, 0.01), r(c.steerVal || 0), r(c.turretYaw || 0), r(c.forkH || 0), c.kills || 0]; });
-    const snap = { t: Math.round(performance.now()) / 1000, st: game.state === 'playing' ? 1 : game.state === 'over' ? 2 : 0, cd: Math.round(game.countdown * 100) / 100, rk: this.rk, rv: this.rv, c: cs,
+    const snap = { t: Math.round(performance.now()) / 1000, tk: Math.round(simTime * 50), st: game.state === 'playing' ? 1 : game.state === 'over' ? 2 : 0, cd: Math.round(game.countdown * 100) / 100, rk: this.rk, rv: this.rv, c: cs, // R2-37: tk = the host's monotonic sim tick (50 Hz) rides along, so guests share the host's clock, not just its wall time
       b: BULLS.map((bl) => [r(bl.body.position.x), r(bl.body.position.y), r(bl.body.position.z), r(bl.yaw), ['graze', 'walk', 'paw', 'charge', 'proud', 'down', 'burger'].indexOf(bl.state)]),
       k: [r(CRANE.ang), r(CRANE.r), r(CRANE.h), CRANE.held ? cars.indexOf(CRANE.held) : -1], cr: [r(CRUSHER.y), ['idle', 'warn', 'slam', 'hold'].indexOf(CRUSHER.state)], bp: [r(BALL.ph), BOLLARDS.up ? 1 : 0], e: this.ev, p: this.propState(r), pf: props.filter((pr) => pr.fireT > 0).slice(0, 30).map((pr) => pr.id) };
     this.snapN = (this.snapN || 0) + 1; if (this.snapN % 2) { delete snap.p; delete snap.pf; if (SCORE.due()) snap.sc = SCORE.pack(); } // the scoreboard rides on a packet without props, about once a second // props drift slowly: their states ride on every other packet (10 a second), cars on every one
@@ -9330,7 +9330,7 @@ const MP = {
     const st = latest.st === 1 ? 'playing' : latest.st === 2 ? 'over' : 'menu';
     if (st === 'playing' && game.state !== 'playing') { game.state = 'playing'; game.paused = false; el.menu.hidden = true; el.over.hidden = true; sfx.init(); }
     else if (st !== 'playing' && game.state === 'playing') { game.state = st === 'over' ? 'over' : 'menu'; if (st === 'over') { toast('ROUND OVER · HOST RESTARTS', 'cool'); if (GAME_MODE === 'respawn') SCORE.show(true, true); } else el.menu.hidden = false; }
-    game.countdown = latest.cd;
+    { const rtNow = performance.now() / 1000 + ((this.net && this.net.off) || 0) - (this.delay || 0.1); game.countdown = Math.max(0, latest.cd - Math.max(0, rtNow - latest.t)); } // R2-37: project the countdown from the snapshot's host timestamp to the guest's interpolated present, instead of copying it raw — copying made the guest 3-2-1 judder with packet arrival and host hitches
     if (latest.bp) { BALL.ph = latest.bp[0] / 100 + (this.rt - latest.t) * 0; BOLLARDS.up = !!latest.bp[1]; }
     if (latest.cr) { CRUSHER.y = latest.cr[0] / 100; CRUSHER.state = ['idle', 'warn', 'slam', 'hold'][latest.cr[1]] || 'idle'; }
     if (st === 'playing') { const n = Math.ceil(latest.cd / 0.6); if (n !== game.lastCount && n >= 0) { game.lastCount = n; toast(n > 0 ? String(n) : 'GO!', n > 0 ? '' : 'cool'); if (n === 0) sfx.cheer(0.8); } }
