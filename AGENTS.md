@@ -30,6 +30,19 @@ Read these first, in this order:
 9. **Update WORKBOARD.md:** move your line to *Done* with the build number.
 10. **Watch the next play-log reports** for your build (they update every ~2 hours, and the autoplay laptop generates data quickly). If a metric regressed or new errors appeared, fix forward right away or `git revert` your commit, as a new build.
 
+## Hard rules learned so far (2026-11-15)
+1. **Show your test results in every game commit.** End the commit message with a `Tests:` line listing what passed, e.g. `Tests: quick suite ALL PASSED (syntax, drive ×3, tracks, interact 16/16, twothumb, zoom, phone2 ×2, matchups, idle, perfbudget, talk, b70) + mytest.js`. No `Tests:` line means it isn't ready for `main`.
+2. **Don't stack builds faster than the data can judge them.** After you land a game change, wait until the autoplay laptop has played it for ≥ 30 game-minutes and the play-log *Regression check* is clean before landing anything else that touches physics, props, AI or rendering. (Docs, voices and pure-UI text can keep flowing.) Builds 83–88 landed in about an hour, and physics glitches, stuck cars and slow frames all regressed. Six builds at once can't be told apart.
+3. **A regression in your builds is your next task.** If the Regression check flags a build range you landed, investigate and fix it, or revert it, before starting anything new.
+4. **New physics objects are expensive.** Anything that adds or launches bodies (flying props, debris, new collisions) must:
+   - keep `tests/perfbudget.js` passing;
+   - avoid per-frame allocations;
+   - put bodies to sleep when they come to rest;
+   - be checked against the physics catches per hour in the next reports.
+5. **Weak devices matter.** A real Chromebook (Intel HD 620, 4 cores) plays this game, and its slowest frames already drop to 20 fps. Measure the cost of what you add, and prefer making things cheaper.
+6. **Balance the backlog.** Bugs, regressions, performance and stuck spots come first, then core-fight polish, then gags. Gags are welcome, but not six in a row while a regression is open.
+7. **When you land an item from a reviewed branch**, fix the bugs the review lists for it (see REVIEW-*.md and docs/review-*.md) in the same commit.
+
 ## Performance is everyone's job
 The game must stay smooth on phones as it grows: every agent measures and protects performance.
 - `tests/perfbudget.js` gates draw calls, triangles, textures and physics cost before every push.
