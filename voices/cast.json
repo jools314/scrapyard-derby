@@ -1,0 +1,805 @@
+{
+  "_readme": "One entry per voice in lines.json (key = character id). Fill voice_id with a voice from your ElevenLabs account (My Voices, or a Voice Library voice you added). Only stock/library/designed voices: never clone a real person. node voices/render.mjs --suggest <id> searches the Voice Library with library_search + gender/age/accent; --design <id> makes Voice Design previews from description. fallback_voice_id = legacy premade voices (IDs from public lists, NOT verified: used only with --use-fallbacks). fx = the filter the game adds (pa/radio/megaphone/muffled); never bake it into the clip. settings go to voice_settings as-is (speed 0.7-1.2).",
+  "defaults": {
+    "model_id": "eleven_multilingual_v2",
+    "output_format": "mp3_44100_64",
+    "settings": {
+      "stability": 0.4,
+      "similarity_boost": 0.8,
+      "style": 0.45,
+      "use_speaker_boost": true,
+      "speed": 1
+    }
+  },
+  "characters": {
+    "crash-cam-kev": {
+      "speaker": "Crash Cam Kev",
+      "role": "Announcer (all play-by-play)",
+      "gender": "male",
+      "age": "middle_aged",
+      "accent": "australian",
+      "description": "An over-the-top Australian sports commentator calling a demolition derby: fast, loud, gleeful, broad Aussie accent, big rises on the punchlines, like a footy caller who has had three coffees.",
+      "library_search": "australian sports commentator energetic",
+      "voice_id": "YLbQE9U7P1K6rBNJWNSv",
+      "voice_name": "Jimbo - Thick Australian Accent (library)",
+      "tier": 1,
+      "fx": "pa",
+      "settings": {
+        "stability": 0.3,
+        "similarity_boost": 0.8,
+        "style": 0.75,
+        "use_speaker_boost": true,
+        "speed": 1.08
+      },
+      "library_voice": "Jimbo - Thick Australian Accent (australian)"
+    },
+    "oberst-klaus": {
+      "speaker": "Oberst Klaus",
+      "role": "Tiger tank",
+      "gender": "male",
+      "age": "middle_aged",
+      "accent": "german (thick, theatrical)",
+      "description": "Oberst Klaus, a theatrical German panzer officer in his fifties with an extremely thick, exaggerated German accent: rolling R's, 'ze' and 'zis', crisp barked consonants, grandly polite and menacing, savouring every word like a cartoon villain.",
+      "library_search": "german accent male officer villain",
+      "voice_id": "W3jXNbNy6hv4WqCrdiTy",
+      "voice_name": "Derby - Oberst Klaus",
+      "tier": 1,
+      "settings": {
+        "stability": 0.3,
+        "similarity_boost": 0.8,
+        "style": 0.75,
+        "use_speaker_boost": true,
+        "speed": 0.95
+      },
+      "library_voice": null,
+      "designed_voice": true
+    },
+    "tony-cement": {
+      "speaker": "Tony Cement",
+      "role": "Cement mixer",
+      "gender": "male",
+      "age": "middle_aged",
+      "accent": "brooklyn/jersey italian-american",
+      "description": "Tony Cement, a loud New Jersey Italian-American wise guy in his fifties with an extremely thick Brooklyn/Jersey accent: nasal, gravelly, fast-talking, waving his hands, a cartoon mobster who throws in Italian words, menacing but hilarious.",
+      "library_search": "italian american new york gangster wise guy",
+      "voice_id": "fzVombBM7woOZirZHNbi",
+      "voice_name": "Derby - Tony Cement",
+      "tier": 1,
+      "settings": {
+        "stability": 0.3,
+        "similarity_boost": 0.8,
+        "style": 0.75,
+        "use_speaker_boost": true,
+        "speed": 1
+      },
+      "library_voice": null,
+      "designed_voice": true
+    },
+    "big-bertha": {
+      "speaker": "Big Bertha",
+      "role": "300-tonne mine dump truck",
+      "gender": "female",
+      "age": "old",
+      "accent": "american (southern)",
+      "description": "A sweet-as-pie Southern grandma from Georgia with a steel spine: warm honeyed drawl, \"sugar\" and \"bless your heart\", sassy and loud when riled.",
+      "library_search": "southern grandma sassy older woman",
+      "voice_id": "0rEo3eAjssGDUCXHYENf",
+      "voice_name": "Derby - Big Bertha",
+      "tier": 1,
+      "fallback_voice_id": "oWAxZDx7w5VEj9dCyTzz",
+      "fallback_voice_name": "Grace (Southern American woman; younger than ideal)",
+      "settings": {
+        "stability": 0.35,
+        "similarity_boost": 0.8,
+        "style": 0.5,
+        "use_speaker_boost": true,
+        "speed": 0.95
+      },
+      "library_voice": "Grandma Rachel - Wise Southern Senior (us southern)"
+    },
+    "bulldozer-bob": {
+      "speaker": "Bulldozer Bob",
+      "role": "Bulldozer",
+      "gender": "male",
+      "age": "middle_aged",
+      "accent": "west texas (huge, booming)",
+      "description": "Bulldozer Bob, a huge booming West Texas oilfield foreman: enormous, loud, deep voice with a very thick slow Texas drawl, hollering over diesel engines, larger than life, cheerful and bossy like a cartoon cowboy giant.",
+      "library_search": "texas cowboy deep gravelly blue collar",
+      "voice_id": "VuT41ZXffR0LBd0xUAwr",
+      "voice_name": "Derby - Bulldozer Bob",
+      "tier": 1,
+      "settings": {
+        "stability": 0.3,
+        "similarity_boost": 0.8,
+        "style": 0.75,
+        "use_speaker_boost": true,
+        "speed": 0.95
+      },
+      "library_voice": null,
+      "designed_voice": true
+    },
+    "captain-mccaffrey": {
+      "speaker": "Captain McCaffrey",
+      "role": "Fire truck (Captain Maeve McCaffrey)",
+      "gender": "female",
+      "age": "middle_aged",
+      "accent": "irish",
+      "description": "Captain Maeve McCaffrey, a Dublin-born Chicago fire captain: warm Irish brogue gone hoarse from shouting orders, bossy, brave and funny.",
+      "library_search": "irish woman",
+      "voice_id": "1OYA2kgM85gF2eGN8HEp",
+      "voice_name": "Derby - Captain McCaffrey",
+      "tier": 1,
+      "settings": {
+        "stability": 0.35,
+        "similarity_boost": 0.8,
+        "style": 0.55,
+        "use_speaker_boost": true,
+        "speed": 1.02
+      },
+      "library_voice": "Colleen - Warm Southern Irish Woman (irish)"
+    },
+    "sheriff-buck": {
+      "speaker": "Sheriff Buck",
+      "role": "Police cruiser: Sheriff Dolly Mae Buck (and the megaphone)",
+      "gender": "female",
+      "age": "middle_aged",
+      "accent": "us southern",
+      "description": "Sheriff Dolly Mae Buck, a loud, brash Deep South county sheriff: thick drawl, big personality, sugar-sweet until she starts yelling.",
+      "library_search": "sassy southern woman",
+      "voice_id": "MgqVq3OCTPeVHCEDr4HU",
+      "voice_name": "Derby - Sheriff Buck",
+      "tier": 1,
+      "note": "MEGA lines get the megaphone filter in game: same voice.",
+      "settings": {
+        "stability": 0.3,
+        "similarity_boost": 0.8,
+        "style": 0.6,
+        "use_speaker_boost": true,
+        "speed": 1.02
+      },
+      "library_voice": "Ruthie Jo (us southern)"
+    },
+    "ragnar-rustbeard": {
+      "speaker": "Ragnar Rustbeard",
+      "role": "Hellbender monster truck (\"my longship\")",
+      "gender": "male",
+      "age": "middle_aged",
+      "accent": "norwegian/scandinavian viking (thunderous)",
+      "description": "A gigantic, bellowing Viking raider in his fifties with a huge barrel chest, speaking English with a very thick, exaggerated Norwegian Scandinavian accent: thunderous booming bass, rolling R's, roaring with laughter, theatrical and larger-than-life like a cartoon Viking chieftain shouting across a battlefield.",
+      "library_search": "viking",
+      "voice_id": "C4HIaVKiHOYPmnGCueGi",
+      "voice_name": "Derby - Ragnar Rustbeard",
+      "tier": 1,
+      "settings": {
+        "stability": 0.28,
+        "similarity_boost": 0.8,
+        "style": 0.85,
+        "use_speaker_boost": true,
+        "speed": 0.95
+      },
+      "library_voice": null,
+      "designed_voice": true,
+      "design_model": "eleven_ttv_v3 (/v1/text-to-voice/design, preview 1 of 3)"
+    },
+    "rocket-raju": {
+      "speaker": "Rocket Raju",
+      "role": "Sandflea buggy",
+      "gender": "male",
+      "age": "young",
+      "accent": "indian (bollywood action hero)",
+      "description": "A swaggering Bollywood action-movie hero in his thirties speaking English with a very thick, exaggerated Indian accent: big dramatic baritone, rolling R's, theatrical pauses and sudden shouts, delivering every line like the climax of a blockbuster film, full of himself and hilarious.",
+      "library_search": "bollywood hero dramatic",
+      "voice_id": "pGU41KfmJqbdRZNSp2wH",
+      "voice_name": "Derby - Rocket Raju",
+      "tier": 1,
+      "settings": {
+        "stability": 0.25,
+        "similarity_boost": 0.8,
+        "style": 0.85,
+        "use_speaker_boost": true,
+        "speed": 1.08
+      },
+      "library_voice": null,
+      "designed_voice": true,
+      "design_model": "eleven_ttv_v3 (/v1/text-to-voice/design, preview 1 of 3)"
+    },
+    "maxine-mactavish": {
+      "speaker": "Maxine MacTavish",
+      "role": "Outrider muscle car (Maxine \"Mad Max\" MacTavish)",
+      "gender": "female",
+      "age": "middle_aged",
+      "accent": "scottish highland (broad, roaring)",
+      "description": "A fierce, roaring Scottish Highland woman in her forties speaking English with an extremely thick, broad Scottish accent: loud, gravelly and raspy, hard rolled R's, bellowing like she is shouting across a glen, cackling with glee, fearless, furious and very funny.",
+      "library_search": "scottish woman",
+      "voice_id": "XtMwjFsWWACUgBWmt55f",
+      "voice_name": "Derby - Maxine MacTavish",
+      "tier": 1,
+      "settings": {
+        "stability": 0.3,
+        "similarity_boost": 0.8,
+        "style": 0.8,
+        "use_speaker_boost": true,
+        "speed": 1.05
+      },
+      "library_voice": null,
+      "designed_voice": true,
+      "design_model": "eleven_ttv_v3 (/v1/text-to-voice/design, preview 1 of 3)"
+    },
+    "dom": {
+      "speaker": "Dom",
+      "role": "Viper",
+      "gender": "male",
+      "age": "middle_aged",
+      "accent": "mexican",
+      "description": "Dom, a Mexican street racer in his forties who lives for his family, speaking English with a thick, warm Mexican Spanish accent: an extremely deep, gravelly bass voice, slow, calm and dramatic, rolling R's, a cool cartoon action hero.",
+      "library_search": "deep gravelly american baritone",
+      "voice_id": "ryVUPcK6ZBfybOXTjOZq",
+      "voice_name": "Derby - Dom",
+      "tier": 1,
+      "settings": {
+        "stability": 0.35,
+        "similarity_boost": 0.8,
+        "style": 0.7,
+        "use_speaker_boost": true,
+        "speed": 0.9
+      },
+      "library_voice": null,
+      "designed_voice": true
+    },
+    "cletus": {
+      "speaker": "Cletus",
+      "role": "Tow truck",
+      "gender": "male",
+      "age": "middle_aged",
+      "accent": "american (appalachian)",
+      "description": "Cletus, a deep-backwoods Appalachian hillbilly tow-truck man: an extremely thick, twangy, nasal mountain drawl, high-pitched and giggly, fast-talking and hollering with glee, missing a few teeth, a cartoonish good ol' boy.",
+      "library_search": "hillbilly redneck twang",
+      "voice_id": "B5nXKjaYRMU7hmcu1Fhk",
+      "voice_name": "Rusty Wade - Cowboy / Prospector (library)",
+      "tier": 1,
+      "settings": {
+        "stability": 0.3,
+        "similarity_boost": 0.8,
+        "style": 0.75,
+        "use_speaker_boost": true,
+        "speed": 1.05
+      },
+      "library_voice": "Rusty Wade - Cowboy / Prospector (american backcountry)",
+      "note": "A designed Appalachian voice is in ok-samples3/_previews/15-Cletus-Appalachian-*.mp3 (not saved: the account is at its 10 custom-voice limit)."
+    },
+    "king-arthur": {
+      "speaker": "King Arthur",
+      "role": "Forklift",
+      "gender": "male",
+      "age": "middle_aged",
+      "accent": "british (rp)",
+      "description": "A pompous, regal English king on a quest: plummy received pronunciation, theatrical and noble, utterly serious about ridiculous things.",
+      "library_search": "british king regal theatrical",
+      "voice_id": "qkG6pQFWpZTnYnoQZGFs",
+      "voice_name": "Derby - King Arthur",
+      "tier": 1,
+      "fallback_voice_id": "JBFqnCBsd6RMkjVDRZzb",
+      "fallback_voice_name": "George (warm British)",
+      "settings": {
+        "stability": 0.45,
+        "similarity_boost": 0.8,
+        "style": 0.45,
+        "use_speaker_boost": true,
+        "speed": 0.95
+      },
+      "library_voice": "Timothy Pemberton - British Posh (british)"
+    },
+    "black-knight": {
+      "speaker": "Black Knight",
+      "role": "Forklift (second voice in the cab)",
+      "gender": "male",
+      "age": "middle_aged",
+      "accent": "british",
+      "description": "A stubborn English knight who refuses to admit he is beaten: gruff, booming, indignant.",
+      "library_search": "british knight gruff deep",
+      "voice_id": null,
+      "voice_name": null,
+      "tier": 1,
+      "fallback_voice_id": "onwK4e9ZLuTAKqWW03F9",
+      "fallback_voice_name": "Daniel (British, authoritative)",
+      "settings": {
+        "stability": 0.45,
+        "similarity_boost": 0.8,
+        "style": 0.45,
+        "use_speaker_boost": true,
+        "speed": 0.92
+      }
+    },
+    "french-taunter": {
+      "speaker": "French Taunter",
+      "role": "Forklift (third voice in the cab)",
+      "gender": "male",
+      "age": "middle_aged",
+      "accent": "french",
+      "description": "An outrageously rude Frenchman shouting insults from a castle wall: exaggerated French accent, nasal, sneering, delighted with himself.",
+      "library_search": "french accent man comedic",
+      "voice_id": null,
+      "voice_name": null,
+      "tier": 1,
+      "settings": {
+        "stability": 0.3,
+        "similarity_boost": 0.8,
+        "style": 0.6,
+        "use_speaker_boost": true,
+        "speed": 1.02
+      }
+    },
+    "mr-white": {
+      "speaker": "Mr. White",
+      "role": "Camper RV",
+      "gender": "male",
+      "age": "middle_aged",
+      "accent": "american",
+      "description": "A cold, controlled, menacing middle-aged American man: quiet intensity, proud and precise, that can snap into a roar.",
+      "library_search": "intense villain american",
+      "voice_id": "QUOYMor9zfZEmffKPlfx",
+      "voice_name": "Derby - Mr. White",
+      "tier": 1,
+      "settings": {
+        "stability": 0.3,
+        "similarity_boost": 0.8,
+        "style": 0.65,
+        "use_speaker_boost": true,
+        "speed": 0.95
+      },
+      "library_voice": "Reginald - Intense Villain (american)"
+    },
+    "jesse": {
+      "speaker": "Jesse",
+      "role": "Camper RV (second voice in the cab)",
+      "gender": "male",
+      "age": "young",
+      "accent": "american",
+      "description": "A young, twitchy American slacker who says \"yo\" a lot: excitable, cracking voice, very loud when happy.",
+      "library_search": "young american slacker excited",
+      "voice_id": "nNXPmxHfg9PtGzFxr9Zd",
+      "voice_name": "Derby - Jesse",
+      "tier": 1,
+      "settings": {
+        "stability": 0.25,
+        "similarity_boost": 0.8,
+        "style": 0.65,
+        "use_speaker_boost": true,
+        "speed": 1.1
+      },
+      "library_voice": "Valf - Young & Energetic (american)"
+    },
+    "german-tourist-in-the-back": {
+      "speaker": "German tourist (in the back)",
+      "role": "Camper RV (a passenger, horn lines only)",
+      "gender": "female",
+      "age": "middle_aged",
+      "accent": "german",
+      "description": "A cheerful middle-aged German woman on holiday in the back of an RV: thick German accent, bright and bossy, shrieks at her husband Hans.",
+      "library_search": "german accent woman cheerful",
+      "voice_id": null,
+      "voice_name": null,
+      "tier": 1,
+      "fx": "muffled",
+      "settings": {
+        "stability": 0.35,
+        "similarity_boost": 0.8,
+        "style": 0.5,
+        "use_speaker_boost": true,
+        "speed": 1.05
+      }
+    },
+    "sal": {
+      "speaker": "Sal",
+      "role": "Extra driver (Rustbucket)",
+      "gender": "male",
+      "age": "middle_aged",
+      "accent": "italian",
+      "description": "A hot-blooded Italian from Naples speaking English with a thick Italian accent: operatic, passionate, all hand gestures and \"mamma mia\".",
+      "library_search": "italian accent man passionate",
+      "voice_id": null,
+      "voice_name": null,
+      "tier": 2,
+      "fallback_voice_id": "zcAOhNBS3c14rBihAFp1",
+      "fallback_voice_name": "Giovanni (Italian-accented English)",
+      "settings": {
+        "stability": 0.3,
+        "similarity_boost": 0.8,
+        "style": 0.55,
+        "use_speaker_boost": true,
+        "speed": 1.04
+      }
+    },
+    "vinnie": {
+      "speaker": "Vinnie",
+      "role": "Extra driver (Mangler)",
+      "gender": "male",
+      "age": "middle_aged",
+      "accent": "american (brooklyn)",
+      "description": "A fast-talking Brooklyn cab driver: nasal New York accent, impatient, wisecracking.",
+      "library_search": "new york brooklyn accent man",
+      "voice_id": null,
+      "voice_name": null,
+      "tier": 2,
+      "settings": {
+        "stability": 0.35,
+        "similarity_boost": 0.8,
+        "style": 0.5,
+        "use_speaker_boost": true,
+        "speed": 1.1
+      }
+    },
+    "mortimer": {
+      "speaker": "Mortimer",
+      "role": "Extra driver (The Undertaker)",
+      "gender": "male",
+      "age": "old",
+      "accent": "british",
+      "description": "A lugubrious English undertaker: very deep, slow, dry, funereal, faintly amused.",
+      "library_search": "british deep slow old gentleman",
+      "voice_id": null,
+      "voice_name": null,
+      "tier": 2,
+      "settings": {
+        "stability": 0.55,
+        "similarity_boost": 0.8,
+        "style": 0.3,
+        "use_speaker_boost": true,
+        "speed": 0.85
+      }
+    },
+    "billy-ray": {
+      "speaker": "Billy-Ray",
+      "role": "Extra driver (Bonecrusher)",
+      "gender": "male",
+      "age": "middle_aged",
+      "accent": "american (texas)",
+      "description": "A loud Texas cowboy: big drawl, whooping, cheerful.",
+      "library_search": "texas cowboy",
+      "voice_id": null,
+      "voice_name": null,
+      "tier": 2,
+      "settings": {
+        "stability": 0.35,
+        "similarity_boost": 0.8,
+        "style": 0.5,
+        "use_speaker_boost": true,
+        "speed": 0.95
+      }
+    },
+    "bazza": {
+      "speaker": "Bazza",
+      "role": "Extra driver (Dozer)",
+      "gender": "male",
+      "age": "middle_aged",
+      "accent": "australian",
+      "description": "A broad ocker Aussie bloke from the outback: laid-back, cheeky, beer-and-barbecue voice.",
+      "library_search": "australian bloke ocker casual",
+      "voice_id": null,
+      "voice_name": null,
+      "tier": 2,
+      "settings": {
+        "stability": 0.35,
+        "similarity_boost": 0.8,
+        "style": 0.45,
+        "use_speaker_boost": true,
+        "speed": 1.05
+      }
+    },
+    "mireille": {
+      "speaker": "Mireille",
+      "role": "Extra driver (Widowmaker)",
+      "gender": "female",
+      "age": "middle_aged",
+      "accent": "french",
+      "description": "A haughty Parisian woman: elegant French accent, bored and disdainful, sharp when angry.",
+      "library_search": "french accent woman elegant",
+      "voice_id": null,
+      "voice_name": null,
+      "tier": 2,
+      "settings": {
+        "stability": 0.4,
+        "similarity_boost": 0.8,
+        "style": 0.45,
+        "use_speaker_boost": true,
+        "speed": 1
+      }
+    },
+    "angus": {
+      "speaker": "Angus",
+      "role": "Extra driver (Scrapjack)",
+      "gender": "male",
+      "age": "middle_aged",
+      "accent": "scottish",
+      "description": "A fiery Glaswegian: thick Scottish accent, rolling Rs, loud and cheerfully furious.",
+      "library_search": "scottish man glasgow",
+      "voice_id": null,
+      "voice_name": null,
+      "tier": 2,
+      "settings": {
+        "stability": 0.35,
+        "similarity_boost": 0.8,
+        "style": 0.5,
+        "use_speaker_boost": true,
+        "speed": 1.02
+      }
+    },
+    "klaus": {
+      "speaker": "Klaus",
+      "role": "Extra driver (Tetanus)",
+      "gender": "male",
+      "age": "middle_aged",
+      "accent": "german",
+      "description": "A precise German engineer: clipped German accent, flat and analytical, outraged by inefficiency.",
+      "library_search": "german accent man engineer",
+      "voice_id": null,
+      "voice_name": null,
+      "tier": 2,
+      "settings": {
+        "stability": 0.5,
+        "similarity_boost": 0.8,
+        "style": 0.3,
+        "use_speaker_boost": true,
+        "speed": 1
+      }
+    },
+    "grandma-edna": {
+      "speaker": "Grandma Edna",
+      "role": "Extra driver (Crankshaft)",
+      "gender": "female",
+      "age": "old",
+      "accent": "american",
+      "description": "A tiny feisty American grandma: high, wavering, sweet voice with a savage streak.",
+      "library_search": "old lady grandma american",
+      "voice_id": null,
+      "voice_name": null,
+      "tier": 2,
+      "settings": {
+        "stability": 0.4,
+        "similarity_boost": 0.8,
+        "style": 0.45,
+        "use_speaker_boost": true,
+        "speed": 0.9
+      }
+    },
+    "chad": {
+      "speaker": "Chad",
+      "role": "Extra driver (Gutterball)",
+      "gender": "male",
+      "age": "young",
+      "accent": "american (california)",
+      "description": "A mellow Southern California surfer dude: slow, sun-baked, \"duuude\".",
+      "library_search": "surfer dude california",
+      "voice_id": null,
+      "voice_name": null,
+      "tier": 2,
+      "settings": {
+        "stability": 0.35,
+        "similarity_boost": 0.8,
+        "style": 0.45,
+        "use_speaker_boost": true,
+        "speed": 0.95
+      }
+    },
+    "boris": {
+      "speaker": "Boris",
+      "role": "Extra driver (Old Yeller)",
+      "gender": "male",
+      "age": "middle_aged",
+      "accent": "russian",
+      "description": "A huge deadpan Russian: deep voice, thick Russian accent, totally unbothered.",
+      "library_search": "russian accent deep man",
+      "voice_id": null,
+      "voice_name": null,
+      "tier": 2,
+      "settings": {
+        "stability": 0.5,
+        "similarity_boost": 0.8,
+        "style": 0.35,
+        "use_speaker_boost": true,
+        "speed": 0.95
+      }
+    },
+    "seamus": {
+      "speaker": "Seamus",
+      "role": "Extra driver (Junkernaut)",
+      "gender": "male",
+      "age": "middle_aged",
+      "accent": "irish",
+      "description": "A chatty, cheerful Irishman from Cork: quick lilting brogue, always about to laugh.",
+      "library_search": "irish man cheerful",
+      "voice_id": null,
+      "voice_name": null,
+      "tier": 2,
+      "settings": {
+        "stability": 0.35,
+        "similarity_boost": 0.8,
+        "style": 0.5,
+        "use_speaker_boost": true,
+        "speed": 1.05
+      }
+    },
+    "lars": {
+      "speaker": "Lars",
+      "role": "Extra driver (Lingonberry)",
+      "gender": "male",
+      "age": "middle_aged",
+      "accent": "swedish",
+      "description": "A polite, sing-song Swede: Swedish accent, mild and cheerful even when furious.",
+      "library_search": "swedish accent man",
+      "voice_id": null,
+      "voice_name": null,
+      "tier": 2,
+      "settings": {
+        "stability": 0.4,
+        "similarity_boost": 0.8,
+        "style": 0.4,
+        "use_speaker_boost": true,
+        "speed": 0.98
+      }
+    },
+    "paco": {
+      "speaker": "Paco",
+      "role": "Extra driver (El Toro)",
+      "gender": "male",
+      "age": "middle_aged",
+      "accent": "spanish",
+      "description": "A flamboyant Spaniard from Seville: Castilian Spanish accent, passionate and theatrical.",
+      "library_search": "spanish accent man passionate",
+      "voice_id": null,
+      "voice_name": null,
+      "tier": 2,
+      "settings": {
+        "stability": 0.3,
+        "similarity_boost": 0.8,
+        "style": 0.55,
+        "use_speaker_boost": true,
+        "speed": 1.08
+      }
+    },
+    "kenji": {
+      "speaker": "Kenji",
+      "role": "Extra driver (Thunder Noodle)",
+      "gender": "male",
+      "age": "young",
+      "accent": "japanese",
+      "description": "An intense young Japanese street racer: Japanese accent, quick, earnest, very dramatic about honour.",
+      "library_search": "japanese accent young man",
+      "voice_id": null,
+      "voice_name": null,
+      "tier": 2,
+      "settings": {
+        "stability": 0.35,
+        "similarity_boost": 0.8,
+        "style": 0.5,
+        "use_speaker_boost": true,
+        "speed": 1.1
+      }
+    },
+    "joaquim": {
+      "speaker": "Joaquim",
+      "role": "Extra driver (Samba Bomb)",
+      "gender": "male",
+      "age": "young",
+      "accent": "brazilian",
+      "description": "A party-loving Brazilian: Brazilian Portuguese accent, sunny, sing-song, football-commentator \"Gooool\".",
+      "library_search": "brazilian accent man",
+      "voice_id": null,
+      "voice_name": null,
+      "tier": 2,
+      "settings": {
+        "stability": 0.3,
+        "similarity_boost": 0.8,
+        "style": 0.55,
+        "use_speaker_boost": true,
+        "speed": 1.08
+      }
+    },
+    "nigel": {
+      "speaker": "Nigel",
+      "role": "Extra driver (Bangers)",
+      "gender": "male",
+      "age": "middle_aged",
+      "accent": "british (cockney)",
+      "description": "A cheeky East London Cockney geezer: dropped Hs, quick and chirpy.",
+      "library_search": "cockney london man",
+      "voice_id": null,
+      "voice_name": null,
+      "tier": 2,
+      "fallback_voice_id": "CYw3kZ02Hs0563khs1Fj",
+      "fallback_voice_name": "Dave (British Essex)",
+      "settings": {
+        "stability": 0.35,
+        "similarity_boost": 0.8,
+        "style": 0.5,
+        "use_speaker_boost": true,
+        "speed": 1.08
+      }
+    },
+    "boudreaux": {
+      "speaker": "Boudreaux",
+      "role": "Extra driver (Swamp Thing)",
+      "gender": "male",
+      "age": "middle_aged",
+      "accent": "american (cajun)",
+      "description": "A Louisiana Cajun from the bayou: Cajun French-tinged drawl, rough and jolly.",
+      "library_search": "cajun louisiana man",
+      "voice_id": null,
+      "voice_name": null,
+      "tier": 2,
+      "settings": {
+        "stability": 0.35,
+        "similarity_boost": 0.8,
+        "style": 0.5,
+        "use_speaker_boost": true,
+        "speed": 1.02
+      }
+    },
+    "papa-jacques": {
+      "speaker": "Papa Jacques",
+      "role": "Combine harvester",
+      "gender": "male",
+      "age": "old",
+      "accent": "french (thick, theatrical)",
+      "description": "Papa Jacques, a dramatic old French farmer from the countryside with an extremely thick, exaggerated French accent: theatrical, outraged, sighing and wailing about his ruined crops, nasal and expressive, a hilarious cartoon Frenchman.",
+      "library_search": "old southern farmer hillbilly drawl",
+      "voice_id": "u19YjbMSxajm7M8A92WG",
+      "voice_name": "Derby - Papa Jacques",
+      "tier": 1,
+      "settings": {
+        "stability": 0.28,
+        "similarity_boost": 0.8,
+        "style": 0.8,
+        "use_speaker_boost": true,
+        "speed": 1
+      },
+      "library_voice": null,
+      "designed_voice": true
+    },
+    "uncle-bogdan": {
+      "speaker": "Uncle Bogdan",
+      "role": "Fuel tanker \"Lyudmila\" (talks on the CB radio)",
+      "gender": "male",
+      "age": "middle_aged",
+      "accent": "comedic eastern european village (original, fictional village of Kartoshkovo)",
+      "description": "Uncle Bogdan, a cheerful, naive village truck driver in his forties from a made-up Eastern European village, speaking broken English with a very thick, comedic Slavic accent: warm, nasal and bright, rolled R's, wide open vowels, wildly over-enthusiastic and giggly, bursting with innocent pride. Original character, not an impression of any real person.",
+      "library_search": "eastern european accent cheerful",
+      "voice_id": "L9EXP2tx4T9aTbWdknzb",
+      "voice_name": "Derby - Uncle Bogdan",
+      "tier": 1,
+      "fx": "radio",
+      "settings": {
+        "stability": 0.3,
+        "similarity_boost": 0.8,
+        "style": 0.8,
+        "use_speaker_boost": true,
+        "speed": 1.05
+      },
+      "library_voice": null,
+      "designed_voice": true,
+      "design_model": "eleven_ttv_v3 (/v1/text-to-voice/design, preview 1 of 3)"
+    },
+    "lulu": {
+      "speaker": "Lulu",
+      "role": "Co-commentator (takes every other announcer call)",
+      "gender": "female",
+      "age": "young",
+      "accent": "hong kong chinese",
+      "description": "Lulu, a hyperactive Hong Kong Chinese woman sports commentator in her thirties, speaking English with a very thick, exaggerated Cantonese accent. Shrieking, giggling, rapid-fire and wildly over the top, shouting Aiyaa and Jiayou at every crash, a cartoon character full of fun.",
+      "library_search": "australian energetic woman presenter",
+      "voice_id": "ykdhm3QsgJm5EsgoVcRv",
+      "voice_name": "Derby - Lulu",
+      "library_voice": null,
+      "tier": 1,
+      "fx": "pa",
+      "settings": {
+        "stability": 0.28,
+        "similarity_boost": 0.8,
+        "style": 0.8,
+        "use_speaker_boost": true,
+        "speed": 1.08
+      },
+      "designed_voice": true
+    }
+  }
+}

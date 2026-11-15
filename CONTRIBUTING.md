@@ -12,20 +12,20 @@ Read [DESIGN-PRINCIPLES.md](DESIGN-PRINCIPLES.md) first: **simple, focused on th
 ## Branches
 | branch | what it is | who writes to it |
 |---|---|---|
-| `main` | the next release, work in progress (the trunk) | small, tested check-ins from everyone |
-| `release/NN` | release NN being stabilised | bug fixes only |
-| `live` | what players get at https://jools314.github.io/scrapyard-derby/ (GitHub Pages serves this branch) | only the release step below |
+| `main` | **what players get**: GitHub Pages serves it at https://jools314.github.io/scrapyard-derby/, so every push to `main` goes live within a minute or two | small, tested check-ins from everyone |
 | `<you>/<topic>` | your own work in progress, e.g. `muse/near-miss`, `claude/target-pick` | you |
+| `play-logs` | aggregate play-log reports (see LOGS.md) | the scheduled log check |
 
 ## Making a change
 1. Branch from `main`: `<you>/<short-topic>`. Keep it to **one improvement or fix**; small is good.
 2. Make the change in `index.html` (and `voices/` if lines change).
 3. **Add or update a test** in `tests/` for what you changed. Every bug fixed gets a regression test that fails before the fix. Use `tests/harness.js` (`open()` gives you a page with `window.__derby` test hooks).
-4. Run the quick suite: `bash tests/run.sh quick`. It must end with `ALL PASSED (quick)`.
-5. Merge into `main` (fast-forward or a small merge commit) and push. Describe what and why in the commit message. If you can't run the tests, push your branch and open a pull request instead, saying so. Someone else will test and merge it.
-6. Don't change `BUILD` on main; the release step does that.
+4. **Bump the build:** increase `const BUILD = 'NN'` by one, so open games and autoplay machines pick up the new version, and add a line to `RELEASES.md`.
+5. Run the tests (next section). The quick suite is required for every push to `main`. Run the release suite too when the change touches multiplayer, voices, the play log, autoplay or VR.
+6. Rebase on the latest `main` (`git pull --rebase origin main`). If someone else bumped `BUILD` meanwhile, take the next number. Then push to `main`, describing what and why in the commit message. If you can't run the tests, push your branch and open a pull request instead, saying so; someone else will test and merge it.
+7. **Watch:** after pushing, check the next play-log reports (LOGS.md) for regressions. If something broke, fix it forward fast, or revert your commit.
 
-Don't push straight to `live`. Don't rewrite history on `main`, `release/*` or `live`.
+Don't rewrite history on `main`.
 
 ## Tests
 One-time setup, from `tests/`:
@@ -54,11 +54,7 @@ npx playwright install chromium
 - `rc-vr-test` is flaky on a busy machine. Re-run it alone before treating a failure as real.
 
 ## Releases
-1. **Cut:** when `main` has a good set of improvements, branch `release/NN` from it and set `const BUILD = 'NN'` there. `main` moves on to NN+1, and new check-ins keep going to `main`.
-2. **Stabilise:** only fixes go to `release/NN`, each with a test. Cherry-pick every fix back to `main`.
-3. **Gate:** `bash tests/run.sh release` must pass on `release/NN`.
-4. **Publish:** fast-forward `live` to `release/NN`, tag it `vNN`, and add an entry to `RELEASES.md`. Open games see the new build within minutes. Autoplay machines switch over at the end of their current match.
-5. **Watch:** check the play logs and the Derby Health dashboard for regressions (fps, stuck cars, physics glitches, balance). Fix on `release/NN` if needed and release again as NN, or as NN+1 if it's big.
+Every push to `main` is a release: it goes straight to players, and the `BUILD` number is the version. `RELEASES.md` lists what changed in each build. Before a big change, run `bash tests/run.sh release` (about 2-3 h), not just the quick suite.
 
 ## Logs and metrics
 Every game uploads a play log (fps, stuck spots, physics catches, K/D per car, who wrecks whom). [LOGS.md](LOGS.md) explains how to pull and analyse them, and how to turn them into tested fixes. Use them to decide what to fix and to check whether a change helped.

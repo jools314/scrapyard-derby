@@ -748,7 +748,7 @@ const CAR_TYPES = {
   cruiser: { special: 'spikes', handling: { steer: 1.05, rate: 1.1, spring: 1.1, damp: 1.1, rear: 1.0, drag: 0.95, roll: 0.9 }, frontDrive: 0.15, name: 'Cruiser', blurb: 'Police cruiser: F fires the pump shotgun out the window, the stop-stick drops itself behind you when someone tails you (or Z). G toggles the siren.', style: 'sedan', police: true, mass: 1650, L: 4.9, W: 1.9, H: 0.62, wheelR: 0.38, wheelW: 0.32, wb: 2.9, track: 1.62, power: 1.05, grip: 1.0, armor: 0.9, cabin: { l: 2.3, h: 0.58, w: 1.62, x: -0.15 }, color: 0x16191e, redline: 6200, idle: 750, cyl: 4 },
   tiger: { noPlant: true, handling: { steer: 0.65, rate: 0.85, spring: 2.2, damp: 2.0, rear: 1.0, drag: 45, roll: 0.02 }, frontDrive: 0.5, name: 'Tiger', blurb: 'Battle tank with an autocannon: each trigger pull fires a 3-round burst. F, click or FIRE to shoot.', style: 'tank', mass: 11000, L: 6.4, W: 3.4, H: 1.0, hullW: 0.62, wheelR: 0.5, wheelW: 0.5, wb: 4.4, axles: [2.2, 0.75, -0.75, -2.2], track: 2.7, power: 1.3, grip: 1.6, armor: 0.3, traction: 11, cabin: { l: 3.0, h: 0.85, w: 2.6, x: -0.3 }, color: 0x8f7d52, redline: 3000, idle: 600, cyl: 6, skid: true, gun: true, noWheelLoss: true },
   dozer: { noPlant: true, antiWheelie: true, maxSpeed: 8.5, handling: { steer: 0.7, rate: 0.8, spring: 2.2, damp: 2.0, rear: 1.0, drag: 45, roll: 0.02 }, frontDrive: 0.5, name: 'Bulldozer', blurb: 'Bulldozer Bob: 14 t crawler dozer, slow and unstoppable. Blade down it shoves anything; F raises the blade (flipping what is in front) so you can climb over cars, F again slams it down and crushes them.', style: 'tank', dozer: true, special: 'blade', mass: 14000, L: 5.6, W: 3.2, H: 1.0, hullW: 0.66, wheelR: 0.5, wheelW: 0.5, wb: 3.8, axles: [1.9, 0.65, -0.65, -1.9], track: 2.5, power: 1.7, grip: 1.7, armor: 0.45, traction: 18, cabin: { l: 1.7, h: 1.35, w: 1.8, x: -1.0 }, color: 0xe8b010, redline: 2600, idle: 550, cyl: 6, skid: true, noWheelLoss: true },
-  combine: { heavy: true, special: 'reel', maxSpeed: 10, rearSteer: true, handling: { steer: 0.75, rate: 0.7, spring: 1.2, damp: 1.3, rear: 1.15, drag: 1.5, roll: 0.6 }, name: 'Combine', blurb: 'Old MacDonald\'s combine harvester. F starts the 6-metre reel: crates and drums come out the back as straw bales, and any car caught in it gets chewed up and dragged in. Steers with its back wheels.', style: 'combine', mass: 15000, L: 8.6, W: 3.6, H: 1.3, hullW: 0.86, wheelR: 0.95, wheelW: 0.7, wb: 4.6, axles: [2.0, -2.6], track: 3.0, power: 2.2, grip: 1.0, armor: 0.45, cabin: { l: 1.8, h: 1.5, w: 1.9, x: 2.3 }, color: 0x2f8a3c, redline: 2400, idle: 600, cyl: 6 },
+  combine: { heavy: true, special: 'reel', maxSpeed: 10, rearSteer: true, handling: { steer: 0.75, rate: 0.7, spring: 1.2, damp: 1.3, rear: 1.15, drag: 1.5, roll: 0.6 }, name: 'Combine', blurb: 'Papa Jacques\'s combine harvester. F starts the 6-metre reel: crates and drums come out the back as straw bales, and any car caught in it gets chewed up and dragged in. Steers with its back wheels.', style: 'combine', mass: 15000, L: 8.6, W: 3.6, H: 1.3, hullW: 0.86, wheelR: 0.95, wheelW: 0.7, wb: 4.6, axles: [2.0, -2.6], track: 3.0, power: 2.2, grip: 1.0, armor: 0.45, cabin: { l: 1.8, h: 1.5, w: 1.9, x: 2.3 }, color: 0x2f8a3c, redline: 2400, idle: 600, cyl: 6 },
   bertha: { heavy: true, special: 'dump', maxSpeed: 12, handling: { steer: 0.55, rate: 0.5, spring: 1.3, damp: 1.4, rear: 1.2, drag: 1.6, roll: 0.5 }, name: 'Big Bertha', blurb: 'Big Bertha: a 26-tonne mining dump truck with 2.7 m tyres. Rolls over anything; F tips the bed and drops a load of boulders on whoever is following.', style: 'dump', mass: 26000, L: 11, W: 5.2, H: 1.2, hullW: 0.82, wheelR: 1.35, wheelW: 0.9, wb: 6.2, axles: [3.3, -2.7], track: 4.1, power: 3.4, grip: 1.05, armor: 0.35, cabin: { l: 1.8, h: 1.4, w: 1.9, x: 3.7 }, color: 0xe0607a, redline: 2100, idle: 520, cyl: 6, noWheelLoss: true },
   tanker: { heavy: true, pour: 'fuel', handling: { steer: 0.7, rate: 0.6, spring: 1.2, damp: 1.3, rear: 1.15, drag: 1.4, roll: 0.55 }, name: 'Tanker', blurb: 'Fuel truck, 7.5 t on six wheels. F spills gasoline; once the tank is ruptured the trail catches fire. Explodes spectacularly.', style: 'tanker', mass: 7500, L: 9.2, W: 2.5, H: 0.75, wheelR: 0.56, wheelW: 0.46, wb: 5.65, axles: [3.3, -1.6, -3.05], track: 2.1, frontDrive: 0, power: 2.3, grip: 0.95, armor: 0.55, cabin: { l: 2.0, h: 1.35, w: 2.3, x: 3.05 }, color: 0x8c3a22, blast: 22, redline: 3000, idle: 600, cyl: 3 },
 };
@@ -2385,19 +2385,19 @@ function addSpikeStrip(x, z, yaw, owner) { // a folding police stop-stick laid a
 }
 const TOURIST = { nick: 'German tourist (in the back)', lang: 'de-DE', pitch: 1.35, rate: 1.2, words: { voice: ['Anna', 'Markus', 'Google Deutsch', 'Petra', 'Yannick'] } };
 const HORN_LINES = { // what each driver shouts when you lean on the horn (in character)
-  outrider: ['Move.', 'Road\'s mine.', 'Out of the way. I won\'t ask twice.'],
+  outrider: ["Oi! Shift yer motor, ye numpty!", "Och, get oot ma road!", "MacTavish comin' through! Move or get skelped!"],
   viper: ['I live my life a quarter mile at a time. You\'re in it!', 'Move! I got a family to get home to!', 'Ten seconds or less. Get outta my lane!'],
   towtruck: ['Yee-haw! Comin\' through, y\'all!', 'Honk honk! That\'s the sound of your car gettin\' towed!', 'Git along, little hatchback!'],
   forklift: ['Make way for the King of the Britons!', 'Ni! Ni! NI!', 'C|Ha! Your mother was a hamster!'],
-  sandflea: ['WITNESS MEEEE!', 'Shiny and chrome, comin\' through!', 'Honk honk! I\'m awaited in Valhalla!'],
+  sandflea: ["Side do! Side do! Hero is coming!", "Pom pom! Rocket Raju! Make way!", "Arre, move! This is my song sequence!"],
   camper: ['T|Sie fahren wie ein Tourist!', 'T|Achtung! Wir sind im Urlaub!', 'T|Hans! Get ze camera! Zey are crashing again!', 'B|Yo! Beep beep, outta the way!', 'Say my name. Then MOVE.'],
   mixer: ['Ay! I\'m drivin\' here!', 'Fuhgeddaboudit, move it!', 'Keep standin\' there, see what happens. Cement shoes, that\'s what.'],
   firetruck: ['Fire department! Clear the way!', 'Make a hole! Make a hole!', 'Pull over! This is an emergency! ...Mostly!'],
-  hellbender: ['Bow before the horn of the Warlord!', 'Make way! The Warlord rides!', 'The horn has spoken!'],
+  hellbender: ["Make way for the longship! Ragnar is RAIDING!", "SKÅL! Out of the fjord, little boat!", "Hear the horn of the north! TREMBLE!"],
   cruiser: ['Pull over! Pull over right now!', 'This is the police! Move your vehicle!', 'Step away from the derby!'],
   tiger: ['Achtung! Panzer! Out of ze way, bitte!', 'Zis is ze panzer. I do not honk. I simply arrive.', 'Funkspruch to all units: kindly move, or be moved.'],
-  tanker: ['Breaker one-nine, big rig comin\' through!', 'Ten-four, little buddy, get off my lane!', 'Seventy-five hundred kilos of fuel says MOVE!'],
-  combine: ['E-I-E-I-OUT OF MY WAY!', 'Harvest season, city folk!', 'With a crunch crunch here and a crunch crunch there!'],
+  tanker: ["Beep beep! Uncle Bogdan is coming! Move or become pancake!", "Opa! Make way for Lyudmila! She is very big lady!", "Hello! Excuse me! I am tanker! You are not!"],
+  combine: ['Allez, allez! Get out of my field!', 'Sacré bleu! Move, you pigeons!', 'Oh là là, crunch crunch, here comes the harvest!'],
   bertha: ['Honey, I\'m three storeys up. I can\'t see you, and I\'m not lookin\'.', 'Bless your heart, you\'re in my way!', 'Sugar, I\'ve hauled bigger rocks than you before breakfast!'],
   dozer: ['Move it or lose it!', 'Beep beep beep! That\'s a dozer, and it don\'t care!', 'Clear the job site, folks!'],
 };
@@ -2459,7 +2459,7 @@ function towable(car) { // AI: anything right behind the hook?
 }
 function towRelease(car, whip) { // unhook; at speed the truck whips the load sideways
   const k = car.tow; if (!k) return;
-  world.removeConstraint(k.con); car.tow = null; k.c.towedBy = null;
+  world.removeConstraint(k.con); car.tow = null; k.c.towedBy = null; k.c.__relBy = car; k.c.__relT = simTime; // (a wreck soon after counts as 'dragged' for the dragger)
   if (whip) {
     const f = car.fwd, side = Math.random() < 0.5 ? 1 : -1, v = k.c.body.velocity, sp = Math.abs(car.speed);
     v.x += -f.z * side * (3 + sp * 0.35); v.z += f.x * side * (3 + sp * 0.35); v.y += 2;
@@ -2471,7 +2471,7 @@ function towRelease(car, whip) { // unhook; at speed the truck whips the load si
 }
 function liftRelease(car, toss) { // drop the load; with a flick of the mast it goes flying
   const k = car.carry; if (!k) return;
-  world.removeConstraint(k.con); car.carry = null;
+  world.removeConstraint(k.con); car.carry = null; k.c.__relBy = car; k.c.__relT = simTime;
   const vb = k.c.body; vb.mass = k.c.massSave || 1500; vb.updateMassProperties(); k.c.carriedBy = null;
   if (toss) {
     const f = car.fwd, bv = car.body.velocity;
@@ -6455,7 +6455,7 @@ const CAR_CAST = {
       flee: ['B|Mr. White, we gotta bounce!', 'Tactical withdrawal. It\'s just good chemistry.'],
     } },
   tiger: { nick: 'Oberst Klaus', hand: 0.75, style: 'runup', from: 'Polite panzer commander', lang: 'de-DE', pitch: 0.92, rate: 0.92, color: '#7b7a52',
-    words: { ex: ['Ach so', 'Wunderbar', 'How delightful', 'Natürlich'], insult: ['my little strudel', 'Herr Pancake', 'my dear rabbit'], kin: ['mutti', 'tank crew'], thing: ['glass of milk', 'apple strudel', 'monocle'], boast: ['Ooh, that\'s a bingo!', 'Precision, as always.'], voice: ['Anna', 'Markus', 'Yannick', 'Helena', 'Google Deutsch'] },
+    words: { ex: ['Achtung', 'Wunderbar', 'Jawohl', 'Ach so', 'Natürlich'], insult: ['my little strudel', 'Herr Pancake', 'my dear rabbit'], kin: ['mutti', 'tank crew'], thing: ['glass of milk', 'apple strudel', 'monocle'], boast: ['Ooh, that\'s a bingo!', 'Precision, as always.'], voice: ['Anna', 'Markus', 'Yannick', 'Helena', 'Google Deutsch'] },
     lines: {
       start: ['Shall we begin? I do love a little hunt.', 'Please, make yourselves comfortable. This will not take long.', 'A glass of milk first, then we demolish.'],
       hitYou: ['Knife, meet gunfight. Gunfight, meet knife.', 'Ooh, that\'s a bingo!', 'You see? Precision is a form of kindness.', 'How fortunate. For me.', 'Do you say "bingo"? Bingo!'],
@@ -6486,72 +6486,72 @@ const CAR_CAST = {
       charge: ['Clear the road, we\'re rolling!', 'Sirens on! Make a hole!'],
       flee: ['Back it up, back it up!', 'Fall back and regroup!'],
     } },
-  tanker: { nick: 'Big Hank', hand: 0.7, style: 'brawler', from: 'Ice-road trucker on CB radio', lang: 'en-US', pitch: 0.62, rate: 0.9, color: '#a7452c',
-    words: { ex: ['Breaker one-nine', 'Ten-four', 'Holy cow', 'Well I\'ll be'], insult: ['four-wheeler', 'seat cover', 'rookie'], kin: ['the missus', 'dispatch', 'old dog Diesel'], thing: ['CB radio', 'thermos', 'snow chains'], boast: ['That\'s a big ten-four!', 'Keep the shiny side up!'], voice: ['Fred', 'Ralph', 'Google US English'] },
+  tanker: { nick: 'Uncle Bogdan', hand: 0.7, style: 'brawler', from: 'Uncle Bogdan, an over-the-moon village trucker from little Kartoshkovo, very proud of his tanker Lyudmila (and his goat)', lang: 'ro-RO', pitch: 0.8, rate: 1.05, color: '#a7452c',
+    words: { ex: ['Opa', 'Oy-oy-oy', 'Da, da', 'Bravo'], insult: ['you sad cabbage', 'you little turnip', 'you goat-face', 'you rusty samovar'], kin: ['goat Princess Olga', 'cousin Vasko', 'whole village'], thing: ['lucky potato', 'CB radio', 'goat'], boast: ["Very nice! I like!", "Uncle Bogdan is number one!"], voice: ['Ioana', 'Google română', 'Milena'] },
     lines: {
-      start: ['Breaker one-nine, this here\'s Big Hank. We got ourselves a convoy.', 'Thirty below and the ice is thin. Just another day.', 'Seventy-five hundred kilos of bad attitude, rolling.'],
-      hitYou: ['That\'s a big ten-four, good buddy!', 'Shiny side up? Not you!', 'Ya just met the Rubber Duck!', 'Ice road rules, rookie!'],
-      gotHit: ['Hey four-wheeler! That\'s a hazmat load!', 'You trying to blow us all up?!', 'Breaker breaker, I got a lunatic on my tail!'],
-      wheel: ['Lost a tire. I got eighteen. Well, ten.', 'Wheel\'s gone. Ain\'t the first time.'],
-      low: ['She\'s leaking, she\'s smoking, she\'s still rolling.', 'Dispatch, I may be late.'],
-      wrecked: ['Tell dispatch... the load didn\'t make it.', 'Ten-ninety-nine. I\'m out.'],
-      gloat: ['Keep on truckin\'!', 'Ten-four, over and out.', 'Watch your mirrors next time.'],
-      air: ['Trucks don\'t fly, trucks don\'t fly!', 'Breaker, I\'m airborne!'],
-      taunt: ['I eat ice roads for breakfast.', 'Come on, rookie. Catch the big rig.', 'I\'ve hauled heavier than you up a frozen lake.'],
-      fire: ['Spilling the load! Light it up!', 'Pass the hazmat sticker!'],
-      charge: ['Let the big dog eat!', 'Convoy, roll out!'],
-      flee: ['Hammer down, outta here!', 'Backing off, ten-four.'],
+      start: ["Hello! Uncle Bogdan is here! I drive four days from Kartoshkovo. One road. Many goats.", "Opa! Very nice yard! In my village, this is where we park for weddings.", "My tanker Lyudmila is full of fuel and also a little bit of soup. Do not ask."],
+      hitYou: ["Opa! I hit you! Is this how we say hello here? I love it!", "Bravo, Bogdan! Bravo, Lyudmila! Nobody bravo you!", "Sorry! Not sorry! Is new word I learn today!", "Ha! You fold like cousin Vasko's lawn chair!"],
+      gotHit: ["Oy-oy-oy! You hit Lyudmila?! She is a lady! A big, explosive lady!", "Hey! In my village, for this, you must marry my goat!", "Why you do this? I bring you potato from home!"],
+      wheel: ["Wheel is gone! No problem. In my village, whole town shares three wheels.", "Opa, wheel is running away! Come back! I feed you!"],
+      low: ["Lyudmila is leaking! Is fine. She leaks since nineteen eighty-seven.", "So many red lights! Very festive! Like my birthday!"],
+      wrecked: ["Oy... tell my goat... she can have the good blanket now.", "Damn! My tanker! Vasko will fix. Vasko fixes everything with string."],
+      gloat: ["Uncle Bogdan is number one! Number two is my goat! You are number forty-seven!", "Bogdan wins! I tell whole village! Will take twenty minutes. Is small village.", "Very nice! You crash like a professional! A professional loser!"],
+      air: ["Oy-oy-oy! Lyudmila is flying! She never fly before! Is her dream!", "I am in the sky! Hello, God of Trucks! Please put me down gently!"],
+      taunt: ["You drive like my grandmother. No, sorry. My grandmother is much better driver. Also stronger.", "Come, come! I give you big hug with forty thousand litres!", "Your car is very beautiful. For a sardine tin."],
+      fire: ["Opa! I pour fuel! Is my gift to you!", "Free fuel for everybody! Nobody light a match! ...Or yes! Light a match!"],
+      charge: ["Lyudmila, go! Go like potato rolling down the hill!", "Make room! Uncle Bogdan is coming with big hug!"],
+      flee: ["Bye bye! I go find my goat!", "Lyudmila says no. When Lyudmila says no, we go."],
     } },
-  hellbender: { nick: 'The Warlord', hand: 0.75, style: 'brawler', from: 'Wasteland warlord', lang: 'en-AU', pitch: 0.55, rate: 0.85, color: '#3a3a3e',
-    words: { ex: ['Behold', 'Silence', 'Hear me', 'Witness'], insult: ['you scavenger', 'you dust rat', 'you half-life'], kin: ['war boys', 'the Citadel'], thing: ['guzzoline', 'war rig', 'chrome'], boast: ['The wasteland is mine!', 'Bow to the Warlord!'], voice: ['Lee', 'Karen', 'Google UK English Male', 'Daniel'] },
+  hellbender: { nick: 'Ragnar Rustbeard', hand: 0.75, style: 'brawler', from: 'Ragnar Rustbeard, a bellowing Viking raider who calls his monster truck a longship', lang: 'nb-NO', pitch: 0.55, rate: 0.9, color: '#3a3a3e',
+    words: { ex: ["By Odin's beard", 'Skål', 'Hah', "Thor's hammer"], insult: ['you soggy herring', 'you milk-drinker', 'you oarless sprat', "you troll's toenail"], kin: ['shield-brothers', 'the gods of Asgard', 'mother Brunhilda'], thing: ['horned helmet', 'longship', 'mead horn'], boast: ['TO VALHALLA!', 'Ragnar fears NOTHING!'], voice: ['Henrik', 'Nora', 'Google norsk'] },
     lines: {
-      start: ['Just walk away. Leave the yard, and live.', 'I am the Warlord of the Wasteland. Bow.', 'Guzzoline, and blood. Both are mine.'],
-      hitYou: ['Your chrome is mine now!', 'Feel the wrath of the Warlord!', 'Behold the power of seven hundred horses!', 'Grovel!'],
-      gotHit: ['You DARE touch the Warlord?!', 'Insolence! You will be made an example!', 'That one will hang from my bumper.'],
-      wheel: ['A wheel lost is a wheel taken. Bring me yours.', 'Fetch the wheel, war boys!'],
-      low: ['The Warlord... bleeds.', 'Pain is a gift. I am very gifted today.'],
-      wrecked: ['The wasteland... takes back its own.', 'Remember me... shiny and chrome.'],
-      gloat: ['Another one for the scrap heap of history.', 'Who is the master of the yard?', 'Kneel in the dust.'],
-      air: ['I ride to Valhalla!', 'The sky is mine too!'],
-      taunt: ['You are only running towards me.', 'There is no escape from the wasteland.', 'Just walk away. Last chance.'],
-      fire: ['Let the guns sing!', 'Brass rain!', 'Spin them up!'],
-      charge: ['Unleash the Hellbender!', 'Forward, to glory!'],
-      flee: ['I withdraw... to plan your end.', 'Regroup at the Citadel!'],
+      start: ["HAH! Ragnar Rustbeard has landed! Hide your sheep and your hubcaps!", "My longship has wheels now! The gods are confused, but Ragnar is happy!", "Today is a GLORIOUS day to smash things!"],
+      hitYou: ["SKÅL! Ha HA! You fall like a tree in a storm!", "By Odin's beard, what a crunch! Do it again!", "Feel the fury of the north, you soggy herring!", "HAH! The skalds will sing of that one for a thousand years!"],
+      gotHit: ["You strike RAGNAR?! Finally, a worthy foe! ...No. Not worthy. But brave!", "By Thor's hammer, that tickled my beard!", "Blast your eyes! You dented my dragon-prow!"],
+      wheel: ["A wheel lost in battle! No matter! I shall ROW the rest!", "Odin took my wheel! He may keep it. He has only one eye, he needs all the help he can get!"],
+      low: ["My longship is taking water! Bail, shield-brothers, BAIL!", "Ragnar bleeds! Ragnar LAUGHS! HAH!"],
+      wrecked: ["Valhalla... save me a seat... and a big drumstick...", "Ragnar has fallen! Set the ship on fire! ...Oh. Already done."],
+      gloat: ["Another chapter for the saga! Chapter four hundred and twelve!", "SKÅL! Bring me a roast goose! Bring me a BIGGER helmet!", "Who is the mightiest? Ragnar! Who is the hairiest? ALSO Ragnar!"],
+      air: ["TO VALHALLA! ...Not yet! Not yet! Just visiting!", "The Valkyries are carrying my longship! HAH HAH!"],
+      taunt: ["Come, little herring! Face Ragnar in glorious combat!", "I have wrestled bears with more fight than you! Small bears, but still!", "Your mother drives like a lost reindeer!"],
+      fire: ["Let the thunder of Thor SING!", "Rain of iron! SKÅL!", "Spin the war-drums! FIRE!"],
+      charge: ["RAMMING SPEED! Row, row, ROW!", "For Odin! For glory! For SNACKS!"],
+      flee: ["Ragnar does not retreat! Ragnar... sails away to find more snacks!", "Back to the fjord! Regroup, shield-brothers!"],
     } },
-  sandflea: { nick: 'Nuxy', hand: 0.75, style: 'chaos', from: 'Overexcited war boy', lang: 'en-AU', pitch: 1.25, rate: 1.22, color: '#2a8fc2',
-    words: { ex: ['Oh what a day', 'Mediocre', 'Witness me', 'Shiny'], insult: ['you blackthumb', 'you half-life', 'you mediocre'], kin: ['blood bag', 'war pups'], thing: ['chrome spray', 'steering wheel', 'buggy'], boast: ['WITNESS ME!', 'Shiny and chrome!'], voice: ['Karen', 'Lee', 'Google UK English Male'] },
+  sandflea: { nick: 'Rocket Raju', hand: 0.75, style: 'chaos', from: 'Rocket Raju, a Bollywood action hero who thinks every crash is the climax of his blockbuster', lang: 'hi-IN', pitch: 1.15, rate: 1.2, color: '#2a8fc2',
+    words: { ex: ['Arre baap re', 'Dhishoom', 'Arre yaar', 'Shabash'], insult: ['you side villain', 'you background extra', 'you flop picture', 'you sequel nobody asked for'], kin: ['mummy', 'fans', 'background dancers'], thing: ['sunglasses', 'hair', 'wind machine'], boast: ['Hero is always winning!', 'Superhit! Blockbuster!'], voice: ['Rishi', 'Lekha', 'Google हिन्दी'] },
     lines: {
-      start: ['Oh, what a day! What a LOVELY day!', 'I live, I die, I live again!', 'Chrome my teeth, I\'m going in!'],
-      hitYou: ['WITNESS ME!', 'Shiny and chrome!', 'Mediocre! You\'re MEDIOCRE!', 'I\'m awaited in Valhalla!'],
-      gotHit: ['Ow! Lovely! Do it again!', 'You hit the buggy! THE BUGGY!', 'Blackthumb! Blackthumb!'],
-      wheel: ['Wheel\'s gone to Valhalla without me!', 'Who needs four wheels?!'],
-      low: ['I\'m half-life! Still going!', 'So many tumours... I mean dents!'],
-      wrecked: ['I\'m dying historic!', 'Witness... me...', 'Ride eternal...'],
-      gloat: ['Shiny! So SHINY!', 'Did you witness that?!', 'What a lovely crash!'],
-      air: ['I\'m FLYING! Witness!', 'Valhalla! VALHALLA!'],
-      taunt: ['Come on, mediocre!', 'I will ride eternal, shiny and chrome!', 'Chase me, blackthumb!'],
-      fire: ['Flame on! Lovely!', 'Light \'em up!'],
-      charge: ['Witness meeee!', 'Full chrome, full speed!'],
-      flee: ['Not today, Valhalla!', 'Live to ride another day!'],
+      start: ["Arre! Slow motion entry, please! Wind machine, music... and ACTION!", "Rocket Raju has arrived! Background dancers, ready? Chalo!", "Every hero needs a small car. This one is very small. I am very BIG!"],
+      hitYou: ["DHISHOOM! Hero punch!", "Arre baap re, what a hit! Rewind, rewind! Again in slow motion!", "Dhishoom dhishoom! You are the villain, I am the hero! Simple!", "Shabash, Raju! Shabash!"],
+      gotHit: ["Arre! You hit the hero in the first half?! This is not in the script!", "Oho! My hair! You messed up my hair, yaar!", "Arre, damn it! My sunglasses are crooked!"],
+      wheel: ["My wheel is doing a solo dance number!", "Arre, wheel gone! No problem! Hero drives on three!"],
+      low: ["Hero is injured! But hero always wins in the climax!", "My buggy is falling apart! Cue the sad violin music!"],
+      wrecked: ["Mummy... I tried... tell the fans... sequel is coming...", "Arre baap re... intermission..."],
+      gloat: ["Picture abhi baaki hai! The movie is not over, my friend!", "Superhit! Blockbuster! Hundred days in the cinema!", "Arre wah! Even the villain is clapping!"],
+      air: ["Wire work! I am flying without wires! Arre wah!", "Slow motion jump! Hair blowing! Perfect shot!"],
+      taunt: ["You are the side villain! You lose in the very first fight!", "Arre yaar, your car has less action than my mummy's kitchen!", "Come! I fight you and ten of your friends, and my shirt does not even crease!"],
+      fire: ["Fire scene! Explosion behind me! I do not look back!", "Arre! Hero never looks at explosions!"],
+      charge: ["Jaldi jaldi! Climax scene! GO!", "Chalo! Hero is coming!"],
+      flee: ["Hero is not running! Hero is making a dramatic exit!", "Interval! Break! Back in ten minutes!"],
     } },
-  outrider: { nick: 'Max', hand: 0.7, style: 'hunter', from: 'Max (Maxine), a road warrior of few words', lang: 'en-AU', pitch: 0.95, rate: 0.9, color: '#e0a020',
-    words: { ex: ['Mm', 'Right', 'Hm', 'Fine'], insult: ['scav', 'mate', 'road rat'], kin: ['nobody', 'the dog'], thing: ['interceptor', 'blower', 'jacket'], boast: ['Mm.', 'Drive on.'], voice: ['Karen', 'Catherine', 'Google UK English Female'] },
+  outrider: { nick: 'Maxine MacTavish', hand: 0.7, style: 'hunter', from: 'Maxine "Mad Max" MacTavish, a roaring Scottish Highland road warrior with a harpoon and a very short temper', lang: 'en-GB', pitch: 1.0, rate: 1.05, color: '#e0a020',
+    words: { ex: ['Och aye', 'Crivvens', 'Help ma boab', 'Jings'], insult: ['ye numpty', 'ye wee bampot', 'ye glaikit scunner', 'ye soggy tattie'], kin: ['ma clan', 'ma granny', 'the pipers'], thing: ['claymore', 'bagpipes', 'kilt'], boast: ["Ye cannae beat a MacTavish!", "Och, that was braw!"], voice: ['Fiona', 'Kate', 'Google UK English Female'] },
     lines: {
-      start: ['My name is Max. My world is fire, and blood.', 'Here they come.', 'Last of the V8s.'],
-      hitYou: ['Mm.', 'Out of my way.', 'Drive on.', 'That\'s for the dog.'],
-      gotHit: ['Bad idea.', 'Hm. You\'ll regret that.', 'Watch the blower.'],
-      wheel: ['Lost a wheel. Still driving.', 'Hm. Three will do.'],
-      low: ['Running on fumes.', 'She\'s hurt. So am I.'],
-      wrecked: ['Hope is a mistake.', 'Fine. Walk then.'],
-      gloat: ['Drive on.', 'Two days, one wreck.', 'Not my fight. Was, now.'],
-      air: ['Hold on.', 'Hm. Airborne.'],
-      taunt: ['Turn around.', 'You want the car? Come and take it.', 'Here\'s the deal.'],
-      fire: ['Harpoon.', 'Got you.'],
-      charge: ['Hold on.', 'Here we go.'],
-      flee: ['Not here.', 'Later.'],
+      start: ["Och aye! Maxine MacTavish is here, and she's brought her temper!", "Right, ye bunch o' numpties! Who wants a skelpin' first?", "Ma granny drove this car. Ma granny was terrifyin'. So am I!"],
+      hitYou: ["HAH! Ye've been MacTavished!", "Och, that's a braw wee crunch!", "Away an' bile yer heid!", "Take that, ye glaikit numpty!"],
+      gotHit: ["Crivvens! Ye'll pay for that, ye wee scunner!", "Did ye just dunt ma motor?! Ye're for it now!", "Help ma boab! Ma paintwork!"],
+      wheel: ["Ma wheel's away tae the Highlands without me!", "Och, who needs four wheels? Three's plenty for a MacTavish!"],
+      low: ["She's held together wi' tape and porridge!", "Ma motor's greetin'! Dinnae cry, hen, we're nearly there!"],
+      wrecked: ["Och... tell ma granny... I went down swingin'...", "Blast it! Ma bonnie car!"],
+      gloat: ["Ye cannae beat a MacTavish! Naebody can!", "Och, that was braw! Pure dead brilliant!", "Away hame, ye numpty! Ye're beaten!"],
+      air: ["WHEEEE! I'm flyin' like a haggis oot a cannon!", "Och aye! Look at me go!"],
+      taunt: ["Ye drive like a sheep in wellies!", "Come here, ye big soft lump!", "Yer mother looks like a Highland coo! An' she's a better driver!"],
+      fire: ["Harpoon! Get o'er here!", "Gotcha, ye wee fish!"],
+      charge: ["Charge! For the clan!", "Here I come, ye bampot!"],
+      flee: ["Tactical retreat! Tae the hills!", "Och, I'll be back wi' ma cousins!"],
     } },
-  viper: { nick: 'Dom', hand: 0.7, style: 'runup', from: 'Street racer who lives for family', lang: 'en-US', pitch: 0.6, rate: 0.88, color: '#c02a2a',
-    words: { ex: ['Family', 'Listen', 'Ride or die', 'Nah'], insult: ['buster', 'two-bit racer', 'kid'], kin: ['family', 'crew', 'sister'], thing: ['NOS', 'Charger', 'cold beer'], boast: ['That\'s for family.', 'Ride or die.'], voice: ['Fred', 'Ralph', 'Google US English'] },
+  viper: { nick: 'Dom', hand: 0.7, style: 'runup', from: 'a Mexican street racer who lives for la familia', lang: 'es-MX', pitch: 0.6, rate: 0.88, color: '#c02a2a',
+    words: { ex: ['Órale', 'Familia', 'Ándale', 'Nah'], insult: ['buster', 'two-bit racer', 'kid'], kin: ['family', 'crew', 'sister'], thing: ['NOS', 'Charger', 'cold beer'], boast: ['That\'s for family.', 'Ride or die.'], voice: ['Paulina', 'Juan', 'Google español de Estados Unidos'] },
     lines: {
       start: ['I live my life a quarter mile at a time.', 'This ain\'t about the cars. It\'s about family.', 'You almost had me? You never had me.'],
       hitYou: ['That\'s for family.', 'Ride or die.', 'Won by a car length, kid.', 'You never had me. You never had your car.'],
@@ -6600,21 +6600,21 @@ const CAR_CAST = {
       charge: ['Charge! For the Grail!', 'Camelot!', 'Onward, Patsy! Clop faster!'],
       flee: ['Run away! Run away!', 'Brave Sir Robin ran away...', 'We shall use... a tactical retreat!'],
     } },
-  combine: { nick: 'Old MacDonald', hand: 0.7, style: 'vulture', from: 'a laid-back Iowa farmer who has had it with city folk', lang: 'en-US', pitch: 0.8, rate: 0.9, color: '#2f8a3c',
-    words: { ex: ['Well, I\'ll be', 'Gee whillikers', 'Shucks', 'Holy cow'], insult: ['city slicker', 'you weed', 'you scarecrow', 'you corn-fed ninny'], kin: ['the missus', 'my prize pig', 'the cows'], thing: ['a corn dog', 'my tractor', 'a hay bale'], boast: ['E-I-E-I-O!', 'That\'s a bumper crop!'], voice: ['Fred', 'Ralph', 'Google US English'] },
+  combine: { nick: 'Papa Jacques', hand: 0.75, style: 'vulture', from: 'a theatrical French farmer, outraged at everyone trampling his crops', lang: 'fr-FR', pitch: 0.95, rate: 1.0, color: '#2f8a3c',
+    words: { ex: ['Sacré bleu', 'Zut alors', 'Oh là là', 'Mon dieu', 'Allez'], insult: ['you trampler of carrots', 'espèce de cornichon', 'you soggy croissant', 'you city pigeon'], kin: ['my Brigitte', 'my prize pig Gaston', 'the cows of Normandy'], thing: ['my baguette', 'my beautiful carrots', 'my wheat'], boast: ['C\'est magnifique!', 'Voilà! A perfect harvest!'], voice: ['Thomas', 'Amélie', 'Google français'] },
     lines: {
-      start: ['Mornin\'. Harvest\'s come early this year.', 'Old MacDonald had a yard. E-I-E-I-O.', 'Time to bring in the crop.'],
-      hitYou: ['Harvested!', 'With a crunch crunch here!', 'That\'s a bumper crop, that is.', 'Into the bale you go, city slicker.'],
-      gotHit: ['Hey now, watch the header!', 'You scratched my combine. The missus\'ll have words.', 'Shucks, that\'s gonna need welding.'],
-      wheel: ['Lost a wheel! Gee whillikers!', 'There goes a tyre, right into the cornfield.'],
-      low: ['She\'s sputterin\' like the old tractor.', 'Reckon she needs a rest in the barn.'],
-      wrecked: ['Well, I\'ll be. Back to the farm.', 'Tell the cows I love \'em.'],
-      gloat: ['Another field done.', 'E-I-E-I-O!', 'That\'s what we call a good harvest.'],
-      air: ['Holy cow! Combines don\'t fly!', 'Gee whillikers, we\'re airborne!'],
-      taunt: ['I\'ll bale you up and feed you to the cows.', 'Here comes harvest time, city folk.', 'With a crunch crunch here and a crunch crunch there!'],
-      fire: ['Reel\'s on!', 'Harvest time!', 'Bring in the crop!'],
-      charge: ['Comin\' through the cornfield!', 'Make way for the harvest!'],
-      flee: ['Back to the barn!', 'Gotta go feed the pigs.'],
+      start: ['Bonjour, vandals. Today I harvest you.', 'Allez, allez! Get off my field!', 'Oh là là, look at all these hooligans on my crops.'],
+      hitYou: ['Voilà! Harvested!', 'Crunch, crunch! C\'est magnifique!', 'Into the bale, petit cornichon!', 'That is for my carrots!'],
+      gotHit: ['Sacré bleu! You dented my combine!', 'Mon dieu! My Brigitte will hear about this!', 'Zut alors! Now I need a welder AND a lawyer!'],
+      wheel: ['My wheel! It rolls away to Paris without me!', 'Oh là là, there goes a tyre into the cabbages.'],
+      low: ['She coughs like an old accordion, my poor machine.', 'Mon dieu, she is falling apart like a bad soufflé.'],
+      wrecked: ['C\'est fini... Tell the cows I loved them.', 'Sacré bleu! This is a catastrophe! A tragédie!'],
+      gloat: ['Another field, perfectly harvested. C\'est magnifique!', 'Voilà! Like a fine wine, I only get better.', 'Ha! You are now compost.'],
+      air: ['Mon dieu! A combine should not FLY!', 'Oh là là là là! I am a flying tractor!'],
+      taunt: ['I will bale you up and feed you to Gaston.', 'Come closer, little pigeon. The reel is hungry.', 'You drive like a cow on roller skates!'],
+      fire: ['The reel! Allez, allez!', 'Harvest time! Vive la moisson!', 'Into the machine, you weeds!'],
+      charge: ['Charge! Through the sunflowers!', 'Make way for the harvest, imbéciles!'],
+      flee: ['I go! I go! The cheese is burning!', 'Retreat to the barn! Vite, vite!'],
     } },
   bertha: { nick: 'Big Bertha', hand: 0.65, style: 'brawler', from: 'a Southern grandma who drives a 300-ton mine truck', lang: 'en-US', pitch: 1.0, rate: 0.95, color: '#e0607a',
     words: { ex: ['Well butter my biscuit', 'Lord have mercy', 'Sweet tea and sunshine', 'Oh, sugar'], insult: ['sweetie', 'sugar plum', 'little critter', 'darlin\''], kin: ['my grandbabies', 'my late husband Earl', 'the church ladies'], thing: ['peach cobbler', 'a hard hat', 'my reading glasses'], boast: ['Bless your heart!', 'That there\'s called a haul, sugar.'], voice: ['Samantha', 'Karen', 'Victoria', 'Google US English'] },
@@ -6649,7 +6649,7 @@ const CAR_CAST = {
       flee: ['Takin\' my union break.', 'Gotta go check on the backhoe.'],
     } },
   mixer: { nick: 'Tony Cement', hand: 0.7, style: 'brawler', from: 'New Jersey "waste management"', lang: 'en-US', pitch: 0.75, rate: 1.0, color: '#d0a030',
-    words: { ex: ['Fuhgeddaboudit', 'Ay', 'Madone', 'Whaddaya'], insult: ['ya mook', 'ya gavone', 'ya stunad'], kin: ['ma', 'cousin Paulie', 'uncle Junior'], thing: ['gabagool', 'cement shoes', 'tracksuit'], boast: ['Fuhgeddaboudit!', 'You\'re sleepin\' with the rebar now.'], voice: ['Fred', 'Ralph', 'Google US English'] },
+    words: { ex: ['Fuhgeddaboudit', 'Madonna mia', 'Ay', 'Capisce', 'Basta'], insult: ['ya mook', 'ya gavone', 'ya stunad'], kin: ['ma', 'cousin Paulie', 'uncle Junior'], thing: ['gabagool', 'cement shoes', 'tracksuit'], boast: ['Fuhgeddaboudit!', 'You\'re sleepin\' with the rebar now.'], voice: ['Fred', 'Ralph', 'Google US English'] },
     lines: {
       start: ['I\'m in waste management. Today you\'re the waste.', 'Nobody leaves till I say so.', 'Somebody order cement shoes?'],
       hitYou: ['Fuhgeddaboudit!', 'That\'s a little message from the family.', 'How\'s that for a concrete offer?', 'You\'re sleepin\' with the rebar now.'],
@@ -6669,7 +6669,7 @@ for (const P of Object.values(CAR_CAST)) PERSONAS.push(P); // (pushed last: gues
 const CAST_SET = new Set(Object.values(CAR_CAST));
 const ANNOUNCER = { nick: 'Crash Cam Kev', caller: true, lang: 'en-AU', pitch: 0.95, rate: 1.18, words: { voice: ['Lee', 'Gordon', 'Karen', 'Catherine', 'Google UK English Male', 'Daniel', 'Ralph'] } }; // an over-the-top Aussie play-by-play caller
 const ANN_LINES = {
-  harvest: ['{a} is HARVESTING {v}! Straw bales out the back, folks!', 'Oh no, {v} has gone into the combine! Bit of a rough cut there!', 'That\'s not wheat, {a}! That\'s {v}!', 'Old MacDonald had a {v}, and now he has a bale!'],
+  harvest: ['{a} is HARVESTING {v}! Straw bales out the back, folks!', 'Oh no, {v} has gone into the combine! Bit of a rough cut there!', 'That\'s not wheat, {a}! That\'s {v}!', 'Papa Jacques had a {v}, and now he has a bale!'],
   crushed: ['{a} just PANCAKED {v}! Flat as a tack!', 'Oh, {v} has been squashed like a bug on a windscreen!', '{a} parks fourteen tonnes on {v}. Rude!', 'That\'s not a car anymore, that\'s a sandwich press special!'],
   followUp: ['And ANOTHER one, just for good measure!', 'Oh, they\'ve gone back for seconds! Cheeky!', 'Hit \'em again! A little top-up for {v}!', 'Double tap! {v} did not need that, but {a} gave it anyway!', 'One for the road! Absolutely unnecessary, absolutely beautiful!'],
   aiHit: ['OHHH! {a} has absolutely cleaned up {v}!', 'Bang! {a} into {v} at {kmh} k\'s! Lovely!', '{v} never saw {a} coming. Classic!', 'And {a} sends {v} for a little spin! Round and round she goes!', 'Crunch! {a} and {v}, the worst first date in history!'],
@@ -6711,18 +6711,21 @@ const ANN_LINES = {
   barrelBurst: ['KABOOM! {a} fired a bent gun and it peeled open like a banana!', 'The gun just blew up in {a}\'s face! That is going to sting!', 'Note to {a}: never fire a bent barrel!'],
   sandwich: ['It\'s a {v} sandwich! Hold the mayo!', 'Squished in the middle like the last biscuit in the packet!', 'SANDWICH! {v} just got pressed like a panini!', 'Ooh, {v} caught in the middle! That is a club sandwich!'],
 };
-// Kev's co-commentator: Shazza takes every other call (the odd-numbered lines of each pool, plus her own below)
-const SHAZZA = { nick: 'Shazza', caller: true, lang: 'en-AU', pitch: 1.3, rate: 1.2, words: { voice: ['Karen', 'Catherine', 'Google UK English Female', 'Samantha'] } };
+// Kev's co-commentator: Lulu takes every other call (the odd-numbered lines of each pool, plus her own below)
+const SHAZZA = { nick: 'Lulu', caller: true, lang: 'zh-HK', pitch: 1.35, rate: 1.22, words: { voice: ['Sin-ji', 'Sinji', 'Google 粵語（香港）', 'Ting-Ting'] } }; // Lulu Chan, a hyperactive Hong Kong commentator
 const SHAZZA_LINES = {
-  bigHit: ['Oh my GOSH! Did you see that?! Absolute carnage!', 'What a ripper! I felt that one up in the commentary box!', 'Kev! KEV! Did you see that?!'],
-  wreck: ['And they are COOKED! Done like a dinner!', 'Bye bye, birdie! That car is finished!'],
-  youCrash: ['Oof! Our hero has met the wall, and the wall says g\'day!', 'Somebody give that wall a medal!'],
+  bigHit: ['Aiyaa! Did you see that?! Absolute carnage!', 'Wah! Jiāyóu! Hit them again!', 'Wah! I felt that one up in the commentary box!', 'Kev! KEV! Did you see that?!'],
+  wreck: ['Aiyaa! And they are COOKED! Done like dim sum!', 'Bye bye, birdie! That car is finished, lah!'],
+  youCrash: ['Aiyaa! Our hero has met the wall, and the wall says nǐ hǎo!', 'Somebody give that wall a medal!'],
   headOn: ['Nose to nose! That is going to need a LOT of panel beating!'],
   carFire: ['Fire! Fire! Somebody grab the extinguisher, Kev!'],
   youWrecked: ['Our hero is down! Get up, get up! ...Oh, they\'re not getting up.'],
   tankerBoom: ['Kev, I can feel the heat from up here! My eyebrows are gone!'],
   status: ['{n} cars left and I have already lost my voice screaming!'],
-  aiHit: ['Ooh, that is gonna leave a mark! Several marks!'],
+  aiHit: ['Ooh, that is gonna leave a mark! Several marks!', 'Wah! So fast, so furious!'],
+  followUp: ['Aiyaa, again?! Jiāyóu, jiāyóu!'],
+  crushed: ['Aiyaa! Flat like a dumpling wrapper!'],
+  air: ['Wah! Look at it FLY! Jiāyóu!'],
 };
 function annPool(A, ev) { const all = ANN_LINES[ev] || []; return A === SHAZZA ? all.filter((_, i) => i % 2).concat(SHAZZA_LINES[ev] || []) : all.filter((_, i) => i % 2 === 0); }
 const HORNS = {
@@ -6827,7 +6830,7 @@ const GENERIC = { flee: ["Nope, nope, nope!", "Not today, maniac!", "Tactical re
 // {v} is the other driver's name, {vcar} their car. B| and C| are the second and third voices in a cab.
 const CAST_MORE = {
   camper: {
-    insult: ['you meth-od actor', 'you lab rat', 'you cheap knock-off', 'you chemistry dropout'],
+    insult: ['you bargain-bin amateur', 'you lab rat', 'you cheap knock-off', 'you chemistry dropout'],
     rival: ['{v}! You are a blowfish. Puffed up and harmless.', 'B|Yo {v}, your {vcar} is like... totally sloppy, yo.', '{v}, I watched you drive. Remedial. At best.', 'B|Mr. White, can we ram {v}? Please?', 'Say my name, {v}. Go on. Say it.', '{v}, you are a rounding error in my plans.'],
     respawn: ['I\'m back. Did you miss me? You did.', 'B|New RV, yo! Same science!', 'Wreck the lab, and I simply build another.', 'B|Mr. White, they fixed the curtains!'],
     kill: ['{v}. Out. Exactly as calculated.', 'B|Yeah, science! {v} is toast, yo!', 'That was not luck, {v}. That was chemistry.', 'B|Did you see {v}\'s face?! Magnets would\'ve been cooler, but still!'],
@@ -6836,7 +6839,7 @@ const CAST_MORE = {
     gotHit: ['B|Mr. White, they dented the lab! THE LAB!', 'You have no idea how much that RV cost.', 'Wrong move, friend. Wrong RV.'],
   },
   tiger: {
-    insult: ['my little Schnitzel', 'you rusty bicycle', 'mein Häschen', 'you badly parked Volkswagen'],
+    insult: ['my little Schnitzel', 'you rusty bicycle', 'mein Häschen', 'you Dummkopf'],
     rival: ['Ah, {v}. You remind me of a hawk. A hawk who has forgotten how to fly.', '{v}! Your {vcar} is... how do you say... a lovely target.', 'Herr {v}, may I offer you a glass of milk before I flatten you?', 'Do not be shy, {v}. Come closer. I hardly bite.', '{v}, your driving is a crime. And I am the detective.'],
     respawn: ['Ah, a fresh tank. How delightful.', 'Did you think I would leave? How naïve.', 'Round two. I do love a sequel.'],
     kill: ['{v} has been... filed away.', 'Ooh, that\'s a bingo, {v}!', 'Auf Wiedersehen, {v}. It was not a pleasure.', 'Flat as an apple strudel, {v}.'],
@@ -6845,7 +6848,7 @@ const CAST_MORE = {
     gotHit: ['You touched my tank. Nobody touches my tank.', 'Interesting choice. Wrong, but interesting.', 'That was rude. I shall remember it. Forever.'],
   },
   firetruck: {
-    insult: ['you smoke detector with no batteries', 'probie', 'you walking fire hazard', 'you hydrant hugger'],
+    insult: ['you smoke detector with no batteries', 'ye eejit', 'you walking fire hazard', 'ye daft hydrant hugger'],
     rival: ['{v}, you\'re a fire hazard on four wheels!', 'Hey {v}! Somebody call 911 on your driving!', '{v}, I\'ve put out campfires scarier than you.', 'Listen up, {v}! You go, we go... right through you!', '{v}! Your {vcar} smells like burnt toast. I\'ll hose it down.'],
     respawn: ['New rig, same crew! Engine 17 is back!', 'Back from the station! Who called?', 'Fresh truck, full tank of water. Let\'s ride.'],
     kill: ['Fire\'s out, {v}! So are you!', 'Rescue complete. Just not for {v}.', 'That\'s one less hazard in the yard. Bye, {v}!'],
@@ -6854,43 +6857,43 @@ const CAST_MORE = {
     gotHit: ['Assault on a fire truck! I\'m telling the chief!', 'You scratched the chrome! I just polished that!', 'You hit Engine 17?! The whole station felt that!'],
   },
   tanker: {
-    insult: ['bear bait', 'chicken coop', 'you four-wheel weekend warrior', 'you plastic pickup'],
-    rival: ['Breaker breaker, {v} drives like a shopping cart!', 'Hey {v}, your {vcar} wouldn\'t last ten minutes on the ice!', '{v}, I\'ve hauled frozen fish with more spine than you!', 'Ten-four, {v}. You\'re next on my run.', '{v}! Get off my road, good buddy!'],
-    respawn: ['Big Hank\'s back on the road! Keep the shiny side up!', 'New rig, same old Hank. Ten-four!', 'Dispatch says I got another load. Of whoop!'],
-    kill: ['{v} just hit an ice patch called Big Hank!', 'Ten-seven for {v}. Out of service!', 'That\'s a big ten-four on {v}!'],
-    taunt: ['Seventy-five hundred kilos say you\'re in my lane.', 'I\'ve driven through blizzards. You\'re a light drizzle.', 'Hammer down! Get outta my way!', 'You can\'t outrun a fuel truck, rookie. Well... you can. But you shouldn\'t.'],
-    hitYou: ['Breaker, we got a fender-bender! On you!', 'Mercy sakes alive!', 'Smokey\'s gonna want a word with you!'],
-    gotHit: ['That\'s a hazmat load, you lunatic!', 'Easy! This thing is basically a rolling bonfire!', 'Who taught you to drive, a moose?'],
+    insult: ['you sad cabbage', 'you little turnip', 'you goat-face', 'you rusty samovar'],
+    rival: ["{v}! Your {vcar} is very nice! In my village, we use this for chicken house!", "Hey {v}! My goat drives better than you! She has no license, and also no hands!", "{v}, I like you! I like you so much, I crash you first!", "{v}, your mother drives a shopping trolley, and she is faster than you!", "{v}! Is true your {vcar} is made from old soup cans? Very good! Very cheap!"],
+    respawn: ["Bogdan is back! Cousin Vasko fix the tanker with string and prayer!", "New tanker! Same Bogdan! Still very handsome!", "I am alive! Is miracle! Somebody call my village! They have one phone!"],
+    kill: ["{v} is finish! I put picture on my wall, next to the goat!", "Bravo, Bogdan! {v} is now pancake! I like pancake!", "Sorry, {v}! In my village, this means we are best friends now!"],
+    taunt: ["In my village, I am most famous man. Second most famous is my goat. You are not famous.", "My tanker is so big, she has her own postcode. Your car has the postcode of a shoebox.", "I lift tractor with one hand! Other hand is holding sandwich!", "Come closer, I show you my potato collection! Then I crush you!"],
+    hitYou: ["Opa! Is delivery! You did not order? Too late!", "Ha ha! Like my uncle's cow, I kick you in the bumper!", "Bravo! Very loud crunch! Five stars!"],
+    gotHit: ["Oy! Lyudmila is a lady! Say sorry to the lady!", "Damn it! You scratch my beautiful tanker! She cost me two goats and a bicycle!", "Hey! Is this a hug? Is very bad hug!"],
   },
   hellbender: {
-    insult: ['you chrome-less wretch', 'you guzzoline thief', 'you sand flea', 'you sniveling scav'],
-    rival: ['{v}! You are not worthy of the wasteland!', '{v}... your {vcar} will be my hood ornament.', 'Kneel, {v}! Kneel before the Warlord!', 'I have eaten scavengers like {v} for breakfast.', '{v}, your chrome is dull and your spirit is weak!'],
-    respawn: ['The Warlord rises again!', 'Did you think death could hold me? I am the Warlord!', 'Bring me a new war rig! I return!'],
-    kill: ['{v} has been returned to the dust!', 'Witness the end of {v}!', 'Another trophy for the Citadel: {v}!'],
-    taunt: ['Your engine is mine. Your wheels are mine. Your soul... also mine.', 'Feel the power of seven hundred horses!', 'Run to the edge of the wasteland. I will still find you.', 'The yard trembles when I roll.'],
-    hitYou: ['Bow before the Hellbender!', 'Scrap! You are scrap!', 'My guns hunger!'],
-    gotHit: ['Insolent worm!', 'You will pay for that in guzzoline!', 'The Warlord does not bleed! ...much.'],
+    insult: ['you soggy herring', 'you milk-drinker', 'you oarless sprat', "you troll's toenail"],
+    rival: ["{v}! I challenge you to glorious combat! Bring your best axe! Or your best excuse!", "{v}, your {vcar} is a rowing boat with no oars and no hope!", "By Odin's beard, {v}, you smell like a fish market on a hot day!", "{v}! Your grandmother looks like a troll! I mean it kindly! Trolls are very strong!", "Stand and fight, {v}! Or run, and I sing a mocking song about you!"],
+    respawn: ["Valhalla sent me BACK! They said I was too loud!", "Ragnar RETURNS! The gods could not handle me!", "New longship! Same beard! SKÅL!"],
+    kill: ["{v} goes to the halls of the fallen! Bring a towel!", "SKÅL! {v} is finished! Write it in the saga!", "HAH! {v}, I will carve your name on my shield. Very small letters."],
+    taunt: ["I eat herring for breakfast, herring for lunch, and YOU for dinner!", "I have a horned helmet and no fear! What do you have? A seatbelt?", "Ragnar laughs at your bumper! HAH HAH HAH!", "My beard has won more fights than you!"],
+    hitYou: ["By the ravens of Odin, that was MAGNIFICENT!", "HAH! Into the sea with you!", "Feel the rage of a thousand winters!"],
+    gotHit: ["You dare?! GOOD! Ragnar loves to be dared!", "Blast and thunder! My longship!", "Is that all? My mother hits harder! And she is a very nice lady!"],
   },
   sandflea: {
-    insult: ['you mediocre', 'you dull-chrome', 'you sand-in-the-gears', 'you boring half-life'],
-    rival: ['{v}! {v}! Witness meee!', 'Oi {v}, your {vcar} isn\'t even shiny!', '{v} is MEDIOCRE!', 'Hey {v}, race you to Valhalla!', '{v}, you\'ve got more rust than chrome, mate!'],
-    respawn: ['I live again! WHAT A DAY!', 'Back from Valhalla! They didn\'t want me yet!', 'New buggy! Shiny! So shiny!'],
-    kill: ['{v} rides eternal! Ha ha!', 'Did you witness that?! {v} is DONE!', 'Lovely! {v} went to Valhalla!'],
-    taunt: ['Catch me if you can, mediocre!', 'I\'m the fastest flea in the yard!', 'Shiny and chrome, baby!', 'Faster! Faster! FASTER!'],
-    hitYou: ['WITNESS!', 'Lovely smash!', 'Did you see that?! DID YOU SEE THAT?!'],
-    gotHit: ['Oof! Lovely! Again!', 'Hey! You scratched my chrome!', 'I\'m alright! Totally alright! Mostly alright!'],
+    insult: ['you side villain', 'you background extra', 'you flop picture', 'you sequel nobody asked for'],
+    rival: ["{v}! You are the villain of my movie! And the villain always loses!", "Arre {v}, your {vcar} is so boring, even the censor board fell asleep!", "{v}, your acting is terrible! Your driving is even worse!", "Oho, {v}! Your mother pushes a tea trolley faster than you drive!", "{v}! I am the hero! You are just traffic!"],
+    respawn: ["Sequel! Rocket Raju Two! Now with more explosions!", "Hero never dies! Hero only takes interval!", "Arre, I am back! Fans, stop crying!"],
+    kill: ["{v} is finished! Roll the credits!", "Dhishoom! {v} gets a flop ending!", "The end for {v}! Coming soon: my sequel!"],
+    taunt: ["My hair has more fans than your whole car!", "I do my own stunts! You do your own crashes!", "Arre, catch me if you can! You cannot! Script says so!", "Hero entry, hero exit, hero everything!"],
+    hitYou: ["Dhishoom! Thank you, thank you!", "Hero smash! Crowd goes wild!", "Arre wah! Even my stunt double could not do that!"],
+    gotHit: ["Arre! Not the face! Hit the buggy, not the face!", "Cut! CUT! You ruined the shot!", "Oho! The villain is getting brave! I like!"],
   },
   outrider: {
-    insult: ['scav', 'road rat', 'mate', 'feral'],
-    rival: ['{v}.', 'Stay out of my way, {v}.', '{v}. Turn around.', 'Not you again, {v}.', 'Hm. {v}\'s {vcar}. Looks fragile.'],
-    respawn: ['Back.', 'Still here.', 'Another car. Fine.'],
-    kill: ['{v}\'s done.', 'Mm. {v}.', 'That was {v}.'],
-    taunt: ['Last chance.', 'Go home.', 'You don\'t want this.', 'Walk away.'],
-    hitYou: ['Mm.', 'Move.', 'Told you.'],
-    gotHit: ['Hm.', 'Bad move.', 'That\'s it, then.'],
+    insult: ['ye numpty', 'ye wee bampot', 'ye glaikit scunner', 'ye soggy tattie'],
+    rival: ["{v}! Ye drive like a coo on roller skates!", "Oi, {v}! Yer {vcar} looks like a biscuit tin somebody sat on!", "{v}, ye're as useful as a chocolate teapot!", "{v}! Ma granny could beat ye, an' she's ninety-two wi' a dodgy hip!", "Come here, {v}, I'm gonnae harpoon ye like a big daft salmon!"],
+    respawn: ["Ye cannae keep a MacTavish down!", "Back again! Did ye miss me, ye numpties?", "New motor! Same temper!"],
+    kill: ["{v}'s been MacTavished!", "Och, {v}, away an' bile yer heid!", "That's {v} done! Pure dead brilliant!"],
+    taunt: ["I've eaten scarier things than you for breakfast. It was haggis.", "Ye're aboot as scary as a wet sock!", "Gonnae no' drive like that? It's embarrassin'!", "I'll harpoon ye like a big daft fish!"],
+    hitYou: ["Wallop! Have some o' that!", "HAH! Ye felt that one!", "Och, sorry! No' really!"],
+    gotHit: ["Oi! Ye big lump!", "Ye've done it now, ye scunner!", "Jings! That was ma good bumper!"],
   },
   viper: {
-    insult: ['ten-second wannabe', 'tuner kid', 'you rice rocket', 'busta'],
+    insult: ['ten-second wannabe', 'tuner kid', 'you pinche slowpoke', 'güey'],
     rival: ['{v}, you\'re not family. You\'re just in my way.', 'Yo {v}, I\'ll race you for pinks.', '{v}, your {vcar} is all show and no go.', 'I almost respected you, {v}. Almost.', '{v}! Quarter mile. You and me. Now.'],
     respawn: ['I\'m back. Family don\'t quit.', 'New ride. Same rules. Ride or die.', 'Never count out the family.'],
     kill: ['That\'s for family, {v}.', '{v} never had a chance. Never had the car.', 'Winning\'s winning, {v}.'],
@@ -6899,7 +6902,7 @@ const CAST_MORE = {
     gotHit: ['You just made it personal.', 'Bad move, busta.', 'You hit the wrong family.'],
   },
   towtruck: {
-    insult: ['ya hubcap', 'ya parking ticket', 'ya flat tire', 'ya busted taillight'],
+    insult: ['ya hubcap', 'ya dang parking ticket', 'ya flat tire', 'ya busted taillight'],
     rival: ['Hey {v}! Your {vcar} is parked illegal! On my hook!', '{v}, I seen better drivin\' at the county fair demolition!', 'Shoot, {v}, I\'ll tow ya for free! To the scrapyard!', '{v}, you\'re dumber than a bag of hammers. And I love hammers!', 'Hoo-wee, {v}! That {vcar} needs a tow and a prayer!'],
     respawn: ['Cletus is back! Git-r-done!', 'New truck! Same hook! Hoo-wee!', 'Couldn\'t keep ol\' Cletus down!'],
     kill: ['{v} needs a tow! Good thing I\'m here!', 'Hooked and cooked! Bye, {v}!', 'Bless your heart, {v}. You\'re scrap now.'],
@@ -6917,16 +6920,16 @@ const CAST_MORE = {
     gotHit: ['B|Just a flesh wound!', 'I\'m not dead!', 'B|Is that all you\'ve got?!'],
   },
   combine: {
-    insult: ['city slicker', 'you weed', 'scarecrow'],
-    rival: ['{v}, I\'m gonna bale you up!', '{v}, that {vcar} would make a fine scarecrow.', 'Harvest time, {v}!'],
-    respawn: ['New combine, same old farmer.', 'Old MacDonald\'s back on the farm.'],
-    kill: ['{v} has been harvested.', 'Straw bale special: {v}.', 'E-I-E-I-{v}!'],
-    taunt: ['The cows are waitin\', city folk.', 'I\'ve chewed through tougher than you.'],
-    hitYou: ['Harvested!', 'Crunch!'],
-    gotHit: ['Mind the header!', 'You\'ll pay for that weldin\'.'],
+    insult: ['you rotten turnip', 'espèce de patate', "espèce d'andouille", 'you soggy baguette'],
+    rival: ['{v}! You are trampling my carrots! Sacré bleu!', '{v}, that {vcar} would make a lovely scarecrow.', 'Harvest time, {v}! Allez!', 'Zut alors, {v}, you again?!'],
+    respawn: ['Papa Jacques is back! The harvest continues!', 'New combine, same magnifique farmer.'],
+    kill: ['{v} has been harvested. C\'est la vie.', 'A straw bale special: {v}. Voilà!', 'Au revoir, {v}! Into the compost!'],
+    taunt: ['My cows are watching you, and they are not impressed.', 'I have chewed through tougher turnips than you.'],
+    hitYou: ['Harvested! Ha ha!', 'Crunch! Délicieux!'],
+    gotHit: ['Mind the reel, imbécile!', 'Mon dieu, the paint! The PAINT!'],
   },
   bertha: {
-    insult: ['sweetie', 'sugar', 'darlin\'', 'little critter'],
+    insult: ['sweetie', 'sugar', "darlin'", 'you little varmint'],
     rival: ['{v}, sugar, you are in Grandma\'s mirror!', 'Bless your heart, {v}. That {vcar} is cute.', '{v}, Grandma\'s got a load with your name on it.'],
     respawn: ['Grandma\'s back, and she brought rocks.', 'New truck, same Grandma.', 'Y\'all thought Grandma was done? Bless your hearts.'],
     kill: ['{v} just got delivered.', 'Bury {v} under the gravel, boys.', 'Bless {v}\'s heart. Bless what\'s left of it.'],
@@ -6935,7 +6938,7 @@ const CAST_MORE = {
     gotHit: ['That tickled, sweetie.', 'You hit a mine truck. On purpose. Bless your heart.'],
   },
   dozer: {
-    insult: ['you hubcap', 'you speed bump', 'you lawn dart', 'you city slicker'],
+    insult: ['you hubcap', 'you speed bump', 'you dang lawn dart', 'you city slicker'],
     rival: ['{v}! I\'m fixin\' to grade you flat!', 'Hey {v}, nice {vcar}. Be a shame if it turned into gravel.', '{v}, you\'re in my work zone, partner.', 'Somebody tell {v} this ain\'t a parkin\' lot.'],
     respawn: ['Bob\'s back on the clock.', 'New dozer, same attitude.', 'You can\'t fire me, I\'m union.'],
     kill: ['{v} just got paved.', 'Put {v} on the scrap pile, boys.', 'Moved {v} where {v} belongs. The ditch.'],
@@ -6944,7 +6947,7 @@ const CAST_MORE = {
     gotHit: ['Is that all you got?', 'You hit a dozer. On purpose. Bless your heart.'],
   },
   mixer: {
-    insult: ['ya stugots', 'ya gabagool', 'ya mortadella', 'ya cement-head'],
+    insult: ['ya gabagool', 'ya mortadella', 'ya cement-head', 'ya stupido'],
     rival: ['Ay, {v}! You\'re sleepin\' with the rebar tonight!', '{v}, nice {vcar}. Shame if somethin\' happened to it.', 'Fuhgeddaboudit, {v}. You\'re done.', '{v}, I\'m gonna make you an offer you can\'t drive away from.', 'Hey {v}! My cousin Paulie says hi. With a cement truck.'],
     respawn: ['Tony\'s back. Nobody leaves the family business.', 'New truck. The family takes care of its own.', 'You thought you got rid of me? Fuhgeddaboudit.'],
     kill: ['{v}\'s been... set in stone.', 'Nothin\' personal, {v}. Strictly business.', 'Pour one out for {v}. Literally.'],
@@ -6953,7 +6956,7 @@ const CAST_MORE = {
     gotHit: ['Ay! What are you, nuts?!', 'You don\'t hit the cement truck. Ever.', 'Big mistake. Huge.'],
   },
   cruiser: {
-    insult: ['you varmint', 'you scofflaw', 'you diesel-sniffin\' delinquent', 'you jaywalker'],
+    insult: ['you varmint', 'you scofflaw', "you no-good delinquent", 'you jaywalker'],
     rival: ['{v}! You\'re in a heap of trouble, hotshot!', 'Pull over, {v}! PULL OVER!', '{v}, that {vcar} has been reported stolen. By me. Just now.', 'I got my eye on you, {v}!', '{v}! I\'m gonna barbecue your hubcaps!'],
     respawn: ['The law is back in town!', 'New cruiser, same badge!', 'You can\'t kill the law! You can only dent it!'],
     kill: ['{v} is under arrest! Permanently!', 'Book \'em! {v} is done!', 'Case closed, {v}!'],
@@ -6970,7 +6973,7 @@ for (const [type, more] of Object.entries(CAST_MORE)) {
   }
 }
 const BURGER_LINES = { camper: ['B|Yo, Mr. White, we made a burger! Science!', 'Perfectly cooked. Ninety-nine percent beef.'], tiger: ['Ah, a little snack. With cheese, please.', 'Flame-grilled. How delightfully efficient.'], firetruck: ['I\'m supposed to PUT OUT fires! ...Smells great though.'],
-  tanker: ['Breaker breaker, I got a cheeseburger on aisle five!'], hellbender: ['Feast, war boys! The Warlord provides!'], sandflea: ['WITNESS THE CHEESEBURGER!', 'Lovely! Medium rare and shiny!'], outrider: ['Dinner.', 'Mm. Cheeseburger.'], viper: ['Family barbecue, everybody!'],
+  tanker: ["Opa! Cheeseburger! In my village, this is a wedding feast!", "Is cooked bull! I take some home for my goat!"], hellbender: ["A FEAST! Ragnar eats the whole bull! SKÅL!", "Flame-grilled, like the old days!"], sandflea: ["Arre wah! Lunch break on the set! Very tasty!"], outrider: ["Och, a burger! Somebody fetch the brown sauce!"], viper: ['Family barbecue, everybody!'],
   towtruck: ['Hoo-wee! Somebody bring the pickles!', 'Lordy, that\'s the biggest burger in the county!'], forklift: ['C|I made a burger of your bull, English pig-dog!', 'Bring out your... burgers!'], mixer: ['Gabagool! Nah, cheeseburger.', 'Now THAT\'s a family meal.'], cruiser: ['That\'s a barbecue violation, but I\'ll allow it!'] };
 for (const [type, list] of Object.entries(BURGER_LINES)) { const P = type === 'cruiser' ? COP : CAR_CAST[type]; if (P) P.lines.burger = list; }
 // generic fallbacks so the extras (custom drivers) can join in too
@@ -7039,54 +7042,54 @@ const CAST_EXTRA = {
     rodeo: ['Easy, big fella. Nobody\'s getting hurt on my watch. Except you.'],
   },
   tanker: {
-    start: ['Breaker one-nine, convoy\'s rollin\' into the yard.', 'Hank here. Seventy-five hundred kilos of mean, comin\' your way.'],
-    hitYou: ['Ten-four, you just got delivered!', 'That\'s a direct shipment, good buddy!', 'Mud flaps say hello!'],
-    gotHit: ['Breaker breaker, I got a four-wheeler bumpin\' my tank!', 'Easy on the tank, buddy, she\'s full of boom!'],
-    low: ['Mayday, mayday, this rig is leakin\' like a sieve!', 'Gauges are all in the red, dispatch.'],
-    wrecked: ['Dispatch... Hank\'s gonna be late.', 'Ten-seven. Out of service.'],
-    taunt: ['Got my ears on and my eyes on you, little buddy.', 'You\'re ridin\' my bumper. Bad idea, buddy.'],
-    fire: ['Pourin\' out the good stuff! Watch your tires!', 'Fuel on the floor, four-wheelers!'],
-    crash: ['Who put a wall on my route? Dispatch didn\'t say nothin\' about a wall!'],
-    respawn: ['New rig, full tank. Hank\'s back on the road.'],
-    onFire: ['Uh, dispatch? The tanker\'s on fire. That\'s... real bad.', 'Fire on a fuel truck! Everybody back up!'],
+    start: ["Good evening, ladies, gentlemen and goats! Uncle Bogdan is here!", "I wash Lyudmila for this! First time this year!"],
+    hitYou: ["Ha! You are squashed like a tomato at the harvest festival!", "Opa! That one was for my village!", "Special delivery, from Kartoshkovo with love!"],
+    gotHit: ["Hey! Lyudmila is full of fuel! You want we all go to the moon?!", "Oy, blast! My bumper! Is held on with chewing gum!"],
+    low: ["Lyudmila is sick! Somebody give her soup!", "Many parts are falling off! Is fine, I keep them in the glovebox!"],
+    wrecked: ["Oy-oy-oy... cousin Vasko will laugh at me for a hundred years.", "Lyudmila... you were the best tanker... and also my house."],
+    taunt: ["In my village we race tractors. You would lose to a tractor. A small one.", "You are very fast! Very fast going backwards!"],
+    fire: ["Fuel for everybody! Is free! Like my advice!", "Opa! Slippy floor! Mind your shoes!"],
+    crash: ["Who put a wall here? In my village we have no walls! Only fences and one angry goose!"],
+    respawn: ["Bogdan is back! I borrow new tanker from the museum!"],
+    onFire: ["Oy! Fire on a fuel tanker! Very bad idea! Everybody run! Also me!", "Hot! Hot! Like my grandmother's soup!"],
   },
   hellbender: {
-    start: ['Kneel, scavengers. Your Warlord has arrived.', 'Today the yard is mine. Tomorrow, the world.'],
-    hitYou: ['Crushed beneath the chrome!', 'Kneel! KNEEL!', 'The Warlord gives, and the Warlord takes. Mostly takes.'],
-    gotHit: ['You DARE strike your Warlord?!', 'That insolence will cost you your wheels!'],
-    low: ['My chariot bleeds! Bring me guzzoline!', 'War boys! Patch the armour!'],
-    wrecked: ['The Warlord... shall return... in chrome!', 'Mark this day. I will.'],
-    taunt: ['Your chrome is dull, your engine weak.', 'Bow, and I may let you keep a wheel.'],
-    fire: ['Let the guns sing for me!', 'Spin them up! Make them hum!'],
-    crash: ['The wall bows to no one. Neither do I.'],
-    respawn: ['The Warlord rises! Again!', 'Fetch my new chariot!'],
-    onFire: ['Fire? Fire is my crown!'],
+    start: ["Shield-brothers! The raid begins! HAH!", "By the beard of Odin, I smell victory! Or is it diesel?"],
+    hitYou: ["HAH! Shattered like a dropped mead horn!", "Kneel before the Sea-Wolf!", "Ragnar gives! Ragnar takes! Mostly takes!"],
+    gotHit: ["Odin's teeth! Who threw that?!", "You have angered a VIKING! Bad choice, little sprat!"],
+    low: ["Bail the water! Patch the sail! Ragnar is not done!", "My dragon-prow is cracked! Somebody fetch the glue of the gods!"],
+    wrecked: ["Tell the skalds... I died fighting... a wall.", "Ragnar... will be back... after a nap in Valhalla."],
+    taunt: ["You call that a war cry? THIS is a war cry! RAAAAAH!", "Stop running! Where I come from, running is for sheep!"],
+    fire: ["Let the thunder-sticks sing!", "Iron rain! Hold up your helmets!"],
+    crash: ["Blasted wall! I shall raid you later!"],
+    respawn: ["Ragnar returns from Valhalla! The food is good, but the parking is terrible!"],
+    onFire: ["Fire! Finally, a proper Viking send-off! ...No, wait! Not yet!"],
   },
   sandflea: {
-    start: ['Oh what a day! What a lovely day for a smash!', 'Chrome me up! Witness me, everybody!'],
-    hitYou: ['Did you see that?! Did anyone SEE that?!', 'SHINY HIT! The shiniest hit!', 'Ahaha! Again! Again!'],
-    gotHit: ['Ow! Ow! I\'m still shiny though!', 'Hey! I\'m tiny! Pick on someone your own size!'],
-    low: ['I\'m held together by spit and chrome!', 'Bits are falling off! Good bits!'],
-    wrecked: ['Did anybody witness that?! Please say you witnessed that!', 'Valhalla, here I come! Again!'],
-    taunt: ['You\'re mediocre! MEDIOCRE!', 'Bet you can\'t catch me! Nobody can catch me!'],
-    fire: ['Flame on! Shiny flames!', 'Breathe fire, little buggy!'],
-    air: ['I\'m flyyyying! Witness me flyyyying!', 'So high! So SHINY!'],
-    crash: ['That wall wasn\'t chrome enough to see!'],
-    respawn: ['I\'m back! I\'m alive! I\'m SHINY!'],
-    onFire: ['I\'m on fire and it\'s BEAUTIFUL!'],
+    start: ["Lights! Camera! Rocket Raju!", "My fans are here! Hello, fans! Hello, mummy!"],
+    hitYou: ["Dhishoom! That one was for mummy!", "One punch, ten villains fly! That is the rule!", "Arre, you got hit by a superstar! Take an autograph!"],
+    gotHit: ["Arre! The hero gets hit only in the first half!", "Oho! Who is the stunt coordinator here?!"],
+    low: ["Hero is bleeding... but still handsome!", "My buggy is broken! My heart is broken! But my hair is perfect!"],
+    wrecked: ["Arre... why in every movie I die at the end... no wait, I come back!", "Flop... total flop..."],
+    taunt: ["You want to fight the hero? Get in line, behind the fifty villains!", "Arre yaar, my auntie drives faster, and she drives a scooter with a fridge on it!"],
+    fire: ["Flame scene! Hero walks away from the fire, cool cool!", "Arre, explosion! Very nice! Very big budget!"],
+    air: ["Slow motion! Slooow motion! Wind machine ON!", "I am flying like the hero in the song sequence!"],
+    crash: ["Arre! Who put a wall in my song sequence?!"],
+    respawn: ["The hero returns! Whistle, whistle!"],
+    onFire: ["Arre baap re! I am on fire! Like my box office!"],
   },
   outrider: {
-    start: ['Fuel up. Drive.', 'Just passing through.', 'Hm. Crowded.'],
-    hitYou: ['There.', 'Stay down.', 'That\'s one.'],
-    gotHit: ['Wrong car.', 'Felt that. Barely.'],
-    low: ['Still running. Just.', 'Mm. Leaking.'],
-    wrecked: ['Walk it off.', 'Should have left.'],
-    taunt: ['Not worth it.', 'Go home.', 'I\'ve met scarier dogs.'],
-    fire: ['Hold still.', 'Line\'s out.'],
-    crash: ['Hm. Wall.'],
-    respawn: ['New wheels.', 'Again.'],
-    onFire: ['Hot. Fine.'],
-    air: ['Hm. Long way down.'],
+    start: ["Right! Who's first? Form a queue, ye numpties!", "I've had ma porridge. I'm ready for a fight!"],
+    hitYou: ["Skelped ye! HAH!", "That's a MacTavish special, that is!", "Down ye go, ye glaikit lump!"],
+    gotHit: ["Help ma boab! Ye'll regret that!", "Crivvens! Ma lovely motor!"],
+    low: ["She's a wee bit broken, but she's still got fight!", "Och, the engine's wheezin' like ma uncle on the bagpipes!"],
+    wrecked: ["Ach, blast it! I'll get ye next time!", "Ma bonnie car... she's away tae the scrapyard in the sky..."],
+    taunt: ["Ye couldnae catch a cold!", "Ye're slower than a wet Monday mornin'!"],
+    fire: ["Harpoon's away! Hold still!", "Reel 'im in! Like a big daft salmon!"],
+    crash: ["Who put that wall there?! I'll have words wi' it!"],
+    respawn: ["MacTavish is back! Lock up yer bumpers!"],
+    onFire: ["Ma motor's on fire! Somebody fetch a bucket! An' a scone!"],
+    air: ["Up, up an' awa'!"],
   },
   viper: {
     start: ['Ten seconds. That\'s all I need.', 'Family\'s watching. Let\'s make it count.'],
@@ -7126,17 +7129,17 @@ const CAST_EXTRA = {
     onFire: ['The royal forklift burns! Fetch water! Fetch a grail of water!'],
   },
   combine: {
-    start: ['Mornin\', folks. Fine day for a harvest.', 'E-I-E-I-GO!', 'Reckon I\'ll plow through y\'all by lunch.'],
-    hitYou: ['Harvested! Fresh from the field!', 'Gee whillikers, that\'s a bumper crop!', 'Baled ya up nice and tidy!'],
-    gotHit: ['Now that ain\'t neighborly!', 'Watch the reel, city slicker!'],
-    low: ['Old girl\'s rattlin\' like a hen house in a storm.', 'Somethin\'s busted. Probably the important bit.'],
-    wrecked: ['Well, shucks. Back to the barn.', 'Somebody tell the cows I tried.'],
-    taunt: ['I\'ve seen faster scarecrows.', 'You\'re ripe for the pickin\'.', 'Come on over, I got room in the hopper.'],
-    fire: ['Reel\'s a-spinnin\'! Come on in!', 'Harvest time, y\'all!'],
-    crash: ['Dang fence. Wait, that\'s a wall.'],
-    respawn: ['New combine, same old farmer.'],
-    onFire: ['Fire in the corn! Fire in the corn!'],
-    rodeo: ['That bull belongs in my pasture!'],
+    start: ['Bonjour! Fine day for a harvest, non?', 'Allez! The farmer is in the yard!', 'I will plough through all of you before lunch. And lunch is three hours.'],
+    hitYou: ['Harvested! Fresh from the field!', 'Oh là là, what a bumper crop!', 'Baled you up nice and tidy! Magnifique!'],
+    gotHit: ['That was not very neighbourly, monsieur!', 'Watch the reel, you soggy croissant!'],
+    low: ['She rattles like a hen house in a mistral.', 'Something is broken. Probably the important bit. Zut!'],
+    wrecked: ['Sacré bleu... back to the barn.', 'Somebody tell the cows I tried.'],
+    taunt: ['I have seen faster snails. And I have eaten them.', 'You are ripe for the picking, mon ami.', 'Come, come! There is room in the hopper.'],
+    fire: ['Reel is spinning! Come in, come in!', 'Allez, harvest time!'],
+    crash: ['Who put a wall in my field?! Mon dieu!'],
+    respawn: ['New combine. Same old Papa Jacques.'],
+    onFire: ['Fire in the wheat! Au feu! AU FEU!'],
+    rodeo: ['That bull belongs in my pasture! Allez, allez!'],
   },
   bertha: {
     start: ['Mornin\', sugar. Grandma brought three hundred tons of love.', 'Buckle up, darlin\'s. Bertha\'s on the road.', 'I baked a pie and I\'m bringin\' boulders.'],
@@ -7191,22 +7194,34 @@ const CAST_EXTRA = {
 };
 // Roasts: what each character says about each of the others, by name. Used when they ram, wreck or get close to that driver (see barks.roast).
 const ROASTS = {
-  camper: { tiger: 'Klaus, your tank is slow and your manners are slower.', firetruck: 'B|Yo, Captain Maeve! Your hose is, like, totally limp, yo!', tanker: 'Hank. A rolling bomb with a radio. I respect the chemistry, not the driver.', hellbender: 'Warlord, all that chrome and not one working brain cell.', sandflea: 'B|Nuxy, your buggy is smaller than my lunchbox, yo!', outrider: 'Max. Silent type. I prefer my opponents to scream.', viper: 'Dom, you talk about family. I talk about results.', towtruck: 'Cletus, your hook is the only sharp thing about you.', forklift: 'King Arthur. A monarch on a pallet jack. Remarkable.', combine: 'MacDonald, your farm called. It wants its tractor back.', bertha: 'B|Yo, Bertha, your truck is bigger than our whole neighbourhood!', dozer: 'Bob, you push dirt. I push empires.', mixer: 'Tony, you sell cement. I sell fear. We are not the same.', cruiser: 'B|Sheriff Dolly Mae! Mr. White, it\'s the cops! Drive, drive, drive!' },
-  tiger: { camper: 'Herr White, your laboratory smells of burnt toast.', firetruck: 'Captain McCaffrey, I will provide the fire. You may bring the hose.', tanker: 'Big Hank, a tanker full of fuel near a tank with a cannon. Delightful.', hellbender: 'Warlord, so loud. A true officer whispers.', sandflea: 'Little Nuxy, I have bigger things in my milk glass.', outrider: 'Max, you say so little. I have so much to say about your car.', viper: 'Dom, your little wedge is a lovely doorstop.', towtruck: 'Cletus, you tow wrecks. Soon you will tow yourself.', forklift: 'King Arthur, I prefer my royalty on a throne, not a pallet.', combine: 'Herr MacDonald, I will harvest you first.', bertha: 'Frau Bertha, your truck is large, but my gun is larger.', dozer: 'Bob, a bulldozer against a panzer. How quaint.', mixer: 'Tony, your concrete will make a lovely memorial.', cruiser: 'Sheriff, you may write me a ticket. I shall frame it.' },
-  firetruck: { camper: 'White, that RV is a fire waiting to happen, and I\'m waiting.', tiger: 'Klaus, ye drive a tank like a grandad drives a shopping trolley.', tanker: 'Hank, every time I see ye, I check where the extinguisher is.', hellbender: 'Warlord, your truck is all spikes and no sense.', sandflea: 'Nuxy, I\'ve hosed down bigger toys than that buggy.', outrider: 'Max, would it kill ye to say more than two words?', viper: 'Dom, that car is so low ye could park it under a door.', towtruck: 'Cletus, ye tow wrecks? Ye ARE a wreck!', forklift: 'King Arthur, find your grail somewhere else, I\'m busy.', combine: 'MacDonald, ye smell like a barn on a hot day.', bertha: 'Bertha, love, your truck needs its own postcode.', dozer: 'Bob, ye push dirt for a living. Fitting.', mixer: 'Tony, your mixer\'s the only thing in your life that ever turned.', cruiser: 'Sheriff, I put out fires. You start arguments.' },
-  tanker: { camper: 'Breaker one-nine, there\'s a smelly RV in my mirror.', tiger: 'Klaus, good buddy, a tank don\'t make you a trucker.', firetruck: 'Captain, you follow me around like you\'re expectin\' somethin\'.', hellbender: 'Warlord, your rig\'s got more spikes than sense, buddy.', sandflea: 'Ten-four, Nuxy, I almost ran over you and your lunchbox.', outrider: 'Max, my CB talks more than you do.', viper: 'Dom, that car\'s lower than my fuel gauge.', towtruck: 'Cletus, you ain\'t towin\' this rig. Nobody tows Hank.', forklift: 'Your Majesty, that ain\'t a chariot, it\'s a warehouse cart.', combine: 'MacDonald, get that combine off my highway.', bertha: 'Bertha, sweetheart, you take up two lanes and a parkin\' lot.', dozer: 'Bob, you\'re slower than a weigh station on a Monday.', mixer: 'Tony, keep that drum spinnin\' and outta my lane.', cruiser: 'Smokey on my tail! It\'s Dolly Mae! Hide the logbook!' },
-  hellbender: { camper: 'White, your rolling hovel offends the wasteland.', tiger: 'Klaus, your tank is old. Like the empires you dream of.', firetruck: 'Fire captain, the wasteland laughs at your little hose.', tanker: 'Hank, your guzzoline belongs to me.', sandflea: 'Nuxy! Stop waving at me! Fight!', outrider: 'Max, you could have been a war boy. You chose to sulk.', viper: 'Dom, your family is small, and your car is smaller.', towtruck: 'Cletus, I will hang your hook on my wall.', forklift: 'A king? There is only one ruler here, forklift man.', combine: 'MacDonald, I will turn your farm into a racetrack.', bertha: 'Bertha, your truck is mighty. Your cooking, I hear, is better.', dozer: 'Bob, you build roads. I destroy them.', mixer: 'Tony, your concrete cannot hold the Warlord.', cruiser: 'Sheriff, the wasteland has no laws. Only me.' },
-  sandflea: { camper: 'Mr. White! Your RV is a big smelly box! Ha!', tiger: 'Klaus! Your tank is so slow I lapped it twice!', firetruck: 'Captain! Spray me! Spray me! You can\'t catch me!', tanker: 'Hank\'s gonna go BOOM! Can I watch? Please?!', hellbender: 'Warlord! Witness ME! Not you! ME!', outrider: 'Max! Say something! Anything! Say SHINY!', viper: 'Dom! Your car is shiny but mine is SHINIER!', towtruck: 'Cletus! You can\'t hook me! I\'m too zippy!', forklift: 'King Arthur! Your castle is a forklift! Ahaha!', combine: 'Old MacDonald had a combine, and it was SLOW!', bertha: 'Grandma Bertha! You\'re so big I can drive underneath you!', dozer: 'Bob! Your blade can\'t catch me! Nyah!', mixer: 'Tony! Your drum spins round and round and round! Ahaha!', cruiser: 'Sheriff! You\'ll never catch me! Never ever ever!' },
-  outrider: { camper: 'White. Too much talking.', tiger: 'Klaus. Big gun. Small speed.', firetruck: 'Captain. Loud. Wet.', tanker: 'Hank. Rolling bonfire.', hellbender: 'Warlord. All spikes. No sense.', sandflea: 'Nuxy. Calm down.', viper: 'Dom. Nice car. Shame.', towtruck: 'Cletus. You can\'t tow me.', forklift: 'Arthur. Get a real car.', combine: 'MacDonald. Go back to the farm.', bertha: 'Bertha. Too big.', dozer: 'Bob. Too slow.', mixer: 'Tony. Not scared.', cruiser: 'Sheriff. Write it down.' },
-  viper: { camper: 'White, that RV couldn\'t win a race against a parked car.', tiger: 'Klaus, a quarter mile in that tank takes you a week.', firetruck: 'Captain, I\'d race you, but you\'d need a head start. And a tow.', tanker: 'Hank, I\'ve seen faster fuel leaks.', hellbender: 'Warlord, big truck, small heart.', sandflea: 'Nuxy, kid, you\'re fast. Not fast enough.', outrider: 'Max, you and me, we\'re the same. Except I win.', towtruck: 'Cletus, you\'ll be towing me never.', forklift: 'King Arthur, that\'s not a ride. That\'s a warehouse.', combine: 'MacDonald, go race your cows.', bertha: 'Bertha, I could drive between your wheels and you wouldn\'t notice.', dozer: 'Bob, zero to sixty? More like zero to never.', mixer: 'Tony, your truck spins more than it drives.', cruiser: 'Sheriff, you\'ll need a faster car to catch me.' },
-  towtruck: { camper: 'Mr. White, that RV is one pothole from my hook, partner.', tiger: 'Klaus, I\'d tow that tank, but my truck\'d cry.', firetruck: 'Cap\'n Maeve, you\'re so red I thought you was a barn!', tanker: 'Hank, I tow your rig, I\'m chargin\' extra for the boom.', hellbender: 'Warlord, them spikes ain\'t scarin\' Rufus, and Rufus is scared of squirrels.', sandflea: 'Nuxy, I could tow that buggy with a fishin\' line!', outrider: 'Max, you talk less than my hound dog. And he\'s smarter.', viper: 'Dom, that car\'s so low a possum could jump over it.', forklift: 'King Arthur, I tow royalty for half price!', combine: 'MacDonald, your combine\'s older than my granpappy\'s truck.', bertha: 'Miss Bertha, I\'d need forty of me to tow you, ma\'am.', dozer: 'Bob, you push, I pull, and I\'m gonna win.', mixer: 'Tony, your drum\'s spinnin\' like my head after a hoedown.', cruiser: 'Sheriff Dolly Mae, I ain\'t done nothin\'! Lately.' },
-  forklift: { camper: 'You there, chemist! Your mobile hovel offends the crown!', tiger: 'Sir Klaus, your iron horse is a shameful beast!', firetruck: 'Lady Maeve, your dragon-quenching wagon shall not save you!', tanker: 'Sir Hank, your barrel of foul-smelling liquid is not the grail!', hellbender: 'You call yourself a Warlord? I am a KING! On a forklift!', sandflea: 'C|Your buggy is so tiny, your mother was a hamster!', outrider: 'Silent knight Max! Speak, or forever hold your peace!', viper: 'Sir Dom, your steed is low and frankly undignified!', towtruck: 'Sir Cletus, you shall not tow the king!', combine: 'Farmer MacDonald! Bring me a shrubbery, and your combine!', bertha: 'Lady Bertha, your castle on wheels is most impressive. And doomed!', dozer: 'Sir Bob, your blade shall be as a butter knife to my forks!', mixer: 'C|Tony! Your concrete smells of elderberries!', cruiser: 'Sheriff, you have no authority over the King of the Britons!' },
-  combine: { camper: 'Mr. White, that RV smells worse than my pig pen.', tiger: 'Klaus, I\'ve seen faster tractors at the county fair.', firetruck: 'Captain, you can hose down my barn anytime. You\'ll miss though.', tanker: 'Hank, keep that tanker outta my corn.', hellbender: 'Warlord, you look like a scarecrow that fell in a toolbox.', sandflea: 'Nuxy, you\'re about the size of my mailbox.', outrider: 'Max, quiet as a mouse in a feed bin.', viper: 'Dom, that little car would fit in my hopper.', towtruck: 'Cletus, you ain\'t towin\' this combine, son. ...Er, partner.', forklift: 'King Arthur, I got bigger forks in my hay barn.', bertha: 'Bertha, you\'re the only thing in this yard bigger than my harvest.', dozer: 'Bob, you push dirt, I grow stuff in it. Who\'s smarter?', mixer: 'Tony, your truck just goes round and round, like a chicken with no plan.', cruiser: 'Sheriff, I got a permit for this combine. Somewhere.' },
-  bertha: { camper: 'Mr. White, honey, that RV needs a bath worse than my grandbabies.', tiger: 'Klaus, sugar, your manners are lovely, but your tank is tiny.', firetruck: 'Captain Maeve, I\'ve put out bigger fires in my kitchen.', tanker: 'Hank, darlin\', you smell like a gas station on a hot day.', hellbender: 'Warlord, bless your heart, all that chrome and no manners.', sandflea: 'Nuxy, sweetie, I could lose you in my cup holder.', outrider: 'Max, honey, smile once in a while. It won\'t kill you.', viper: 'Dom, sugar, that little car of yours is cuter than a bug.', towtruck: 'Cletus, honey, you couldn\'t tow my handbag.', forklift: 'Arthur, your crown is crooked, and so is your forklift.', combine: 'MacDonald, darlin\', your corn\'s as dry as your jokes.', dozer: 'Bob, sugar, I\'ve got tires taller than your whole dozer.', mixer: 'Tony, honey, I make better cement in my biscuits.', cruiser: 'Dolly Mae, sweetie, I taught you to drive. Clearly I failed.' },
-  dozer: { camper: 'Mr. White, that RV ain\'t up to code.', tiger: 'Klaus, I\'ve buried bigger tanks than yours in a landfill.', firetruck: 'Captain, my job site\'s got more water than your hose.', tanker: 'Hank, park that fuel truck somewhere I ain\'t workin\'.', hellbender: 'Warlord, your truck looks like a scrap heap that won a raffle.', sandflea: 'Nuxy, I got gravel bigger than your buggy.', outrider: 'Max, talk more, partner, I can\'t hear you over my blade.', viper: 'Dom, that car\'s so low I almost scooped it up.', towtruck: 'Cletus, I push, you pull, and I always win.', forklift: 'Arthur, that ain\'t heavy machinery. That\'s a toy.', combine: 'MacDonald, your combine\'s got more rust than my old pickup.', bertha: 'Bertha, ma\'am, you\'re the only thing in this yard I can\'t push.', mixer: 'Tony, your concrete\'s gonna be my driveway.', cruiser: 'Sheriff, I got a permit. Mostly.' },
-  mixer: { camper: 'White, you cook. I pour. Guess who\'s got the bigger truck.', tiger: 'Klaus, you got a gun, I got cement. Cement wins.', firetruck: 'Captain, you put out fires, I put out people. Kiddin\'. Mostly.', tanker: 'Hank, one spark and you\'re a firework, pal.', hellbender: 'Warlord, you look like a hood ornament that got ambitious.', sandflea: 'Nuxy, kid, you\'re making me dizzy. Sit down.', outrider: 'Max, I like you. You don\'t talk. Smart.', viper: 'Dom, family? I got family. Bigger family.', towtruck: 'Cletus, you tow cars? I make \'em disappear.', forklift: 'King Arthur, you wanna be king? There\'s only one boss here.', combine: 'MacDonald, take your cows and go home, pal.', bertha: 'Bertha, you remind me of my ma. Terrifying.', dozer: 'Bob, you push, I pour. Together we build a nice parking lot outta youse.', cruiser: 'Sheriff, I didn\'t see nothin\'. I don\'t know nothin\'.' },
-  cruiser: { camper: 'Mr. White, that RV has more violations than wheels!', tiger: 'Klaus, sugar, a tank is NOT street legal!', firetruck: 'Maeve, honey, sirens are for the law, not for showin\' off!', tanker: 'Hank, I got you for speedin\', spillin\' and smellin\' funny!', hellbender: 'Warlord, all them spikes are a misdemeanor, darlin\'!', sandflea: 'Nuxy, that buggy ain\'t registered and neither are you!', outrider: 'Max, you have the right to remain silent. You already do.', viper: 'Dom, I clocked you at way too fast and too pretty!', towtruck: 'Cletus, I know that hook. I\'ve seen it on my wanted poster!', forklift: 'Your Majesty, kings still need a license, sugar!', combine: 'MacDonald, that combine is wider than the law allows!', bertha: 'Bertha, Mama, please, you are blocking four lanes!', dozer: 'Bob, that blade is a deadly weapon and you know it!', mixer: 'Tony Cement, I know you\'re up to somethin\', and I\'ll prove it!' },
+  camper: { tiger: "Klaus, your tank is slow, your manners are slower, and your hat is frankly embarrassing.", firetruck: "B|Yo, Captain Maeve! Your hose is, like, totally limp, yo! Your whole truck is a big red joke!", tanker: "Bogdan. A rolling bomb with a goat in the passenger seat. I respect the chemistry. Not the man.", hellbender: "Ragnar, all that beard, and not one working brain cell underneath it.", sandflea: "B|Yo, Raju! Your buggy is smaller than my lunchbox, and your hair is doing all the driving!", outrider: "MacTavish, you scream an awful lot for someone who is losing.", viper: "Dom, you talk about family. Your family should talk about your driving.", towtruck: "Cletus, your hook is the only sharp thing about you. And it's rusty.", forklift: "King Arthur. A monarch on a pallet jack. Your kingdom is a warehouse, Your Majesty.", combine: "Jacques, your farm called. It wants its tractor back, and it says you smell.", bertha: "B|Yo, Bertha, your truck is bigger than our whole neighbourhood! Your mama must've been a crane, yo!", dozer: "Bob, you push dirt. I push empires. Damn shame you can't tell the difference.", mixer: "Tony, you sell cement. I sell fear. And your cement is cracked.", cruiser: "B|Sheriff Dolly Mae! Mr. White, it's the cops! Drive, drive, DRIVE, damn it!" },
+  tiger: { camper: "Herr White, your laboratory smells of burnt toast and failure.", firetruck: "Ach so! Captain McCaffrey, I will provide the fire. You may bring your little squirt gun.", tanker: "Herr Bogdan, a tanker full of fuel next to a tank with a cannon. Wunderbar. Say goodbye to your goat.", hellbender: "Ragnar, you bellow like a seasick walrus. A true officer whispers.", sandflea: "Herr Raju, your movie will be very short. I am the ending.", outrider: "Frau MacTavish, so loud! Even my panzer has better manners, and it is a weapon.", viper: "Dom, your little wedge is a lovely doorstop. Scheiße, it is not even a good doorstop.", towtruck: "Achtung! Cletus, you tow wrecks. Soon you will tow yourself, you Dummkopf.", forklift: "King Arthur, I prefer my royalty on a throne, not on a pallet. Verdammt, it is sad.", combine: "Ach so! Herr Jacques, I will harvest you first. Merde, as you would say.", bertha: "Frau Bertha, your truck is large. Your mother must have been a mountain.", dozer: "Achtung! Bob, a bulldozer against a panzer. How quaint. How stupid.", mixer: "Tony, your concrete will make a lovely memorial. With a very small statue of you.", cruiser: "Ach so! Sheriff, write me a ticket. I shall frame it with the others. Mist, I am running out of wall." },
+  firetruck: { camper: "White, that RV is a fire waitin' to happen, and I'm bloody well waitin'.", tiger: "Klaus, ye drive a tank like me granny drives a shoppin' trolley. And she's ninety.", tanker: "Bogdan, every time I see ye, I check where the extinguisher is. And where the goat is.", hellbender: "Ragnar, ye look like a haystack that lost a fight with a helmet.", sandflea: "Raju, I've hosed down bigger egos than yours. Actually, no. I haven't.", outrider: "MacTavish, ye shout like a foghorn with a grudge. Pipe down, ye eejit!", viper: "Dom, that car's so low ye could park it under a door, ye flash eejit.", towtruck: "Cletus, ye tow wrecks? Ye ARE a wreck, ye daft article!", forklift: "King Arthur, find your grail somewhere else, I'm bloody busy.", combine: "Jacques, ye smell like a barn on a hot day. Your cows are embarrassed for ye.", bertha: "Bertha, love, your truck needs its own postcode. And its own weather.", dozer: "Bob, ye push dirt for a livin'. Fitting, since ye've the brains of it.", mixer: "Tony, your mixer's the only thing in your life that ever turned. Your mammy says so.", cruiser: "Sheriff, I put out fires. You start arguments. And ye lose them, too." },
+  tanker: { camper: "Mr. White! Your camper smells like my uncle's sock factory! Is very impressive smell!", tiger: "Klaus! Is true your tank is made from old bathtub? I can tell! Is very good bathtub!", firetruck: "Captain! Your truck is so red! In my village, red truck means you are selling tomatoes!", hellbender: "Ragnar! Your beard is beautiful! My goat has same beard! She is more handsome!", sandflea: "Raju! Your little buggy is so cute! I have one like this. I use it to carry eggs!", outrider: "Maxine! You are loud like my cousin's rooster! But the rooster is better driver!", viper: "Dom! Your car is so low! Is it digging for potatoes? I respect!", towtruck: "Cletus, you cannot tow Lyudmila! Last man who tried is now living in a tree!", forklift: "King Arthur! In my village the king also drives forklift! Because we have no castle, only barn!", combine: "Jacques! Your combine is so slow, the wheat grows back before you finish!", bertha: "Bertha! Is true your truck is three smaller trucks holding hands? Very romantic!", dozer: "Bob! Your bulldozer is so beautiful! In my village, we would give it a medal and a goat!", mixer: "Tony! Your cement truck spins like my grandmother at a wedding! But she is faster!", cruiser: "Sheriff! Hello! I have no license, but I have very nice goat! You want to see the goat?" },
+  hellbender: { camper: "White! Your rolling hut smells worse than a troll's armpit!", tiger: "Klaus! Your tank is slower than a glacier, and glaciers are LAZY!", firetruck: "Maeve! The fires of Ragnar laugh at your little garden hose! HAH!", tanker: "Bogdan! Your tanker is full of fuel and your head is full of turnips!", sandflea: "Raju! A tiny man in a tiny boat with a tiny brain! I like you! I crush you anyway!", outrider: "MacTavish! You shout almost as loud as Ragnar! ALMOST! HAH!", viper: "Dom! Your boat is so flat, a seagull could sink it!", towtruck: "Cletus! I will hang your hook on my longship, next to the other junk!", forklift: "A king?! Your crown is cardboard and your throne is a pallet!", combine: "Jacques! Your farm machine is a blasted shopping cart for cows!", bertha: "Bertha! Your truck is mighty! Your mother must have been a mountain troll! I mean it with respect!", dozer: "Bob! You push dirt? Ragnar pushes ARMIES!", mixer: "Tony! Your cement cannot hold Ragnar! Nothing holds Ragnar! Except a good nap!", cruiser: "Sheriff! Ragnar does not obey your laws! Ragnar obeys only Odin. And his mother." },
+  sandflea: { camper: "Mr. White! Your camper is so ugly, even the horror movie rejected it!", tiger: "Klaus! Your tank is so slow, it is in slow motion without any special effects!", firetruck: "Captain! You are only the side heroine! Main hero is me! Go spray somewhere else!", tanker: "Bogdan! Your tanker is the villain's hideout! I will blow it up in the climax!", hellbender: "Ragnar! Your beard has more screen time than your brain!", outrider: "Maxine! You shout louder than my director! And he is a very angry man!", viper: "Dom! Family, family, family! Even my mummy does not say it so much!", towtruck: "Cletus! Your truck is a junkyard with a hook! Box office: zero!", forklift: "King Arthur! Your kingdom is a warehouse! Even a flop movie has a better set!", combine: "Jacques! Your combine has less action than a cooking show!", bertha: "Bertha Auntie! Your truck is so big, it needs its own movie!", dozer: "Bob! Your blade cannot catch me! The hero is always faster than the bulldozer!", mixer: "Tony! You look like villain number three! The one who falls in the river!", cruiser: "Sheriff! Police always come at the end of the movie! Too late, yaar!" },
+  outrider: { camper: "White! Yer camper's mingin'! It smells like a wet dug!", tiger: "Klaus, ye big tin can! Ye're slower than a snail wi' a limp!", firetruck: "Maeve, ye soggy wee fire hose! Away an' bile yer heid!", tanker: "Bogdan, yer tanker's a big daft barrel, an' yer goat's got more sense than you!", hellbender: "Ragnar, ye great hairy lump! Ye look like a haystack wi' a helmet on!", sandflea: "Raju, ye wee show-off! Yer hair's got more horsepower than yer buggy!", viper: "Dom, yer motor's that low, ye'd need a ladder tae get oot a puddle!", towtruck: "Cletus, ye couldnae tow a toy boat in a bathtub, ye numpty!", forklift: "Arthur, King o' the Britons, is it? King o' the numpties, mair like!", combine: "Jacques, yer combine's as slow as a sheep in a traffic jam!", bertha: "Bertha, yer truck's that big it's got its own weather. An' its own midges!", dozer: "Bob, ye push dirt aboot all day. Ye're basically a big daft broom!", mixer: "Tony, yer mixer goes roond an' roond, just like yer wee brain!", cruiser: "Sheriff, write me a ticket if ye like. I'll use it tae light ma fire!" },
+  viper: { camper: "White, that RV couldn't win a race against a parked car, viejo.", tiger: "¡Ay, caramba! Klaus, a quarter mile in that tank takes you a week. And a calendar.", firetruck: "Captain, I'd race you, but you'd need a head start. And a tow. And a miracle.", tanker: "¡Órale! Bogdan, your goat drives better than you, and she's a goat, hermano.", hellbender: "Ragnar, big beard, big truck, tiny little heart. ¡Qué lástima!", sandflea: "Raju, kid, this ain't a movie. In real life, the hero gets towed.", outrider: "MacTavish, you scream like you're winning. You're not. ¡Cállate!", towtruck: "¡Órale! Cletus, you'll be towing me never. Your truck smells like a wet possum.", forklift: "King Arthur, that's not a ride. That's a warehouse with an ego.", combine: "¡Ay, caramba! Jacques, go race your cows. They might beat you.", bertha: "Bertha, I could drive between your wheels and you wouldn't even notice, abuela.", dozer: "¡Órale! Bob, zero to sixty? More like zero to never, güey.", mixer: "Tony, your truck spins more than your stories, and that's a lot.", cruiser: "¡Híjole! Sheriff, you'll need a faster car. And better aim. And a miracle." },
+  towtruck: { camper: "Mr. White, that RV is one pothole from my hook, and two from the dump.", tiger: "Klaus, I'd tow that tank, but my truck'd cry, and so would I, dagnabbit.", firetruck: "Cap'n Maeve, you're so red I thought you was a barn! A real loud barn!", tanker: "Bogdan, I tow your rig, I'm chargin' extra for the boom. And the goat.", hellbender: "Ragnar, your beard's got more critters in it than my hound dog Rufus.", sandflea: "Raju, I could tow that buggy with a fishin' line, and your hair with a comb!", outrider: "Miss MacTavish, you holler louder than my mama callin' us in for supper!", viper: "Dom, that car's so low a possum could jump over it, and he'd laugh doin' it.", forklift: "King Arthur, I tow royalty for half price, 'cause it's half a car!", combine: "Jacques, your combine's older than my granpappy, and he's older than dirt!", bertha: "Miss Bertha, I'd need forty of me to tow you, and fifty to stand you!", dozer: "Bob, you push, I pull, and I'm gonna win, you big ol' sack of gravel!", mixer: "Tony, your drum's spinnin' like my head after a hoedown. Your mama's too.", cruiser: "Sheriff Dolly Mae, I ain't done nothin'! Lately! That you can prove!" },
+  forklift: { camper: "You there, chemist! Your mobile hovel offends the crown, and the nose!", tiger: "Sir Klaus, your iron horse is a shameful beast, and so is your hat!", firetruck: "Lady Maeve, your dragon-quenching wagon shall not save you, blast it!", tanker: "Sir Bogdan, your barrel of foul-smelling liquid is not the grail! And neither is your goat!", hellbender: "You call yourself a Viking? I am a KING! And your mother was a hamster, Sir Ragnar!", sandflea: "Sir Raju, you are a peasant in a pram with delusions of grandeur!", outrider: "Lady Maxine! Thou art louder than the bloody Beast of Aaargh!", viper: "Sir Dom, your steed is low, and frankly undignified!", towtruck: "Sir Cletus, you shall not tow the king! Not for all the gold in Camelot!", combine: "C|Jacques! I blow my nose at you, so-called farmer!", bertha: "Lady Bertha, your castle on wheels is most impressive. And doomed! Doomed, I say!", dozer: "Sir Bob, your blade shall be as a butter knife to my forks!", mixer: "C|Tony! Your mother was a cement mixer, and your father smelt of elderberries!", cruiser: "Sheriff, you have no authority over the King of the Britons! Damn your eyes!" },
+  combine: { camper: "Mr. White, your RV smells worse than my pig Gaston. And Gaston is proud of it.", tiger: "Klaus! A tank in my wheat field? Zut alors, merde alors, get out!", firetruck: "Captain, you can hose down my barn, but touch my carrots and I bite you. Merci!", tanker: "Bogdan, your goat has better manners than you, and she eats my tablecloths!", hellbender: "Ragnar, you look like a scarecrow who fell in a toolbox. Oh là là, quelle horreur.", sandflea: "Raju, petit moustique! Your movie is so bad, even my cows walked out!", outrider: "MacTavish, you scream like my rooster at four in the morning. Merde, be quiet!", viper: "Dom, that little car would fit in my hopper. Délicieux.", towtruck: "Cletus, you will never tow my combine. Jamais! You could not tow a croissant!", forklift: "King Arthur, my hay barn has bigger forks than you, and a better king. My goat.", bertha: "Madame Bertha, you are the only thing here bigger than my harvest. And louder than my mother-in-law!", dozer: "Bob, you push dirt. I grow things in it. Who is the artist, hein, imbécile?", mixer: "Tony, your truck goes round and round like a chicken with no head. Or brain.", cruiser: "Sheriff, I have a permit for this combine. Somewhere. In French. Bon courage." },
+  bertha: { camper: "Mr. White, honey, that RV needs a bath worse than my grandbabies after a mud fight.", tiger: "Klaus, sugar, your manners are lovely, but your tank is tiny. Bless your little heart.", firetruck: "Captain Maeve, I've put out bigger fires in my kitchen with a damn dish towel.", tanker: "Bogdan, darlin', you smell like a gas station, and your goat smells worse.", hellbender: "Ragnar, bless your heart, all that hair and not a lick of sense under it.", sandflea: "Raju, sweetie, I could lose you in my cup holder and never miss you.", outrider: "Maxine, honey, hush! I can hear you three counties over!", viper: "Dom, sugar, that little car of yours is cuter than a bug. And about as tough.", towtruck: "Cletus, honey, you couldn't tow my handbag. And my handbag's mean.", forklift: "Arthur, your crown is crooked, and so is your forklift, Your Majesty.", combine: "Jacques, darlin', your corn's as dry as your jokes, and your jokes are dusty.", dozer: "Bob, sugar, I've got tires taller than your whole dozer. And your mama.", mixer: "Tony, honey, my biscuits are harder than your cement, and they're fresher too.", cruiser: "Dolly Mae, sweetie, I taught you to drive. Clearly I failed. Hell's bells." },
+  dozer: { camper: "Mr. White, that RV ain't up to code. Hell, it ain't up to nothin'.", tiger: "Klaus, I've buried bigger tanks than yours in a landfill on a Tuesday.", firetruck: "Captain, my job site's got more water than your hose, and it's a desert.", tanker: "Bogdan, park that fuel truck, and that goat, somewhere I ain't workin'.", hellbender: "Ragnar, your truck looks like a scrap heap that won a raffle, and your beard's the prize.", sandflea: "Raju, I got gravel bigger than your buggy, and smarter than your hair.", outrider: "MacTavish, holler all you want, partner. My blade can't hear ya.", viper: "Dom, that car's so low I almost scooped it up with the trash.", towtruck: "Cletus, I push, you pull, and I always win, dagnabbit.", forklift: "Arthur, that ain't heavy machinery. That's a damn toy.", combine: "Jacques, your combine's got more rust than my old pickup, and my pickup's dead.", bertha: "Bertha, ma'am, you're the only thing in this yard I can't push. Your mama musta been a mountain.", mixer: "Tony, your concrete's gonna be my driveway, and your truck's gonna be my doorstop.", cruiser: "Sheriff, I got a permit. Mostly. Somewhere. In Texas." },
+  mixer: { camper: "White, you cook, I pour. Guess who's got the bigger truck, stupido.", tiger: "Ay! Klaus, you got a gun, I got cement. Cement wins. Always.", firetruck: "Captain, you put out fires, I put out people. Kiddin'. Mostly. Madonna mia.", tanker: "Bogdan, one spark and you're a firework, pal. Your goat too. Mannaggia.", hellbender: "Ragnar, you look like a hood ornament that grew a beard and got ambitious.", sandflea: "Ay! Raju, kid, you're makin' me dizzy. Sit down before I pour you a sidewalk.", outrider: "MacTavish, you got a mouth like a foghorn. My ma would love you. I don't.", viper: "Madonna mia, Dom, family? I got family. Bigger family. Meaner family.", towtruck: "Cletus, you tow cars? I make 'em disappear. Capisce?", forklift: "Ay! King Arthur, you wanna be king? There's only one boss here, and it ain't you.", combine: "Jacques, take your cows and go home, pal. Your mother misses you. She told me.", bertha: "Madonna mia, Bertha, you remind me of my ma. Terrifying. Bigger, though.", dozer: "Bob, you push, I pour. Together we build a nice parking lot outta youse.", cruiser: "Ay! Sheriff, I didn't see nothin'. I don't know nothin'. Fuhgeddaboudit." },
+  cruiser: { camper: "Mr. White, that RV has more violations than wheels, and it stinks to high heaven!", tiger: "Klaus, sugar, a tank is NOT street legal, and neither is that moustache!", firetruck: "Maeve, honey, sirens are for the law, not for showin' off, you hose-happy hothead!", tanker: "Bogdan, I got you for speedin', spillin', no license, and an unregistered goat!", hellbender: "Ragnar, raidin' is a felony in this county, and so is that smell, darlin'!", sandflea: "Raju, this ain't a movie, sugar, and you ain't the hero. You're the suspect!", outrider: "MacTavish, disturbin' the peace! I can hear you through my damn sunglasses!", viper: "Dom, I clocked you at way too fast and way too pretty, and both are crimes!", towtruck: "Cletus, I know that hook. It's on my wanted poster, and so's your mama!", forklift: "Your Majesty, kings still need a license, sugar. And a better hat!", combine: "Jacques, that combine is wider than the law allows, and louder than your mouth!", bertha: "Bertha, Mama, please, you are blockin' four lanes and my last nerve!", dozer: "Bob, that blade is a deadly weapon, and your chili is a public hazard!", mixer: "Tony Cement, I know you're up to somethin', and I'll prove it, you slippery son of a gun!" },
 };
+const CAST_ACCENT = { // the recast drivers' own words (captions show them as written)
+  tiger: { start: ['Achtung! Achtung! Ze panzer is here. Wunderbar.'], hitYou: ['Jawohl! Direct hit! Wunderbar!', 'Ach, you crumple so beautifully. Danke schön.'], gotHit: ['Was ist das?! You have scratched my beautiful panzer!'], gloat: ['Wunderbar. Simply wunderbar.'], taunt: ['Achtung, little rabbit. I am coming for you. Langsam. Slowly.'], fire: ['Feuer! Feuer frei!'], wrecked: ['Ach du lieber! My panzer!'], air: ['Mein Gott! Panzers do not fly!'] },
+  mixer: { hitYou: ['Madonna mia, that was beautiful! Capisce?', 'Basta! You had enough? I think you had enough.'], gotHit: ['Ay, ay, ay! Mannaggia! My truck!'], taunt: ['You and me, we gonna have a little chat. Capisce?'], gloat: ['Bada bing, bada boom. Basta.'], start: ['Eh, buongiorno, everybody. Tony\'s here. Nobody panic.'], wrecked: ['Madonna mia... call my mother.'], fire: ['Cement shoes, extra large! Capisce?'] },
+  tanker: { start: ["Opa! Da, da! Bogdan is here! Everybody clap!"], hitYou: ["Bravo! Bravo, Bogdan!", "Da! You are crushed like cabbage! Very nice!"], gotHit: ["Oy-oy-oy! Nu, why?!"], low: ["Oy, Lyudmila, don't die! I still owe you money!"], gloat: ["Da! Uncle Bogdan is champion of the world! And of Kartoshkovo!"], taunt: ["Nu, come on! I am waiting! I am eating sunflower seeds!"], wrecked: ["Oy... nu... damn."] },
+  hellbender: { start: ["Skål, skål! Ragnar Rustbeard is here! TREMBLE!"], hitYou: ["Skål! A glorious hit!", "HAH! Down you go, you troll's toenail!"], gotHit: ["Pokker! By Thor's hammer, you will pay for that!"], taunt: ["In the north we eat rocks for breakfast. With butter."], gloat: ["Skål! Another victory for the saga!"], wrecked: ["Odin! Odin, open the doors! Ragnar is coming!"], fire: ["Skål! Let the guns roar!"], charge: ["TO VALHALLA! ROW!"] },
+  sandflea: { start: ["Chalo, chalo! Rocket Raju is here!"], hitYou: ["Dhishoom! Ekdum superhit!", "Arre wah! Did you see that?!"], gotHit: ["Arre baap re! My buggy!"], air: ["Arre, flying! Hero entry from the sky!"], gloat: ["Arre wah! Blockbuster!"], wrecked: ["Arre baap re... the end..."], taunt: ["Chalo, slowpoke! Jaldi jaldi!"], fire: ["Aag! Aag! Fire scene!"] },
+  outrider: { start: ["Och aye, here we go! Jings, crivvens, help ma boab!"], hitYou: ["Ya dancer!", "Och, braw! Pure braw!"], gotHit: ["Ah, ya wee scunner!"], gloat: ["Ya beauty! Ye cannae beat a MacTavish!"], taunt: ["Haud yer wheesht an' drive!", "Gonnae no' dae that?"], wrecked: ["Och, ma heid..."], low: ["Och, she's no' well. No' well at all."] },
+  viper: { start: ['Órale. Ten seconds, hermano. That\'s all I need.'], hitYou: ['¡Ándale! That\'s for la familia!', '¡Órale! Too fast for you, hermano.'], gotHit: ['You hit my car, you hit my familia. Big mistake.'], gloat: ['Salud, mi familia. Another win for the family.'], taunt: ['You want to race? ¿En serio? Seriously?'], wrecked: ['¡Ay, no! I\'ll be back, for la familia.'], fire: ['¡Vámonos! Rockets!'] },
+  dozer: { hitYou: ['HOO-WEE! Flatter than a West Texas parkin\' lot!', 'Yee-haw! That\'s a Texas-sized hello!'], taunt: ['Everything\'s bigger in Texas, partner. Includin\' my blade.'], start: ['HOWDY, Y\'ALL! Big Bob\'s on the job!'] },
+  towtruck: { hitYou: ['Hee hee! Hooked like a catfish on a Sunday!'], taunt: ['C\'mere, lil\' car! Cletus wants to give ya a ride! Hee hee!'], start: ['Hoo-wee! Rufus, git in the truck! We got towin\' to do!'] },
+};
+for (const [type, more] of Object.entries(CAST_ACCENT)) { const P = type === 'cruiser' ? COP : CAR_CAST[type]; if (P) for (const [ev, list] of Object.entries(more)) P.lines[ev] = (P.lines[ev] || []).concat(list); }
 for (const [type, more] of Object.entries(CAST_EXTRA)) { const P = type === 'cruiser' ? COP : CAR_CAST[type.replace(/2$/, '')]; if (P) for (const [ev, list] of Object.entries(more)) P.lines[ev] = (P.lines[ev] || []).concat(list); }
 const ROAST_BY = new Map(); // speaker persona -> target nick -> [lines]
 for (const [type, targets] of Object.entries(ROASTS)) { const P = type === 'cruiser' ? COP : CAR_CAST[type]; if (!P) continue; const m = new Map(); for (const [tt, line] of Object.entries(targets)) { const T = tt === 'cruiser' ? COP : CAR_CAST[tt]; if (T) m.set(T.nick, [].concat(line)); } ROAST_BY.set(P, m); }
@@ -7468,7 +7483,7 @@ const barks = {
    uses Web Speech exactly as before. Each character has clips of their own lines; a template line is recorded once in a name-free form
    ("Pull over, pal!") and, when there are clips, that version is said (and captioned) instead of the name-filled one. */
 const VCLIP = {
-  clips: null, byChar: new Map(), fx: { 'crash-cam-kev': 'pa', shazza: 'pa', 'big-hank': 'radio', 'german-tourist-in-the-back': 'muffled' },
+  clips: null, byChar: new Map(), fx: { 'crash-cam-kev': 'pa', lulu: 'pa', 'big-hank': 'radio', 'german-tourist-in-the-back': 'muffled' },
   bufs: new Map(), raw: new Map(), loading: new Map(), bytes: 0, rawBytes: 0, MAX_BYTES: 40e6, MAX_RAW: 12e6, // decoded audio is ~10x the mp3: cap both
   q: null, cur: null, seen: new WeakSet(), log: [],
   stats: { clips: 0, generic: 0, speech: 0, failed: 0, fetched: 0, decoded: 0 },
@@ -7790,9 +7805,12 @@ const game = {
   },
   onWreck(car) {
     if (this.state !== 'playing') return;
-    const killer = car.lastAttacker && car.lastAttacker !== car && simTime - (car.lastAttackTime || 0) < 6 ? car.lastAttacker : null;
+    let killer = car.lastAttacker && car.lastAttacker !== car && simTime - (car.lastAttackTime || 0) < 6 ? car.lastAttacker : null;
+    // towed / carried into the crusher, wrecking ball, fire…: the tow truck or forklift that delivered it gets the wreck
+    const drag = car.towedBy || car.carriedBy || (car.__relBy && simTime - (car.__relT || -99) < 6 ? car.__relBy : null);
+    let how = null; if (drag && drag !== car && cars.includes(drag) && (!killer || killer === drag || simTime - (car.lastAttackTime || -99) > 1)) { killer = drag; how = 'dragged'; }
     if (killer) killer.kills = (killer.kills || 0) + 1;
-    if (PLAYLOG.m) PLAYLOG.wreck(car, killer); if (AUTO.on && car === player) car.respawnType = AUTO.nextType(); // (autoplay: every life a different vehicle)
+    if (PLAYLOG.m) PLAYLOG.wreck(car, killer, how); if (AUTO.on && car === player) car.respawnType = AUTO.nextType(); // (autoplay: every life a different vehicle)
     SCORE.wreck(car, killer); // (host / solo only: guests get the table from the host)
     if (GAME_MODE === 'respawn' && MP.role === 'guest') { if (car.isPlayer) toast('WRECKED', 'bad'); else toast(`${car.name} is wrecked`); return; } // the host brings it back
     if (GAME_MODE === 'respawn' && MP.role !== 'guest') { // nobody is out: the wreck comes back in a few seconds
@@ -8304,7 +8322,7 @@ const UPDATE = { checked: 0, newer: null,
     if (this.updating) return; this.updating = true; PLAYLOG.ev?.('update', 'build ' + this.newer + ' found during autoplay');
     toast(`🆕 BUILD ${this.newer} OUT · AUTOPLAY WILL UPDATE AFTER THIS MATCH`, 'cool');
     const go = async () => { if (this.going) return; this.going = true; try { PLAYLOG.ck?.('updating to build ' + this.newer); await Promise.race([PLAYLOG.upload('updating to build ' + this.newer), new Promise((r) => setTimeout(r, 15000))]); } catch (e) {}
-      location.replace(location.pathname + '?autoplay=1&v=' + this.newer); };
+      location.replace(location.pathname + '?autoplay=1' + (AUTO.idle ? '&idle=1' : '') + '&v=' + this.newer); }; // (idle autoplay stays idle autoplay: no wake lock)
     this.goNow = go; setTimeout(go, 180000); // (a long match doesn't hold the update back for more than 3 minutes)
   },
   show() {
@@ -9480,7 +9498,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '67'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '68'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
@@ -10704,7 +10722,7 @@ Object.assign(PLAYLOG, {
     const bs = barks.stats || {};
     this.m = { n: this.n, id: this.sid + '-' + this.n, at: Date.now(), p0: performance.now(), hidden: 0, hidAt: document.hidden ? performance.now() : 0,
       role: AUTO.on ? 'autoplay' : MP.role, mode: GAME_MODE, q0: QUALITY.level, qNow: QUALITY.level, qCh: [], hist: new Uint32Array(400), frames: 0, ftSum: 0, worst: 0,
-      veh: {}, L: new Map(), weap: {}, me: [], meCur: null, meP: null, stuck: [], stuckN: 0, stuckS: 0, launch: 0, launchW: [], below: 0, nan: 0,
+      veh: {}, vs: {}, vsD: {}, L: new Map(), weap: {}, me: [], meCur: null, meP: null, stuck: [], stuckN: 0, stuckS: 0, launch: 0, launchW: [], below: 0, nan: 0,
       phys0: { fixes: PHYS.fixes, clamps: PHYS.clamps, blowups: PHYS.blowups }, kinds: {}, physL: [], inc: [], errs: [], errN: 0, voice: [], voiceN: 0, net: [], netN: 0,
       ev: [], evDrop: 0, bark0: { sent: bs.sent || 0, started: bs.started || 0, errors: bs.errors || 0, resets: bs.resets || 0 }, sampT: 0 };
     this.ev('start', `${this.m.role} ${GAME_MODE} · ${cars.length} cars · q${QUALITY.level}`);
@@ -10717,12 +10735,13 @@ Object.assign(PLAYLOG, {
     const m = this.m; if (!m || !(d > 0) || game.state !== 'playing') return;
     if (!by && victim.lastAttacker && simTime - victim.lastAttackTime < 1) by = victim.lastAttacker; // a shove still counts for whoever shoved
     this.V(victim.type).taken += d; victim.__apHeat = (victim.__apHeat || 0) + d;
-    if (by && by !== victim && by.type) { this.V(by.type).dmg += d; by.__apHeat = (by.__apHeat || 0) + d; if (by === player && m.meCur) m.meCur.dmg += d; }
+    if (by && by !== victim && by.type) { this.V(by.type).dmg += d; const vk = by.type + '>' + victim.type; m.vsD[vk] = (m.vsD[vk] || 0) + d; by.__apHeat = (by.__apHeat || 0) + d; if (by === player && m.meCur) m.meCur.dmg += d; }
   },
-  wreck(car, killer) {
+  wreck(car, killer, how) {
     const m = this.m; if (!m) return; if (!m.L.has(car)) { m.L.set(car, { t: simTime, type: car.type }); this.V(car.type).lives++; }
     this.V(car.type).d++; this.endLife(car);
-    if (killer && killer.type) { this.V(killer.type).k++; if (killer === player && m.meCur) m.meCur.k++; }
+    if (killer && killer.type) { this.V(killer.type).k++; if (killer === player && m.meCur) m.meCur.k++;
+      const vk = killer.type + '>' + car.type, e = m.vs[vk] || (m.vs[vk] = { k: 0 }); e.k++; if (how) e[how] = (e[how] || 0) + 1; } // matchups: who wrecks whom, and how
     this.ev('wreck', car.type + (car === player ? '(you)' : '') + (killer ? ' by ' + killer.type + (killer === player ? '(you)' : '') : ''));
     if (car === player) this.closeMe();
   },
@@ -10807,13 +10826,14 @@ Object.assign(PLAYLOG, {
     const veh = {}; for (const [k, v] of Object.entries(m.veh)) veh[k] = { ...v };
     for (const [c, e] of m.L) if (veh[e.type]) veh[e.type].life += simTime - e.t; // lives still going
     for (const v of Object.values(veh)) { v.dmg = Math.round(v.dmg); v.taken = Math.round(v.taken); v.life = Math.round(v.life / Math.max(1, v.lives)); }
+    const vsD = {}; for (const [k, v] of Object.entries(m.vsD)) if (v >= 1) vsD[k] = Math.round(v);
     const me = m.me.slice(); if (m.meCur) me.push({ car: m.meCur.car, secs: Math.round(simTime - m.meCur.t0), k: m.meCur.k, dmg: Math.round(m.meCur.dmg), alive: true });
     const stuck = m.stuck.slice(); for (const c of cars) if (c.__apS && c.__apS.t >= 4 && stuck.length < 16) stuck.push({ car: c.type, secs: c.__apS.t, x: c.__apS.x, z: c.__apS.z, me: c === player || undefined, ongoing: true });
     const causes = {}; for (const x of m.inc) causes[x.why] = r1((causes[x.why] || 0) + x.secs);
     const bs = barks.stats || {}, b0 = m.bark0, K = m.kinds;
     return { v: 2, kind, id: m.id, n: m.n, sid: this.sid, dev: this.devId, build: BUILD, start: new Date(m.at).toISOString(), end: new Date(now).toISOString(), ended,
       role: m.role, mode: m.mode, room: MP.role !== 'solo' ? MP.code || '' : undefined, device: PERFREP.device(), ua: this.uaShort(), cores: navigator.hardwareConcurrency || null, screen: `${screen.width}x${screen.height}@${devicePixelRatio} view ${innerWidth}x${innerHeight}`,
-      game: Math.round(game.time), real: Math.round((performance.now() - m.p0) / 1000), hidden: Math.round((m.hidden + (m.hidAt ? performance.now() - m.hidAt : 0)) / 1000), env: TABENV.summary(), test: navigator.webdriver ? true : undefined, cars: cars.length, score: game.score, voices: !VOICES_OFF, sound: !sfx.muted,
+      game: Math.round(game.time), real: Math.round((performance.now() - m.p0) / 1000), hidden: Math.round((m.hidden + (m.hidAt ? performance.now() - m.hidAt : 0)) / 1000), env: TABENV.summary(), test: navigator.webdriver ? true : undefined, cars: cars.length, vs: m.vs, vsD, score: game.score, voices: !VOICES_OFF, sound: !sfx.muted,
       q: { start: m.q0, end: QUALITY.level, ch: m.qCh, auto: !!S.autoGfx, gfx: S.gfx, res: Math.round(renderer.getPixelRatio() * 100) },
       fps: m.frames ? { med: fps(this.pct(m, 0.5)), p5: fps(this.pct(m, 0.95)), low1: fps(this.pct(m, 0.99)), avg: fps(m.ftSum / m.frames), worstMs: Math.round(m.worst), frames: m.frames } : null,
       slow: { n: m.inc.length, secs: r1(m.inc.reduce((a, x) => a + x.secs, 0)), worstMs: m.inc.reduce((a, x) => Math.max(a, x.worst || 0), 0), causes, list: m.inc },
@@ -10952,13 +10972,13 @@ Object.assign(AUTO, {
   stop() {
     if (!this.on) return;
     PLAYLOG.finish('autoplay stopped');
-    this.on = false; this.camCar = null; this.pending = false; document.body.classList.remove('autoplay'); $('apBanner').hidden = true;
+    this.on = false; this.idle = false; IDLE.poke(); this.camCar = null; this.pending = false; document.body.classList.remove('autoplay'); $('apBanner').hidden = true;
     const p = this.prev || {}; playerType = p.playerType || playerType; GAME_MODE = p.mode || GAME_MODE; VOICES_OFF = !!p.voices; camMode = p.cam || 0;
     try { sfx.setMuted(!!p.muted); } catch (e) {}
     if (this.wl) { try { this.wl.release(); } catch (e) {} this.wl = null; }
     showMenu(); buildGarage(); ptag('autoplay off'); toast('AUTOPLAY STOPPED', 'cool');
   },
-  async lock() { try { if (this.on && navigator.wakeLock && !document.hidden && (!this.wl || this.wl.released)) this.wl = await navigator.wakeLock.request('screen'); } catch (e) {} }, // keep the screen awake
+  async lock() { try { if (this.on && !this.idle && navigator.wakeLock && !document.hidden && (!this.wl || this.wl.released)) this.wl = await navigator.wakeLock.request('screen'); } catch (e) {} }, // keep the screen awake
   nextMatch() { if (UPDATE.updating && UPDATE.goNow) { UPDATE.goNow(); return; } this.pending = false; // (a new build is waiting: switch at the match boundary)
  playerType = this.nextType(); startMatch(); this.seq++; this.camCar = null; this.camHold = 0; },
   logged(r) { this.last = r; if (this.on) toast(`MATCH ${this.seq} LOGGED`, 'cool'); },
@@ -10977,7 +10997,7 @@ Object.assign(AUTO, {
     if (!this.on) return;
     if (this.pending) { this.nextMatch(); return; }
     this.bannerT -= rawDt; if (this.bannerT <= 0) { this.bannerT = 0.5; const left = Math.max(0, this.matchSecs - game.time) | 0, f = camTarget();
-      $('apBanner').textContent = (TABENV.suspect ? '⚠ NOT IN FOREGROUND · Chrome is slowing this tab, stats paused · ' : '') + `🤖 AUTOPLAY · match ${this.seq} · ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')} left · ${player ? player.T.name : ''}${f !== player ? ' · watching ' + f.name : ''} · tap or any key to stop`; }
+      $('apBanner').textContent = (TABENV.suspect ? '⚠ NOT IN FOREGROUND · Chrome is slowing this tab, stats paused · ' : '') + `🤖 ${this.idle ? 'IDLE AUTOPLAY' : 'AUTOPLAY'} · BUILD ${BUILD}${UPDATE.newer ? ` → updating to ${UPDATE.newer} after this match` : UPDATE.checked ? ` (latest, checked ${Math.max(0, Math.round((Date.now() - UPDATE.checked) / 60000))} min ago)` : ''} · match ${this.seq} · ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')} left · ${player ? player.T.name : ''}${f !== player ? ' · watching ' + f.name : ''} · tap or any key to stop`; }
   },
   aggregate(log) {
     const veh = {}, weap = {}, med = (a) => { const s = a.filter((x) => x != null).sort((x, y) => x - y); return s.length ? s[s.length >> 1] : null; };
@@ -11050,10 +11070,23 @@ $('apDl').addEventListener('click', () => PLAYLOG.download());
 const apStop = (e) => { if (!AUTO.on || performance.now() - AUTO.t0 < 800 || !e.isTrusted) return; AUTO.stop(); AUTO.swallow = performance.now(); e.preventDefault(); e.stopPropagation(); };
 addEventListener('keydown', apStop, true); addEventListener('pointerdown', apStop, true);
 addEventListener('click', (e) => { if (AUTO.swallow && performance.now() - AUTO.swallow < 700) { AUTO.swallow = 0; e.preventDefault(); e.stopPropagation(); } }, true);
-if (/[?&]autoplay=1\b/.test(location.search) || /^#autoplay\b/.test(location.hash)) setTimeout(() => AUTO.start(), 600); // a bookmark that starts it
+if (/[?&]autoplay=1\b/.test(location.search) || /^#autoplay\b/.test(location.hash)) setTimeout(() => { AUTO.idle = /[?&]idle=1\b/.test(location.search); AUTO.start(); }, 600); // a bookmark that starts it
+// Idle: left open in the foreground with nobody playing for a few minutes -> silent autoplay (it learns instead of sitting there).
+// Not in multiplayer or VR, not while the tab is hidden or throttled, not under automated tests (unless a test asks); off with ?noidle=1.
+const IDLE = { ms: 3 * 60 * 1000, last: performance.now(), on: !/[?&]noidle=1\b/.test(location.search),
+  poke() { IDLE.last = performance.now(); },
+  check() {
+    if (!this.on || AUTO.on || (navigator.webdriver && !window.__idleTest)) return;
+    if (game.paused) { this.poke(); return; } // paused on purpose: leave it paused (and count afresh once it's resumed)
+    if (document.hidden || !document.hasFocus() || TABENV.suspect || MP.role !== 'solo' || renderer.xr.isPresenting) { this.last = Math.max(this.last, performance.now() - this.ms + 30000); return; } // (needs a stretch of real foreground idleness)
+    if (performance.now() - this.last < this.ms) return;
+    AUTO.idle = true; AUTO.start(); if (AUTO.on) { PLAYLOG.ev?.('idle', 'nobody played for ' + Math.round(this.ms / 60000) + ' min: autoplay'); toast('NOBODY PLAYING · AUTOPLAY TAKES OVER (TAP TO PLAY)', 'cool'); } else AUTO.idle = false;
+  } };
+for (const ev of ['keydown', 'pointerdown', 'pointermove', 'wheel', 'touchstart', 'touchmove']) addEventListener(ev, (e) => { if (e.isTrusted || window.__idleTest) IDLE.poke(); }, { capture: true, passive: true });
+setInterval(() => IDLE.check(), 5000);
 window.__derby = { AUTO, PLAYLOG, BOULDERS, get mapShapes() { return mapShapes; }, respawnCar: (o, t) => respawnCar(o, t), PHYS, cockpitEye: (c) => cockpitEye(c), wakeProp: (pr) => wakeProp(pr), addConcrete: (x, z, r, k) => addConcrete(x, z, r, k), igniteProp: (pr, t) => igniteProp(pr, t), cookBull: (bl, by, dt) => cookBull(bl, by, dt), tankerBoom: (p, c) => tankerBoom(p, c), CAR_TYPES, sfx, CANNON, barks, PERF, shells, NETLOG, nearHostAdd: () => nearHostAdd(), nearJoin: () => nearJoin(), JUMBO, BALL, BOLLARDS, GASQ, updateArenaPub: (dt) => updateArena(dt), CRUSHER, crushNow: () => crushNow(), applyNight: () => applyNight(), FIREWORKS, ARENA, CROWD, MP, QUALITY, applyQuality: (i) => applyQuality(i), MERGED, camera, updatePropActivity: (dt) => updatePropActivity(dt), renderer, scene, spawnFree: (x, z, r) => spawnFree(x, z, r), BULLS, updateBulls: (dt) => updateBulls(dt), updateShells, tilt, setTilt, get CRANE() { return CRANE; }, updateCrane: (dt) => updateCrane(dt), CONCRETE, THREE, craters, shells, pickups, barks, PERSONAS, TUNE, game, cars, S, world, CAR_TYPES, sfx, touch, drawGauge, get player() { return player; }, keys, startMatch, selectCar, setValue, debris, props, platformOf, get simTime() { return simTime; }, set simTime(v) { simTime = v; } }; // console tinkering + tests
 requestAnimationFrame(frame);
-window.__derby.SCORE = SCORE; window.__derby.UPDATE = UPDATE; window.__derby.TABENV = TABENV; window.__derby.PERFREP = PERFREP; // (test hooks)
+window.__derby.IDLE = IDLE; window.__derby.SCORE = SCORE; window.__derby.UPDATE = UPDATE; window.__derby.TABENV = TABENV; window.__derby.PERFREP = PERFREP; // (test hooks)
 window.__derby.VR = VR; window.__derby.XRS = XRS; window.__derby.composer = composer;
 window.__derby.VCLIP = VCLIP; window.__derby.ROAST_BY = ROAST_BY; window.__derby.ROAST_PAIR = ROAST_PAIR; window.__derby.SHAZZA = SHAZZA; window.__derby.CAR_CAST = CAR_CAST; window.__derby.ANNOUNCER = ANNOUNCER; window.__derby.COP = COP; window.__derby.megaphone = megaphone; window.__derby.hornLine = hornLine;
 </script>
