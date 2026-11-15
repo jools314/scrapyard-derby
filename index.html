@@ -609,6 +609,7 @@
         <div class="garage" id="garage"></div>
       </div>
       <p id="blurb"></p>
+      <p id="driverCard" class="quiet" style="margin:0"></p>
       <p class="quiet" style="margin:0">Green wrenches repair you and refit a lost wheel; blue canisters refill nitro. Bright, glowing junk flies when you hit it. Dark objects are heavy and shove back. Hazard stripes mean solid: steer around.</p>
       <details>
         <summary>Controls</summary>
@@ -8178,6 +8179,8 @@ function buildGarage() {
     garage.appendChild(b);
   }
   $('blurb').textContent = CAR_TYPES[playerType].blurb;
+  { const P = playerType === 'cruiser' ? COP : CAR_CAST[playerType]; const dc = $('driverCard'); // R2-70: the driver card — the cast was invisible until they talked; now the picker shows who drives your pick, their style, and your head-to-head with them (R2-44)
+    if (P) { const [yw, tw] = rivalPair('You', P.nick); dc.textContent = `Driven by ${P.nick} — ${P.from || ''}${P.style ? ` · style: ${P.style}` : ''}${yw + tw ? ` · vs you: ${yw} wreck${yw === 1 ? '' : 's'} dealt, ${tw} taken` : ''}`; } else dc.textContent = ''; }
 }
 function selectCar(key) {
   playerType = key;
