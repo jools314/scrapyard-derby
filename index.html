@@ -3467,6 +3467,9 @@ const sfx = {
   mgStop(car) { const v = car.mgSnd; if (!v) return; car.mgSnd = null; try { for (const o of v.nodes) o.stop(); v.pan.disconnect(); } catch (e) {} },
   noiseHit(type, freq, q, peak, dur, verb, delay = 0) {
     if (!this.ctx) return; // sound not started yet (no click so far)
+    { const now = performance.now(); this._nb = (this._nb || []).filter((x) => now - x.t < 60); // a 60 ms voice budget: in a pileup the 10 loudest impacts win, the rest are dropped instead of clipping
+      if (this._nb.length >= 10) { const mi = this._nb.reduce((a, x, i) => (x.p < this._nb[a].p ? i : a), 0); if (peak <= this._nb[mi].p) return; this._nb.splice(mi, 1); }
+      this._nb.push({ t: now, p: peak }); }
     const c = this.ctx, t = c.currentTime + delay;
     const src = c.createBufferSource(); src.buffer = this.noise;
     const f = c.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q;
