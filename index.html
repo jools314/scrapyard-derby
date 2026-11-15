@@ -8228,7 +8228,13 @@ function careerRender() { // R2-43: the lifetime career screen, aggregated from 
   elc.innerHTML = `<div class="lb-h"><span>Career</span><span>${recs.length} matches</span></div>
     <p class="quiet" style="margin:4px 0">Wins ${wins} · wrecks dealt ${wrecks} · ${mins} min in the yard</p>
     <p class="quiet" style="margin:4px 0">Best match: ${(best.score || 0).toLocaleString()} pts (${best.mode || 'elim'}, ${String(best.start || '').slice(0, 10)})${fav ? ` · favourite car: ${(CAR_TYPES[fav[0]] || {}).name || fav[0]}` : ''}${nm ? ` · nemesis: ${nm.name} (wrecked you ${nm.n}×)` : ''}</p>
-    ${firsts ? `<p class="quiet" style="margin:4px 0">🏆 ${firsts}</p>` : ''}${perCar}`;
+    ${firsts ? `<p class="quiet" style="margin:4px 0">🏆 ${firsts}</p>` : ''}${seasonLine(recs)}${perCar}`;
+}
+function seasonLine(recs) { // R2-46 (partial): seasons as monthly cards — the current month and last month, aggregated from the stored records (matches, wins, best score). Records persist, so last season's card stays viewable forever; season-only challenges are not in this pass.
+  const byMonth = {}; for (const r of recs) { const m = String(r.start || '').slice(0, 7); if (!m) continue; const S = byMonth[m] || (byMonth[m] = { n: 0, wins: 0, best: 0 }); S.n++; if (/Yard cleared|You win!/.test(r.ended || '')) S.wins++; S.best = Math.max(S.best, r.score || 0); }
+  const months = Object.keys(byMonth).sort().reverse().slice(0, 2); if (!months.length) return '';
+  const names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return months.map((m, i) => { const S = byMonth[m]; const label = `${names[+m.slice(5, 7) - 1]} ${m.slice(0, 4)}`; return `<p class="quiet" style="margin:4px 0">🏁 ${i === 0 ? 'This season' : 'Last season'} (${label}): ${S.n} matches · ${S.wins} wins · best ${S.best.toLocaleString()}</p>`; }).join('');
 }
 function historyRender() { // R2-49: the match-history browser — the same stored records as R2-43, but browsable one match at a time (newest first, tap to expand), instead of only as an aggregate in a diagnostics dialog
   const elh = $('historyPanel'); if (!elh) return;
