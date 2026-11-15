@@ -3392,7 +3392,7 @@ const sfx = {
     const t = this.ctx.currentTime;
     if (p && live) {
       const load = p.shiftT > 0 ? 0.15 : Math.abs(p.ctrl.throttle);
-      this.setEngine(this.eng, p.rpm, load, p.T.cyl, 1);
+      this.setEngine(this.eng, p.rpm * (p.health < 30 ? 0.88 + Math.sin(t * 31) * 0.02 : 1), load, p.T.cyl, 1); // a dying engine drops a cylinder: detuned and rough under 30% hull
       this.sq.gain.setTargetAtTime(p.skidAmt * 0.14, t, 0.05);
       this.sqn.gain.setTargetAtTime(p.skidAmt * 0.07, t, 0.05);
       const v = Math.abs(p.speed) / 70;
@@ -10303,7 +10303,7 @@ function drawBody(dt) {
   PERF.n = (PERF.n || 0) + 1; PERF.hostSkip = MP.role === 'host' && QUALITY.level === QSTEPS.length - 1 && PERF.fps < 34 && MP.guests().length > 0;
   if (PERF.hostSkip && PERF.n % 2 && !XRS.on) return; // (never skip a headset frame)
   PERFREP.r0 = performance.now();
-  if (!window.__noRender) { const gq = Math.min(S.gfx, S.autoGfx ? (QUALITY.gfxCap ?? 2) : 2); if (XRS.on) renderer.render(scene, VR.cam); /* VR: straight into the headset, no post chain */ else if (gq > 0) { grade.uniforms.uTime.value = clock % 10; sunGlare(); grade.enabled = gq > 1; outPass.enabled = !grade.enabled; bloom.strength = gq > 1 ? 0.42 : 0.34; composer.render(); } else renderer.render(scene, camera); PERFREP.render = performance.now() - PERFREP.r0; SEC.add('render', PERFREP.render); } // tests can skip drawing to run physics faster
+  if (!window.__noRender) { const gq = Math.min(S.gfx, S.autoGfx ? (QUALITY.gfxCap ?? 2) : 2); if (XRS.on) renderer.render(scene, VR.cam); /* VR: straight into the headset, no post chain */ else if (gq > 0) { grade.uniforms.uTime.value = clock % 10; { const low = player && game.state === 'playing' ? clamp((30 - Math.max(0, player.health)) / 30, 0, 1) : 0; grade.uniforms.uSat.value = lerp(grade.uniforms.uSat.value, 1.16 - low * 0.65, 0.08); grade.uniforms.uVig.value = 0.42 + low * (0.16 + 0.1 * Math.sin(clock * 7)); } sunGlare(); grade.enabled = gq > 1; outPass.enabled = !grade.enabled; bloom.strength = gq > 1 ? 0.42 : 0.34; composer.render(); } else renderer.render(scene, camera); PERFREP.render = performance.now() - PERFREP.r0; SEC.add('render', PERFREP.render); } // tests can skip drawing to run physics faster
 }
 /* =====================================================================
    VR MODE (WebXR: Meta Quest 2 / 3 / 3S in the Quest Browser)
