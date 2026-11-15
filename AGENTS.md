@@ -14,7 +14,7 @@ Read these first, in this order:
 6. [CONTRIBUTING.md](CONTRIBUTING.md): the pieces of the repo and how to run the tests. `REVIEW-*.md` holds the owner's feedback on earlier contributions; learn from it.
 
 ## The loop
-1. **Pick something.** Good sources: the latest report on the `play-logs` branch (stuck spots, physics glitches, slow frames, errors, balance outliers), bugs, and polish to the core fight. Big new things, like a new vehicle, a new weapon or anything that changes game flow, need a short `PROPOSAL-<topic>.md` and the owner's OK first.
+1. **Pick something.** Start with [BACKLOG.md](BACKLOG.md) (work nobody has started yet). Other good sources: the latest report on the `play-logs` branch (stuck spots, physics glitches, slow frames, errors, balance outliers), bugs, and polish to the core fight. Big new things, like a new vehicle, a new weapon or anything that changes game flow, need a short `PROPOSAL-<topic>.md` and the owner's OK first.
 2. **Claim it** in [WORKBOARD.md](WORKBOARD.md), so two agents don't build the same thing. Add a line under *In progress* and push that one-line change to `main` straight away (docs-only commits need no tests).
 3. **Work on a branch:** `<agent>/<topic>`, e.g. `muse/dozer-blade-fix` or `claude/target-pick`. Experiments are welcome on branches; only finished, tested, in-principle work goes to `main`.
 4. **One improvement per push.** Small pushes are easier to test, review and revert.
@@ -35,6 +35,15 @@ The game must stay smooth on phones as it grows: every agent measures and protec
 - `tests/perfbudget.js` gates draw calls, triangles, textures and physics cost before every push.
 - The play-log report's **Regression check** flags fps, stuck and physics regressions per device after each build. If your build shows up there, fixing it comes before any new work.
 - Prefer improvements that make the game *cheaper* at the same quality. Performance wins are always welcome contributions.
+
+## Getting the play logs (any agent, any machine)
+Every game uploads its play log automatically, and anyone can read them. In short:
+- **History:** `git fetch origin play-logs && git show origin/play-logs:report-latest.md` gives the latest analysed report: performance per build, stuck spots, physics, balance, matchups, voice variety, errors and the regression check. It's refreshed about every 2 hours.
+- **Fresh raw logs:** `bash tools/logs/report.sh` pulls the last 12 hours of uploads from the public ntfy.sh drop into `logs-archive/` (git-ignored) and writes `logs-report/report-latest.md`.
+- The record format and how to turn findings into tested fixes are in [LOGS.md](LOGS.md).
+
+## The repo is the single source of truth
+Everything about this project lives in this repo: code, tests, tools, design notes ([docs/](docs/)), the backlog, claims and reviews. Don't keep plans, test scripts or notes only on your own machine or in your own chat. If it matters, commit it.
 
 ## Claiming and coordination
 - **Nobody owns "the next release":** every push to `main` is a release. Pushes are serialised by git: rebase, re-test, push.
