@@ -10379,9 +10379,17 @@ function bugReport() {
   L.push('', '──────── network / performance / voice log ────────', NETLOG.exportText());
   return L.join('\n');
 }
-// The drop: reports go to a public ntfy.sh topic (free, no account; text kept 12 h, big reports become a file kept 3 h)
+// The drop: reports go to an ntfy.sh topic (free, no account; text kept 12 h, big reports become a file kept 3 h)
 // so Claude can fetch them directly instead of you copying and pasting. Nothing secret is in them.
-const DROP = { topic: 'scrapyard-derby-f74277e052a2', sent: 0 };
+// R2-89: the topic ROTATES per release. It used to be one fixed public string ('scrapyard-derby-f74277e052a2',
+// builds up to 67) that anyone could subscribe to and read, device details included. Now the topic is derived
+// from BUILD, so every new build stops feeding the string everyone already knows. Cutover: old builds keep
+// sending to the legacy topic — it keeps working, nothing breaks; a build with this change sends to
+// dropTopic() below, and the reader derives the topic from the build number with that same function.
+// Jonas (2026-11-14): the upload path is fine for his own/family play; revisit the privacy posture before
+// any wider public release.
+function dropTopic() { let h = 0x811c9dc5; const s = 'scrapyard-derby-drop-b' + BUILD; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; } return 'sd-drop-' + h.toString(36); } // FNV-1a of the build tag
+const DROP = { topic: dropTopic(), sent: 0 };
 function bugPic() { // R2-84: a picture for the bug report — half the bugs this game gets ("the car looked wrong") are visual, and the text report can't show them
   try {
     const src = renderer.domElement; if (!src || !src.width || !src.height) return null;

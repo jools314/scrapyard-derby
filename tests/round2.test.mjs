@@ -136,6 +136,15 @@ test('R2-84', 'bug reports carry a downscaled JPEG of the last frame', () => { h
 test('R2-85', 'BUILD_HASH stamping point wired into records', () => { has(/const BUILD_HASH = '';/); has(/hash: BUILD_HASH/); });
 test('R2-87', 'blowup pose capture into phys.blow', () => { has(/m\.blow/); has(/R2-87/); });
 test('R2-88', 'autoplay presets elim/full/lite', () => { has(/autoplay=\(1\|elim\|full\|lite\)/); has(/R2-88/); });
+test('R2-89', 'report drop topic rotates per build (derived, not the legacy string)', () => {
+  has(/function dropTopic\(\)/); has(/topic: dropTopic\(\)/); lacks(/topic: 'scrapyard-derby-f74277e052a2'/); has(/R2-89/);
+  const grab = (re) => { const m = re.exec(html); if (!m) throw new Error('dropTopic not found: ' + re); return m[0]; };
+  const topicFor = new Function('BUILD', grab(/function dropTopic\(\) \{[\s\S]*?return 'sd-drop-' \+ h\.toString\(36\); \}/) + '\nreturn dropTopic();');
+  const t67 = topicFor('67'), t68 = topicFor('68');
+  if (!/^sd-drop-[0-9a-z]+$/.test(t67)) throw new Error('topic shape wrong: ' + t67);
+  if (t67 === t68) throw new Error('topic does not rotate with BUILD');
+  if (topicFor('67') !== t67) throw new Error('topic is not deterministic');
+});
 test('R2-90', 'active transport named in log headers', () => { has(/activeVia\(\)/); has(/R2-90/); });
 
 test('R2-98', 'minimap shape-coding: nemesis/bounty ring completes the set', () => { has(/R2-98/); has(/rivalNemesis\(\)/); });
