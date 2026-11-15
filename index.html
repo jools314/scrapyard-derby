@@ -715,6 +715,7 @@ const SETTINGS_DEF = [
   { key: 'airDrag',             group: 'World', label: 'Air drag coefficient', unit: 'kg/m', min: 0,    max: 6,     step: 0.05, def: 0.9 },
   { key: 'downforce',           group: 'World', label: 'Downforce',           unit: 'kg/m',  min: 0,    max: 8,     step: 0.1,  def: 1.8 },
   { key: 'restitution',         group: 'World', label: 'Bounciness',          unit: '',      min: 0,    max: 1,     step: 0.05, def: 0.15 },
+  { key: 'flashSafe',           group: 'World', label: 'Reduce flashing',     unit: '',      min: 0,    max: 1,     step: 1,    def: 0, note: 'R2-92: photosensitivity — steady crusher lamps (no 8 Hz strobe), damage flash capped, fireworks reduced to a single gentle burst' },
   { key: 'playerMassScale',     group: 'Car',   label: 'Your car weight',     unit: '×',     min: 0.3,  max: 4,     step: 0.05, def: 1, mass: 'player' },
   { key: 'aiMassScale',         group: 'Car',   label: 'Opponent weight',     unit: '×',     min: 0.3,  max: 4,     step: 0.05, def: 1 },
   { key: 'frontWeight',         group: 'Car',   label: 'Weight on front axle', unit: '%',    min: 35,   max: 65,    step: 1,    def: 50 },
@@ -1754,7 +1755,7 @@ function updateCrusher(dt) {
   }
   // visuals: plate, ram, warning lamps, hiss and clank
   C.plate.position.set(C.x, C.y + 0.4, C.z); C.ram.position.set(C.x, (9 + C.y + 0.8) / 2, C.z); C.ram.scale.y = Math.max(0.1, 9 - C.y - 0.8);
-  const flash = C.state === 'warn' || C.state === 'slam' ? ((clock * 8) % 1 < 0.5 ? 4 : 0.3) : C.state === 'hold' ? 2 : 0;
+  const flash = S.flashSafe ? (C.state === 'warn' || C.state === 'slam' || C.state === 'hold' ? 2 : 0) : C.state === 'warn' || C.state === 'slam' ? ((clock * 8) % 1 < 0.5 ? 4 : 0.3) : C.state === 'hold' ? 2 : 0; // R2-92: the warn lamp strobes at 8 Hz — steady when reduce-flashing is on (the warning still reads: lamp lit = get out of the box)
   for (const m of C.lamps) m.emissiveIntensity = flash;
   if (C.state === 'warn' && player && (C.beep = (C.beep || 0) - dt) <= 0) { C.beep = 0.25; const d = player.body.position.distanceTo(new CANNON.Vec3(C.x, 1, C.z)); sfx.tone('square', 880, 880, clamp(1 - d / 80, 0, 1) * 0.06, 0.12); }
   if (C.state !== C.lastState) { if (C.state === 'hold' && player) { const d = player.body.position.distanceTo(new CANNON.Vec3(C.x, 1, C.z)); sfx.crash(clamp(1 - d / 120, 0, 1), 28); sfx.noiseHit('lowpass', 70, 0.8, clamp(1 - d / 120, 0, 1), 0.8); for (let i = 0; i < 20; i++) emit('dust', C.x + rand(-C.hx, C.hx), 0.3, C.z + rand(-C.hz, C.hz), rand(-6, 6), rand(0.5, 2), rand(-6, 6), rand(0.8, 1.5), rand(0.8, 1.4)); } C.lastState = C.state; }
@@ -1815,7 +1816,7 @@ function updateBoard() {
 
 // Fireworks from the stands when somebody is wrecked
 const FIREWORKS = [];
-function fireworks(n) { for (let i = 0; i < n; i++) FIREWORKS.push({ x: rand(-90, 90), z: (Math.random() < 0.5 ? -1 : 1) * (A + 6), y: 6, vy: rand(26, 34), t: rand(0, 0.8), col: Math.random() }); }
+function fireworks(n) { if (S.flashSafe) n = Math.min(n, 1); for (let i = 0; i < n; i++) FIREWORKS.push({ x: rand(-90, 90), z: (Math.random() < 0.5 ? -1 : 1) * (A + 6), y: 6, vy: rand(26, 34), t: rand(0, 0.8), col: Math.random() }); } // R2-92: one gentle burst instead of a volley
 function updateFireworks(dt) {
   for (let i = FIREWORKS.length - 1; i >= 0; i--) { const f = FIREWORKS[i];
     if (f.t > 0) { f.t -= dt; continue; }
@@ -6324,7 +6325,7 @@ function updateHUD(dt) {
   } else $('reticle').hidden = true;
   hudWidth(el.nosFill, (player.nitro * 100).toFixed(1) + '%');
   game.flash = Math.max(0, game.flash - dt * 2);
-  { const f = game.flash.toFixed(2); if (f !== el.flashO) { el.flashO = f; el.flash.style.opacity = f; el.flash.style.display = f > 0 ? '' : 'none'; } } // full-screen layers leave the page when unused: tablets pay for them every frame
+  { const f = (S.flashSafe ? Math.min(0.25, game.flash) : game.flash).toFixed(2); if (f !== el.flashO) { el.flashO = f; el.flash.style.opacity = f; el.flash.style.display = f > 0 ? '' : 'none'; } } // R2-92: the damage vignette is capped at quarter strength when reduce-flashing is on // full-screen layers leave the page when unused: tablets pay for them every frame
   { const w = player ? Math.min(1, (player.wet || 0) * 1.3) : 0; if (w !== el.wetO) { el.wetO = w; $('wet').style.opacity = w.toFixed(2); $('wet').style.display = w > 0.01 ? '' : 'none'; } }
   if (hudT > 0) return;
   hudT = 0.1;
