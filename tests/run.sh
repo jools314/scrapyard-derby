@@ -32,6 +32,7 @@ quick() {
   t perfbudget 900 "PERF PASS"
   t talk 900 "TALK PASS"
   t b70 900 "B70 PASS"
+  t hudscore 600 "HUDSCORE PASS"
 }
 release() {
   quick

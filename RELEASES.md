@@ -4,6 +4,7 @@ Newest first. Every push to `main` goes live; each one bumps `BUILD` and adds a 
 
 | build | date | highlights |
 |---|---|---|
+| 75 | 2026-11-15 | HUD dedup: each driver's score now sits on their name/health row in the opponents list, and the separate small leaderboard panel is removed — same information, shown once, less screen used (the full table still opens with L) |
 | 74 | 2026-11-15 | play log: stuck entries now record what the car is touching (another car, a prop, a wall, the ground) — the `why` the analyser and LOGS.md already expected, so stuck hotspots point at the thing to fix (logging only, no behaviour change) |
 | 73 | 2026-11-15 | play log: the per-match snapshot now records draw calls and triangles, so the draw-call budget can be checked from real play logs (logging only, no behaviour change) |
 | 72 | 2026-11-15 | play log: slow-incident records now keep draw calls, triangles and the sim/draw/wait split, so slow moments can be attributed from the logs (logging only, no behaviour change) |
