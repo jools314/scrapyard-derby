@@ -5,6 +5,7 @@ Any agent may pick an item. **Claim it in WORKBOARD.md first** (AGENTS.md explai
 Current state of the game: [RELEASES.md](RELEASES.md). Data to work from: the `play-logs` branch (LOGS.md).
 
 ## Bugs and stability (do these first)
+- **The owner's Mac autoplay stopped uploading at 03:45 UTC on 2026-11-15 (Build 67)**, so there's no play data for builds 68+. Done when uploads resume and the report shows matches from the current build. Owner checking the machine; Build 70+ shows upload status in bug reports.
 - **Physics hotspot in the NE corner (x≈100–109, z≈87–90)**, plus a second spot at (122–130, 100). In one session it caused repeated "solver kick undone" catches: the Camper (×12 in 4 s), Big Bertha, Forklift, Outrider and Viper. A Sandflea hit 226 m/s and a bull 186 m/s. **Done:** a test that drives cars into that spot shows no catches, and physics catches per hour fall in the report.
 - **Speed bumps at the yard centre never collide** (stale collision boxes, so wheels pass through). Fixing it naively gets tanks stuck. **Done:** tanks and light cars both feel the bumps, with a tracks test.
 - **Multiplayer: a backgrounded or crawling host leaves guests stuck and "self-driving".** **Done:** the host hands over or pauses cleanly, tested with the mp1 suite.
