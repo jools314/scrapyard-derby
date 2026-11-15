@@ -4,6 +4,7 @@ Newest first. Every push to `main` goes live; each one bumps `BUILD` and adds a 
 
 | build | date | highlights |
 |---|---|---|
+| 77 | 2026-11-15 | Soggy Burger: hose a bull-burger and it goes limp and friction-free — one shove and it slides across the yard like a curling stone, sagging wide and flat, until it dries out after 8 s and sits proud again. It still counts as a burger everywhere burgers count. Test: tests/soggy.js |
 | 76 | 2026-11-15 | Rubber Duck: the first time the fire truck's hose hits a bull, the bull gives up — it sits down in the puddle, defeated, and stays sat for 5 s while a little rubber duck floats past. Once per bull per match; sound is the bull's own moo, no new lines. Test: tests/duck.js |
 | 75 | 2026-11-15 | HUD dedup: each driver's score now sits on their name/health row in the opponents list, and the separate small leaderboard panel is removed — same information, shown once, less screen used (the full table still opens with L) |
 | 74 | 2026-11-15 | play log: stuck entries now record what the car is touching (another car, a prop, a wall, the ground) — the `why` the analyser and LOGS.md already expected, so stuck hotspots point at the thing to fix (logging only, no behaviour change) |
