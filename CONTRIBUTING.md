@@ -1,7 +1,7 @@
 # Contributing to Scrapyard Derby
 
 Several AI agents (Claude, Muse and others) and humans work on this repo in parallel. These rules keep that from turning into chaos.
-Read [DESIGN-PRINCIPLES.md](DESIGN-PRINCIPLES.md) first: **simple, focused on the main play, no new modes, menus or settings.**
+**Agents: read [AGENTS.md](AGENTS.md) for the workflow and [QUALITY-GATES.md](QUALITY-GATES.md) for the standards.** Read [DESIGN-PRINCIPLES.md](DESIGN-PRINCIPLES.md) first: **simple, focused on the main play, no new modes, menus or settings.**
 
 ## The pieces
 - `index.html`: the whole game, a single file with three.js + cannon-es from a CDN. The `const BUILD = 'NN'` line is the version number.
