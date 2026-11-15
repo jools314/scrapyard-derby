@@ -8156,8 +8156,13 @@ function showOver() {
 /* ---------------- Garage (car select) ---------------- */
 const garage = $('garage');
 const maxPW = Math.max(...Object.values(CAR_TYPES).map((t) => t.power / t.mass));
+function carUsage() { // R2-55: per-car usage from the stored play-log records (your lives only): { lives, secs } per car type — the garage tracked mastery for wrecks but kept no record of what you actually drive
+  const out = {}; try { for (const r of PLAYLOG.matches()) for (const life of r.me || []) { const u = out[life.car] || (out[life.car] = { lives: 0, secs: 0 }); u.lives++; u.secs += life.secs || 0; } } catch (e) {}
+  return out;
+}
 function buildGarage() {
   garage.innerHTML = '';
+  const usage = carUsage(); // R2-55
   for (const [key, T] of Object.entries(CAR_TYPES)) {
     const b = document.createElement('button');
     b.type = 'button';
@@ -8165,6 +8170,7 @@ function buildGarage() {
     const pct = (v) => `<span class="mini"><i style="width:${Math.round(clamp(v, 0.05, 1) * 100)}%"></i></span>`;
     b.innerHTML = `<span class="nm"><span class="sw" style="background:#${new THREE.Color(T.color).getHexString()}"></span>${T.name}</span>
       <span class="kg">${T.mass.toLocaleString()} kg · ${Math.round(S.enginePower * T.power)} kW</span>
+      <span class="kg">${usage[key] ? `Driven ${usage[key].lives}× · ${Math.round(usage[key].secs / 60)} min` : 'Never driven'}</span>
       <span class="stat">Speed ${pct((T.power / T.mass) / maxPW)}</span>
       <span class="stat">Weight ${pct(Math.log(T.mass / 600) / Math.log(7500 / 600))}</span>
       <span class="stat">Grip ${pct(T.grip / 1.15)}</span>`;
