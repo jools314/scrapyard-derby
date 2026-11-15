@@ -663,6 +663,7 @@
         <div><span class="label">League pts</span><span class="num" id="rLeague">0</span></div>
         <div><span class="label">Time</span><span class="num" id="rTime">0:00</span></div>
         <div><span class="label">Wrecked</span><span class="num" id="rWrecks">0</span></div>
+        <div><span class="label">Nemesis</span><span class="num" id="rNemesis">—</span></div>
       </div>
       <div id="overBoard" hidden><table class="sbt" id="overTable"></table></div>
       <div class="actions">
@@ -7798,6 +7799,7 @@ const game = {
     if (this.state !== 'playing') return;
     const killer = car.lastAttacker && car.lastAttacker !== car && simTime - (car.lastAttackTime || 0) < 6 ? car.lastAttacker : null;
     if (killer) killer.kills = (killer.kills || 0) + 1;
+    if (killer && MP.role !== 'guest') rivalRecord(rivalName(killer), rivalName(car)); // R2-44: host/solo are authoritative (guests would double-count from snapshots)
     if (PLAYLOG.m) PLAYLOG.wreck(car, killer); if (AUTO.on && car === player) car.respawnType = AUTO.nextType(); // (autoplay: every life a different vehicle)
     SCORE.wreck(car, killer); // (host / solo only: guests get the table from the host)
     if (GAME_MODE === 'respawn' && MP.role === 'guest') { if (car.isPlayer) toast('WRECKED', 'bad'); else toast(`${car.name} is wrecked`); return; } // the host brings it back
@@ -7946,6 +7948,18 @@ for (const x of document.querySelectorAll('.modes .mode')) x.setAttribute('aria-
 /* ---------------- Scoreboard: who wrecked whom, per driver, for the whole match ---------------- */
 // Keyed by driver, not car: people keep their row when they respawn in another car; a computer driver is its character.
 // The host (or a solo game) keeps the table; guests get a copy riding on a snapshot about once a second.
+/* R2-44: cross-match rivalries — who wrecks whom, remembered between sessions (localStorage 'derby-rivalry-v1', capped at 60 pairs, coldest dropped). Names are persona nicks for AI, 'You' for the player, and the shown name for remote humans. */
+function rivalName(c) { return c.isPlayer ? 'You' : (c.persona ? c.persona.nick : c.name); }
+function rivalLoad() { try { return JSON.parse(localStorage.getItem('derby-rivalry-v1') || '{}'); } catch (e) { return {}; } }
+function rivalRecord(winner, loser) {
+  if (!winner || !loser || winner === loser) return;
+  const R = rivalLoad(), k = [winner, loser].sort().join('|'), p = R[k] || (R[k] = {});
+  p[winner] = (p[winner] || 0) + 1;
+  const keys = Object.keys(R); if (keys.length > 60) { let cold = null, cn = 1e9; for (const kk of keys) { const s = Object.values(R[kk]).reduce((a, b) => a + b, 0); if (s < cn) { cn = s; cold = kk; } } if (cold && cold !== k) delete R[cold]; }
+  try { localStorage.setItem('derby-rivalry-v1', JSON.stringify(R)); } catch (e) {}
+}
+function rivalPair(a, b) { const p = rivalLoad()[[a, b].sort().join('|')] || {}; return [p[a] || 0, p[b] || 0]; }
+function rivalNemesis() { const R = rivalLoad(); let best = null, n = 0; for (const k in R) { const [a, b] = k.split('|'), foe = a === 'You' ? b : b === 'You' ? a : null; if (foe && (R[k][foe] || 0) > n) { n = R[k][foe]; best = foe; } } return best ? { name: best, n } : null; }
 const SCORE = {
   rows: new Map(), open: false, leader: null, gotJ: '', sentAt: -1e9, dirtyNet: false, lastHtml: '',
   pts(r) { return r.k * 100 - r.s * 50; },
@@ -8128,6 +8142,7 @@ function showOver() {
   $('rTime').textContent = `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
   const ai = cars.filter((c) => !c.isPlayer);
   $('rWrecks').textContent = GAME_MODE === 'respawn' ? String(player.kills || 0) : `${ai.filter((c) => c.wrecked).length} / ${ai.length}`;
+  { const nm = rivalNemesis(); $('rNemesis').textContent = nm ? `${nm.name} ×${nm.n}` : '—'; } // R2-44: who has wrecked you most, across every match on this device
   $('overBoard').hidden = GAME_MODE !== 'respawn'; if (GAME_MODE === 'respawn') $('overTable').innerHTML = SCORE.table();
   el.over.hidden = false;
 }
