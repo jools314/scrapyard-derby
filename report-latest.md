@@ -1,9 +1,10 @@
-# Scrapyard Derby play-log report · 2026-11-15 06:39 UTC
+# Scrapyard Derby play-log report · 2026-11-15 10:42 UTC
 
-60 matches (49 from real devices, 137.1 game-minutes), 20 page loads, 1 bug reports.
+61 matches (50 from real devices, 137.8 game-minutes), 21 page loads, 5 bug reports.
 
 ## Who and what
 
+- Android · build 67 · solo: 1 matches
 - Mac · build 67 · autoplay: 15 matches
 - Mac · build 67 · solo: 2 matches
 - Mac · build 66 · autoplay: 22 matches
@@ -12,11 +13,13 @@
 
 ## Performance (foreground)
 
+- **Android**: fps median 60, typical 1% low 40, worst frame 92 ms · quality 0, res 100% · 1 matches · 2 s throttled/hidden (excluded)
 - **Mac**: fps median 60, typical 1% low 53, worst frame 983 ms · quality 0, res 100% · 47 matches · 39 s throttled/hidden (excluded)
 ### Release to release
 
 | device | build | matches | game-min | fps med | p5 | 1% low | worst ms | res | slow s/h | stuck/h | phys catches/h | throttled s |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Android | 67 | 1 | 1 | 60 | 60 | 40 | 92 | 100% | 1356.3 | 0 | 419 | 2 |
 | Mac | 65 | 9 | 34 | 60 | 56 | 30 | 667 | 130% | 11.3 | 70 | 263 | – |
 | Mac | 66 | 22 | 59 | 60 | 55 | 53 | 983 | 100% | 5.2 | 55 | 234 | – |
 | Mac | 67 | 16 | 44 | 60 | 56 | 56 | 750 | 100% | 5.6 | 75 | 307 | 39 |
@@ -25,7 +28,7 @@
 
 - **REGRESSION** Mac: build 66 -> 67: stuck/h 54.9 -> 75.1; physics catches/h 234.0 -> 307.3
 
-- slow moments by cause (seconds): waiting on the graphics chip (fewer pixels/effects would help): 9.7; preparing the drawing (draw calls) is the slow part: 4.9; the game step (physics/AI) is the slow part: 1
+- slow moments by cause (seconds): waiting on the graphics chip (fewer pixels/effects would help): 25.9; preparing the drawing (draw calls) is the slow part: 4.9; the game step (physics/AI) is the slow part: 1
 
 ## Stuck hotspots
 
@@ -41,12 +44,12 @@
 - (14, -145): 1× · 17 s · bertha 1
 - (-18, -146): 2× · 17 s · camper 1, firetruck 1
 - (-47, -85): 3× · 16 s · forklift 1, combine 1, firetruck 1
-- total 123 stuck events, 749.5 s, over 137.1 game-minutes (53.8 per hour)
+- total 123 stuck events, 749.5 s, over 137.8 game-minutes (53.6 per hour)
 
 ## Physics safety-net catches
 
-- totals: blowups 604, launches 0, rescues 0, below 0, nan 0 · kinds: solver kick undone 452, blow-up clamped 43, escaped the arena, put back 2
-- by vehicle (listed catches): Outrider 78, Sandflea 71, Hellbender 59, Forklift 59, bull 52, Viper 42, Cruiser 33, Tow Truck 31
+- totals: blowups 609, launches 0, rescues 0, below 0, nan 0 · kinds: solver kick undone 454, blow-up clamped 46, escaped the arena, put back 2
+- by vehicle (listed catches): Outrider 80, Sandflea 71, Hellbender 59, Forklift 59, bull 52, Viper 45, Cruiser 33, Tow Truck 31
 
 ## Balance (all real matches)
 
@@ -54,22 +57,23 @@
 |---|---|---|---|---|---|
 | dozer | 97 | 178 | 67 | 2.66 | 154 |
 | bertha | 88 | 130 | 59 | 2.2 | 246 |
-| combine | 97 | 81 | 64 | 1.27 | 67 |
+| combine | 98 | 83 | 64 | 1.3 | 67 |
 | tanker | 89 | 74 | 71 | 1.04 | 47 |
-| mixer | 110 | 83 | 80 | 1.04 | 51 |
+| mixer | 113 | 83 | 82 | 1.01 | 49 |
 | hellbender | 115 | 79 | 92 | 0.86 | 107 |
-| firetruck | 98 | 46 | 65 | 0.71 | 35 |
+| firetruck | 99 | 47 | 65 | 0.72 | 35 |
 | towtruck | 114 | 49 | 89 | 0.55 | 29 |
-| cruiser | 109 | 40 | 90 | 0.44 | 52 |
+| cruiser | 110 | 42 | 90 | 0.47 | 52 |
 | camper | 110 | 40 | 93 | 0.43 | 25 |
-| outrider | 109 | 33 | 97 | 0.34 | 43 |
+| outrider | 111 | 33 | 98 | 0.34 | 42 |
 | forklift | 102 | 22 | 78 | 0.28 | 26 |
-| sandflea | 118 | 29 | 110 | 0.26 | 41 |
-| tiger | 55 | 11 | 46 | 0.24 | 215 |
-| viper | 131 | 21 | 113 | 0.19 | 33 |
+| sandflea | 120 | 29 | 111 | 0.26 | 41 |
+| tiger | 56 | 11 | 47 | 0.23 | 214 |
+| viper | 133 | 21 | 115 | 0.18 | 33 |
 
 ## Voices, errors, network
 
+- Android: voice failures 0 over 1 matches
 - Mac: voice failures 135 over 49 matches (engine never started)
 - errors & incidents (in and out of matches): 4× voice: voices: stuck - # lines asked for, engine busy # s and none started (last voice default, # voices, spea; 2× voice: voices: stuck - still busy # s after the tab came back from # s in the background (last voice default, 
 - network incidents: 2
@@ -82,6 +86,10 @@
 ## Bug reports
 
 - 1794706963-lliE33pDU7vD-bug-b68-web-2026-11-15T01-42-43-652Z · {"code":40401,"http":404,"error":"page not found"}
+- 1794725414-tgRRYQWpPVYF-bug-b69-web-2026-11-15T06-50-14-834Z · {"code":40401,"http":404,"error":"page not found"}
+- 1794725451-7bKoH5NiFJwx-bug-b69-web-2026-11-15T06-50-50-843Z · {"code":40401,"http":404,"error":"page not found"}
+- 1794725479-21679ipLjuMa-bug-b69-web-2026-11-15T06-51-18-901Z · {"code":40401,"http":404,"error":"page not found"}
+- 1794727632-OgV59iRq3qG4-bug-b70-web-2026-11-15T07-27-12-098Z · {"code":40401,"http":404,"error":"page not found"}
 
 ## Changes since the previous report
 
