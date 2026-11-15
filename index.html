@@ -8256,6 +8256,7 @@ function selectCar(key) {
   sfx.setStyle(MUSIC_FOR[key] || 'rock');
   try { localStorage.setItem(CAR_KEY, key); } catch (e) {}
   buildGarage();
+  { const cm = parseInt(localStorage.getItem('derby-cam-' + key) || '0', 10); if (cm >= 0 && cm <= 2) camMode = cm; } // each car remembers its camera
   if (game.state === 'menu') { // swap the showroom car in place
     const old = player;
     const idx = cars.indexOf(old);
@@ -8442,7 +8443,7 @@ $('btnGarage').addEventListener('click', showMenu);
 const keys = new Set();
 let camMode = 0;
 let lookBack = false, camKeyT = 0; // hold C to look behind you; a quick tap of C still cycles the camera
-function nextCam() { camMode = (camMode + 1) % 3; game.camSnap = true; toast(['CHASE VIEW', 'FAR VIEW', 'INSIDE VIEW'][camMode], 'cool'); }
+function nextCam() { camMode = (camMode + 1) % 3; game.camSnap = true; try { localStorage.setItem('derby-cam-' + playerType, String(camMode)); } catch (e) {} toast(['CHASE VIEW', 'FAR VIEW', 'INSIDE VIEW'][camMode], 'cool'); }
 const GAME_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'KeyH']);
 window.addEventListener('keydown', (e) => {
   if (e.target && e.target.tagName === 'INPUT') return;
