@@ -8343,8 +8343,10 @@ function applySetting(key) {
   }
 }
 function setValue(key, v) {
+  const was = S[key];
   S[key] = v;
   const d = SETTINGS_DEF.find((x) => x.key === key);
+  if (d && d.restart && was !== v && game.state === 'playing' && simTime - (game.rsToastT || -9) > 5) { game.rsToastT = simTime; toast('THAT ONE APPLIES WHEN YOU RESTART — THE TUNE PANEL HAS A RESTART BUTTON', 'cool'); } // the rows are badged in the panel; changing one mid-match now says so out loud too
   inputs[key].input.value = v;
   inputs[key].out.textContent = fmt(d, v);
   applySetting(key);
