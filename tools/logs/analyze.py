@@ -184,7 +184,8 @@ L.append('## Voices, errors, network\n')
 for d in sorted({dev_name(m) for m in real}):
     xs = [m for m in real if dev_name(m) == d]; vf = sum((m.get('voice') or {}).get('n', 0) for m in xs)
     ok = [m for m in xs if (m.get('voice') or {}).get('ok')]
-    L.append(f'- {d}: voice failures {vf} over {len(xs)} matches' + (' (engine never started)' if vf and not ok else ''))
+    vs = sum((m.get('voice') or {}).get('sent', 0) or 0 for m in xs); vt = sum((m.get('voice') or {}).get('started', 0) or 0 for m in xs); ve = sum((m.get('voice') or {}).get('errors', 0) or 0 for m in xs)
+    L.append(f'- {d}: voice failures {vf} over {len(xs)} matches · lines sent {vs}, started {vt}, errors {ve}' + (' (engine never started)' if vf and not ok else ''))
 errs = collections.Counter()
 for m in real:
     for e in (m.get('errs') or {}).get('list') or []: errs[re.sub(r'\d+', '#', str(e)[:140])] += 1

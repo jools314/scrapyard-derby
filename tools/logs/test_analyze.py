@@ -86,6 +86,9 @@ def main():
     # on the same 12 m grid as the stuck hotspots (the position-less one is skipped).
     ok('catch locations' in md and '(36, -107): 1×' in md, 'A4 catch heatmap cell (36, -107) with the one positioned catch')
 
+    # A5: voice counters — lines asked for vs actually started vs errors, per device.
+    ok('lines sent 50, started 44, errors 3' in md, 'A5 voice line: sent 50, started 44, errors 3 (the asked-vs-started gap)')
+
     print('FAILED ' + str(len(fails)) if fails else 'ALL PASS')
     return 1 if fails else 0
 
