@@ -5533,7 +5533,7 @@ class Car {
     const model = new THREE.Vector3(local.x + this.comShift, local.y, local.z);
     const otherCar = other.car || null;
     if (otherCar) { this.lastAttacker = otherCar; this.lastAttackTime = simTime; }
-    if (this.isPlayer && otherCar && vImp > 4 && game.state === 'playing') { game.hitDirA = Math.atan2(nl.z, nl.x); game.hitDirT = simTime; game.hitDirS = clamp(dv / 18, 0.3, 1); } // which way the hit came from
+    if (this.isPlayer && otherCar && vImp > 4 && game.state === 'playing') { game.hitDirA = Math.atan2(nl.z, nl.x); game.hitDirT = simTime; game.hitDirS = clamp(dv / 18, 0.3, 1); if (navigator.vibrate && !document.hidden) navigator.vibrate(Math.min(120, Math.round(dv * 7))); } // which way the hit came from — and a buzz scaled to it on phones
 
     // Which face took the hit
     const zone = zoneOf(nl);
@@ -7872,7 +7872,7 @@ const game = {
     if (GAME_MODE === 'respawn' && MP.role === 'guest') { if (car.isPlayer) toast('WRECKED', 'bad'); else toast(`${car.name} is wrecked`); return; } // the host brings it back
     if (GAME_MODE === 'respawn' && MP.role !== 'guest') { // nobody is out: the wreck comes back in a few seconds
       car.respawnT = car.isPlayer || car.remote ? RESPAWN_HUMAN : RESPAWN_AI;
-      if (car.isPlayer) { toast('WRECKED', 'bad'); startReplay(car.body.position); const g = killer && !killer.wrecked ? killer : null; if (g && Math.random() < 0.6) barks.say(g, 'gloat', true); else barks.announce('youWrecked', {}, true); return; }
+      if (car.isPlayer) { toast('WRECKED', 'bad'); if (navigator.vibrate) navigator.vibrate(120); startReplay(car.body.position); const g = killer && !killer.wrecked ? killer : null; if (g && Math.random() < 0.6) barks.say(g, 'gloat', true); else barks.announce('youWrecked', {}, true); return; }
       if (killer && !killer.isPlayer && !killer.remote && Math.random() < 0.55) barks.say(killer, 'kill', true, { v: car.isPlayer ? 'you' : car.name, vcar: car.T.name, target: 'you', car: car.T.name });
       else if (Math.random() < 0.5) barks.say(car, 'wrecked', true, killer && !killer.isPlayer && killer.persona ? { v: killer.persona.nick, target: killer.persona.nick, car: killer.T.name } : undefined); else barks.announce('wreck', { v: car.name, vcar: car.T.name }, true);
       sfx.cheer(1);
@@ -7880,7 +7880,7 @@ const game = {
       return;
     }
     if (car.isPlayer) {
-      toast('WRECKED', 'bad'); startReplay(car.body.position); this.slowmo = Math.max(this.slowmo, 1.5); // your own death gets the slow motion your kills get
+      toast('WRECKED', 'bad'); if (navigator.vibrate) navigator.vibrate(120); startReplay(car.body.position); this.slowmo = Math.max(this.slowmo, 1.5); // your own death gets the slow motion your kills get
       const g = car.lastAttacker && !car.lastAttacker.wrecked ? car.lastAttacker : cars.find((c) => !c.isPlayer && !c.wrecked);
       if (g && Math.random() < 0.6) barks.say(g, 'gloat', true); else barks.announce('youWrecked', {}, true);
       this.endMatch(false); this.overTimer = 1.7; return;
