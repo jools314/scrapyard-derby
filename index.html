@@ -2020,10 +2020,24 @@ function addProp(shape, geo, mat, mass, x, y, z, yaw = 0, kind = 'metal', shadow
   props.push(prop);
   return body;
 }
+// THE GOLDEN CONE: one cone per match is gold underneath the orange. Knock it over and it shows.
+const goldMat = new THREE.MeshStandardMaterial({ color: 0xd8a920, roughness: 0.3, metalness: 0.85, emissive: 0x2a1e00 });
+function goldConeReveal(pr) {
+  if (!pr || !pr.golden || pr.goldRevealed) return false;
+  pr.goldRevealed = true;
+  const m = pr.mesh, p = pr.body.position;
+  m.userData.unbatched = true; m.layers.mask = 1; // out of the instanced batch: this cone is drawn on its own now
+  pr.own = true; m.material = goldMat.clone();
+  bits(p, BIT.cone, 8, 4, 6); bits(p, BIT.paper, 8, 4, 6); bits(p, goldMat, 6, 3, 5); // confetti: orange, paper and gold
+  if (player) { const v = clamp(1 - player.body.position.distanceTo(p) / 80, 0, 1); if (v > 0.03) { sfx.tone('square', 523.25, 523.25, 0.1 * v, 0.16); sfx.tone('square', 659.25, 659.25, 0.1 * v, 0.16, false, 0.12); sfx.tone('square', 783.99, 783.99, 0.1 * v, 0.18, false, 0.24); sfx.tone('square', 1046.5, 1046.5, 0.12 * v, 0.3, false, 0.36); } } // fanfare
+  if (game.state === 'playing') toast('✨ THE GOLDEN CONE!', 'cool');
+  return true;
+}
 // Props sound off and score when a car sends them flying
 function propCollide(e) {
   const other = e.body, me = e.target;
   if (me.gas && me.prop && Math.abs(e.contact.getImpactVelocityAlongNormal()) > 6 && MP.role !== 'guest') { GASQ.push({ pr: me.prop, t: 0.05 }); return; }
+  if (me.prop && me.prop.golden && Math.abs(e.contact.getImpactVelocityAlongNormal()) > 4) goldConeReveal(me.prop);
   if (!other.car) return;
   if (other.car.T.skid && me.prop && me.propKind !== 'concrete' && me.mass < 600 && !other.car.wrecked) { flattenProp(me.prop, other.car); return; }
   const v = Math.abs(e.contact.getImpactVelocityAlongNormal());
@@ -2182,7 +2196,9 @@ function buildProps() {
     for (let l = 0; l < 4; l++) addProp(tireShape, G.tire, M.tire, 22, x, 0.2 + l * 0.41, z, 0, 'rubber');
   }
   const coneShape = new CANNON.Cylinder(0.05, 0.3, 0.8, 8);
-  for (let i = 0; i < 12; i++) { addProp(coneShape, G.cone, M.cone, 3, -55 + i * 10, 0.4, 113, 0, 'plastic', false); addProp(coneShape, G.cone, M.cone, 3, -55 + i * 10, 0.4, 135, 0, 'plastic', false); }
+  const coneBodies = [];
+  for (let i = 0; i < 12; i++) { coneBodies.push(addProp(coneShape, G.cone, M.cone, 3, -55 + i * 10, 0.4, 113, 0, 'plastic', false)); coneBodies.push(addProp(coneShape, G.cone, M.cone, 3, -55 + i * 10, 0.4, 135, 0, 'plastic', false)); }
+  if (coneBodies.length) coneBodies[Math.random() * coneBodies.length | 0].prop.golden = true; // THE GOLDEN CONE: exactly one cone per match is gold under the orange — knocking it over is the only reveal
   const barrierShape = new CANNON.Box(new CANNON.Vec3(1.5, 0.45, 0.3));
   for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; addProp(barrierShape, G.barrier, M.barrier, 380, Math.cos(a) * 30, 0.45, Math.sin(a) * 30, -a + Math.PI / 2, 'concrete'); }
   const shellShape = new CANNON.Box(new CANNON.Vec3(2.1, 0.55, 0.9));
@@ -9571,7 +9587,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '78'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '79'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
@@ -11178,7 +11194,7 @@ const IDLE = { ms: 3 * 60 * 1000, last: performance.now(), on: !/[?&]noidle=1\b/
   } };
 for (const ev of ['keydown', 'pointerdown', 'pointermove', 'wheel', 'touchstart', 'touchmove']) addEventListener(ev, (e) => { if (e.isTrusted || window.__idleTest) IDLE.poke(); }, { capture: true, passive: true });
 setInterval(() => IDLE.check(), 5000);
-window.__derby = { AUTO, PLAYLOG, BOULDERS, get mapShapes() { return mapShapes; }, respawnCar: (o, t) => respawnCar(o, t), PHYS, cockpitEye: (c) => cockpitEye(c), wakeProp: (pr) => wakeProp(pr), addConcrete: (x, z, r, k) => addConcrete(x, z, r, k), igniteProp: (pr, t) => igniteProp(pr, t), cookBull: (bl, by, dt) => cookBull(bl, by, dt), hoseBull: (car, bl, p, f, dt) => hoseBull(car, bl, p, f, dt), DUCKS, tankerBoom: (p, c) => tankerBoom(p, c), CAR_TYPES, sfx, CANNON, barks, PERF, shells, NETLOG, nearHostAdd: () => nearHostAdd(), nearJoin: () => nearJoin(), JUMBO, BALL, BOLLARDS, GASQ, updateArenaPub: (dt) => updateArena(dt), CRUSHER, crushNow: () => crushNow(), applyNight: () => applyNight(), FIREWORKS, ARENA, CROWD, MP, QUALITY, applyQuality: (i) => applyQuality(i), MERGED, camera, updatePropActivity: (dt) => updatePropActivity(dt), renderer, scene, spawnFree: (x, z, r) => spawnFree(x, z, r), BULLS, updateBulls: (dt) => updateBulls(dt), updateShells, tilt, setTilt, get CRANE() { return CRANE; }, updateCrane: (dt) => updateCrane(dt), CONCRETE, THREE, craters, shells, pickups, barks, PERSONAS, TUNE, game, cars, S, world, CAR_TYPES, sfx, touch, drawGauge, get player() { return player; }, keys, startMatch, selectCar, setValue, debris, props, platformOf, get simTime() { return simTime; }, set simTime(v) { simTime = v; } }; // console tinkering + tests
+window.__derby = { AUTO, PLAYLOG, BOULDERS, get mapShapes() { return mapShapes; }, respawnCar: (o, t) => respawnCar(o, t), PHYS, cockpitEye: (c) => cockpitEye(c), wakeProp: (pr) => wakeProp(pr), addConcrete: (x, z, r, k) => addConcrete(x, z, r, k), igniteProp: (pr, t) => igniteProp(pr, t), cookBull: (bl, by, dt) => cookBull(bl, by, dt), hoseBull: (car, bl, p, f, dt) => hoseBull(car, bl, p, f, dt), DUCKS, goldConeReveal: (pr) => goldConeReveal(pr), tankerBoom: (p, c) => tankerBoom(p, c), CAR_TYPES, sfx, CANNON, barks, PERF, shells, NETLOG, nearHostAdd: () => nearHostAdd(), nearJoin: () => nearJoin(), JUMBO, BALL, BOLLARDS, GASQ, updateArenaPub: (dt) => updateArena(dt), CRUSHER, crushNow: () => crushNow(), applyNight: () => applyNight(), FIREWORKS, ARENA, CROWD, MP, QUALITY, applyQuality: (i) => applyQuality(i), MERGED, camera, updatePropActivity: (dt) => updatePropActivity(dt), renderer, scene, spawnFree: (x, z, r) => spawnFree(x, z, r), BULLS, updateBulls: (dt) => updateBulls(dt), updateShells, tilt, setTilt, get CRANE() { return CRANE; }, updateCrane: (dt) => updateCrane(dt), CONCRETE, THREE, craters, shells, pickups, barks, PERSONAS, TUNE, game, cars, S, world, CAR_TYPES, sfx, touch, drawGauge, get player() { return player; }, keys, startMatch, selectCar, setValue, debris, props, platformOf, get simTime() { return simTime; }, set simTime(v) { simTime = v; } }; // console tinkering + tests
 requestAnimationFrame(frame);
 window.__derby.IDLE = IDLE; window.__derby.TALK = TALK; window.__derby.DROP = DROP; window.__derby.SCORE = SCORE; window.__derby.UPDATE = UPDATE; window.__derby.TABENV = TABENV; window.__derby.PERFREP = PERFREP; // (test hooks)
 window.__derby.VR = VR; window.__derby.XRS = XRS; window.__derby.composer = composer;
