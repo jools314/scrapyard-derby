@@ -594,6 +594,7 @@
         <p class="label" style="margin:0">Multiplayer <span id="mpStatus" class="quiet"></span></p>
         <div class="mprow"><input id="mpNick" maxlength="14" placeholder="Your name" aria-label="Your name"><button id="btnFamily" type="button" class="join">Play together</button><button id="btnHost" type="button">Host with a link</button><button id="btnLeave" type="button" hidden>Leave</button><button id="btnNewCode" type="button" hidden>New room code</button></div>
         <div class="mprow" id="qcRow" hidden><span class="quiet">Say:</span><button type="button" data-qc="0">GG!</button><button type="button" data-qc="1">Ouch!</button><button type="button" data-qc="2">Nice hit!</button><button type="button" data-qc="3">Rematch?</button><button type="button" data-qc="4">Help!</button><button type="button" data-qc="5">One more!</button></div>
+        <div class="mprow" id="kickRow" hidden><span class="quiet">Kick:</span><select id="kickSel" aria-label="Player to kick"></select><button id="btnKick" type="button">Kick</button></div>
         <p id="famWho" class="quiet" style="margin:0" aria-live="polite"></p>
         <div class="mprow" id="nearRow" hidden><button id="btnNearHost" type="button">Add nearby player</button><button id="btnNearJoin" type="button">Join nearby</button><span class="quiet">No internet service: the phones scan each other's screens, then talk over your Wi-Fi.</span></div>
         <div id="mpGames" class="mprow"></div>
@@ -9036,7 +9037,7 @@ const MP = {
     if (this.lobby) this.lobby.presence({ host: this.code, nick: this.nick(), n: 0 });
     if (this.transport === 'peer' && !fam) { const url = location.origin + location.pathname + '?v=' + BUILD + '#join-' + (this.via === 'peerjs' ? 'p-' : '') + this.code; $('mpLink').value = url; $('mpShare').hidden = false; drawQR(url); MP.info(`Your game is live (${this.via === 'peerjs' ? 'backup server' : 'relay'}). Friends scan the QR code.`); this.status(`hosting · build ${BUILD} · ${this.via}`); }
     this.epoch = 1; this.room.presence({ host: 1, nick: this.nick() });
-    this.room.onPeers(() => { const n = this.guests().length; if (this.lobby) this.lobby.presence({ n }); $('mpInfo').textContent = n ? `Players in your game: ${this.guests().map((g) => g.presence.nick || 'Player').join(', ')}. Press Start when ready.` : 'Waiting for players… share this page link. Press Start to play anyway.'; });
+    this.room.onPeers(() => { const n = this.guests().length; if (this.lobby) this.lobby.presence({ n }); $('mpInfo').textContent = n ? `Players in your game: ${this.guests().map((g) => g.presence.nick || 'Player').join(', ')}. Press Start when ready.` : 'Waiting for players… share this page link. Press Start to play anyway.'; this.renderKick(); }); // R2-19: renderKick keeps the moderation picker current
     $('btnHost').hidden = true; $('btnFamily').hidden = true; $('btnLeave').hidden = false; $('btnNewCode').hidden = fam; $('qcRow').hidden = false; this.status(fam ? `hosting the family yard · build ${BUILD}` : this.transport === "peer" ? `hosting · build ${BUILD} · ${this.via}` : `hosting game ${this.code}`); this.renderGames(); // R2-39: a link-host may rotate the room code (the family yard's code is name-derived and does not rotate)
     $('mpInfo').textContent = fam ? 'You are hosting the family yard. Everyone else taps Play together. Press Start when ready.' : 'Waiting for players… share this page link. Press Start to play anyway.';
     if (fam) { this.famT0 = Date.now(); this.famNextProbe = 0; }
@@ -9062,14 +9063,25 @@ const MP = {
     this.room = null; const was = this.role; this.role = 'solo'; this.code = '';
     if (this.lobby) this.lobby.presence({ host: null });
     $('mpShare').hidden = true; if (location.hash.startsWith('#join-')) history.replaceState(null, '', location.pathname);
-    $('btnHost').hidden = false; $('btnFamily').hidden = false; $('btnLeave').hidden = true; $('btnNewCode').hidden = true; $('qcRow').hidden = true; $('btnStart').hidden = false; $('mpInfo').textContent = ''; this.status('online'); this.renderGames(); this.renderFam();
+    $('btnHost').hidden = false; $('btnFamily').hidden = false; $('btnLeave').hidden = true; $('btnNewCode').hidden = true; $('qcRow').hidden = true; $('kickRow').hidden = true; $('btnStart').hidden = false; $('mpInfo').textContent = ''; this.status('online'); this.renderGames(); this.renderFam();
     if (was === 'guest') { game.state = 'menu'; resetMatch(); el.menu.hidden = false; }
   },
   guests() { return this.room ? this.room.peers().filter((p) => !p.sameTab && p.presence && !p.presence.host) : []; },
   players(list) { // guests, one connection per player: after a reload the old connection can linger a while, the newest one is the player
     const out = [], newest = new Map();
     for (const g of list || this.guests()) { const d = g.presence.did; if (!d) { out.push(g); continue; } const o = newest.get(d); if (!o || (g.presence.jt || 0) > (o.presence.jt || 0)) newest.set(d, g); }
-    return out.concat([...newest.values()]);
+    return out.concat([...newest.values()]).filter((g) => !this.isBlocked(g)); // R2-19: a kicked player gets no car and no roster seat (and dropStale then closes their connection)
+  },
+  isBlocked(g) { const b = this.blocked || (this.blocked = new Set()); return b.has(g.peer) || (g.presence && g.presence.did && b.has(g.presence.did)); }, // R2-19: session-only block list (device id when known, else the connection)
+  kick(peer) { // R2-19: host moderation — remove a player for the rest of this session
+    if (this.role !== 'host') return; const g = this.guests().find((x) => x.peer === peer); if (!g) return;
+    const b = this.blocked || (this.blocked = new Set()); b.add(peer); if (g.presence.did) b.add(g.presence.did);
+    NETLOG.incident('host', `kicked ${g.presence.nick || 'a player'} (blocked for this session)`); toast(`${String(g.presence.nick || 'Player').toUpperCase()} KICKED`, 'cool');
+    if (this.room && this.room.drop) this.room.drop(peer); this.renderKick();
+  },
+  renderKick() { // R2-19: keep the Kick picker filled with whoever is currently in the yard
+    const sel = $('kickSel'); if (!sel) return; const gs = this.role === 'host' ? this.players() : [];
+    $('kickRow').hidden = !gs.length; sel.innerHTML = gs.map((g) => `<option value="${g.peer}">${(g.presence.nick || 'Player').replace(/</g, '')}</option>`).join('');
   },
   sendWant() { if (this.room) this.room.presence({ nick: this.nick(), want: playerType, did: MY_DID, jt: this.joinT || 0 }); }, // did: this device (survives reloads); jt: when this connection joined (newest wins)
   dropStale() { // (host) a player who reloaded is back on a new connection: hang up on the old one, so nobody counts, meshes with or elects a ghost
@@ -9681,6 +9693,7 @@ function mpShim() {
 $('btnHost').addEventListener('click', () => MP.host());
 $('btnNewCode').addEventListener('click', async () => { if (MP.role !== 'host' || MP.family) return; await MP.leave(true); await MP.host(); toast('NEW ROOM CODE — SHARE THE NEW LINK', 'cool'); }); // R2-39: retire a shared-out code: the old room closes, a fresh code and link are issued; guests rejoin via the new link
 document.querySelectorAll('#qcRow [data-qc]').forEach((b) => b.addEventListener('click', () => MP.qcSend(+b.dataset.qc))); // R2-26
+$('btnKick').addEventListener('click', () => { const v = $('kickSel').value; if (v) MP.kick(v); }); // R2-19
 $('btnFamily').addEventListener('click', () => MP.famJoin());
 $('famName').value = famName(); $('famName').addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter') $('btnFamName').click(); });
 $('famMotd').value = famMotd();
