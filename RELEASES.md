@@ -4,6 +4,7 @@ Newest first. Every push to `main` goes live; each one bumps `BUILD` and adds a 
 
 | build | date | highlights |
 |---|---|---|
+| 84 | 2026-11-15 | It Remembers: when a burger's time expires and a fresh bull wanders back in, one time in ten it returns wearing a sesame-seed bun as a hat. It says nothing. It doesn't have to. The hat stays until that bull is cooked or the match ends. Test: tests/remembers.js |
 | 83 | 2026-11-15 | Smash Burger: a bull-burger that goes into the crusher, or is caught under the Bulldozer's blade when it slams down, comes out wide, flat and proud on a little paper tray — and still counts as a burger everywhere burgers count. Test: tests/smash.js |
 | 82 | 2026-11-15 | Crusher Confetti: crush a cardboard box inside the press and the crusher erupts confetti out of its top vent like a party popper — 36 coloured scraps, particles only, inside the perf budget. Test: tests/confetti.js |
 | 81 | 2026-11-15 | Honk Back: honk at a bull (within earshot, ~26 m) and it answers with a moo pitched like your horn; honk again within a few seconds and it harmonises a fifth up. Sound only — the bull's own moo at a set pitch — no new lines. Test: tests/honkback.js |

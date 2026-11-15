@@ -41,6 +41,7 @@ quick() {
   t honkback 600 "HONKBACK PASS"
   t confetti 600 "CONFETTI PASS"
   t smash 600 "SMASH PASS"
+  t remembers 600 "REMEMBERS PASS"
 }
 release() {
   quick
