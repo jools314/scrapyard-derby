@@ -7217,6 +7217,7 @@ for (const [type, more] of Object.entries(CAST_EXTRA)) { const P = type === 'cru
 const ROAST_BY = new Map(); // speaker persona -> target nick -> [lines]
 for (const [type, targets] of Object.entries(ROASTS)) { const P = type === 'cruiser' ? COP : CAR_CAST[type]; if (!P) continue; const m = new Map(); for (const [tt, line] of Object.entries(targets)) { const T = tt === 'cruiser' ? COP : CAR_CAST[tt]; if (T) m.set(T.nick, [].concat(line)); } ROAST_BY.set(P, m); }
 Object.assign(GENERIC, { onFire: ['I\'m on fire! I\'M ON FIRE!', 'Hot hot hot!', 'Somebody hose me down!', 'My engine is a barbecue!'], rodeo: ['Yee-haw! Ride \'em!', 'Gotcha, bull!', 'Rodeo time!'], burger: ['Flame-grilled!', 'Medium rare!', 'Who ordered the bull burger?'], rival: ['Hey {v}! Get out of my way!', '{v}, your {vcar} is a joke!', 'I\'m coming for you, {v}!'], respawn: ['I\'m back!', 'Miss me?', 'Round two!'], kill: ['So long, {v}!', 'Got you, {v}!', 'Ha! {v} is out!'] });
+try { const H = JSON.parse(localStorage.getItem('derby-heard-v1') || '[]'), cut = Date.now() - 3 * 864e5; window.__heardSeed = H.filter((x) => x[1] > cut).map((x) => x[0]); } catch (e) { window.__heardSeed = []; } // R2-62: lines heard in the last 3 days — seeded into barks.used just below, so a new session does not open with the same roasts as yesterday
 const barks = {
   lastT: -99, el: null, voices: [],
   init() {
@@ -7262,7 +7263,7 @@ const barks = {
     const fresh = pool.filter((l) => !this.used.has(l)), line = fresh.length ? fresh[Math.random() * fresh.length | 0] : ev === 'roast' ? pool[Math.random() * pool.length | 0] : null; // (close-pass roasts may repeat: the per-pair cooldown spaces them)
     if (line) this.remember(line); return line;
   },
-  remember(line) { this.used.delete(line); this.used.add(line); if (this.used.size > 600) this.used.delete(this.used.values().next().value); }, // (the oldest lines become sayable again)
+  remember(line) { this.used.delete(line); this.used.add(line); if (this.used.size > 600) this.used.delete(this.used.values().next().value); if (((this._hn = (this._hn || 0) + 1) % 8) === 0) { try { const H = JSON.parse(localStorage.getItem('derby-heard-v1') || '[]'); H.push([line, Date.now()]); const cut = Date.now() - 3 * 864e5; localStorage.setItem('derby-heard-v1', JSON.stringify(H.filter((x) => x[1] > cut).slice(-300))); } catch (e) {} } }, // (the oldest lines become sayable again) · R2-62: every 8th line is also persisted (3-day window, last 300) so the NEXT session starts with them already 'used'
   reuse(src, P, vars) { if (!src || !src.length) return null; let line = this.fill(src[Math.random() * src.length | 0], P, vars); line = line.charAt(0).toUpperCase() + line.slice(1); this.remember(line); this.stats = this.stats || { sent: 0, started: 0, errors: 0, resets: 0, lastVoice: '' }; this.stats.repeats = (this.stats.repeats || 0) + 1; return line; },
   announce(ev, vars, force) {
     const now = performance.now() / 1000;
@@ -7634,6 +7635,7 @@ function roastTick() {
   barks.say(a, 'roast', false, { v: b.persona.nick, target: b.persona.nick, car: b.T.name });
   if (a.lastBark !== t0) { ROAST_PAIR.set(k, now); ROAST_PAIR.set(b.persona.nick + '|' + a.persona.nick, now); } // (both ways: one roast per pair per cooldown)
 }
+for (const l of window.__heardSeed || []) barks.used.add(l); // R2-62: seed last-3-days' heard lines as already-used (see the __heardSeed load above barks)
 setInterval(() => { try { roastTick(); } catch (e) {} }, 500);
 setInterval(() => { try { VCLIP.tick(); } catch (e) {} }, 2000);
 
