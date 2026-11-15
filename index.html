@@ -1737,15 +1737,15 @@ function crushNow() {
   }
 }
 function updateCrusher(dt) {
-  const C = CRUSHER; C.t -= dt;
+  const C = CRUSHER; C.t -= dt; if (C.frenzy) C.t -= dt; // R2-65: crusher frenzy — the state machine's timers run at double rate (and the slam falls faster, below)
   if (MP.role !== 'guest') {
     let occ = false; for (const c of cars) if (crusherInside(c.body.position)) { occ = true; break; }
     C.occ = occ ? C.occ + dt : 0;
     if (C.state === 'idle') { C.y = Math.min(C.top, C.y + dt * 2.2); if ((C.occ > 0.6 || C.t <= 0) && game.state !== 'menu') { C.state = 'warn'; C.t = 1.3; } }
     else if (C.state === 'warn') { if (C.t <= 0) { C.state = 'slam'; C.jam = false; } }
     else if (C.state === 'slam') { let floorY = C.low; for (const c of cars) if (c.T.skid && crusherInside(c.body.position)) floorY = Math.max(floorY, c.body.position.y + c.T.H + 0.9);
-      C.y = Math.max(floorY, C.y - dt * 26); if (C.y <= floorY + 0.01) { crushNow(); C.state = 'hold'; C.t = 1.2; } }
-    else if (C.state === 'hold') { if (C.t <= 0) { C.state = 'idle'; C.t = rand(12, 20); } }
+      C.y = Math.max(floorY, C.y - dt * (C.frenzy ? 40 : 26)); if (C.y <= floorY + 0.01) { crushNow(); C.state = 'hold'; C.t = 1.2; } } // R2-65: frenzy slam speed
+    else if (C.state === 'hold') { if (C.t <= 0) { C.state = 'idle'; C.t = C.frenzy ? rand(4, 7) : rand(12, 20); } } // R2-65: frenzy rests are short
     if (C.state === 'slam' || C.state === 'hold') for (const c of cars) if (crusherInside(c.body.position) && !c.T.skid && c.body.position.y > C.y - 0.6) { c.body.position.y = Math.max(0.6, C.y - 0.6); c.body.velocity.y = Math.min(0, c.body.velocity.y); }
   }
   // visuals: plate, ram, warning lamps, hiss and clank
@@ -6722,6 +6722,8 @@ const ANN_LINES = {
   bentGun: ['{a} just bent {v}\'s gun like a drinking straw!', 'That cannon now shoots round corners, folks!', '{a} tied a knot in the TANK! Somebody get a picture!', 'That barrel is a pretzel now! {v} could not hit the yard from inside it!'],
   turretOff: ['KABOOM! {a} fired a bent gun and the TURRET just left the building!', 'The turret is flying! {a} has a convertible now!', 'Rule one of tanks, {a}: never fire a bent barrel!'],
   barrelBurst: ['KABOOM! {a} fired a bent gun and it peeled open like a banana!', 'The gun just blew up in {a}\'s face! That is going to sting!', 'Note to {a}: never fire a bent barrel!'],
+  evtWarn: ['Something is coming in five seconds: {e}. You have been warned.', 'Hold on to your steering wheels \u2014 {e} in five.', 'The yard is about to change: {e}, five seconds out.', 'Five seconds! {e}! Kev has seen the schedule and he is grinning.'], // R2-65
+  evtStart: ['{e}! Thirty seconds of beautiful nonsense!', '{e} is GO! Make it count!', '{e}! The yard goes mad for thirty seconds!', '{e}! This is not a drill, this is a derby!'], // R2-65
   streak: ['{n} wins on the bounce for the home favourite. The yard is starting to believe.', '{n} straight! Somebody check that car for magnets.', 'A streak of {n} and counting \u2014 the rest of the field is racing for second.', 'Win number {n} in a row if it lands today. No pressure.'], // R2-53: called at match start when a live win streak of 3+ walks in
   grudge: ['{a} has put {v} in the wall {n} times now. That is not racing, that is a hobby.', '{n} times, {a}! {v}, love, at some point it stops being bad luck and starts being a pattern.', 'Again! {a} on {v} \u2014 {n} and counting. Somebody separate these two.', '{a} versus {v} is the oldest story in this yard: {n} wrecks and counting.'], // R2-62: cross-match memory \u2014 fired from game.onWreck when the R2-44 store says a pairing has turned one-sided (Kev even, Shazza odd, as with every pool)
   sandwich: ['It\'s a {v} sandwich! Hold the mayo!', 'Squished in the middle like the last biscuit in the packet!', 'SANDWICH! {v} just got pressed like a panini!', 'Ooh, {v} caught in the middle! That is a club sandwich!'],
@@ -7645,6 +7647,7 @@ function roastTick() {
   if (a.lastBark !== t0) { ROAST_PAIR.set(k, now); ROAST_PAIR.set(b.persona.nick + '|' + a.persona.nick, now); } // (both ways: one roast per pair per cooldown)
 }
 for (const l of window.__heardSeed || []) barks.used.add(l); // R2-62: seed last-3-days' heard lines as already-used (see the __heardSeed load above barks)
+setInterval(() => { try { EVT.tick(); } catch (e) {} }, 1000); // R2-65
 setInterval(() => { try { roastTick(); } catch (e) {} }, 500);
 setInterval(() => { try { VCLIP.tick(); } catch (e) {} }, 2000);
 
@@ -7851,6 +7854,23 @@ const game = {
     this.overTimer = won ? 2 : 1.2;
     $('overEyebrow').textContent = won ? 'Last car running' : 'Match over';
     $('overTitle').textContent = won ? 'Yard cleared' : 'Wrecked';
+  },
+};
+/* R2-65: mid-match dynamic events. A scheduler (1 s tick) warns 5 s ahead via the announcers, then mutates the match for 30 s. Double points is implemented at ONE choke point: game.score becomes an accessor, and positive deltas are multiplied while evtMul > 1 — every faucet (wrecks, props, bonuses, addScore) is covered without touching their call sites, and resets (score = 0) pass through as non-positive deltas. */
+Object.defineProperty(game, 'score', { get() { return this._score || 0; }, set(v) { const d = v - (this._score || 0); this._score = (this._score || 0) + (d > 0 && (this.evtMul || 1) > 1 ? d * this.evtMul : d); } });
+game.evtMul = 1;
+const EVT_KINDS = [
+  { id: 'double', name: 'DOUBLE POINTS', apply() { game.evtMul = 2; }, clear() { game.evtMul = 1; } },
+  { id: 'frenzy', name: 'CRUSHER FRENZY', apply() { CRUSHER.frenzy = true; }, clear() { CRUSHER.frenzy = false; } },
+  { id: 'stampede', name: 'BULL STAMPEDE', apply() { const targets = cars.filter((c) => !c.wrecked); for (const bl of BULLS) if (bl.state !== 'burger' && bl.state !== 'down' && targets.length) { bl.angry = targets[(Math.random() * targets.length) | 0]; bl.grudgeT = simTime + 30; } }, clear() {} },
+];
+const EVT = { cur: null, until: 0, next: 40, warned: false, pending: null,
+  tick() {
+    if (game.state !== 'playing' || MP.role === 'guest') { if (this.cur) { this.cur.clear(); this.cur = null; game.evtMul = 1; } return; } // host/solo run the scheduler; guests receive the effects through snapshots
+    const t = game.time;
+    if (this.cur && t > this.until) { this.cur.clear(); this.cur = null; toast('EVENT OVER — BACK TO NORMAL', 'cool'); this.next = t + 45 + Math.random() * 30; }
+    if (!this.cur && !this.warned && t > this.next - 5) { this.warned = true; this.pending = EVT_KINDS[(Math.random() * EVT_KINDS.length) | 0]; barks.announce('evtWarn', { e: this.pending.name }, true); toast(`⚠️ INCOMING: ${this.pending.name}`, 'cool'); }
+    if (!this.cur && t >= this.next) { const k = this.pending || EVT_KINDS[0]; this.pending = null; this.warned = false; this.cur = k; this.until = t + 30; k.apply(); barks.announce('evtStart', { e: k.name }, true); toast(`🎉 ${k.name} — 30 SECONDS!`, 'cool'); }
   },
 };
 
