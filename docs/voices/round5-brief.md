@@ -14,11 +14,11 @@ Work in the repo now: branch `claude/voices-round5` off `main` of /home/user/der
 ## Credit budget (owner decision, 2026-11-15)
 ElevenLabs Starter plan: 40,000 credits a month, reset on the 14th. On 2026-11-15, 13,617 were left. Going over is impossible: requests just fail.
 - **Before every render**, check `GET /v1/user/subscription` (`character_limit - character_count`) and never start a batch that doesn't fit. `render.mjs` prints the estimate first.
-- **Use `eleven_flash_v2_5` (half the credits per character) for whole new characters:** Emeka, Bogdan, Ragnar, Maxine. Each character's whole set is on one model, so they sound consistent.
+- **Model: `eleven_flash_v2_5` (half the credits per character) for all renders from now on (owner decision 2026-11-15)**, once the owner OKs the Flash samples (Kev, same line on both models). Keep `mp3_44100_64`, like the existing clips. Whole new characters (Emeka, Bogdan, Ragnar, Maxine) are on Flash only, so each sounds consistent.
 - **Order:**
   1. Emeka, all lines (~2,200 credits on Flash).
   2. Bogdan, Ragnar and Maxine, all lines (~6,500).
-  3. About 40 new lines each for Kev and Shazza on `eleven_multilingual_v2`, to match their existing clips (~3,600).
+  3. About 40 new lines each for Kev and Shazza on Flash (~1,800), if the owner hears no clash next to their existing v2 lines.
   4. The 15 new lines per driver: write them now and render after the 14 December reset. Until then they show as subtitles.
 - **Voice slots are 10/10:** delete Raju's voice before saving Emeka's.
 - Stop with ~500 credits to spare, and report what's left.
