@@ -613,6 +613,9 @@
       <p id="streakLine" class="quiet" style="margin:0"></p>
       <p id="chalLine" class="quiet" style="margin:0"></p>
       <p id="weekLine" class="quiet" style="margin:0"></p>
+      <p style="margin:8px 0 0"><button id="btnCareer" type="button">Career &amp; match history</button></p>
+      <div id="careerPanel" hidden></div>
+      <div id="historyPanel" hidden></div>
       <p class="quiet" style="margin:0">Green wrenches repair you and refit a lost wheel; blue canisters refill nitro. Bright, glowing junk flies when you hit it. Dark objects are heavy and shove back. Hazard stripes mean solid: steer around.</p>
       <details>
         <summary>Controls</summary>
@@ -8209,6 +8212,24 @@ function carUsage() { // R2-55: per-car usage from the stored play-log records (
   const out = {}; try { for (const r of PLAYLOG.matches()) for (const life of r.me || []) { const u = out[life.car] || (out[life.car] = { lives: 0, secs: 0 }); u.lives++; u.secs += life.secs || 0; } } catch (e) {}
   return out;
 }
+function careerRender() { // R2-43: the lifetime career screen, aggregated from the stored PLAYLOG match records — the perf dialog had the data; this is the player-facing version, in the garage where it belongs
+  const elc = $('careerPanel'); if (!elc) return;
+  let recs = []; try { recs = PLAYLOG.matches().filter((r) => (r.game || 0) >= 3); } catch (e) {}
+  if (!recs.length) { elc.innerHTML = '<p class="quiet">No finished matches recorded yet — your career starts with the first full match.</p>'; return; }
+  const wins = recs.filter((r) => /Yard cleared|You win!/.test(r.ended || '')).length;
+  const wrecks = recs.reduce((a, r) => a + (r.me || []).reduce((x, l) => x + (l.k || 0), 0), 0);
+  const mins = Math.round(recs.reduce((a, r) => a + (r.game || 0), 0) / 60);
+  const best = recs.reduce((a, r) => ((r.score || 0) > (a.score || 0) ? r : a), recs[0]);
+  const usage = carUsage(); const fav = Object.entries(usage).sort((a, b) => b[1].secs - a[1].secs)[0];
+  const nm = rivalNemesis();
+  const F = firstsLoad(); const fl = { wreck: 'First wreck', win: 'First win', k1000: 'First 1,000-point match' };
+  const firsts = Object.keys(fl).filter((k) => F[k]).map((k) => `${fl[k]} — ${F[k]}`).join(' · ');
+  const perCar = Object.entries(usage).sort((a, b) => b[1].secs - a[1].secs).map(([k, u]) => { const wk = recs.reduce((a, r) => a + (r.me || []).filter((l) => l.car === k).reduce((x, l) => x + (l.k || 0), 0), 0); return `<div class="lb-r"><span class="lb-name">${(CAR_TYPES[k] || {}).name || k}</span><span class="lb-p">${u.lives} driven · ${wk} wrecks</span></div>`; }).join('');
+  elc.innerHTML = `<div class="lb-h"><span>Career</span><span>${recs.length} matches</span></div>
+    <p class="quiet" style="margin:4px 0">Wins ${wins} · wrecks dealt ${wrecks} · ${mins} min in the yard</p>
+    <p class="quiet" style="margin:4px 0">Best match: ${(best.score || 0).toLocaleString()} pts (${best.mode || 'elim'}, ${String(best.start || '').slice(0, 10)})${fav ? ` · favourite car: ${(CAR_TYPES[fav[0]] || {}).name || fav[0]}` : ''}${nm ? ` · nemesis: ${nm.name} (wrecked you ${nm.n}×)` : ''}</p>
+    ${firsts ? `<p class="quiet" style="margin:4px 0">🏆 ${firsts}</p>` : ''}${perCar}`;
+}
 function buildGarage() {
   garage.innerHTML = '';
   const usage = carUsage(); // R2-55
@@ -8330,6 +8351,7 @@ const SONGS = [['', "your car's"], ['rock', 'Rock'], ['hillbilly', 'Hillbilly'],
 let songI = 0; try { songI = Math.max(0, SONGS.findIndex((x) => x[0] === localStorage.getItem('derby-song'))); } catch (e) {}
 function applySong() { const [k, name] = SONGS[songI]; sfx.songPick = k || null; sfx.setStyle(k || MUSIC_FOR[player ? player.type : 'outrider'] || 'rock', true); $('btnSong').textContent = 'Song: ' + name; try { localStorage.setItem('derby-song', k); } catch (e) {} }
 $('btnSong').addEventListener('click', (e) => { e.currentTarget.blur(); songI = (songI + 1) % SONGS.length; applySong(); if (!sfx.musicOn) toggleMusic(); });
+$('btnCareer').addEventListener('click', () => { const p = $('careerPanel'), hp = $('historyPanel'), open = p.hidden; p.hidden = !open; hp.hidden = !open; if (open) { careerRender(); if (typeof historyRender === 'function') historyRender(); } }); // R2-43 (+ R2-49's history in the same panel)
 setTimeout(applySong, 0);
 $('btnVoiceTest').addEventListener('click', () => { // speaks right inside the tap (browsers only allow speech from a user gesture) and reports exactly what the speech engine did
   const ss = window.speechSynthesis, vs = ss ? ss.getVoices() : [];
