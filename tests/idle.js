@@ -1,0 +1,24 @@
+// left in the foreground with nobody playing -> silent idle autoplay; any input resets the timer; not in multiplayer; tap gives it back; no wake lock
+const { open } = require('./harness');
+(async () => { const fails = []; const ok = (m, c, d) => { console.log((c ? 'PASS ' : 'FAIL ') + m, d ? JSON.stringify(d) : ''); if (!c) fails.push(m); };
+  const { browser, page, errors } = await open({ viewport: { width: 900, height: 560 } });
+  await page.evaluate(() => { window.__noRender = true; window.__idleTest = true; const I = __derby.IDLE; I.ms = 6000; I.poke(); });
+  await page.waitForTimeout(3000); await page.mouse.move(200, 200); await page.mouse.move(220, 210);
+  await page.waitForTimeout(4500);
+  ok('input resets the idle timer (no takeover 7.5 s after start when input came at 3 s)', !(await page.evaluate(() => __derby.AUTO.on)));
+  await page.waitForFunction(() => __derby.AUTO.on, null, { timeout: 60000 }).catch(() => {});
+  const st = await page.evaluate(() => ({ on: __derby.AUTO.on, idle: __derby.AUTO.idle, muted: __derby.sfx.muted, wl: !!__derby.AUTO.wl, banner: document.getElementById('apBanner').textContent }));
+  ok('nobody playing -> idle autoplay starts, silent, no wake lock', st.on && st.idle && st.muted && !st.wl, st);
+  await page.waitForFunction(() => /IDLE AUTOPLAY/.test(document.getElementById('apBanner').textContent), null, { timeout: 60000 }).catch(() => {});
+  ok('banner says idle autoplay', /IDLE AUTOPLAY · BUILD/.test(await page.evaluate(() => document.getElementById('apBanner').textContent)));
+  await page.waitForTimeout(1500); await page.mouse.click(450, 280); await page.waitForTimeout(800);
+  const back = await page.evaluate(() => ({ on: __derby.AUTO.on, idle: __derby.AUTO.idle, state: __derby.game.state }));
+  ok('a tap gives the game back', !back.on && !back.idle, back);
+  await page.evaluate(() => { __derby.game.paused = true; __derby.IDLE.last = performance.now() - 60000; }); await page.waitForTimeout(7000);
+  ok('a paused game stays paused', !(await page.evaluate(() => __derby.AUTO.on)));
+  await page.evaluate(() => { __derby.game.paused = false; });
+  await page.evaluate(() => { __derby.MP.role = 'host'; __derby.IDLE.last = performance.now() - 60000; }); await page.waitForTimeout(6000);
+  ok('never takes over a multiplayer game', !(await page.evaluate(() => __derby.AUTO.on)));
+  await page.evaluate(() => { __derby.MP.role = 'solo'; });
+  const pe = errors.filter((e) => !e.includes('ERR_FAILED')); ok('no page errors', pe.length === 0, pe.slice(0, 3));
+  await browser.close(); console.log(fails.length ? 'IDLE FAIL' : 'IDLE PASS'); process.exit(fails.length ? 1 : 0); })();

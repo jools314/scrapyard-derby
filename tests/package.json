@@ -1,0 +1,15 @@
+{
+  "name": "scrapyard-derby-tests",
+  "private": true,
+  "description": "Browser tests for Scrapyard Derby (Playwright + SwiftShader). See ../CONTRIBUTING.md. Playwright itself is not listed: install it once (npm i -g playwright or npm i playwright) and run npx playwright install chromium.",
+  "scripts": {
+    "quick": "bash run.sh quick",
+    "release": "bash run.sh release"
+  },
+  "dependencies": {
+    "cannon-es": "0.20.0",
+    "peerjs": "^1.5.4",
+    "qrcode-generator": "1.4.4",
+    "three": "0.160.0"
+  }
+}

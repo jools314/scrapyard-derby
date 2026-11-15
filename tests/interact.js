@@ -1,0 +1,46 @@
+// Every weapon × object combination we promise, checked one at a time in a fresh solo round with no AI.
+const { open } = require('./harness');
+const SCEN = [
+  ['flamethrower sets a crate on fire', 'sandflea', async () => { const D = __derby, p = D.player, c = place(pick((o) => o.body.propKind === 'wood'), 6); await fire(1.2); return { ok: c.fireT > 0, fireT: +(c.fireT || 0).toFixed(1) }; }],
+  ['fire spreads crate to crate, then chars', 'outrider', async () => { const D = __derby, a = place(pick((o) => o.body.propKind === 'wood'), 12), b = place(pick((o) => o.body.propKind === 'wood' && o !== a), 13.6); D.igniteProp(a, 2); await waitG(5); const spread = b.fireT > 0 || b.charred; await waitG(6); return { ok: spread && a.charred, spread, aCharred: !!a.charred }; }],
+  ['water puts out a burning crate', 'firetruck', async () => { const D = __derby, c = place(pick((o) => o.body.propKind === 'wood'), 12); D.igniteProp(c, 30); await waitG(0.3); const before = c.fireT; await fire(1.5); return { ok: before > 0 && !(c.fireT > 0), before: +before.toFixed(1), after: +(c.fireT || 0).toFixed(1) }; }],
+  ['minigun sets off a gas bottle', 'hellbender', async () => { const D = __derby, g = place(pick((o) => o.body.gas), 16); await fire(2.4); await waitG(1.5); return { ok: !D.props.includes(g), gone: !D.props.includes(g) }; }],
+  ['minigun holes an oil drum: it leaks', 'hellbender', async () => { const D = __derby, n0 = D.CONCRETE.list.filter((x) => x.kind === 'oil').length, d = place(pick((o) => o.body.mass === 90), 16); await fire(2.4); const n1 = D.CONCRETE.list.filter((x) => x.kind === 'oil').length; return { ok: !!d.leaking && n1 > n0, leaking: !!d.leaking, slicks: n1 - n0 }; }],
+  ['shoot a bull: it charges the shooter', 'hellbender', async () => { const D = __derby, bl = placeBull(18); await fire(1.6); return { ok: bl.angry === D.player && (bl.state === 'paw' || bl.state === 'charge' || bl.state === 'proud'), state: bl.state, angry: bl.angry === D.player }; }],
+  ['propane blast sends a bull flying', 'camper', async () => { const D = __derby, bl = placeBull(26); let maxY = 0; await fire(0.2); const t0 = D.game.time; while (D.game.time - t0 < 4) { await sleep(30); maxY = Math.max(maxY, bl.body.position.y); if (bl.state !== 'down') bl.body.position.set(bl.body.position.x, bl.body.position.y, bl.body.position.z); } return { ok: maxY > 2.2, maxY: +maxY.toFixed(1), state: bl.state }; }],
+  ['flamethrower: bull becomes a burger', 'sandflea', async () => { const D = __derby, bl = placeBull(6); await fire(2.5, () => bl.body.position.set(D.player.body.position.x + D.player.fwd.x * 6, bl.body.position.y, D.player.body.position.z + D.player.fwd.z * 6)); return { ok: bl.state === 'burger', state: bl.state }; }],
+  ['harpoon a bull: rodeo, reeled in', 'outrider', async () => { const D = __derby, bl = placeBull(18), d0 = dist(bl); await fire(0.2); const hooked = !!(D.player.cable && D.player.cable.bull === bl); await waitG(2); return { ok: hooked && dist(bl) < d0 - 3, hooked, before: +d0.toFixed(1), after: +dist(bl).toFixed(1) }; }],
+  ['harpoon a barrel: reeled in', 'outrider', async () => { const D = __derby; for (const bl of D.BULLS) bl.body.position.set(-120, 1.3, -120); const b = place(pick((o) => o.body.mass === 90), 16), d0 = distB(b.body); await fire(0.2); const hooked = !!(D.player.cable && D.player.cable.t && D.player.cable.t.body === b.body); await waitG(2); return { ok: hooked && distB(b.body) < d0 - 3, hooked, before: +d0.toFixed(1), after: +distB(b.body).toFixed(1) }; }],
+  ['bull on an oil slick slips and spins', 'outrider', async () => { const D = __derby, bl = placeBull(20); const q = bl.body.position; D.addConcrete(q.x, q.z, 4, 'oil'); D.CONCRETE.list[D.CONCRETE.list.length - 1].t = 5; bl.state = 'charge'; bl.t = 3; bl.target = D.player; bl.body.velocity.set(8, 0, 0); let slipped = false; const t0 = D.game.time; while (D.game.time - t0 < 1.5) { await sleep(30); if (bl.state === 'down') slipped = true; } return { ok: slipped, slipped }; }],
+  ['bull in wet concrete gets stuck', 'outrider', async () => { const D = __derby, bl = placeBull(20); const q = bl.body.position; D.addConcrete(q.x, q.z, 3, 'concrete'); D.CONCRETE.list[D.CONCRETE.list.length - 1].t = 5; bl.state = 'walk'; bl.t = 5; await waitG(1); const sp = Math.hypot(bl.body.velocity.x, bl.body.velocity.z); return { ok: bl.stuckT > 0 && sp < 1, stuckT: +(bl.stuckT || 0).toFixed(1), speed: +sp.toFixed(2) }; }],
+  ['burning fuel lights a crate', 'outrider', async () => { const D = __derby, c = place(pick((o) => o.body.propKind === 'wood'), 14); const q = c.body.position; D.addConcrete(q.x, q.z, 3, 'fuel'); const pd = D.CONCRETE.list[D.CONCRETE.list.length - 1]; pd.t = 5; pd.burning = 10; await waitG(1.2); return { ok: c.fireT > 0, fireT: +(c.fireT || 0).toFixed(1) }; }],
+  ['bull standing in burning fuel cooks', 'outrider', async () => { const D = __derby, bl = placeBull(20); const q = bl.body.position; D.addConcrete(q.x, q.z, 4, 'fuel'); const pd = D.CONCRETE.list[D.CONCRETE.list.length - 1]; pd.t = 5; pd.burning = 20; bl.state = 'graze'; bl.t = 30; const t0 = D.game.time; while (D.game.time - t0 < 5 && bl.state !== 'burger') { await sleep(30); bl.body.position.set(pd.x, bl.body.position.y, pd.z); } return { ok: bl.state === 'burger', state: bl.state }; }],
+  ['water cools a cooking bull', 'firetruck', async () => { const D = __derby, bl = placeBull(12); bl.cook = 0.9; bl.state = 'graze'; bl.t = 30; await fire(0.8); return { ok: (bl.cook || 0) < 0.1 && bl.state !== 'burger', cook: +(bl.cook || 0).toFixed(2) }; }],
+  ['tanker blast sets the yard alight', 'outrider', async () => { const D = __derby, cs = [place(pick((o) => o.body.propKind === 'wood'), 20), place(pick((o) => o.body.propKind === 'cardboard' || o.body.propKind === 'plastic'), 22)]; const p = D.player.body.position, f = D.player.fwd; D.tankerBoom(new D.CANNON.Vec3(p.x + f.x * 24, 1, p.z + f.z * 24), { name: 'test' }); await waitG(0.5); return { ok: cs.every((c) => c.fireT > 0 || !D.props.includes(c)), burning: cs.map((c) => +(c.fireT || 0).toFixed(1)) }; }],
+];
+(async () => {
+  const { browser, page, errors } = await open({ viewport: { width: 900, height: 600 } });
+  await page.waitForTimeout(1500);
+  const out = [];
+  for (const [name, car, fn] of SCEN) {
+    if (process.env.ONLY && !name.includes(process.env.ONLY)) continue;
+    await page.evaluate((t) => { const nm = __derby.CAR_TYPES[t].name; [...document.querySelectorAll('#garage button')].find((b) => b.textContent.includes(nm)).click(); __derby.S.aiCount = 0; __derby.S.damage = 0.3; window.__noRender = true; __derby.game.state = 'menu'; }, car);
+    await page.evaluate(() => document.getElementById('btnStart').click());
+    await page.waitForFunction(() => __derby.game.countdown <= 0 && __derby.game.state === 'playing', null, { timeout: 150000 });
+    const r = await page.evaluate(`(async () => {
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const D = __derby, p = D.player;
+      const waitG = async (s) => { const t0 = D.game.time; while (D.game.time - t0 < s) await sleep(25); };
+      const ahead = (d) => [p.body.position.x + p.fwd.x * d, p.body.position.z + p.fwd.z * d];
+      const pick = (f) => D.props.find((o) => !o.charred && !(o.fireT > 0) && f(o));
+      const place = (pr, d) => { const [x, z] = ahead(d); if (D.wakeProp) D.wakeProp(pr); else { pr.dormant = false; if (!D.world.bodies.includes(pr.body)) D.world.addBody(pr.body); } pr.body.position.set(x, 1, z); pr.body.velocity.set(0, 0, 0); pr.body.angularVelocity.set(0, 0, 0); pr.body.quaternion.set(0, 0, 0, 1); pr.body.wakeUp(); return pr; };
+      const placeBull = (d) => { for (const b of D.BULLS) b.body.position.set(-130, 1.3, -130 + b.id * 4); const bl = D.BULLS[0], [x, z] = ahead(d); bl.body.position.set(x, 1.3, z); bl.body.velocity.set(0, 0, 0); bl.state = 'graze'; bl.t = 20; bl.cook = 0; bl.stuckT = 0; bl.angry = null; return bl; };
+      const dist = (bl) => bl.body.position.distanceTo(p.body.position), distB = (b) => b.position.distanceTo(p.body.position);
+      const fire = async (s, each) => { window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyF', key: 'f' })); const t0 = D.game.time; while (D.game.time - t0 < s) { await sleep(25); if (each) each(); } window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyF', key: 'f' })); };
+      p.body.position.set(0, 1.2, 70); p.body.quaternion.set(0, 0, 0, 1); p.body.velocity.set(0, 0, 0); p.body.angularVelocity.set(0, 0, 0); p.specialCd = 0;
+      await waitG(0.6);
+      return await (${fn.toString()})();
+    })()`);
+    out.push({ name, car, ...r }); console.log((r.ok ? 'PASS ' : 'FAIL ') + name.padEnd(42) + JSON.stringify(r));
+  }
+  console.log(`\n${out.filter((x) => x.ok).length}/${out.length} passed`, errors.filter((e) => !e.includes('ERR_FAILED')).slice(0, 5)); await browser.close();
+})();
