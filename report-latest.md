@@ -1,4 +1,4 @@
-# Scrapyard Derby play-log report · 2026-11-15 05:03 UTC
+# Scrapyard Derby play-log report · 2026-11-15 06:39 UTC
 
 60 matches (49 from real devices, 137.1 game-minutes), 20 page loads, 1 bug reports.
 
@@ -20,6 +20,10 @@
 | Mac | 65 | 9 | 34 | 60 | 56 | 30 | 667 | 130% | 11.3 | 70 | 263 | – |
 | Mac | 66 | 22 | 59 | 60 | 55 | 53 | 983 | 100% | 5.2 | 55 | 234 | – |
 | Mac | 67 | 16 | 44 | 60 | 56 | 56 | 750 | 100% | 5.6 | 75 | 307 | 39 |
+
+### Regression check (newest build vs previous, per device)
+
+- **REGRESSION** Mac: build 66 -> 67: stuck/h 54.9 -> 75.1; physics catches/h 234.0 -> 307.3
 
 - slow moments by cause (seconds): waiting on the graphics chip (fewer pixels/effects would help): 9.7; preparing the drawing (draw calls) is the slow part: 4.9; the game step (physics/AI) is the slow part: 1
 
@@ -81,19 +85,4 @@
 
 ## Changes since the previous report
 
-- new stuck hotspot at (142,96) ×6
-- new stuck hotspot at (-10,28) ×4
-- new stuck hotspot at (39,-95) ×7
-- new stuck hotspot at (1,36) ×5
-- new stuck hotspot at (-1,-106) ×2
-- new stuck hotspot at (-18,-146) ×2
-- physics catches up for Camper: 16 → 27
-- physics catches up for bull: 41 → 52
-- physics catches up for Tow Truck: 22 → 31
-- physics catches up for Outrider: 70 → 78
-- physics catches up for Cruiser: 27 → 33
-- physics catches up for Hellbender: 37 → 59
-- physics catches up for Forklift: 50 → 59
-- physics catches up for Viper: 27 → 42
-- physics catches up for Sandflea: 30 → 71
-- physics catches up for Tanker: 17 → 30
+- nothing new
