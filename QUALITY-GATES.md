@@ -67,6 +67,18 @@ Here "1% low fps" is the frame rate of the slowest 1% of frames, which is what s
 
 Small samples are noisy. Wait for at least ~30 game-minutes of the new build before calling a regression, unless it's an error or crash.
 
+## 3b. Breathing room (not too busy)
+The game needs room to breathe, in sound, on screen and in the arena.
+- **Voices:**
+  - Never two lines at once.
+  - Typical silence between lines of at least 2 s.
+  - Talk fills at most ~40% of a busy match.
+  - The yard is never silent for long either: at least 4 lines a minute.
+  - `tests/talk.js` checks all of this in the quick suite. The play log records talk seconds, line count and dropped lines per match (`talk`).
+  - Lines come through the talk governor (`TALK.gate`). New voice features must use it, with an honest priority: 3 for something the player did or suffered, 2 for big moments near them, 1 for chatter and filler.
+- **Screen:** at most one or two toasts at a time and two subtitle lines. Don't add new always-on HUD elements.
+- **Arena:** keep open space to drive and fight in. About 75% or more of the yard floor should have no prop within 6 m. New props replace old ones rather than adding to the pile.
+
 ## 4. Balance targets (for balance changes)
 - Each car's **K/D** (wrecks dealt ÷ times wrecked, over all real matches) should sit roughly between **0.5 and 2.5**. Heavies may sit high, but nobody should be helpless.
 - Every car has **one strength, one visible weak spot, at least one counter car that beats it and prey that it beats**: see the matchup table ("who wrecks whom") and the car roles below.

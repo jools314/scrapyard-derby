@@ -2405,6 +2405,7 @@ function hornLine(car) { // a horn press gets an in-character shout (not every p
   const now = performance.now(); if (now < (car.hornLineT || 0) || game.state !== 'playing') return; car.hornLineT = now + 4500;
   const pool = HORN_LINES[car.type]; if (!pool) return; let line = pool[Math.random() * pool.length | 0], P = car.type === 'cruiser' ? COP : CAR_CAST[car.type] || ANNOUNCER;
   if (line.startsWith('T|')) { P = TOURIST; line = line.slice(2); }
+  if (!TALK.gate(P, line, car.isPlayer ? 3 : 1)) return;
   barks.show(P, car.baseColor || new THREE.Color(0xffffff), line); barks.speak(P, line, car.body.position);
 }
 const MEGA = { // the deputy on the megaphone / police radio
@@ -2413,7 +2414,7 @@ const MEGA = { // the deputy on the megaphone / police radio
   backup: ['Dispatch, I need backup! All units to the scrapyard!', 'Ten-thirty-three! Officer needs assistance!', 'Requesting air support! ...What do you mean we don\'t have any?'],
   chase: ['Suspect is fleeing! In pursuit!', 'You have the right to remain wrecked!', 'Step out of the vehicle! ...Or what\'s left of it!'],
 };
-function megaphone(car, kind) { const P = car.persona || COP, pool = MEGA[kind]; if (!pool) return; const line = pool[Math.random() * pool.length | 0]; barks.show(P, new THREE.Color(0x4a7aff), '📢 ' + line); barks.speak(P, line, car.body.position, { fx: 'megaphone' }); }
+function megaphone(car, kind) { const P = car.persona || COP, pool = MEGA[kind]; if (!pool) return; const line = pool[Math.random() * pool.length | 0]; if (!TALK.gate(P, line, car.isPlayer ? 3 : 1)) return; barks.show(P, new THREE.Color(0x4a7aff), '📢 ' + line); barks.speak(P, line, car.body.position, { fx: 'megaphone' }); }
 function roundHit(car, res, dir, k) { // what a bullet or pellet does to whatever it hits
   if (!res.hasHit) return;
   const hp = res.hitPointWorld, o = res.body;
@@ -7226,6 +7227,22 @@ for (const [type, more] of Object.entries(CAST_EXTRA)) { const P = type === 'cru
 const ROAST_BY = new Map(); // speaker persona -> target nick -> [lines]
 for (const [type, targets] of Object.entries(ROASTS)) { const P = type === 'cruiser' ? COP : CAR_CAST[type]; if (!P) continue; const m = new Map(); for (const [tt, line] of Object.entries(targets)) { const T = tt === 'cruiser' ? COP : CAR_CAST[tt]; if (T) m.set(T.nick, [].concat(line)); } ROAST_BY.set(P, m); }
 Object.assign(GENERIC, { onFire: ['I\'m on fire! I\'M ON FIRE!', 'Hot hot hot!', 'Somebody hose me down!', 'My engine is a barbecue!'], rodeo: ['Yee-haw! Ride \'em!', 'Gotcha, bull!', 'Rodeo time!'], burger: ['Flame-grilled!', 'Medium rare!', 'Who ordered the bull burger?'], rival: ['Hey {v}! Get out of my way!', '{v}, your {vcar} is a joke!', 'I\'m coming for you, {v}!'], respawn: ['I\'m back!', 'Miss me?', 'Round two!'], kill: ['So long, {v}!', 'Got you, {v}!', 'Ha! {v} is out!'] });
+/* Talk governor: one voice at a time, a real silence between lines, and a cap on how much of each minute is talk.
+   prio 3 = you did it / it happened to you (horn, your wreck, forced lines): only waits for the current line to finish
+   prio 2 = big moments near you; prio 1 = chatter and commentary filler (dropped first). Lines that can't go now are dropped, never queued. */
+const TALK = { gap: [2.5, 5], gap2: 2, gap3: 0.8, budget1: 10, budget2: 15, budget3: 20, win: 60, endT: 0, quietUntil: 0, hist: [],
+  dur(P, line) { try { const id = VCLIP.clips && VCLIP.id(P, line), c = id && VCLIP.clips[id]; if (c && c[1]) return c[1]; } catch (e) {} return Math.max(1.2, String(line).split(/\s+/).length * 0.36 + 0.4); },
+  used(now) { let s = 0; this.hist = this.hist.filter((h) => h[0] + h[1] > now - this.win); for (const [t, d] of this.hist) s += Math.min(d, now - t) - Math.max(0, now - this.win - t); return s; },
+  ok(prio, now) {
+    if (now < this.endT + (prio >= 3 ? this.gap3 : prio === 2 ? this.gap2 : 0)) return false;
+    if (prio <= 1 && now < this.quietUntil) return false;
+    if (this.used(now) > (prio >= 3 ? this.budget3 : prio === 2 ? this.budget2 : this.budget1)) return false; // ~20% / 30% / 40% of the last minute
+    return true; },
+  take(P, line, now) { const d = this.dur(P, line); this.hist.push([now, d]); this.endT = now + d; this.quietUntil = this.endT + this.gap[0] + Math.random() * (this.gap[1] - this.gap[0]);
+    if (PLAYLOG.m) { PLAYLOG.m.talkS = (PLAYLOG.m.talkS || 0) + d; PLAYLOG.m.talkN = (PLAYLOG.m.talkN || 0) + 1; } },
+  drop() { if (PLAYLOG.m) PLAYLOG.m.talkDrop = (PLAYLOG.m.talkDrop || 0) + 1; },
+  gate(P, line, prio) { if (game.state !== 'playing' || MP.role === 'guest') return true; const now = performance.now() / 1000; if (!this.ok(prio, now)) { this.drop(); return false; } this.take(P, line, now); return true; },
+};
 const barks = {
   lastT: -99, el: null, voices: [],
   init() {
@@ -7241,6 +7258,9 @@ const barks = {
     const P = car.persona;
     const line = this.compose(P, ev, vars || { target: 'you', car: player ? player.T.name : 'car' });
     if (!line) return;
+    const near = player && car.body.position.distanceTo(player.body.position) < 45;
+    const aboutYou = !!vars && (vars.target === 'you' || vars.v === 'you' || vars.v === 'our hero'); // (a default 'you' when nothing was passed is just chatter)
+    if (!TALK.gate(P, line, force ? 3 : aboutYou || near ? 2 : 1)) return;
     car.lastBark = now; this.lastT = now;
     this.show(P, car.baseColor, line);
     this.speak(P, line, car.body.position);
@@ -7282,6 +7302,7 @@ const barks = {
     for (let i = 0; i < 1; i++) {
       const r = VCLIP.pick(8, () => this.fill(pool[Math.random() * pool.length | 0], A, vars), A, this.used); // (prefers recorded lines)
       const line = r || this.fill(pool[Math.random() * pool.length | 0], A, vars); // (nothing fresh left: repeat one; a long match uses up the announcer's pool)
+      if (!TALK.gate(A, line, force ? 2 : 1)) return;
       this.remember(line); this.annT = now; this.lastT = now;
       this.show(A, new THREE.Color(A === SHAZZA ? 0xff6fa8 : 0xf2a20c), line);
       this.speak(A, line, null);
@@ -7535,7 +7556,7 @@ const VCLIP = {
     if (!id) { this.stats.speech++; return false; }
     const [P, line] = barks.who(P0, line0);
     const it = { P0, line0, who: P.nick, line, pos, id, fx: (opt && opt.fx) || this.fx[this.slug(P.nick)] || '', t: performance.now() };
-    if (this.cur) this.q = it; // one line waits; a newer one replaces it (like the speech backlog rule)
+    if (this.cur) { if (game.state !== 'playing' || MP.role === 'guest') this.q = it; } // during play the talk governor spaces lines, so nothing queues back-to-back
     else this.play(it);
     return true;
   },
@@ -9498,7 +9519,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '68'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '69'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
@@ -10833,7 +10854,7 @@ Object.assign(PLAYLOG, {
     const bs = barks.stats || {}, b0 = m.bark0, K = m.kinds;
     return { v: 2, kind, id: m.id, n: m.n, sid: this.sid, dev: this.devId, build: BUILD, start: new Date(m.at).toISOString(), end: new Date(now).toISOString(), ended,
       role: m.role, mode: m.mode, room: MP.role !== 'solo' ? MP.code || '' : undefined, device: PERFREP.device(), ua: this.uaShort(), cores: navigator.hardwareConcurrency || null, screen: `${screen.width}x${screen.height}@${devicePixelRatio} view ${innerWidth}x${innerHeight}`,
-      game: Math.round(game.time), real: Math.round((performance.now() - m.p0) / 1000), hidden: Math.round((m.hidden + (m.hidAt ? performance.now() - m.hidAt : 0)) / 1000), env: TABENV.summary(), test: navigator.webdriver ? true : undefined, cars: cars.length, vs: m.vs, vsD, score: game.score, voices: !VOICES_OFF, sound: !sfx.muted,
+      game: Math.round(game.time), real: Math.round((performance.now() - m.p0) / 1000), hidden: Math.round((m.hidden + (m.hidAt ? performance.now() - m.hidAt : 0)) / 1000), env: TABENV.summary(), test: navigator.webdriver ? true : undefined, cars: cars.length, vs: m.vs, vsD, talk: { s: Math.round(m.talkS || 0), n: m.talkN || 0, drop: m.talkDrop || 0 }, score: game.score, voices: !VOICES_OFF, sound: !sfx.muted,
       q: { start: m.q0, end: QUALITY.level, ch: m.qCh, auto: !!S.autoGfx, gfx: S.gfx, res: Math.round(renderer.getPixelRatio() * 100) },
       fps: m.frames ? { med: fps(this.pct(m, 0.5)), p5: fps(this.pct(m, 0.95)), low1: fps(this.pct(m, 0.99)), avg: fps(m.ftSum / m.frames), worstMs: Math.round(m.worst), frames: m.frames } : null,
       slow: { n: m.inc.length, secs: r1(m.inc.reduce((a, x) => a + x.secs, 0)), worstMs: m.inc.reduce((a, x) => Math.max(a, x.worst || 0), 0), causes, list: m.inc },
@@ -11086,7 +11107,7 @@ for (const ev of ['keydown', 'pointerdown', 'pointermove', 'wheel', 'touchstart'
 setInterval(() => IDLE.check(), 5000);
 window.__derby = { AUTO, PLAYLOG, BOULDERS, get mapShapes() { return mapShapes; }, respawnCar: (o, t) => respawnCar(o, t), PHYS, cockpitEye: (c) => cockpitEye(c), wakeProp: (pr) => wakeProp(pr), addConcrete: (x, z, r, k) => addConcrete(x, z, r, k), igniteProp: (pr, t) => igniteProp(pr, t), cookBull: (bl, by, dt) => cookBull(bl, by, dt), tankerBoom: (p, c) => tankerBoom(p, c), CAR_TYPES, sfx, CANNON, barks, PERF, shells, NETLOG, nearHostAdd: () => nearHostAdd(), nearJoin: () => nearJoin(), JUMBO, BALL, BOLLARDS, GASQ, updateArenaPub: (dt) => updateArena(dt), CRUSHER, crushNow: () => crushNow(), applyNight: () => applyNight(), FIREWORKS, ARENA, CROWD, MP, QUALITY, applyQuality: (i) => applyQuality(i), MERGED, camera, updatePropActivity: (dt) => updatePropActivity(dt), renderer, scene, spawnFree: (x, z, r) => spawnFree(x, z, r), BULLS, updateBulls: (dt) => updateBulls(dt), updateShells, tilt, setTilt, get CRANE() { return CRANE; }, updateCrane: (dt) => updateCrane(dt), CONCRETE, THREE, craters, shells, pickups, barks, PERSONAS, TUNE, game, cars, S, world, CAR_TYPES, sfx, touch, drawGauge, get player() { return player; }, keys, startMatch, selectCar, setValue, debris, props, platformOf, get simTime() { return simTime; }, set simTime(v) { simTime = v; } }; // console tinkering + tests
 requestAnimationFrame(frame);
-window.__derby.IDLE = IDLE; window.__derby.SCORE = SCORE; window.__derby.UPDATE = UPDATE; window.__derby.TABENV = TABENV; window.__derby.PERFREP = PERFREP; // (test hooks)
+window.__derby.IDLE = IDLE; window.__derby.TALK = TALK; window.__derby.SCORE = SCORE; window.__derby.UPDATE = UPDATE; window.__derby.TABENV = TABENV; window.__derby.PERFREP = PERFREP; // (test hooks)
 window.__derby.VR = VR; window.__derby.XRS = XRS; window.__derby.composer = composer;
 window.__derby.VCLIP = VCLIP; window.__derby.ROAST_BY = ROAST_BY; window.__derby.ROAST_PAIR = ROAST_PAIR; window.__derby.SHAZZA = SHAZZA; window.__derby.CAR_CAST = CAR_CAST; window.__derby.ANNOUNCER = ANNOUNCER; window.__derby.COP = COP; window.__derby.megaphone = megaphone; window.__derby.hornLine = hornLine;
 </script>

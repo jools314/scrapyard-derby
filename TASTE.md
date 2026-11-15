@@ -16,6 +16,8 @@ A loud, silly, physics-heavy **demolition derby for kids and their family**, pla
 - **Fair surprises.** Hazards are wild (crusher, wrecking ball, crane, geysers, fire pit), but they warn before they strike. Chaos is fun; random unfair death isn't.
 - **Smooth on a phone, always.** 60 fps on an iPhone matters more than one more effect. A beautiful game that stutters is worse than a simple one that flows. Every addition has a cost: measure it (tests/perfbudget.js, the play-log regression check), keep it small, and pay for new detail by making something else cheaper.
 
+- **Breathing room.** Crazy doesn't mean crowded. Leave open space in the arena to drive and fight in. Voices take turns, with real silences between lines, so each line lands; nonstop chatter is noise. One popup at a time. A moment of quiet before a big crash makes the crash bigger.
+
 ## Good improvements (keep doing more of these)
 - **Visible weak spots:** the Tiger's bent barrel blows up the next shot; the tanker leaks fuel once hit.
 - **Physical comedy:** flamethrower plus bull equals hamburger, with commentary. A fork-lift toss. A tow-truck whip.
