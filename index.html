@@ -611,6 +611,8 @@
       <p id="blurb"></p>
       <p id="driverCard" class="quiet" style="margin:0"></p>
       <p id="streakLine" class="quiet" style="margin:0"></p>
+      <p id="chalLine" class="quiet" style="margin:0"></p>
+      <p id="weekLine" class="quiet" style="margin:0"></p>
       <p class="quiet" style="margin:0">Green wrenches repair you and refit a lost wheel; blue canisters refill nitro. Bright, glowing junk flies when you hit it. Dark objects are heavy and shove back. Hazard stripes mean solid: steer around.</p>
       <details>
         <summary>Controls</summary>
@@ -2050,7 +2052,7 @@ function propCollide(e) {
   if (player) sfx.at(me.position).propHit(me.propKind, Math.min(1, v / 20) * clamp(1 - player.body.position.distanceTo(me.position) / 70, 0, 1));
   if (me.prop && v > 5) damageProp(me.prop, v, me.quaternion.conjugate().vmult(e.contact.ni));
   if (other.car.isPlayer && game.state === 'playing' && v > 6) {
-    game.score += 10; game.propHits++;
+    game.score += 10; game.propHits++; chalHit('props'); // R2-45
     if (simTime - game.propToast > 1.2) { game.propToast = simTime; toast(`+10 ${PROP_LABEL[me.propKind] || 'SMASH'}`, 'cool'); }
   }
 }
@@ -2082,7 +2084,7 @@ function flattenProp(pr, by) { // 11 tonnes of tank: boxes, drums, bins and pott
     m.position.y = Math.max(m.position.y, 0.02);
     flats.push(m); while (flats.length > 60) scene.remove(flats.shift());
   }
-  if (by.isPlayer && game.state === 'playing') { game.score += 10; game.propHits++; if (simTime - game.propToast > 1.2) { game.propToast = simTime; toast('+10 FLATTENED', 'cool'); } }
+  if (by.isPlayer && game.state === 'playing') { game.score += 10; game.propHits++; chalHit('props'); if (simTime - game.propToast > 1.2) { game.propToast = simTime; toast('+10 FLATTENED', 'cool'); } } // R2-45: chalHit rides the prop-score hook
 }
 function damageProp(pr, v, nLocal) {
   const m = pr.mesh, p = pr.body.position;
@@ -2936,7 +2938,7 @@ function explodeShell(hp, hitBody, owner, scale = 1) {
     o.wakeUp(); blastImpulse(o, dir, Math.min(o.mass, 4000) * f * 9 * scale); // heavy vehicles get rocked, not launched
     if (o.bull && o.bull.state !== 'burger') { const bl = o.bull; bl.state = 'down'; bl.t = rand(2.5, 3.5); o.fixedRotation = false; o.updateMassProperties(); o.applyImpulse(new CANNON.Vec3(0, o.mass * 6 * f, 0)); o.angularVelocity.set(rand(-4, 4), rand(-4, 4), rand(-4, 4)); bl.cook = (bl.cook || 0) + 0.3 * f; if (f > 0.4 && game.state === 'playing' && Math.random() < 0.5) barks.announce('bullFly', {}); } // the bull goes for a little flight
     if (o.prop && props.includes(o.prop) && f > 0.45 && Math.random() < 0.6) igniteProp(o.prop, 6);
-    if (o.prop && props.includes(o.prop)) { damageProp(o.prop, 12 + 30 * f, o.quaternion.conjugate().vmult(dir.scale(-1))); if (owner.isPlayer && game.state === 'playing') { game.score += 10; game.propHits++; } continue; }
+    if (o.prop && props.includes(o.prop)) { damageProp(o.prop, 12 + 30 * f, o.quaternion.conjugate().vmult(dir.scale(-1))); if (owner.isPlayer && game.state === 'playing') { game.score += 10; game.propHits++; chalHit('props'); } continue; } // R2-45
     const c = o.car; if (c) c.blastT = simTime;
     if (c && !c.wrecked && c !== owner) {
       const local = c.body.pointToLocalFrame(P), model = new THREE.Vector3(local.x + c.comShift, local.y, local.z);
@@ -7809,6 +7811,7 @@ const game = {
     if (killer && MP.role !== 'guest' && Math.random() < 0.5) { const [kw] = rivalPair(rivalName(killer), rivalName(car)); if (kw >= 3) barks.announce('grudge', { a: rivalName(killer), v: rivalName(car), n: kw }, true); } // R2-62: the announcers remember a one-sided history and say so — {a} has now wrecked {v} {n} times across matches
     if (car.bounty && killer === player) { this.score += car.bounty; toast(`🎯 BOUNTY CLAIMED +${car.bounty}`, 'cool'); car.bounty = 0; } // R2-58
     if (killer === player) firstMark('wreck', 'WRECK'); // R2-56
+    if (killer === player) chalHit('wrecks', killer.type); // R2-45
     if (PLAYLOG.m) PLAYLOG.wreck(car, killer); if (AUTO.on && car === player) car.respawnType = AUTO.nextType(); // (autoplay: every life a different vehicle)
     SCORE.wreck(car, killer); // (host / solo only: guests get the table from the host)
     if (GAME_MODE === 'respawn' && MP.role === 'guest') { if (car.isPlayer) toast('WRECKED', 'bad'); else toast(`${car.name} is wrecked`); return; } // the host brings it back
@@ -7975,6 +7978,25 @@ function firstMark(key, label) { const F = firstsLoad(); if (F[key]) return fals
 /* R2-53: win streaks ('derby-streak-v1') — counted once per match in showOver (its only caller is the over-timer, host/solo side), shown on the menu, and announced at 3+. */
 function streakLoad() { try { return JSON.parse(localStorage.getItem('derby-streak-v1') || '{"n":0,"best":0}'); } catch (e) { return { n: 0, best: 0 }; } }
 function streakNote(won) { const S = streakLoad(); S.n = won ? S.n + 1 : 0; S.best = Math.max(S.best, S.n); try { localStorage.setItem('derby-streak-v1', JSON.stringify(S)); } catch (e) {} return S; }
+/* R2-45: the daily challenge — one date-seeded challenge per day ('derby-chal-v1'), progress fed from the same hooks the score uses, a day streak for finishing. R2-57 adds the weekly trio on this plumbing. */
+const CHAL_DAILY = [
+  { k: 'wrecks', n: 3, txt: 'Wreck 3 cars' },
+  { k: 'wrecks', n: 5, txt: 'Wreck 5 cars' },
+  { k: 'score', n: 3000, txt: 'Score 3,000 in one match' },
+  { k: 'props', n: 30, txt: 'Flatten 30 props' },
+  { k: 'carWrecks', car: 'forklift', n: 2, txt: 'Wreck 2 cars in the Forklift' },
+  { k: 'carWrecks', car: 'tiger', n: 2, txt: 'Wreck 2 cars in the Tiger' },
+  { k: 'win', n: 1, txt: 'Win a match' },
+];
+function dayKey(d = new Date()) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+function chalHash(s) { let h = 0; for (let i = 0; i < s.length; i++) h = (Math.imul(h, 31) + s.charCodeAt(i)) | 0; return Math.abs(h); }
+function chalLoad() { try { return JSON.parse(localStorage.getItem('derby-chal-v1') || 'null'); } catch (e) { return null; } }
+function chalSave(C) { try { localStorage.setItem('derby-chal-v1', JSON.stringify(C)); } catch (e) {} }
+function chalState() { const dk = dayKey(); let C = chalLoad(); if (!C || C.day !== dk) { C = { day: dk, di: chalHash('day' + dk) % CHAL_DAILY.length, dn: 0, done: false, streak: C ? C.streak || 0 : 0, lastDone: C ? C.lastDone || '' : '' }; chalSave(C); } return C; }
+function chalDone(C) { C.done = true; const y = dayKey(new Date(Date.now() - 864e5)); C.streak = C.lastDone === y ? C.streak + 1 : 1; C.lastDone = C.day; chalSave(C); toast('📅 DAILY CHALLENGE DONE!', 'cool'); }
+function chalHit(kind, carType) { const C = chalState(), D = CHAL_DAILY[C.di]; if (C.done) return; if (D.k === kind || (D.k === 'carWrecks' && kind === 'wrecks' && carType === D.car)) { C.dn++; if (C.dn >= D.n) chalDone(C); else chalSave(C); chalRender(); } }
+function chalMatchEnd(score, won) { const C = chalState(), D = CHAL_DAILY[C.di]; if (!C.done && ((D.k === 'score' && score >= D.n) || (D.k === 'win' && won))) { C.dn = D.n; chalDone(C); } chalRender(); }
+function chalRender() { const el2 = $('chalLine'); if (!el2) return; const C = chalState(), D = CHAL_DAILY[C.di]; el2.textContent = `📅 Today: ${D.txt} — ${C.done ? 'done ✓' : `${Math.min(C.dn, D.n)}/${D.n}`}${C.streak > 1 ? ` · day streak ${C.streak}` : ''}`; }
 const SCORE = {
   rows: new Map(), open: false, leader: null, gotJ: '', sentAt: -1e9, dirtyNet: false, lastHtml: '',
   pts(r) { return r.k * 100 - r.s * 50; },
@@ -8160,7 +8182,7 @@ function showOver() {
   const ai = cars.filter((c) => !c.isPlayer);
   $('rWrecks').textContent = GAME_MODE === 'respawn' ? String(player.kills || 0) : `${ai.filter((c) => c.wrecked).length} / ${ai.length}`;
   { const nm = rivalNemesis(); $('rNemesis').textContent = nm ? `${nm.name} ×${nm.n}` : '—'; } // R2-44: who has wrecked you most, across every match on this device
-  { const won = /Yard cleared|You win!/.test($('overTitle').textContent); if (won) firstMark('win', 'WIN'); if (game.score >= 1000) firstMark('k1000', '1,000-POINT MATCH'); const sk = streakNote(won); if (won && sk.n >= 2) toast(`🔥 WIN STREAK: ${sk.n}`, 'cool'); } // R2-56: match-level firsts are judged here, where the final numbers are known · R2-53: and the streak is counted here, once per match
+  { const won = /Yard cleared|You win!/.test($('overTitle').textContent); if (won) firstMark('win', 'WIN'); if (game.score >= 1000) firstMark('k1000', '1,000-POINT MATCH'); const sk = streakNote(won); if (won && sk.n >= 2) toast(`🔥 WIN STREAK: ${sk.n}`, 'cool'); chalMatchEnd(game.score, won); } // R2-56: match-level firsts are judged here, where the final numbers are known · R2-53: and the streak is counted here, once per match · R2-45: and the daily challenge is judged
   $('overBoard').hidden = GAME_MODE !== 'respawn'; if (GAME_MODE === 'respawn') $('overTable').innerHTML = SCORE.table();
   el.over.hidden = false;
 }
@@ -8193,6 +8215,7 @@ function buildGarage() {
   { const P = playerType === 'cruiser' ? COP : CAR_CAST[playerType]; const dc = $('driverCard'); // R2-70: the driver card — the cast was invisible until they talked; now the picker shows who drives your pick, their style, and your head-to-head with them (R2-44)
     if (P) { const [yw, tw] = rivalPair('You', P.nick); dc.textContent = `Driven by ${P.nick} — ${P.from || ''}${P.style ? ` · style: ${P.style}` : ''}${yw + tw ? ` · vs you: ${yw} wreck${yw === 1 ? '' : 's'} dealt, ${tw} taken` : ''}`; } else dc.textContent = ''; }
   { const sk = streakLoad(); $('streakLine').textContent = sk.n >= 2 ? `🔥 Win streak: ${sk.n} (best ${sk.best})` : sk.best >= 2 ? `Best win streak: ${sk.best}` : ''; } // R2-53
+  chalRender(); // R2-45 (weekLine is R2-57's, rendered by weekRender when present)
 }
 function selectCar(key) {
   playerType = key;
