@@ -9197,7 +9197,7 @@ const MP = {
     }
     let local = false;
     if (!api && typeof BroadcastChannel !== 'undefined') { api = mpShim(); local = true; }
-    this.api = api; this.lobby = api;
+    this.api = api; this.lobby = api; this.localTabs = local; // (localTabs: R2-90 — lets the logs name the tabs shim honestly)
     if (!api) { this.status('not available here'); $('btnHost').disabled = true; return; }
     this.status(local ? 'tabs in this browser only' : 'online');
     api.onPeers(() => this.renderGames());
@@ -9285,6 +9285,14 @@ const MP = {
   },
   sendWant() { if (this.room) { const p = { nick: this.nick(), want: playerType, did: MY_DID, jt: this.joinT || 0, hq: (this.hostQ() || {}).rate || 0 }; if (this.family) p.wk = myWeekBest(); this.room.presence(p); } }, // did: this device (survives reloads); jt: when this connection joined (newest wins) · R2-41: hq = this device's measured snapshot rate the last time it hosted (0 = never hosted) · R2-50: wk = my weekly best [score, wrecks], published while in the family yard
   hostQ() { try { return JSON.parse(localStorage.getItem('derby-hostq') || 'null'); } catch (e) { return null; } }, // R2-41
+  activeVia() { // R2-90: the transport actually carrying this session, named for log headers — relay/peerjs come from R2-33's via; near rooms carry code 'near'; the lobby path splits into the Claude lobby vs the same-browser tabs shim
+    if (this.role === 'solo') return 'solo';
+    if (this.code === 'near') return 'near (QR)';
+    if (this.via) return this.via;
+    if (this.transport === 'peer') return 'peer (not in a room)';
+    if (this.lobby) return this.localTabs ? 'tabs (this browser)' : 'lobby';
+    return this.transport || '?';
+  },
   noteHostQ() { // R2-41: called when a hosting stint ends — fold the delivered snapshot rate into the stored average
     if (!this.hostT0 || !(this.snapN > 100)) return; const secs = (performance.now() - this.hostT0) / 1000; if (secs < 10) return;
     const rate = Math.min(20, Math.round(this.snapN / secs)); const old = this.hostQ();
@@ -10189,7 +10197,7 @@ const NETLOG = {
   },
   exportText() {
     const pad = (v, n) => String(v ?? '').padStart(n), ts = (t) => new Date(t).toISOString().slice(11, 19);
-    const L = [`Scrapyard Derby network log · build ${BUILD} · ${MP.role} · via ${MP.via || MP.transport || '?'} · ${new Date().toISOString()}`,
+    const L = [`Scrapyard Derby network log · build ${BUILD} · ${MP.role} · via ${MP.activeVia()} · ${new Date().toISOString()}`, // R2-90: the active transport, named (was: via could read 'peer' for a lobby/near/tabs session)
       `Device: ${navigator.userAgent}`, `Voices: ${VOICES_OFF ? 'OFF in menu' : 'on'} · sound ${sfx.muted ? 'OFF' : 'on'} · voice volume ${S.voiceVolume} · speech ${window.speechSynthesis ? speechSynthesis.getVoices().length + ' voices' : 'none'} · ${JSON.stringify(barks.stats || {})} · engine ok=${barks.speechOK} lastErr=${barks.lastErr || '-'} · ${barks.voiceReport()}`, `Screen ${innerWidth}x${innerHeight} @${devicePixelRatio} · quality now ${QUALITY.level}/${QSTEPS.length - 1} (0 best) · mode ${GAME_MODE}`,
       `Players: ${cars.filter((c) => c.remote || c.netPeer || c.isPlayer).map((c) => (c.isPlayer ? MP.nick() + ' (this device)' : c.name) + ' · ' + c.T.name).join(', ')}`,
       'Host sends 20 snapshots/s; guests should see ~20 updates/s, jitter < 30 ms, smoothing 80-200 ms, gaps < 150 ms.', '',
@@ -10316,7 +10324,7 @@ function bugReport() {
   L.push('', `Physics safety log (${PHYS.log.length}, last 40):`, ...PHYS.log.slice(-40).map((e) => '  ' + JSON.stringify(e)));
   L.push('', `Script errors (${ERRS.length}):`, ...ERRS.map((e) => '  ' + e));
   try { // multiplayer: who is connected, how fresh their data is, what the host is sending
-    L.push('', `Multiplayer: role ${MP.role}${MP.code ? ' · room ' + MP.code : ''} · transport ${MP.transport || '-'} · host epoch ${MP.epoch ?? '-'} · build ${BUILD}`);
+    L.push('', `Multiplayer: role ${MP.role}${MP.code ? ' · room ' + MP.code : ''} · transport ${MP.activeVia()} · host epoch ${MP.epoch ?? '-'} · build ${BUILD}`); // R2-90
     if (MP.room) for (const p of MP.room.peers()) { if (p.sameTab) continue; const pr = p.presence || {}; L.push(`  peer ${String(p.peer).slice(0, 8)} ${pr.nick || '?'}${pr.host ? ' (HOST epoch ' + pr.host + ')' : ''} · last update ${p.updatedAt ? Math.round((Date.now() - p.updatedAt) / 100) / 10 + ' s ago' : '?'} · build ${pr.b || '?'} · net ${pr.nh ? JSON.stringify(pr.nh).slice(0, 90) : '-'}`); }
     if (MP.txStats && MP.txStats.last) L.push(`  host sending: ${MP.txStats.last.perSec} snapshots/s · ${MP.txStats.last.avgBytes} bytes each · ~${MP.txStats.last.kbitPerGuest} kbit/s to each guest`);
     if (MP.role === 'guest') L.push(`  receiving: ${MP.snaps ? MP.snaps.length : 0} buffered snapshots · roster ${MP.rk || '-'} · ${cars.filter((c) => c.ghost).length} remote cars`);
