@@ -17,7 +17,7 @@ const { open } = require('./harness');
     for (const bl of D.BULLS) bl.body.position.set(-130, 1.3, -130 + bl.id * 4);
     const out = {}, fails = [];
     const other = () => D.cars.find((x) => x !== D.player);
-    const park = (c) => { c.think = () => {}; c.ctrl.throttle = 0; c.ctrl.steer = 0; c.ctrl.fire = false; return c; };
+    const park = (c) => { c.think = () => {}; c.ctrl.throttle = 0; c.ctrl.steer = 0; c.ctrl.fire = false; c.ctrl.brake = false; c.ctrl.handbrake = false; c.ctrl.nitro = false; return c; }; // (a freshly respawned AI may have left its footbrake on)
     const settle = (c, x, z, yw) => { c.body.position.set(x, c.T.walker ? 2.4 : 1.4, z); c.body.quaternion.setFromEuler(0, yw || 0, 0); c.body.velocity.set(0, 0, 0); c.body.angularVelocity.set(0, 0, 0); };
     D.respawnCar(D.player, 'elephant'); await wt(0.4); let E = D.player;
     const placeE = async () => { E = D.player; const ai = other(); if (ai) { park(ai); settle(ai, 100, -100); } settle(E, -60, 75, 0); E.health = 100; E.pressure = 0; E.stallT = 0; E.whistleT = 0; E.specialCd = 0; await wt(1.2); };
@@ -29,7 +29,7 @@ const { open } = require('./harness');
     // 2. legs: walking, every hip swings and feet come down (stomps); standing still, the feet stay put
     await placeE(); { const mn = [9, 9, 9, 9], mx = [-9, -9, -9, -9], n0 = E.stompN || 0; key('KeyW', true); await wt(2.5, () => E.legs.forEach((l, i) => { mn[i] = Math.min(mn[i], l.hip.rotation.z); mx[i] = Math.max(mx[i], l.hip.rotation.z); })); key('KeyW', false);
       out.legSwing = mx.map((x, i) => +(x - mn[i]).toFixed(2)); out.stomps = (E.stompN || 0) - n0; if (out.legSwing.some((x) => x < 0.25)) fails.push('legs do not swing'); if (out.stomps < 6) fails.push('no footsteps');
-      await wt(2); const f0 = E.gait.feet.map((f) => f.p.clone()); await wt(1); out.feetDrift = +Math.max(...E.gait.feet.map((f, i) => f.p.distanceTo(f0[i]))).toFixed(2); if (out.feetDrift > 0.05) fails.push('feet slide when standing'); }
+      await wt(3); const f0 = E.gait.feet.map((f) => f.p.clone()); await wt(1); out.feetDrift = +Math.max(...E.gait.feet.map((f, i) => f.p.distanceTo(f0[i]))).toFixed(2); if (out.feetDrift > 0.05) fails.push('feet slide when standing'); }
     // 3. trunk: grab a light car in front, lift it, fling it sideways
     await placeE(); { let ai = other(); if (ai.type !== 'forklift' || ai.wrecked) { D.respawnCar(ai, 'forklift'); await wt(0.4); ai = other(); } park(ai); const ep = E.body.position; settle(ai, ep.x + 5.3, ep.z, Math.PI / 2); ai.health = 100; await wt(0.8);
       const y0 = ai.body.position.y, n0 = E.flungN || 0; let maxY = y0, held = false; E.ctrl.fire = true; key('KeyF', true); await wt(0.2); key('KeyF', false);
@@ -38,9 +38,9 @@ const { open } = require('./harness');
       out.fling = { held, flung: (E.flungN || 0) - n0, lift: +(maxY - y0).toFixed(1), dist: +d.toFixed(1), side: +l.z.toFixed(1), mass: ai.body.mass };
       if (!held || out.fling.flung < 1) fails.push('trunk did not grab'); if (maxY - y0 < 1.5) fails.push('not lifted'); if (d < 8) fails.push('not flung far'); if (Math.abs(l.z) < 4) fails.push('not flung sideways'); if (ai.body.mass < 1000) fails.push('mass not restored'); }
     // 4. steam: nothing grabbable in reach -> a burning car 10 m ahead is put out and shoved back
-    await placeE(); { let ai = other(); if (ai.type !== 'viper' || ai.wrecked) { D.respawnCar(ai, 'viper'); await wt(0.4); ai = other(); } park(ai); const ep = E.body.position; settle(ai, ep.x + 10, ep.z, Math.PI / 2); ai.health = 100; await wt(0.8);
-      ai.burnT = 7; ai.douse = 0; const d0 = ai.body.position.distanceTo(E.body.position); key('KeyF', true); await wt(0.2); key('KeyF', false); const steamed = !!E.steamOn; await wt(1.6); const d1 = ai.body.position.distanceTo(E.body.position);
-      out.steam = { steamed, burnT: +(ai.burnT || 0).toFixed(1), d0: +d0.toFixed(1), d1: +d1.toFixed(1) }; if (!steamed) fails.push('no steam'); if (ai.burnT > 0) fails.push('steam did not put the fire out'); if (d1 < d0 + 1.5) fails.push('steam did not push back'); }
+    await placeE(); { let ai = other(); if (ai.type !== 'viper' || ai.wrecked) { D.respawnCar(ai, 'viper'); await wt(0.4); ai = other(); } park(ai); const ep = E.body.position; settle(ai, ep.x + 10, ep.z, Math.PI); ai.health = 100; await wt(0.8); // nose to nose, like a car charging the elephant
+      ai.burnT = 7; ai.douse = 0; const d0 = ai.body.position.distanceTo(E.body.position); key('KeyF', true); await wt(0.2); key('KeyF', false); const steamed = !!E.steamOn, lz = E.body.pointToLocalFrame(ai.body.position); let vmax = 0; await wt(1.6, () => { vmax = Math.max(vmax, Math.hypot(ai.body.velocity.x, ai.body.velocity.z)); }); const d1 = ai.body.position.distanceTo(E.body.position);
+      out.steam = { steamed, burnT: +(ai.burnT || 0).toFixed(1), d0: +d0.toFixed(1), d1: +d1.toFixed(1), vmax: +vmax.toFixed(1), type: ai.type, wrecked: ai.wrecked, at: [+lz.x.toFixed(1), +lz.y.toFixed(1), +lz.z.toFixed(1)], mass: ai.body.mass }; if (!steamed) fails.push('no steam'); if (ai.burnT > 0) fails.push('steam did not put the fire out'); if (d1 < d0 + 1.5) fails.push('steam did not push back'); }
     // 5. boiler: hits from behind raise the pressure and move the gauge needle; front hits don't; red line -> whistle -> blow -> stall ~4 s -> walks again
     await placeE(); { const ai = park(other()); settle(ai, 100, -100); const n0 = E.gaugeNeedle.rotation.z;
       E.applyDamage(8, ai, 'front', new D.THREE.Vector3(2.5, 1, 0), 8); const pf = E.pressure;
