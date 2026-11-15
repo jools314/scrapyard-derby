@@ -10639,7 +10639,9 @@ const VR = (() => {
     if (game.shake > V.lastShake + 0.04 && game.state === 'playing') { const d = game.shake - V.lastShake; buzz('both', 0.15 + d * 0.5, 40 + d * 70); } // camera shake becomes rumble
     game.shake *= Math.exp(-dt * 6); V.lastShake = game.shake;
     if (!player) return;
-    if (player !== V.lastPlayer) { if (V.lastPlayer && game.state === 'playing') { V.fade = 1; V.blackT = 0.2; buzz('both', 0.3, 60); } V.lastPlayer = player; V.lastHp = player.health; V.snap = true; }
+    if (player !== V.lastPlayer) { if (V.lastPlayer && game.state === 'playing') { V.fade = 1; V.blackT = 0.2; buzz('both', 0.3, 60); }
+      if (V.lastPlayer && V.lastPlayer.type !== player.type) { (V.set.hByCar || (V.set.hByCar = {}))[V.lastPlayer.type] = V.set.height; if (V.set.hByCar[player.type] !== undefined) { V.set.height = V.set.hByCar[player.type]; V.anchor = null; } saveSet(); } // R2-18: seat height remembered per car — a forklift and a Sandflea sit very differently, and one global offset fit neither
+      V.lastPlayer = player; V.lastHp = player.health; V.snap = true; }
     if (game.state === 'playing' && player.health < V.lastHp - 1.5) buzz('both', clamp(0.2 + (V.lastHp - player.health) / 25, 0, 1), 60);
     V.lastHp = player.health;
     placeRig(dt); rig.updateMatrixWorld(true); // (also when tests skip drawing: the laser needs it)
