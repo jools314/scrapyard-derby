@@ -773,6 +773,7 @@ const SETTINGS_DEF = [
   { key: 'shakeAmt',            group: 'Controls', label: 'Camera shake',     unit: '',      min: 0,    max: 1,     step: 0.05, def: 1 },
   { key: 'reduceMotion',        group: 'Controls', label: 'Reduce motion',    unit: '',      min: 0,    max: 1,     step: 1,    def: 0, note: '1 = no screen shake, hit-stop, slow motion or low-health pulsing' },
   { key: 'subSize',             group: 'Controls', label: 'Big subtitles',    unit: '',      min: 0,    max: 1,     step: 1,    def: 0 },
+  { key: 'keyMap',              group: 'Controls', label: 'Keys: 0 = WASD, 1 = IJKL', unit: '', min: 0, max: 1,     step: 1,    def: 0, note: 'IJKL drives, E is the special, O/U pitch' },
   { key: 'touchLayout',         group: 'Controls', label: 'Touch steering: 0 = stick, 1 = buttons', unit: '', min: 0, max: 1, step: 1, def: 0 },
   { key: 'cbPalette',           group: 'Controls', label: 'Colour-blind damage colours', unit: '', min: 0, max: 1,   step: 1,    def: 0, note: 'damage in blue/amber/white instead of green/amber/red' },
   { key: 'sfxVolume',           group: 'Audio', label: 'Effects volume',      unit: '',      min: 0,    max: 1,     step: 0.05, def: 0.85 },
@@ -8545,17 +8546,18 @@ window.addEventListener('keydown', (e) => {
   if (e.repeat) return;
   switch (e.code) {
     case 'Enter': if (RS.open) { e.preventDefault && e.preventDefault(); if (document.activeElement !== $('rsGo')) $('rsGo').click(); } else if (game.state !== 'playing') startMatch(); break;
-    case 'KeyJ': if (game.state === 'playing' && player) player.ctrl.jump = true; break;
+    case 'KeyJ': if (!S.keyMap && game.state === 'playing' && player) player.ctrl.jump = true; break;
     case 'KeyF': if (game.state === 'playing' && player) player.ctrl.fire = true; break;
+    case 'KeyE': if (S.keyMap && game.state === 'playing' && player) player.ctrl.fire = true; break;
     case 'KeyG': if (player && (player.T.police || player.T.siren)) { player.sirenOn = !player.sirenOn; toast(player.sirenOn ? 'SIREN ON' : 'SIREN OFF', 'cool'); } break;
     case 'KeyR': if (game.state === 'playing' && player && !player.wrecked) player.flipUpright(); break;
     case 'KeyN': if (GAME_MODE === 'respawn' && game.state === 'playing') openRespawnSheet(false); else showMenu(); break;
-    case 'KeyK': if (game.state === 'playing') { if (RS.open) closeRespawnSheet(); else openRespawnSheet(false); } break;
+    case 'KeyK': if (!S.keyMap && game.state === 'playing') { if (RS.open) closeRespawnSheet(); else openRespawnSheet(false); } break;
     case 'KeyC': lookBack = true; camKeyT = performance.now(); break;
-    case 'KeyL': SCORE.show(!SCORE.open); break;
+    case 'KeyL': if (!S.keyMap) SCORE.show(!SCORE.open); break;
     case 'KeyT': togglePanel(); break;
-    case 'KeyI': perfOpen($('perfdlg').hidden); break;
-    case 'KeyU': setVoices(!VOICES_OFF); toast(VOICES_OFF ? 'VOICES OFF' : 'VOICES ON', 'cool'); break;
+    case 'KeyI': if (!S.keyMap) perfOpen($('perfdlg').hidden); break;
+    case 'KeyU': if (!S.keyMap) { setVoices(!VOICES_OFF); toast(VOICES_OFF ? 'VOICES OFF' : 'VOICES ON', 'cool'); } break;
     case 'Tab': e.preventDefault(); setMap(!MAP_ON); break;
     case 'KeyM': sfx.init(); toggleMute(); break;
     case 'KeyB': toggleMusic(); break;
@@ -8735,9 +8737,10 @@ for (const b of el.touch.querySelectorAll('[data-k]')) {
 function readPlayerInput() {
   const k = (...c) => c.some((x) => keys.has(x));
   const c = player.ctrl;
-  const kt = (k('KeyW', 'ArrowUp') ? 1 : 0) - (k('KeyS', 'ArrowDown') ? 1 : 0);
+  const ijkl = S.keyMap === 1; // alternate key preset for left-hand-mouse players: IJKL drives, E is the special, O/U pitch
+  const kt = (k('KeyW', 'ArrowUp') || (ijkl && k('KeyI')) ? 1 : 0) - (k('KeyS', 'ArrowDown') || (ijkl && k('KeyK')) ? 1 : 0);
   c.throttle = kt !== 0 ? kt : touch.throttle;
-  const ks = (k('KeyA', 'ArrowLeft') ? 1 : 0) - (k('KeyD', 'ArrowRight') ? 1 : 0);
+  const ks = (k('KeyA', 'ArrowLeft') || (ijkl && k('KeyJ')) ? 1 : 0) - (k('KeyD', 'ArrowRight') || (ijkl && k('KeyL')) ? 1 : 0);
   c.steer = ks !== 0 ? ks : touch.steer !== 0 ? touch.steer : tilt.on ? tilt.steer : 0;
   c.handbrake = k('Space', 'KeyX') || touch.hb; // rear-wheel handbrake: brakes and lets the back slide
   c.brake = false;
@@ -8745,7 +8748,7 @@ function readPlayerInput() {
   c.wheelie = k('KeyV');
   c.nitro = k('ShiftLeft', 'ShiftRight') || touch.nitro;
   if (c.nitro && game.tut === 2) { game.tut = 3; toast('NOW PRESS F — YOUR CAR\'S SPECIAL', 'cool'); }
-  const kp = (k('KeyE') ? 1 : 0) - (k('KeyQ') ? 1 : 0);
+  const kp = ijkl ? (k('KeyO') ? 1 : 0) - (k('KeyU') ? 1 : 0) : (k('KeyE') ? 1 : 0) - (k('KeyQ') ? 1 : 0);
   c.pitch = kp !== 0 ? kp : touch.pitch;
   try { // gamepad (standard mapping): left stick steers, triggers drive, A nitro, B handbrake, X flip, Y special
     const gp = navigator.getGamepads ? [...navigator.getGamepads()].find((g) => g && g.connected) : null;
