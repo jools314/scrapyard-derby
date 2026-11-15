@@ -1,3 +1,4 @@
+// (waits on game time, not wall-clock time: under load the old 1 s wall-clock wait timed out before the car arrived)
 // The crusher is open on all four sides (owner request): a car shoved toward it from any side ends up inside the crush zone.
 const { open } = require('./harness');
 (async () => { const fails = []; const ok = (m, c, d) => { console.log((c ? 'PASS ' : 'FAIL ') + m, d ? JSON.stringify(d) : ''); if (!c) fails.push(m); };
@@ -9,7 +10,7 @@ const { open } = require('./harness');
       C.state = 'idle'; C.t = 999;
       const b = c.body; b.position.set(C.x + dx * 9, 1.2, C.z + dz * 8); b.velocity.set(-dx * 9, 0, -dz * 9); b.angularVelocity.set(0, 0, 0);
       b.quaternion.setFromAxisAngle(new D.CANNON.Vec3(0, 1, 0), Math.atan2(dz, -dx)); c.ai = false;
-      for (let i = 0; i < 40; i++) { b.velocity.x = -dx * 9; b.velocity.z = -dz * 9; await sleep(25); if (Math.abs(b.position.x - C.x) < C.hx && Math.abs(b.position.z - C.z) < C.hz) break; }
+      const s0 = D.simTime; for (let i = 0; i < 400 && D.simTime - s0 < 2.5; i++) { b.velocity.x = -dx * 9; b.velocity.z = -dz * 9; await sleep(25); if (Math.abs(b.position.x - C.x) < C.hx && Math.abs(b.position.z - C.z) < C.hz) break; }
       out[name + '_pos'] = [+b.position.x.toFixed(1), +b.position.z.toFixed(1), D.touching ? D.touching(c) : ''];
       out[name] = Math.abs(b.position.x - C.x) < C.hx + 0.5 && Math.abs(b.position.z - C.z) < C.hz + 0.5; }
     return out; });

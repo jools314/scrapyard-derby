@@ -4,6 +4,7 @@ Newest first. Every push to `main` goes live; each one bumps `BUILD` and adds a 
 
 | build | date | highlights |
 |---|---|---|
+| 90 | 2026-11-15 | Fewer freezes: the lights in the yard are now fixed for the whole match and only change brightness. Before, a tanker blast added a light and every cruiser or fire truck brought its own siren light, and each time the number of lights changed the browser had to rebuild 20+ shaders at once: a 0.4–0.7 s freeze on a Mac, right after blasts and respawns. Sirens and the blast flash look the same. Test: tests/lightcount.js (31 shader rebuilds → 2) |
 | 89 | 2026-11-15 | The crusher is open on all four sides: the back and side walls are gone, only the four yellow corner posts hold the press up, so you can shove a car in from any direction and big trucks no longer wedge against its walls (play-log stuck hotspot at -105,-90). Hazard stripes on both open ends. Fewer physics objects, not more. Test: tests/crusheropen.js |
 | 88 | 2026-11-15 | Helicopter Sign: knock a yard sign spinning fast enough (over 9 rad/s) and it lifts off, helicopters wildly for two seconds, then clatters down somewhere stupid as a normal sign again. No new props — the ten signs were already there. Test: tests/helisign.js |
 | 87 | 2026-11-15 | Read the Bales: occasionally (about one in seven) a Combine bale comes out with a message printed on it — HELP, SEND NITRO, I WAS A VIPER and friends. One printed texture per message, made once and reused; plain bales are untouched. Test: tests/bales.js |
