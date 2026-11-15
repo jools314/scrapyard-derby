@@ -4,6 +4,12 @@
 # fixtures) and the announcer lines audit. The browser smoke test runs as an
 # advisory step: headless WebGL in CI is environment-dependent, so it reports but
 # does not gate (run it locally before a release — see TESTING.md).
+#
+# PARKED, NOT LIVE: this file sits at ci/github-ci.yml because the token that
+# pushed this branch lacks GitHub's `workflow` OAuth scope, and GitHub refuses
+# workflow files from such tokens. To activate: `gh auth refresh -s workflow`
+# (or use a token that has it), then `git mv ci/github-ci.yml .github/workflows/ci.yml`
+# and push. The content needs no changes.
 name: ci
 on:
   push:

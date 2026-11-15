@@ -68,5 +68,9 @@ IMPROVEMENTS-ROUND2.md playtest notes).
 
 ## 5. CI
 
-`.github/workflows/ci.yml` runs §1 + the lines audit on every push to `main`
-and `bob/**` and on PRs; the smoke test is advisory there (§2).
+The CI workflow runs §1 + the lines audit on every push to `main` and `bob/**`
+and on PRs; the smoke test is advisory there (§2). **It is currently parked at
+`ci/github-ci.yml`, not live**: the token that pushed the round-2 branch lacks
+GitHub's `workflow` OAuth scope, and GitHub refuses workflow files from such
+tokens. Activate with `gh auth refresh -s workflow`, then
+`git mv ci/github-ci.yml .github/workflows/ci.yml` and push.

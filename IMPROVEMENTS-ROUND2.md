@@ -83,7 +83,7 @@ needs Jonas's explicit confirmation first.
 | 76 | Announcer duo | `fbfc790` | R2-76 |
 | 77 | The update check only works on github.io | `a33dc3e` | R2-77 |
 | 78 | A real test harness in the repo | `d5b34ca` | R2-78 (skip-path verified; live pass owed) |
-| 79 | CI on every push | `df6333f` | R2-79 (first GitHub run happens on push) |
+| 79 | CI on every push | `df6333f` | R2-79 (workflow authored but PARKED at `ci/github-ci.yml`: the pushing token lacks GitHub's `workflow` scope — see the relocation commit after this doc; activate per TESTING.md §5) |
 | 80 | Deterministic seed mode | `bbb1b5b` | R2-80 |
 | 81 | Play-log diff tool | `7e94a48` | R2-81 (executed on fixtures) |
 | 82 | Perf budgets as assertions | `ffd4e32` | R2-82 |
