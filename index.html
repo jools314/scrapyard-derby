@@ -10391,6 +10391,7 @@ const VR = (() => {
     for (const src of s.inputSources) if (src.gamepad && (src.handedness === 'left' || src.handedness === 'right')) st[src.handedness] = src;
     for (const h of ['left', 'right']) { const c = ctrl[h], src = st[h]; c.src = src; c.ok = false;
       if (src && xf && V.ref) { const p = xf.getPose(src.targetRaySpace, V.ref); if (p) { c.g.matrix.fromArray(p.transform.matrix); c.g.matrixWorldNeedsUpdate = true; c.ok = true; } }
+      if (c.ok) { c.seen = true; c.lost = false; } else if (c.seen && !c.lost && game.state === 'playing') { c.lost = true; toast(`${h.toUpperCase()} CONTROLLER LOST — TRACKING OR BATTERY`, 'bad'); } // R2-17: a lost controller used to just vanish mid-drive with no message; a dead battery looks identical, so the toast names both (once per loss)
       c.g.visible = c.ok; }
     const L = st.left, R = st.right;
     const edge = (h, i, on) => { const was = !!V.btn[h][i]; V.btn[h][i] = on; return on && !was; };
