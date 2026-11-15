@@ -10348,7 +10348,7 @@ const VR = (() => {
     const s = renderer.xr.getSession(); V.session = s; V.ref = renderer.xr.getReferenceSpace(); V.n = 0;
     XRS.on = true;
     V.saved = { level: QUALITY.level, camMode };
-    applyQuality(V.q2 ? 6 : 5); QUALITY.lite = true; // Quest preset: no post chain, 1024 shadows (none on Quest 2), fewer particles, lighter physics
+    applyQuality(V.q2 ? 6 : 5); QUALITY.lite = true; V.startLevel = QUALITY.level; // Quest preset: no post chain, 1024 shadows (none on Quest 2), fewer particles, lighter physics (R2-8: the governor may recover up to this level, never past it)
     camMode = V.set.view ? 0 : 2; game.crashCam = null; game.shake = 0; game.fovPunch = 0; V.lastShake = 0;
     const fr = s.supportedFrameRates ? Array.from(s.supportedFrameRates) : [];
     V.hz = s.frameRate || 72; V.resStep = 0; V.baseScale = V.q2 ? 0.85 : 1; // R2-7: governor resolution steps start from the session's base scale
@@ -10676,6 +10676,10 @@ const VR = (() => {
     if (V.slow >= 2) { // R2-7: shed pixels before shedding the world — resolution and foveation step down first; only then does the quality level drop
       if ((V.resStep || 0) < 2) { V.resStep = (V.resStep || 0) + 1; applyResStep(); V.slow = 0; }
       else if (QUALITY.level < QSTEPS.length - 1) { applyQuality(QUALITY.level + 1); QUALITY.lite = true; V.slow = 0; } }
+    V.fast = p70 < 0.85 / V.hz ? (V.fast || 0) + 1 : 0; // R2-8: sustained headroom (3 windows ≈ 6 s well under budget) earns a step back — in reverse order: quality level first, then resolution
+    if (V.fast >= 3) { V.fast = 0;
+      if (QUALITY.level > (V.startLevel ?? QUALITY.level)) { applyQuality(QUALITY.level - 1); QUALITY.lite = true; }
+      else if ((V.resStep || 0) > 0) { V.resStep--; applyResStep(); } }
   }
 
   // ---- buttons on the 2D page ----
