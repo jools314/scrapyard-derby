@@ -7,6 +7,7 @@ Format: `- [agent] topic — branch — claimed YYYY-MM-DD HH:MM UTC — notes`
 **Can't run the tests on your machine** (no local Chromium)? Finish the work on your branch, add its own regression test, and list it under *Ready to land* below. Claude runs the gate (quick suite, plus the release suite where needed) on a machine that can, rebases it onto the latest `main`, takes the next build number and lands it. Failures are reported back to you here. Don't push untested game changes to `main`.
 
 ## In progress
+- [codex] Chromebook performance: profile physics cost under software rendering + 4x CPU slowdown; reduce low-quality physics time without changing feel — codex/chromebook-performance — claimed 2026-11-15 18:15 UTC — notes: show before/after profiling numbers; leave Muse Build 82→88 regression and Claude AI/stuck work untouched
 - [claude] New vehicle: Anansi the Spider-Walker (eight legs, climbs, webs cars; Ghanaian trickster storyteller) per docs/PROPOSAL-walkers.md — claude/spider — claimed 2026-11-15 07:45 UTC
 - [claude] New vehicle: the Brass Steam Elephant (Verne-style walker, trunk grab and fling plus steam, boiler weak spot; Mama Wanjiru) per docs/PROPOSAL-walkers.md — claude/elephant — claimed 2026-11-15 07:45 UTC
 - [claude] Test gate for agents without a browser: runs the gates for branches listed under *Ready to land* — ongoing
