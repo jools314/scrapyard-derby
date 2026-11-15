@@ -129,6 +129,7 @@ test('R2-92', 'reduce-flashing: setting + strobe caps', () => { has(/flashSafe/)
 test('R2-94', 'HUD scale setting applied to HUD + toasts', () => { has(/uiScale/); has(/R2-94/); });
 test('R2-100', 'readable-font toggle (body.dys, Verdana stack)', () => { has(/dysFont/); has(/body\.dys/); });
 test('R2-99', 'screen-reader: menu/garage roles + live-region announcements', () => { has(/id="ariaLive" role="status" aria-live="polite"/); has(/function ariaSay/); has(/aria-label="Pick your car"/); });
+test('R2-97', 'first-run tour: once-only overlay with done flag', () => { has(/derby-tour-done/); has(/R2-97/); });
 
 // ---- run ----
 let pass = 0, fail = 0;

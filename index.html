@@ -11401,6 +11401,24 @@ const apStop = (e) => { if (!AUTO.on || performance.now() - AUTO.t0 < 800 || !e.
 addEventListener('keydown', apStop, true); addEventListener('pointerdown', apStop, true);
 addEventListener('click', (e) => { if (AUTO.swallow && performance.now() - AUTO.swallow < 700) { AUTO.swallow = 0; e.preventDefault(); e.stopPropagation(); } }, true);
 if (/[?&]autoplay=(1|elim|full|lite)\b/.test(location.search) || /^#autoplay\b/.test(location.hash)) setTimeout(() => AUTO.start(), 600); // a bookmark that starts it (R2-88: named presets too)
+
+// R2-97: first-run tour — main had no first-run detection at all; a new player landed on a menu with a car dock, two modes, multiplayer and dozens of settings. A 3-step overlay (pick a car → Start → your pedals), shown exactly once, skippable, stored in localStorage.
+(function tour() {
+  let done = false; try { done = !!localStorage.getItem('derby-tour-done'); } catch (e) {}
+  if (done || AUTO.on) return;
+  const steps = [
+    ['👋 Welcome to the yard', 'Wreck every other car before they wreck you. Hits with your nose do the most damage — your front bumper is armour, your sides are not.'],
+    ['🚗 1 · Pick a car', 'The garage above is your dock: light cars are quick and fragile, heavy ones are slow and hit like a building. Tap a car to choose it — you can change any time between matches.'],
+    ['🏁 2 · Start, then drive', 'Press Start. On a keyboard: WASD or arrows to drive, Space for the special, Shift for nitro. On a phone: left thumb steers, right thumb works the pedals. That is the whole game — go make a mess.'],
+  ];
+  let i = 0;
+  const box = document.createElement('div');
+  box.setAttribute('role', 'dialog'); box.setAttribute('aria-label', 'Welcome tour');
+  box.style.cssText = 'position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:60;max-width:min(520px,92vw);background:rgba(24,19,14,.96);border:1px solid #e6a316;border-radius:12px;padding:14px 16px;color:#f1e8da;box-shadow:0 12px 40px rgba(0,0,0,.5)';
+  const render = () => { const [h, b] = steps[i]; box.innerHTML = `<div style="font-weight:700;font-size:17px;margin-bottom:6px">${h}</div><div style="font-size:14px;line-height:1.45">${b}</div><div style="margin-top:10px;display:flex;gap:8px;justify-content:space-between;align-items:center"><span style="opacity:.6;font-size:12px">${i + 1} / ${steps.length}</span><span><button type="button" data-t="skip" style="margin-right:8px">Skip tour</button><button type="button" data-t="next" class="primary">${i === steps.length - 1 ? 'Got it — let me drive' : 'Next'}</button></span></div>`; };
+  box.addEventListener('click', (e) => { const t = e.target && e.target.dataset && e.target.dataset.t; if (!t) return; if (t === 'next' && i < steps.length - 1) { i++; render(); return; } try { localStorage.setItem('derby-tour-done', '1'); } catch (err) {} box.remove(); });
+  render(); document.body.appendChild(box);
+})();
 window.__derby = { AUTO, PLAYLOG, BOULDERS, get mapShapes() { return mapShapes; }, respawnCar: (o, t) => respawnCar(o, t), PHYS, cockpitEye: (c) => cockpitEye(c), wakeProp: (pr) => wakeProp(pr), addConcrete: (x, z, r, k) => addConcrete(x, z, r, k), igniteProp: (pr, t) => igniteProp(pr, t), cookBull: (bl, by, dt) => cookBull(bl, by, dt), tankerBoom: (p, c) => tankerBoom(p, c), CAR_TYPES, sfx, CANNON, barks, PERF, shells, NETLOG, nearHostAdd: () => nearHostAdd(), nearJoin: () => nearJoin(), JUMBO, BALL, BOLLARDS, GASQ, updateArenaPub: (dt) => updateArena(dt), CRUSHER, crushNow: () => crushNow(), applyNight: () => applyNight(), FIREWORKS, ARENA, CROWD, MP, QUALITY, applyQuality: (i) => applyQuality(i), MERGED, camera, updatePropActivity: (dt) => updatePropActivity(dt), renderer, scene, spawnFree: (x, z, r) => spawnFree(x, z, r), BULLS, updateBulls: (dt) => updateBulls(dt), updateShells, tilt, setTilt, get CRANE() { return CRANE; }, updateCrane: (dt) => updateCrane(dt), CONCRETE, THREE, craters, shells, pickups, barks, PERSONAS, TUNE, game, cars, S, world, CAR_TYPES, sfx, touch, drawGauge, get player() { return player; }, keys, startMatch, selectCar, setValue, debris, props, platformOf, get simTime() { return simTime; }, set simTime(v) { simTime = v; } }; // console tinkering + tests
 requestAnimationFrame(frame);
 window.__derby.SCORE = SCORE; window.__derby.UPDATE = UPDATE; window.__derby.TABENV = TABENV; window.__derby.PERFREP = PERFREP; // (test hooks)
