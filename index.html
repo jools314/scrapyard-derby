@@ -8280,6 +8280,7 @@ function startMatch() {
 function showMenu() {
   el.over.hidden = true; el.menu.hidden = false;
   game.state = 'menu'; FREE_DRIVE = false;
+  if (typeof UPDATE !== 'undefined' && UPDATE.deferred) UPDATE.show();
   resetMatch(); refreshBestLine();
 }
 function showOver() {
@@ -8294,6 +8295,7 @@ function showOver() {
   $('rAcc').textContent = game.shots > 0 ? Math.round(game.hits / game.shots * 100) + '%' : '—';
   { const b = bestFor(GAME_MODE, player.type); $('rBest').textContent = b ? b.score.toLocaleString() : '—'; }
   $('btnRematch').hidden = !(MP.role === 'host' && GAME_MODE === 'respawn');
+  if (typeof UPDATE !== 'undefined' && UPDATE.deferred) UPDATE.show();
   $('overBoard').hidden = GAME_MODE !== 'respawn'; if (GAME_MODE === 'respawn') $('overTable').innerHTML = SCORE.table();
   el.over.hidden = false;
 }
@@ -8502,6 +8504,8 @@ const UPDATE = { checked: 0, newer: null,
     this.goNow = go; setTimeout(go, 180000); // (a long match doesn't hold the update back for more than 3 minutes)
   },
   show() {
+    if (MP.role !== 'solo' && game.state === 'playing') { this.deferred = true; return; } // never wave a one-tap reload at a room mid-match: the banner waits for the over screen or the menu (showOver/showMenu re-call show)
+    this.deferred = false;
     const b = document.createElement('button'); b.id = 'updBanner'; b.type = 'button';
     b.textContent = `🆕 Build ${this.newer} is out (you have ${BUILD}) · tap to update`;
     b.style.cssText = 'position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 8px);transform:translateX(-50%);z-index:60;padding:10px 16px;border-radius:12px;border:1px solid #f2a20c;background:rgba(20,17,14,.92);color:#ffd9a0;font:600 14px/1.2 system-ui,sans-serif;cursor:pointer;max-width:calc(100vw - 32px)';
