@@ -44,6 +44,7 @@ quick() {
   t remembers 600 "REMEMBERS PASS"
   t shakeoff 600 "SHAKEOFF PASS"
   t pottycannon 600 "POTTYCANNON PASS"
+  t bales 600 "BALES PASS"
 }
 release() {
   quick

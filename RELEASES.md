@@ -4,6 +4,7 @@ Newest first. Every push to `main` goes live; each one bumps `BUILD` and adds a 
 
 | build | date | highlights |
 |---|---|---|
+| 87 | 2026-11-15 | Read the Bales: occasionally (about one in seven) a Combine bale comes out with a message printed on it — HELP, SEND NITRO, I WAS A VIPER and friends. One printed texture per message, made once and reused; plain bales are untouched. Test: tests/bales.js |
 | 86 | 2026-11-15 | Potty Cannon: a porta-potty sitting on a geyser when it blows no longer gets the ordinary prop launch — it gets the full cannon treatment: a much harder launch (26 vs 16), a wild tumble, and the flight counted on the potty, once per blow. No new props. Test: tests/pottycannon.js |
 | 85 | 2026-11-15 | The Shake-Off: a bull soaked through by the fire truck's hose (half a second under the jet) shakes itself dry like a huge dog the moment the hosing stops — spraying every car within 7 m with a 3-second grip penalty (wheel friction halved while it lasts). Test: tests/shakeoff.js |
 | 84 | 2026-11-15 | It Remembers: when a burger's time expires and a fresh bull wanders back in, one time in ten it returns wearing a sesame-seed bun as a hat. It says nothing. It doesn't have to. The hat stays until that bull is cooked or the match ends. Test: tests/remembers.js |
