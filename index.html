@@ -93,6 +93,8 @@
   .toast { font-family: var(--display); font-size: clamp(18px, 4vw, 28px); color: var(--accent); text-shadow: 0 3px 0 #000; white-space: nowrap; animation: pop 1.7s forwards; }
   .toast.chip { font-size: clamp(13px, 2.4vw, 17px); opacity: .92; }
   #hitDir { position: fixed; left: 50%; top: 50%; width: 54vmin; height: 54vmin; margin: -27vmin 0 0 -27vmin; border-radius: 50%; pointer-events: none; z-index: 24; background: conic-gradient(from -25deg, transparent 0deg, rgba(228,71,44,.55) 50deg, transparent 100deg); -webkit-mask: radial-gradient(closest-side, transparent 60%, #000 61%, #000 88%, transparent 89%); mask: radial-gradient(closest-side, transparent 60%, #000 61%, #000 88%, transparent 89%); }
+  .floatScore { position: fixed; z-index: 26; font-family: var(--display); color: var(--accent); text-shadow: 0 2px 0 #000; pointer-events: none; animation: floatUp 1.1s forwards; font-size: clamp(16px, 3vw, 24px); }
+  @keyframes floatUp { from { transform: translate(-50%, 0); opacity: 1; } to { transform: translate(-50%, -56px); opacity: 0; } }
   .toast.bad { color: var(--danger); }
   .toast.cool { color: var(--nitro); }
   @keyframes pop {
@@ -6340,6 +6342,14 @@ function toast(text, kind) {
   while (el.toasts.children.length > 4) el.toasts.firstChild.remove();
   setTimeout(() => d.remove(), kind === 'bad' || kind === 'cool' ? 2600 : 1700);
 }
+function floatScore(worldPos, text) { // score floats off the hit itself, not just the toast line: project the impact point to screen space and let it drift up
+  if (!worldPos) return;
+  const v = new THREE.Vector3(worldPos.x, worldPos.y + 1.5, worldPos.z).project(camera);
+  if (v.z > 1) return;
+  const d = document.createElement('div'); d.className = 'floatScore'; d.textContent = text;
+  d.style.left = ((v.x * 0.5 + 0.5) * innerWidth) + 'px'; d.style.top = ((-v.y * 0.5 + 0.5) * innerHeight) + 'px';
+  document.body.appendChild(d); setTimeout(() => d.remove(), 1150);
+}
 function buildOpponentList() {
   el.opp.innerHTML = '';
   for (const c of cars) {
@@ -7898,7 +7908,7 @@ const game = {
     if (killer) killer.kills = (killer.kills || 0) + 1;
     if (PLAYLOG.m) PLAYLOG.wreck(car, killer); if (AUTO.on && car === player) car.respawnType = AUTO.nextType(); // (autoplay: every life a different vehicle)
     SCORE.wreck(car, killer); // (host / solo only: guests get the table from the host)
-    if (killer === player && !FREE_DRIVE) { chalDone('firstwreck'); if (car.tossedBy && simTime - car.tossedBy < 8) chalDone('forktoss'); if (car === game.rival) { game.addScore(250, 'RIVAL DOWN'); barks.announce('rivalDown', { v: car.name }, true); chalDone('rival'); } }
+    if (killer === player && !FREE_DRIVE) { chalDone('firstwreck'); floatScore(car.body.position, 'WRECK +100'); if (car.tossedBy && simTime - car.tossedBy < 8) chalDone('forktoss'); if (car === game.rival) { game.addScore(250, 'RIVAL DOWN'); floatScore(car.body.position, 'RIVAL DOWN +250'); barks.announce('rivalDown', { v: car.name }, true); chalDone('rival'); } }
     if (!FREE_DRIVE && GAME_MODE === 'respawn' && MP.role !== 'guest' && S.wreckTarget > 0 && killer && (killer.kills || 0) >= S.wreckTarget) { SCORE.finish(); return; } // first to the wreck target ends it
     if (!FREE_DRIVE && car.dmgLog) { const others = car.dmgLog.filter((x) => x.by !== car && x.by !== killer && simTime - x.t < 10).sort((a, b) => b.amt - a.amt); if (others[0] && others[0].by === player) { this.score += 250; toast('ASSIST +250', 'cool'); } } // second-biggest damager gets an assist
     if (GAME_MODE === 'respawn' && MP.role === 'guest') { if (car.isPlayer) toast('WRECKED', 'bad'); else toast(`${car.name} is wrecked`); return; } // the host brings it back
@@ -10385,7 +10395,7 @@ function simBody(now) {
     }
     game.nmT = (game.nmT || 0) - dt;
     if (game.state === 'playing' && game.nmT <= 0 && !FREE_DRIVE && MP.role !== 'guest') { game.nmT = 0.15; // near misses: close, fast, and no contact — the cheapest thrill in the yard
-      if (player && !player.wrecked && game.countdown <= 0) for (const c of cars) { if (c === player || c.wrecked || c.remote) continue; const d = player.body.position.distanceTo(c.body.position), rr = (player.T.L + c.T.L) / 2; if (d > rr + 0.4 && d < rr + 3.2 && player.body.velocity.vsub(c.body.velocity).length() > 15 && simTime - (c.nmT || -9) > 3) { c.nmT = simTime; game.addScore(25, 'NEAR MISS'); if (Math.random() < 0.35) barks.say(c, 'taunt'); } } }
+      if (player && !player.wrecked && game.countdown <= 0) for (const c of cars) { if (c === player || c.wrecked || c.remote) continue; const d = player.body.position.distanceTo(c.body.position), rr = (player.T.L + c.T.L) / 2; if (d > rr + 0.4 && d < rr + 3.2 && player.body.velocity.vsub(c.body.velocity).length() > 15 && simTime - (c.nmT || -9) > 3) { c.nmT = simTime; game.addScore(25, 'NEAR MISS'); floatScore(c.body.position, 'NEAR MISS +25'); if (Math.random() < 0.35) barks.say(c, 'taunt'); } } }
     game.impactRate = Math.max(0, (game.impactRate || 0) - dt * 0.7);
     if (game.replayBack && (!JUMBO.replay || clock > game.replayBackT)) { game.replayBack = false; if (game.state === 'over') el.over.hidden = false; }
     if (game.state === 'over' && game.overTimer > 0) {
