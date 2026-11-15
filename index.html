@@ -7833,6 +7833,7 @@ function drawMinimap() {
       mctx.fillStyle = c.wrecked ? '#3a332c' : (c.css || (c.css = '#' + c.baseColor.getHexString()));
       mctx.strokeStyle = c.wrecked ? '#6b6157' : '#f1e8da'; mctx.lineWidth = 2;
       mctx.beginPath(); mctx.arc(x, y, 6, 0, 7); mctx.fill(); mctx.stroke();
+      if (!c.wrecked && (c.bounty || rivalName(c) === rivalNemesis())) { mctx.beginPath(); mctx.arc(x, y, 10.5, 0, 7); mctx.strokeStyle = '#ff5340'; mctx.lineWidth = 2.5; mctx.stroke(); } // R2-98: shape-coding completes the set — triangle = you, square = pickup, circle = opponent, RING = your nemesis (or a live bounty, R2-58): the map now reads without colour at all
     }
   }
 }

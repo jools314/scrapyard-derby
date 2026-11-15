@@ -122,6 +122,8 @@ test('R2-87', 'blowup pose capture into phys.blow', () => { has(/m\.blow/); has(
 test('R2-88', 'autoplay presets elim/full/lite', () => { has(/autoplay=\(1\|elim\|full\|lite\)/); has(/R2-88/); });
 test('R2-90', 'active transport named in log headers', () => { has(/activeVia\(\)/); has(/R2-90/); });
 
+test('R2-98', 'minimap shape-coding: nemesis/bounty ring completes the set', () => { has(/R2-98/); has(/rivalNemesis\(\)/); });
+
 // ---- accessibility (92-100) ----
 test('R2-92', 'reduce-flashing: setting + strobe caps', () => { has(/flashSafe/); has(/R2-92/); });
 test('R2-94', 'HUD scale setting applied to HUD + toasts', () => { has(/uiScale/); has(/R2-94/); });
