@@ -8293,10 +8293,19 @@ const UPDATE = { checked: 0, newer: null,
   async check() {
     if (!/github\.io$/.test(location.hostname) || this.newer) return;
     try {
-      const r = await fetch(location.pathname + '?v=' + Date.now(), { cache: 'no-store' }); if (!r.ok) return;
+      const r = await fetch(location.pathname, { cache: 'no-cache' }); if (!r.ok) return; // (a conditional request: usually a cheap 304)
       const m = (await r.text()).match(/const BUILD = '(\d+)'/); this.checked = Date.now();
-      if (m && +m[1] > +BUILD) { this.newer = m[1]; this.show(); }
+      if (m && +m[1] > +BUILD) { this.newer = m[1]; if (AUTO.on) this.autoUpdate(); else this.show(); }
     } catch (e) {}
+  },
+  // Autoplay: nobody is playing, so take the new build straight away: finish this match (or give it 3 minutes at most),
+  // send the play log, then reload into autoplay on the new version.
+  autoUpdate() {
+    if (this.updating) return; this.updating = true; PLAYLOG.ev?.('update', 'build ' + this.newer + ' found during autoplay');
+    toast(`🆕 BUILD ${this.newer} OUT · AUTOPLAY WILL UPDATE AFTER THIS MATCH`, 'cool');
+    const go = async () => { if (this.going) return; this.going = true; try { PLAYLOG.ck?.('updating to build ' + this.newer); await Promise.race([PLAYLOG.upload('updating to build ' + this.newer), new Promise((r) => setTimeout(r, 15000))]); } catch (e) {}
+      location.replace(location.pathname + '?autoplay=1&v=' + this.newer); };
+    this.goNow = go; setTimeout(go, 180000); // (a long match doesn't hold the update back for more than 3 minutes)
   },
   show() {
     const b = document.createElement('button'); b.id = 'updBanner'; b.type = 'button';
@@ -8306,7 +8315,7 @@ const UPDATE = { checked: 0, newer: null,
     document.body.appendChild(b); NETLOG.incident('me', `newer build ${this.newer} available (running ${BUILD})`);
   },
 };
-setTimeout(() => UPDATE.check(), 4000); setInterval(() => UPDATE.check(), 5 * 60000);
+setTimeout(() => UPDATE.check(), 4000); setInterval(() => UPDATE.check(), 5 * 60000); setInterval(() => { if (AUTO.on) UPDATE.check(); }, 2 * 60000); // (autoplay checks more often: it updates itself)
 document.addEventListener('pointerdown', (e) => { if (!el.panel.hidden && !el.panel.contains(e.target) && !e.target.closest('#btnTune, #gearMenu, #btnGear')) togglePanel(false); }); // a tap anywhere outside the Tune Physics box closes it
 $('btnNew').addEventListener('click', (e) => { e.currentTarget.blur(); if (GAME_MODE === 'respawn' && game.state === 'playing') openRespawnSheet(false); else showMenu(); }); // back to the garage to pick a car
 $('btnPause').addEventListener('click', (e) => { if (game.state === 'playing') game.paused = !game.paused; e.currentTarget.blur(); });
@@ -9471,7 +9480,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '66'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '67'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
@@ -9680,10 +9689,29 @@ function updatePerfHud(realDt) {
   if (MP.role === 'host') txt += `\nhosting ${MP.guests().length} player(s)`;
   el2.textContent = txt;
 }
+// Is this tab getting the whole machine? A hidden, unfocused, occluded or timer-throttled tab (Chrome clamps background timers,
+// slows windows behind other apps, battery saver caps frame rate) runs slowly through no fault of the game, so frames in those
+// stretches are kept out of fps stats, slow-moment reports and auto-quality, and the play log says how much time was affected.
+const TABENV = { visible: !document.hidden, focused: document.hasFocus(), throttled: false, frozen: false, graceUntil: 0, lastTick: performance.now(), drift: 0, gaps: 0,
+  secs: { hidden: 0, unfocused: 0, throttled: 0 }, battery: null, lastAcc: performance.now(),
+  get suspect() { return !this.visible || this.throttled || this.frozen || performance.now() < this.graceUntil; },
+  mark(why) { this.graceUntil = performance.now() + 2500; if (typeof PLAYLOG !== 'undefined' && PLAYLOG.ev) try { PLAYLOG.ev('env', why); } catch (e) {} },
+  acc() { const now = performance.now(), d = (now - this.lastAcc) / 1000; this.lastAcc = now; if (d > 5) return; if (!this.visible) this.secs.hidden += d; else if (!this.focused) this.secs.unfocused += d; if (this.throttled) this.secs.throttled += d; },
+  frame(rawDt) { this.acc(); if (this.visible && rawDt > 1) { this.gaps++; this.mark('frame gap ' + Math.round(rawDt * 1000) + ' ms while visible (window covered, display asleep or throttled)'); } },
+  summary() { const r = (x) => Math.round(x); return { hiddenS: r(this.secs.hidden), unfocusedS: r(this.secs.unfocused), throttledS: r(this.secs.throttled), gaps: this.gaps, focusedNow: this.focused, battery: this.battery }; } };
+setInterval(() => { // a 250 ms timer: if it arrives a second or more late, the browser is clamping this tab's timers
+  const now = performance.now(), late = now - TABENV.lastTick - 250; TABENV.lastTick = now; TABENV.drift = late;
+  const th = late > 700; if (th !== TABENV.throttled) { TABENV.throttled = th; TABENV.acc(); if (th) TABENV.mark('timers throttled (' + Math.round(late) + ' ms late)'); else TABENV.mark('timers back to normal'); } }, 250);
+document.addEventListener('visibilitychange', () => { TABENV.acc(); TABENV.visible = !document.hidden; TABENV.mark(document.hidden ? 'tab hidden' : 'tab visible again'); });
+window.addEventListener('blur', () => { TABENV.acc(); TABENV.focused = false; TABENV.mark('window lost focus'); });
+window.addEventListener('focus', () => { TABENV.acc(); TABENV.focused = true; TABENV.mark('window focused'); });
+document.addEventListener('freeze', () => { TABENV.frozen = true; TABENV.mark('page frozen by the browser'); });
+document.addEventListener('resume', () => { TABENV.frozen = false; TABENV.mark('page resumed'); });
+try { navigator.getBattery?.().then((b) => { const up = () => { TABENV.battery = { charging: b.charging, level: Math.round(b.level * 100) }; }; up(); b.addEventListener('chargingchange', () => { up(); TABENV.mark(b.charging ? 'plugged in' : 'on battery (the OS may slow the CPU/GPU)'); }); b.addEventListener('levelchange', up); }).catch(() => {}); } catch (e) {}
 function governQuality(realDt) {
   updatePerfHud(realDt);
   if (XRS.on) { govern.busy = []; VR.govern(realDt); return; } // VR has its own, rebased on the headset's frame rate (and is never paced or put in cool mode)
-  if (!S.autoGfx || game.state === 'menu' || document.hidden || game.paused) { govern.acc = govern.n = 0; govern.fr = []; govern.busy = []; return; }
+  if (!S.autoGfx || game.state === 'menu' || document.hidden || game.paused || TABENV.suspect) { govern.acc = govern.n = 0; govern.fr = []; govern.busy = []; return; } // (a throttled tab is not a slow device: don't drop quality for it)
   (govern.fr || (govern.fr = [])).push(realDt); govern.acc += Math.min(realDt, 0.1); govern.n++; govern.t += realDt;
   if (govern.t < (govern.first ? 2 : 1.2)) return; govern.first = true;
   // the budget is the paced frame (16.7 ms at the 60 cap, 33 ms in cool mode), so a capped frame never reads as "slow"
@@ -10053,7 +10081,7 @@ function openBugReport() { // one tap: the full report goes straight to the clip
 }
 function frameBody(now) {
   const rawDt = (now - lastDrawT) / 1000; lastDrawT = now;
-  PLAYLOG.frame(rawDt); // the play log: every match, whoever is driving (and autoplay's match loop)
+  TABENV.frame(rawDt); PLAYLOG.frame(rawDt); // the play log: every match, whoever is driving (and autoplay's match loop)
   governQuality(rawDt); NETLOG.frame(rawDt); FLIGHT.rec();
   if (!WARMED && game.state === 'playing' && game.countdown > 0) warmShaders();
   const t0 = performance.now(); let simMs = TICK.ms || 0; TICK.ms = 0; // (a host's game ticks run between frames: count them too)
@@ -10737,7 +10765,7 @@ Object.assign(PLAYLOG, {
     if (this.m && st !== 'playing') this.finish(st === 'over' ? 'game over: ' + ($('overTitle').textContent || '') : 'left the match');
     if (!this.m && st === 'playing' && !this.closed) this.begin();
     const m = this.m; if (!m) return;
-    if (!document.hidden && !game.paused && rawDt < 1 && rawDt > 0 && game.countdown <= 0) {
+    if (!TABENV.suspect && !game.paused && rawDt < 1 && rawDt > 0 && game.countdown <= 0) { // (frames while the browser throttled this tab don't count)
       const ms = rawDt * 1000; m.hist[Math.min(399, Math.floor(ms * 2))]++; m.frames++; m.ftSum += ms; if (ms > m.worst) m.worst = ms;
     }
     if (QUALITY.level !== m.qNow) { m.qNow = QUALITY.level; if (m.qCh.length < 30) m.qCh.push([Math.round(game.time), QUALITY.level]); this.ev('q', QUALITY.level); }
@@ -10785,7 +10813,7 @@ Object.assign(PLAYLOG, {
     const bs = barks.stats || {}, b0 = m.bark0, K = m.kinds;
     return { v: 2, kind, id: m.id, n: m.n, sid: this.sid, dev: this.devId, build: BUILD, start: new Date(m.at).toISOString(), end: new Date(now).toISOString(), ended,
       role: m.role, mode: m.mode, room: MP.role !== 'solo' ? MP.code || '' : undefined, device: PERFREP.device(), ua: this.uaShort(), cores: navigator.hardwareConcurrency || null, screen: `${screen.width}x${screen.height}@${devicePixelRatio} view ${innerWidth}x${innerHeight}`,
-      game: Math.round(game.time), real: Math.round((performance.now() - m.p0) / 1000), hidden: Math.round((m.hidden + (m.hidAt ? performance.now() - m.hidAt : 0)) / 1000), cars: cars.length, score: game.score, voices: !VOICES_OFF, sound: !sfx.muted,
+      game: Math.round(game.time), real: Math.round((performance.now() - m.p0) / 1000), hidden: Math.round((m.hidden + (m.hidAt ? performance.now() - m.hidAt : 0)) / 1000), env: TABENV.summary(), test: navigator.webdriver ? true : undefined, cars: cars.length, score: game.score, voices: !VOICES_OFF, sound: !sfx.muted,
       q: { start: m.q0, end: QUALITY.level, ch: m.qCh, auto: !!S.autoGfx, gfx: S.gfx, res: Math.round(renderer.getPixelRatio() * 100) },
       fps: m.frames ? { med: fps(this.pct(m, 0.5)), p5: fps(this.pct(m, 0.95)), low1: fps(this.pct(m, 0.99)), avg: fps(m.ftSum / m.frames), worstMs: Math.round(m.worst), frames: m.frames } : null,
       slow: { n: m.inc.length, secs: r1(m.inc.reduce((a, x) => a + x.secs, 0)), worstMs: m.inc.reduce((a, x) => Math.max(a, x.worst || 0), 0), causes, list: m.inc },
@@ -10825,7 +10853,7 @@ Object.assign(PLAYLOG, {
     }
   },
   session() {
-    this.add({ v: 2, kind: 'session', sid: this.sid, dev: this.devId, build: BUILD, at: new Date().toISOString(), device: PERFREP.device(), ua: this.uaShort(), uaFull: navigator.userAgent.slice(0, 300), lang: navigator.language, url: location.search.slice(0, 120) || undefined,
+    this.add({ v: 2, kind: 'session', test: navigator.webdriver ? true : undefined, sid: this.sid, dev: this.devId, build: BUILD, at: new Date().toISOString(), device: PERFREP.device(), ua: this.uaShort(), uaFull: navigator.userAgent.slice(0, 300), lang: navigator.language, url: location.search.slice(0, 120) || undefined,
       standalone: (matchMedia && matchMedia('(display-mode: standalone)').matches) || undefined, cores: navigator.hardwareConcurrency || null, mem: navigator.deviceMemory || null, screen: `${screen.width}x${screen.height}@${devicePixelRatio}`,
       settings: { gfx: S.gfx, autoGfx: S.autoGfx, opp: S.aiCount, damage: S.damage, voices: !VOICES_OFF, tilt: !!tilt.on } });
   },
@@ -10931,7 +10959,8 @@ Object.assign(AUTO, {
     showMenu(); buildGarage(); ptag('autoplay off'); toast('AUTOPLAY STOPPED', 'cool');
   },
   async lock() { try { if (this.on && navigator.wakeLock && !document.hidden && (!this.wl || this.wl.released)) this.wl = await navigator.wakeLock.request('screen'); } catch (e) {} }, // keep the screen awake
-  nextMatch() { this.pending = false; playerType = this.nextType(); startMatch(); this.seq++; this.camCar = null; this.camHold = 0; },
+  nextMatch() { if (UPDATE.updating && UPDATE.goNow) { UPDATE.goNow(); return; } this.pending = false; // (a new build is waiting: switch at the match boundary)
+ playerType = this.nextType(); startMatch(); this.seq++; this.camCar = null; this.camHold = 0; },
   logged(r) { this.last = r; if (this.on) toast(`MATCH ${this.seq} LOGGED`, 'cool'); },
   tick(dt) { // (from the play log's sim step, while autoplay is on)
     this.camT -= dt; if (this.camT <= 0) { this.camT = 0.5; this.pickCam(); }
@@ -10948,7 +10977,7 @@ Object.assign(AUTO, {
     if (!this.on) return;
     if (this.pending) { this.nextMatch(); return; }
     this.bannerT -= rawDt; if (this.bannerT <= 0) { this.bannerT = 0.5; const left = Math.max(0, this.matchSecs - game.time) | 0, f = camTarget();
-      $('apBanner').textContent = `🤖 AUTOPLAY · match ${this.seq} · ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')} left · ${player ? player.T.name : ''}${f !== player ? ' · watching ' + f.name : ''} · tap or any key to stop`; }
+      $('apBanner').textContent = (TABENV.suspect ? '⚠ NOT IN FOREGROUND · Chrome is slowing this tab, stats paused · ' : '') + `🤖 AUTOPLAY · match ${this.seq} · ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')} left · ${player ? player.T.name : ''}${f !== player ? ' · watching ' + f.name : ''} · tap or any key to stop`; }
   },
   aggregate(log) {
     const veh = {}, weap = {}, med = (a) => { const s = a.filter((x) => x != null).sort((x, y) => x - y); return s.length ? s[s.length >> 1] : null; };
@@ -10988,7 +11017,7 @@ Object.assign(AUTO, {
 // what the rest of the game reports also lands in the play log (each wrapped: the log must never break the game)
 { const push0 = ERRS.push; ERRS.push = function (...a) { try { for (const x of a) PLAYLOG.err(x); } catch (e) {} return push0.apply(this, a); }; }
 PHYS.log.push = function (...a) { try { for (const x of a) PLAYLOG.phys(x); } catch (e) {} const r = Array.prototype.push.apply(this, a); if (this.length > 150) this.splice(0, 50); return r; }; // (the log stopped at 200 entries: keep it rolling)
-PERFREP.incidents.push = function (...a) { try { for (const x of a) PLAYLOG.slow(x); } catch (e) {} return Array.prototype.push.apply(this, a); };
+PERFREP.incidents.push = function (...a) { for (const x of a) { x.env = TABENV.suspect ? 'browser throttling (hidden/unfocused/covered/battery)' : 'foreground'; } const real = a.filter((x) => x.env === 'foreground'); try { for (const x of real) PLAYLOG.slow(x); } catch (e) {} return Array.prototype.push.apply(this, a); }; // throttled-tab slowdowns are shown, but not logged as game problems
 { const i0 = NETLOG.incident; NETLOG.incident = function (who, what) { try { PLAYLOG.net(who, what); } catch (e) {} return i0.call(this, who, what); }; }
 try { PLAYLOG.meta(); PLAYLOG.recover(); PLAYLOG.session(); } catch (e) {}
 setTimeout(() => PLAYLOG.upload('page load'), 8000); // anything left over from last time
@@ -11024,7 +11053,7 @@ addEventListener('click', (e) => { if (AUTO.swallow && performance.now() - AUTO.
 if (/[?&]autoplay=1\b/.test(location.search) || /^#autoplay\b/.test(location.hash)) setTimeout(() => AUTO.start(), 600); // a bookmark that starts it
 window.__derby = { AUTO, PLAYLOG, BOULDERS, get mapShapes() { return mapShapes; }, respawnCar: (o, t) => respawnCar(o, t), PHYS, cockpitEye: (c) => cockpitEye(c), wakeProp: (pr) => wakeProp(pr), addConcrete: (x, z, r, k) => addConcrete(x, z, r, k), igniteProp: (pr, t) => igniteProp(pr, t), cookBull: (bl, by, dt) => cookBull(bl, by, dt), tankerBoom: (p, c) => tankerBoom(p, c), CAR_TYPES, sfx, CANNON, barks, PERF, shells, NETLOG, nearHostAdd: () => nearHostAdd(), nearJoin: () => nearJoin(), JUMBO, BALL, BOLLARDS, GASQ, updateArenaPub: (dt) => updateArena(dt), CRUSHER, crushNow: () => crushNow(), applyNight: () => applyNight(), FIREWORKS, ARENA, CROWD, MP, QUALITY, applyQuality: (i) => applyQuality(i), MERGED, camera, updatePropActivity: (dt) => updatePropActivity(dt), renderer, scene, spawnFree: (x, z, r) => spawnFree(x, z, r), BULLS, updateBulls: (dt) => updateBulls(dt), updateShells, tilt, setTilt, get CRANE() { return CRANE; }, updateCrane: (dt) => updateCrane(dt), CONCRETE, THREE, craters, shells, pickups, barks, PERSONAS, TUNE, game, cars, S, world, CAR_TYPES, sfx, touch, drawGauge, get player() { return player; }, keys, startMatch, selectCar, setValue, debris, props, platformOf, get simTime() { return simTime; }, set simTime(v) { simTime = v; } }; // console tinkering + tests
 requestAnimationFrame(frame);
-window.__derby.SCORE = SCORE; // (the scoreboard's test hook)
+window.__derby.SCORE = SCORE; window.__derby.UPDATE = UPDATE; window.__derby.TABENV = TABENV; window.__derby.PERFREP = PERFREP; // (test hooks)
 window.__derby.VR = VR; window.__derby.XRS = XRS; window.__derby.composer = composer;
 window.__derby.VCLIP = VCLIP; window.__derby.ROAST_BY = ROAST_BY; window.__derby.ROAST_PAIR = ROAST_PAIR; window.__derby.SHAZZA = SHAZZA; window.__derby.CAR_CAST = CAR_CAST; window.__derby.ANNOUNCER = ANNOUNCER; window.__derby.COP = COP; window.__derby.megaphone = megaphone; window.__derby.hornLine = hornLine;
 </script>
