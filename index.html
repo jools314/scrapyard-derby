@@ -10481,6 +10481,7 @@ const VR = (() => {
     if (st === 'playing') return null; // driving: no menu
     if (st === 'over') return [{ t: 'title', s: ($('overTitle').textContent || 'MATCH OVER').toUpperCase() },
       { t: 'text', s: `Score ${game.score.toLocaleString()} · time ${Math.floor(game.time / 60)}:${String(Math.floor(game.time) % 60).padStart(2, '0')} · wrecked ${cars.filter((c) => !c.isPlayer && c.wrecked).length}` },
+      ...SCORE.list().slice(0, 5).map((r, i) => ({ t: 'text', s: `${i + 1}. ${r.name} — ${r.p} pts · ${r.k} wreck${r.k === 1 ? '' : 's'} dealt · wrecked ${r.d}×` })), // R2-5: the final standings — the flat scoreboard was the only place the table lived; in VR the over page showed three numbers
       { t: 'row', h: 100, b: [B('DRIVE AGAIN', () => startMatch(), { primary: true, dis: guest })] },
       { t: 'row', b: [B('Change car', () => { showMenu(); V.page = 'cars'; }), B('Exit VR', exit)] }];
     const T = CAR_TYPES[playerType] || player.T, mp = [];
