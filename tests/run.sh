@@ -24,6 +24,7 @@ quick() {
   t hudlite 600 "HUDLITE PASS"
   t memleak 600 "MEMLEAK PASS"
   t memguard 900 "MEMGUARD PASS"
+  TAG=-spider t drive 900 "" ONLY=spider
   t tracks 900 "TRACKS PASS"
   t blade 600 "BLADE PASS"
   t crusheropen 600 "CRUSHEROPEN PASS"
@@ -64,6 +65,7 @@ quick() {
   t voicelines 300 "VOICELINES PASS"
   t broadphase 600 "BROADPHASE PASS"
   t updatecheck 300 "UPDATECHECK PASS"
+  t spider 1200 "SPIDER PASS"
 }
 release() {
   quick
