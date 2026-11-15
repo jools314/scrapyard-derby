@@ -11268,7 +11268,9 @@ Object.assign(AUTO, {
     const p = new URLSearchParams(location.search), len = +p.get('aplen'); if (len >= 10) this.matchSecs = len;
     if (PLAYLOG.m) PLAYLOG.finish('autoplay took over');
     this.prev = { playerType, mode: GAME_MODE, voices: VOICES_OFF, muted: sfx.muted, cam: camMode };
-    GAME_MODE = 'respawn'; VOICES_OFF = true; try { speechSynthesis.cancel(); } catch (e) {} // muted by default: nobody is listening
+    const preset = p.get('autoplay'); // R2-88: named autoplay presets — ?autoplay=elim runs elimination (the stress case for endgame code), ?autoplay=lite runs the weak-device profile (4 cars, lightest quality), ?autoplay=full (or =1) is the standard run; the button keeps the standard run
+    GAME_MODE = preset === 'elim' ? 'elim' : 'respawn'; VOICES_OFF = true; try { speechSynthesis.cancel(); } catch (e) {} // muted by default: nobody is listening
+    if (preset === 'lite') { this.prev.aiCount = S.aiCount; this.prev.qLevel = QUALITY.level; setValue('aiCount', 4); applyQuality(QSTEPS.length - 1); }
     try { sfx.init(); sfx.setMuted(true); } catch (e) { sfx.muted = true; }
     camMode = 0; for (const id of ['perfdlg', 'netlog', 'apReport', 'gearMenu', 'panel']) { const d = $(id); if (d) d.hidden = true; }
     clearInterval(PF.timer);
@@ -11280,6 +11282,7 @@ Object.assign(AUTO, {
     PLAYLOG.finish('autoplay stopped');
     this.on = false; this.camCar = null; this.pending = false; document.body.classList.remove('autoplay'); $('apBanner').hidden = true;
     const p = this.prev || {}; playerType = p.playerType || playerType; GAME_MODE = p.mode || GAME_MODE; VOICES_OFF = !!p.voices; camMode = p.cam || 0;
+    if (p.aiCount !== undefined) { setValue('aiCount', p.aiCount); applyQuality(p.qLevel); } // R2-88: undo the lite preset
     try { sfx.setMuted(!!p.muted); } catch (e) {}
     if (this.wl) { try { this.wl.release(); } catch (e) {} this.wl = null; }
     showMenu(); buildGarage(); ptag('autoplay off'); toast('AUTOPLAY STOPPED', 'cool');
@@ -11376,7 +11379,7 @@ $('apDl').addEventListener('click', () => PLAYLOG.download());
 const apStop = (e) => { if (!AUTO.on || performance.now() - AUTO.t0 < 800 || !e.isTrusted) return; AUTO.stop(); AUTO.swallow = performance.now(); e.preventDefault(); e.stopPropagation(); };
 addEventListener('keydown', apStop, true); addEventListener('pointerdown', apStop, true);
 addEventListener('click', (e) => { if (AUTO.swallow && performance.now() - AUTO.swallow < 700) { AUTO.swallow = 0; e.preventDefault(); e.stopPropagation(); } }, true);
-if (/[?&]autoplay=1\b/.test(location.search) || /^#autoplay\b/.test(location.hash)) setTimeout(() => AUTO.start(), 600); // a bookmark that starts it
+if (/[?&]autoplay=(1|elim|full|lite)\b/.test(location.search) || /^#autoplay\b/.test(location.hash)) setTimeout(() => AUTO.start(), 600); // a bookmark that starts it (R2-88: named presets too)
 window.__derby = { AUTO, PLAYLOG, BOULDERS, get mapShapes() { return mapShapes; }, respawnCar: (o, t) => respawnCar(o, t), PHYS, cockpitEye: (c) => cockpitEye(c), wakeProp: (pr) => wakeProp(pr), addConcrete: (x, z, r, k) => addConcrete(x, z, r, k), igniteProp: (pr, t) => igniteProp(pr, t), cookBull: (bl, by, dt) => cookBull(bl, by, dt), tankerBoom: (p, c) => tankerBoom(p, c), CAR_TYPES, sfx, CANNON, barks, PERF, shells, NETLOG, nearHostAdd: () => nearHostAdd(), nearJoin: () => nearJoin(), JUMBO, BALL, BOLLARDS, GASQ, updateArenaPub: (dt) => updateArena(dt), CRUSHER, crushNow: () => crushNow(), applyNight: () => applyNight(), FIREWORKS, ARENA, CROWD, MP, QUALITY, applyQuality: (i) => applyQuality(i), MERGED, camera, updatePropActivity: (dt) => updatePropActivity(dt), renderer, scene, spawnFree: (x, z, r) => spawnFree(x, z, r), BULLS, updateBulls: (dt) => updateBulls(dt), updateShells, tilt, setTilt, get CRANE() { return CRANE; }, updateCrane: (dt) => updateCrane(dt), CONCRETE, THREE, craters, shells, pickups, barks, PERSONAS, TUNE, game, cars, S, world, CAR_TYPES, sfx, touch, drawGauge, get player() { return player; }, keys, startMatch, selectCar, setValue, debris, props, platformOf, get simTime() { return simTime; }, set simTime(v) { simTime = v; } }; // console tinkering + tests
 requestAnimationFrame(frame);
 window.__derby.SCORE = SCORE; window.__derby.UPDATE = UPDATE; window.__derby.TABENV = TABENV; window.__derby.PERFREP = PERFREP; // (test hooks)
