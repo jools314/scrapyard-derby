@@ -5299,6 +5299,7 @@ class Car {
     if (this.ctrl.fire) {
       this.ctrl.fire = false;
       if (!this.specialCd && !this.wrecked && game.state === 'playing' && game.countdown <= 0) { this.specialCd = W.cd; this.specialT = W.dur || 0; if (W.start) W.start(this); if (!this.isPlayer && Math.random() < 0.5) barks.say(this, 'fire'); }
+      if (this.isPlayer && game.tut === 3) { game.tut = 4; TUT.done = true; try { localStorage.setItem('derby-taught', '1'); } catch (e) {} toast('YOU\'VE GOT IT — NOW WRECK THEM ALL', 'cool'); }
     }
     if (W.update) W.update(this, dt);
     if (this.specialT > 0) { this.specialT -= dt; if (W.tick) W.tick(this, dt); if (this.specialT <= 0 && W.end) W.end(this); }
@@ -5657,6 +5658,7 @@ class Car {
     this.updateDamageEffects(by);
     if (by && by.isPlayer && !this.isPlayer && dmg > 0) { // the player's own record of violence
       game.biggestHit = Math.max(game.biggestHit || 0, dv * 3.6);
+      if (game.tut === 1) { game.tut = 2; toast('NOW HOLD SHIFT FOR NITRO', 'cool'); }
     }
     if (this.health <= 0.01) this.wreck();
   }
@@ -7800,7 +7802,7 @@ function drawMinimap() {
 /* ---------------- Game flow ---------------- */
 const game = {
   state: 'menu', slowmo: 0, hitStop: 0, fovPunch: 0, countdown: 0, grace: 0, lastCount: 0, stuckT: 0, score: 0, time: 0, paused: false, overTimer: -1, attractReset: -1, shake: 0, flash: 0, propHits: 0, propToast: -9,
-  matchT: 0, biggestHit: 0, bestAir: 0, bestWheelie: 0, shots: 0, hits: 0,
+  matchT: 0, biggestHit: 0, bestAir: 0, bestWheelie: 0, tut: -1, shots: 0, hits: 0,
   addScore(n, label) {
     this.score += n;
     if (label && n >= 40) toast(`+${n} ${label}`);
@@ -8044,6 +8046,7 @@ function loadBest() { try { return JSON.parse(localStorage.getItem('derby-best-v
 function saveBest(mode, type, score, wrecks) { if (FREE_DRIVE || MP.role === 'guest') return; const B = loadBest(), k = bestKey(mode, type), old = B[k] || { score: 0, wrecks: 0 }; if (score > old.score || wrecks > old.wrecks) { B[k] = { score: Math.max(old.score, score), wrecks: Math.max(old.wrecks, wrecks) }; try { localStorage.setItem('derby-best-v1', JSON.stringify(B)); } catch (e) {} } }
 function bestFor(mode, type) { return loadBest()[bestKey(mode, type)] || null; }
 function refreshBestLine() { const b = bestFor(GAME_MODE, playerType), e = $('menuBest'); if (e) e.textContent = b ? `Your best in the ${CAR_TYPES[playerType].name} (${GAME_MODE === 'elim' ? 'Elimination' : 'Respawn'}): ${b.score.toLocaleString()} pts · ${b.wrecks} wrecks` : ''; }
+const TUT = { done: false }; try { TUT.done = localStorage.getItem('derby-taught') === '1'; } catch (e) {} // the guided first match runs once, ever
 function spawnCars() {
   for (const c of cars) c.dispose();
   cars.length = 0;
@@ -8136,6 +8139,7 @@ function startMatch() {
   el.menu.hidden = true; el.over.hidden = true;
   game.countdown = 1.8; game.grace = 8; game.lastCount = 4;
   else if (GAME_MODE === 'respawn' && (S.matchMinutes > 0 || S.wreckTarget > 0)) toast(S.wreckTarget > 0 ? `FIRST TO ${S.wreckTarget} WRECKS WINS` : `${S.matchMinutes} MINUTE MATCH`, 'cool');
+  game.tut = !TUT.done && MP.role === 'solo' && !FREE_DRIVE ? 0 : -1;
 }
 function showMenu() {
   el.over.hidden = true; el.menu.hidden = false;
@@ -8567,6 +8571,7 @@ function readPlayerInput() {
   c.horn = k('KeyH') || !!touch.horn;
   c.wheelie = k('KeyV');
   c.nitro = k('ShiftLeft', 'ShiftRight') || touch.nitro;
+  if (c.nitro && game.tut === 2) { game.tut = 3; toast('NOW PRESS F — YOUR CAR\'S SPECIAL', 'cool'); }
   const kp = (k('KeyE') ? 1 : 0) - (k('KeyQ') ? 1 : 0);
   c.pitch = kp !== 0 ? kp : touch.pitch;
 }
@@ -10144,7 +10149,7 @@ function simBody(now) {
     else if (game.state === 'playing' && game.countdown > 0) { // 3-2-1: everyone holds on the brakes
       game.countdown -= dt;
       const n = Math.ceil(game.countdown / 0.6); // 3-2-1 at 0.6 s a beat
-      if (n !== game.lastCount) { game.lastCount = n; toast(n > 0 ? String(n) : 'GO!', n > 0 ? '' : 'cool'); if (n <= 0) { sfx.cheer(0.8); const c = cars[1 + (Math.random() * (cars.length - 1) | 0)]; setTimeout(() => barks.say(c, 'start', true), 600); } else sfx.clank(0.3); }
+      if (n !== game.lastCount) { game.lastCount = n; toast(n > 0 ? String(n) : 'GO!', n > 0 ? '' : 'cool'); if (n <= 0) { sfx.cheer(0.8); if (game.tut === 0) { game.tut = 1; toast('HIT THEM NOSE-FIRST — YOUR BUMPER TAKES HALF DAMAGE', 'cool'); } const c = cars[1 + (Math.random() * (cars.length - 1) | 0)]; setTimeout(() => barks.say(c, 'start', true), 600); } else sfx.clank(0.3); }
       for (const c of cars) { c.ctrl.throttle = 0; c.ctrl.handbrake = true; c.ctrl.nitro = false; c.ctrl.jump = false; }
     } else if (game.state === 'playing') game.grace -= dt;
     SEC.run('cars', () => { for (const c of cars) c.frameUpdate(dt); });
