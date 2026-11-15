@@ -9170,6 +9170,11 @@ const MP = {
       if (!c.remote) continue;
       const pr = byPeer.get(c.remote), a = pr && Array.isArray(pr.in) ? pr.in : null, ct = c.ctrl;
       if (!a || game.countdown > 0 || game.state !== 'playing') { ct.throttle = 0; ct.steer = 0; ct.nitro = false; ct.handbrake = !a; continue; }
+      { // R2-35: AFK guest auto-park. A guest whose input sits completely neutral for 60 s of play is parked (handbrake held) so an abandoned or wedged-neutral controller stops leaving a live car in the arena; any input change at all un-parks. A held throttle/steer is activity, not AFK — only a fully neutral stick counts.
+        const key = a.join(','), nowP = performance.now();
+        if (key !== c.inKey) { c.inKey = key; c.inAt = nowP; if (c.parked) { c.parked = false; NETLOG.incident('host', `${c.name} is driving again (auto-unparked)`); } }
+        if (+a[0] === 0 && +a[1] === 0 && !(a[2] | 0) && nowP - (c.inAt || nowP) > 60000) { if (!c.parked) { c.parked = true; NETLOG.incident('host', `${c.name} auto-parked after 60 s without input`); toast(`${String(c.name).toUpperCase()} PARKED (AWAY)`, 'cool'); } ct.throttle = 0; ct.steer = 0; ct.handbrake = true; ct.nitro = false; continue; }
+      }
       ct.throttle = clamp(+a[0] / 100 || 0, -1, 1); ct.steer = clamp(+a[1] / 100 || 0, -1, 1);
       const f = a[2] | 0; ct.handbrake = !!(f & 1); ct.nitro = !!(f & 2); ct.horn = !!(f & 4); ct.wheelie = !!(f & 8); ct.pitch = (f & 16 ? 1 : 0) - (f & 32 ? 1 : 0);
       const fn = a[3] | 0, jn = a[4] | 0;
