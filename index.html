@@ -8191,6 +8191,7 @@ function setControlsFor(type) {
 }
 function resetMatch() {
   if (PLAYLOG.roundReset) PLAYLOG.roundReset(); // a match that is thrown away still goes in the play log
+  const scarFlats = flats.slice(), scarCraters = craters.slice(); // R2-71: session scars — the flattened props and craters of the matches before are kept (visual only, exactly as flats/craters already are) so a long evening visibly accumulates instead of resetting to a pristine yard
   game.crashCam = null; if (typeof CRUSHER !== 'undefined') { CRUSHER.state = 'idle'; CRUSHER.t = 8; CRUSHER.y = CRUSHER.top; }
   if (typeof CRANE !== 'undefined') resetCrane();
   if (typeof BULLS !== 'undefined') resetBulls();
@@ -8210,6 +8211,7 @@ function resetMatch() {
   threatEls.clear();
   clearSkids();
   buildProps(); batchProps();
+  for (const m of scarFlats) { scene.add(m); flats.push(m); } for (const c of scarCraters) { scene.add(c); craters.push(c); } // R2-71: lay the scars back down over the fresh yard
   buildPickups();
   spawnCars(); SCORE.reset(); SCORE.show(false);
   game.chatT = 14; game.score = 0; game.time = 0; game.overTimer = -1; game.attractReset = -1; game.shake = 0; game.propHits = 0;
