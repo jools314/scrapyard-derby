@@ -5653,6 +5653,7 @@ class Car {
     if (this.T.gun && dmg >= 10 && !this.wrecked && simTime - (this.smokeScrT ?? -99) > 18 && MP.role !== 'guest') { this.smokeScrT = simTime; smokeScreen(this); } // a big hit: the Tiger pops smoke
     if (this.T.flimsy && (zone === 'left' || zone === 'right' || zone === 'rear')) { dmg *= 1.6; if (dmg >= 1.5) this.shedJunk(zone, dmg); } // RV walls are plywood and staples: they cave in and spill the contents
     if (this.shieldT > 0 && dmg > 0) dmg *= 0.5; // shield pickup: half damage while it lasts
+    if (by && by !== this && dmg > 0) { const L = this.dmgLog || (this.dmgLog = []); const e2 = L.find((x) => x.by === by); if (e2) { e2.amt += dmg; e2.t = simTime; } else L.push({ by, amt: dmg, t: simTime }); } // who has been hurting this car (assists)
     dmg = Math.min(dmg, this.health);
     this.health -= dmg; if (PLAYLOG.m) PLAYLOG.dmg(this, dmg, by);
     if (zone && this.zones[zone] !== undefined) {
@@ -7863,6 +7864,7 @@ const game = {
     if (PLAYLOG.m) PLAYLOG.wreck(car, killer); if (AUTO.on && car === player) car.respawnType = AUTO.nextType(); // (autoplay: every life a different vehicle)
     SCORE.wreck(car, killer); // (host / solo only: guests get the table from the host)
     if (!FREE_DRIVE && GAME_MODE === 'respawn' && MP.role !== 'guest' && S.wreckTarget > 0 && killer && (killer.kills || 0) >= S.wreckTarget) { SCORE.finish(); return; } // first to the wreck target ends it
+    if (!FREE_DRIVE && car.dmgLog) { const others = car.dmgLog.filter((x) => x.by !== car && x.by !== killer && simTime - x.t < 10).sort((a, b) => b.amt - a.amt); if (others[0] && others[0].by === player) { this.score += 250; toast('ASSIST +250', 'cool'); } } // second-biggest damager gets an assist
     if (GAME_MODE === 'respawn' && MP.role === 'guest') { if (car.isPlayer) toast('WRECKED', 'bad'); else toast(`${car.name} is wrecked`); return; } // the host brings it back
     if (GAME_MODE === 'respawn' && MP.role !== 'guest') { // nobody is out: the wreck comes back in a few seconds
       car.respawnT = car.isPlayer || car.remote ? RESPAWN_HUMAN : RESPAWN_AI;
