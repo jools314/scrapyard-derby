@@ -3415,6 +3415,7 @@ const sfx = {
       const load = p.shiftT > 0 ? 0.15 : Math.abs(p.ctrl.throttle);
       this.setEngine(this.eng, p.rpm * (p.health < 30 ? 0.88 + Math.sin(t * 31) * 0.02 : 1), load, p.T.cyl, 1); // a dying engine drops a cylinder: detuned and rough under 30% hull
       if (p.T.heavy || p.T.skid) { this.eng.bp.frequency.setTargetAtTime(75, t, 0.05); this.eng.lp.frequency.setTargetAtTime(320, t, 0.05); } // diesel knock under the heavy metal
+      if (this.crowd) this.crowd.gain.setTargetAtTime(0.02 + Math.min(0.09, (game.impactRate || 0) * 0.018), t, 0.4); // the crowd bed follows the fighting: quiet minutes sound quiet
       this.sq.gain.setTargetAtTime(p.skidAmt * 0.14, t, 0.05);
       this.sqn.gain.setTargetAtTime(p.skidAmt * 0.07, t, 0.05);
       const v = Math.abs(p.speed) / 70;
@@ -5546,6 +5547,7 @@ class Car {
     const otherCar = other.car || null;
     if (otherCar) { this.lastAttacker = otherCar; this.lastAttackTime = simTime; }
     if (this.isPlayer && otherCar && vImp > 4 && game.state === 'playing') { game.hitDirA = Math.atan2(nl.z, nl.x); game.hitDirT = simTime; game.hitDirS = clamp(dv / 18, 0.3, 1); if (navigator.vibrate && !document.hidden) navigator.vibrate(Math.min(120, Math.round(dv * 7))); } // which way the hit came from — and a buzz scaled to it on phones
+    if (dv > 8) game.impactRate = Math.min(6, (game.impactRate || 0) + dv * 0.06); // feeds the crowd noise
 
     // Which face took the hit
     const zone = zoneOf(nl);
@@ -7868,7 +7870,7 @@ function drawMinimap() {
 /* ---------------- Game flow ---------------- */
 const game = {
   state: 'menu', slowmo: 0, hitStop: 0, fovPunch: 0, countdown: 0, grace: 0, lastCount: 0, stuckT: 0, score: 0, time: 0, paused: false, overTimer: -1, attractReset: -1, shake: 0, flash: 0, propHits: 0, propToast: -9,
-  matchT: 0, biggestHit: 0, bestAir: 0, bestWheelie: 0, propCombo: 0, propComboT: -9, tut: -1, hitDirA: 0, hitDirT: -9, hitDirS: 0, scrapeT: -9, nmT: 0, shots: 0, hits: 0, pingT: -9, pingPos: null, lastHonk: null, honkT: -9,
+  matchT: 0, biggestHit: 0, bestAir: 0, bestWheelie: 0, propCombo: 0, propComboT: -9, tut: -1, hitDirA: 0, hitDirT: -9, hitDirS: 0, impactRate: 0, scrapeT: -9, nmT: 0, shots: 0, hits: 0, pingT: -9, pingPos: null, lastHonk: null, honkT: -9,
   addScore(n, label) {
     this.score += n;
     if (label && n >= 40) toast(`+${n} ${label}`);
@@ -10309,6 +10311,7 @@ function simBody(now) {
     game.nmT = (game.nmT || 0) - dt;
     if (game.state === 'playing' && game.nmT <= 0 && !FREE_DRIVE && MP.role !== 'guest') { game.nmT = 0.15; // near misses: close, fast, and no contact — the cheapest thrill in the yard
       if (player && !player.wrecked && game.countdown <= 0) for (const c of cars) { if (c === player || c.wrecked || c.remote) continue; const d = player.body.position.distanceTo(c.body.position), rr = (player.T.L + c.T.L) / 2; if (d > rr + 0.4 && d < rr + 3.2 && player.body.velocity.vsub(c.body.velocity).length() > 15 && simTime - (c.nmT || -9) > 3) { c.nmT = simTime; game.addScore(25, 'NEAR MISS'); if (Math.random() < 0.35) barks.say(c, 'taunt'); } } }
+    game.impactRate = Math.max(0, (game.impactRate || 0) - dt * 0.7);
     if (game.replayBack && (!JUMBO.replay || clock > game.replayBackT)) { game.replayBack = false; if (game.state === 'over') el.over.hidden = false; }
     if (game.state === 'over' && game.overTimer > 0) {
       game.overTimer -= dt;
