@@ -29,18 +29,12 @@ Current state of the game: [RELEASES.md](RELEASES.md). Data to work from: the `p
 
 ## Fun: gags on systems that already exist
 One common trigger each, no new props, no new choices — each should pass TASTE.md's quick test.
-- **Smash Burger:** a burger that goes under the Bulldozer's blade or into the crusher comes out wide, flat and proud on a little paper tray. **Done:** both machines produce it, and it still counts as a burger everywhere burgers count.
 - **The Cannibal:** a live bull that finds a burger sniffs it, eats it, and becomes MEGA BULL: ~20% bigger, faster, angrier, deeper moo. **Done:** eating triggers the transformation at most once per bull; the size and speed change is visible and tested.
 - **Fernando:** one bull per match is Fernando (he's already family in Paco's lines): a little red cape and a name tag. Keep him alive all match and there's confetti; burger him and the crowd goes quiet for a beat. **Done:** Fernando is identifiable all match and both endings trigger. (His one heartbroken Paco line, if added, goes through the voices work on WORKBOARD, not this item.)
 - **Ring Toss:** a loose tyre that lands around a bull's horns stays there as a necklace for the rest of the match, and its charge gains a visible strut. **Done:** tyre-on-horns is detected and persists; the strut is animation only.
 - **Bull in the Stands:** a bull launched by geyser, ball or crane that lands in the grandstand takes a seat; the crowd politely shuffles aside and it watches the rest of the match. **Done:** a bull landing in the stands stays seated and harmless until the match ends.
-- **The Shake-Off:** a fully soaked bull shakes itself dry like a huge dog, spraying every car nearby with a 3-second grip penalty. **Done:** the shake triggers as a soaked bull dries; the spray and the grip dip are both visible and timed.
-- **It Remembers:** when a burger's time expires and the fresh bull wanders back in, one time in ten it returns wearing a sesame-seed bun as a hat. It says nothing. It doesn't have to. **Done:** the hat appears at the stated rate and stays until that bull is cooked or the match ends.
 - **The Magnet Gets Bored:** a crane left idle too long picks up the lightest thing it can find — a potty, a bin, occasionally the Sandflea — purely to hold it up and look at it, and drops the treasure when a real car wanders close. **Done:** an idle timer triggers the lift, a car approaching ends it, and the crane's real jobs always win.
 - **Even the Magnet Has Limits:** once in a while the bored crane tries Bertha: sparks, a groaning cable, four centimetres of lift — and she is set back down like a sleeping baby. **Done:** the attempt, the 4 cm and the gentle set-down all read clearly; Bertha takes no damage.
-- **Potty Cannon:** a porta-potty sitting on a geyser when it blows becomes the yard's least aerodynamic aircraft. **Done:** potty plus eruption equals one glorious flight and a normal landing, with no new props.
-- **Read the Bales:** occasionally a Combine bale comes out with a message printed on it: "HELP", "SEND NITRO", "I WAS A VIPER". **Done:** a small set of bale textures rotates in at a low rate; zero new systems.
-- **Helicopter Sign:** knock a yard sign spinning fast enough and it lifts, helicoptering wildly for two seconds before clattering down somewhere stupid. **Done:** spin above a threshold gives brief lift; the sign always lands as a normal sign.
 - **The Brief Crown:** the match winner starts the next match with a tiny gold crown on the roof; it falls off at the first hit and everyone immediately drives over it. **Done:** the crown transfers on a win, drops on first contact, and never affects physics.
 
 ## New content (owner OK needed)

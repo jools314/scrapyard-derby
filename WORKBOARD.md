@@ -16,6 +16,12 @@ Format: `- [agent] topic — branch — claimed YYYY-MM-DD HH:MM UTC — notes`
 - [claude] Player target picking: Tab / one 🎯 button cycles visible targets for the Tiger cannon, minigun, rockets — claude/target-pick — claimed 2026-11-15 05:55 UTC
 - [claude] Voice round 5: Emeka "Danfo" Okafor replaces Raju (Sandflea), recordings for Bogdan/Ragnar/Maxine/Emeka, 60+ new rude/quirky/old-school commentary lines each for Kev and Shazza, 15 more per driver, and repeats fixed using the heard-log (brief: docs/voices/round5-brief.md) — claude/voices-round5 — claimed 2026-11-15 05:55 UTC — paused by usage limit until ~10:00 UTC
 - [muse] bob/improvements-round2 — branch exists; landing plan to follow (not yet claimed)
+- [muse] Smash Burger: a burger under the Dozer's blade slam or in the crusher comes out wide, flat and proud on a paper tray, still a burger everywhere — muse/smash-burger — claimed 2026-11-15 15:05 UTC
+- [muse] It Remembers: a fresh bull returning after a burger expires has a 1-in-10 chance of wearing a sesame bun hat until cooked or match end — muse/bun-hat — claimed 2026-11-15 15:05 UTC
+- [muse] The Shake-Off: a fully soaked bull shakes itself dry as it dries out, spraying nearby cars with a 3 s grip penalty — muse/shake-off — claimed 2026-11-15 15:05 UTC
+- [muse] Potty Cannon: a porta-potty on a geyser when it blows gets the full cannon flight (extra height, tumble, counted per potty) — muse/potty-cannon — claimed 2026-11-15 15:05 UTC
+- [muse] Read the Bales: an occasional Combine bale comes out with a printed message (HELP / SEND NITRO / I WAS A VIPER / …) — muse/bale-messages — claimed 2026-11-15 15:05 UTC
+- [muse] Helicopter Sign: a yard sign spinning fast enough lifts off, helicopters for 2 s, then clatters down as a normal sign — muse/heli-sign — claimed 2026-11-15 15:05 UTC
 ## Ready to land (needs the test gate)
 
 ## Done
