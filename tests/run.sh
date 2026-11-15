@@ -30,6 +30,7 @@ quick() {
   t idle 900 "IDLE PASS"
   t perfbudget 900 "PERF PASS"
   t talk 900 "TALK PASS"
+  t b70 900 "B70 PASS"
 }
 release() {
   quick

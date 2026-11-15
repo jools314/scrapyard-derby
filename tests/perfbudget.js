@@ -1,15 +1,17 @@
 // Performance budget: a standard 8-opponent match at high and low quality, measured, compared with tests/perf-baseline.json.
-// Draw calls per frame, triangles and textures must not grow >10% (geometries >25%: debris varies); physics step time must not double (it warns at +30%: timing is noisy on a shared machine)
+// Draw calls per frame, triangles and textures (median of 3 fresh runs) must not grow >10% (geometries >25%: debris varies); physics step time (fastest of 3 runs) must not double (it warns at +30%: timing is noisy on a shared machine)
 // (timing is machine-dependent: it's also printed so you can compare by eye). Prints PERF PASS / PERF FAIL.
 // UPDATE_BASELINE=1 node perfbudget.js rewrites the baseline: only do that on purpose (say why in the commit).
 const fs = require('fs'), path = require('path'); const { open } = require('./harness');
 const BASE = path.join(__dirname, 'perf-baseline.json');
 (async () => {
-  const { browser, page, errors } = await open({ viewport: { width: 640, height: 400 } });
-  const run = async (level) => page.evaluate(async (level) => {
+  // Each quality level is measured RUNS times, each in a fresh page (a match's own chaos, and other work on the machine, make one run noisy);
+  // draw calls and triangles use the median run, physics time the fastest run.
+  const RUNS = +(process.env.RUNS || 3), errors = [];
+  const one = async (level) => { const o = await open({ viewport: { width: 640, height: 400 } }); errors.push(...o.errors); const page = o.page;
+    const r = await page.evaluate(async (level) => {
     const D = __derby, sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     D.S.aiCount = 8; D.S.autoGfx = false; D.applyQuality(level);
-    if (D.game.state !== 'menu') { D.game.state = 'menu'; }
     document.getElementById('btnStart').click();
     while (!(D.game.state === 'playing' && D.game.countdown <= 0)) await sleep(100);
     D.applyQuality(level); await sleep(2000);
@@ -17,15 +19,18 @@ const BASE = path.join(__dirname, 'perf-baseline.json');
     W.step = (...a) => { const t = performance.now(); const r = o(...a); stepMs += performance.now() - t; steps++; return r; };
     const calls = [], tris = []; let last = performance.now(); const ft = []; const R = D.renderer; R.info.autoReset = false; R.info.reset();
     const t0 = performance.now();
-    await new Promise((res) => { const f = () => { const i = R.info.render; if (i.calls) { calls.push(i.calls); tris.push(i.triangles); } R.info.reset(); const n = performance.now(); ft.push(n - last); last = n; if (n - t0 < 15000) requestAnimationFrame(f); else res(); }; requestAnimationFrame(f); });
+    await new Promise((res) => { const f = () => { const i = R.info.render; if (i.calls) { calls.push(i.calls); tris.push(i.triangles); } R.info.reset(); const n = performance.now(); ft.push(n - last); last = n; if (n - t0 < 12000) requestAnimationFrame(f); else res(); }; requestAnimationFrame(f); });
     W.step = o; R.info.autoReset = true;
     const avg = (a) => a.reduce((s, x) => s + x, 0) / Math.max(1, a.length), p = (a, q) => [...a].sort((x, y) => x - y)[Math.floor(a.length * q)];
     const m = D.renderer.info.memory;
     return { level, frames: ft.length, callsAvg: Math.round(avg(calls)), callsMax: Math.max(...calls), trisAvg: Math.round(avg(tris)), geometries: m.geometries, textures: m.textures,
       physMsPerStep: +(stepMs / Math.max(1, steps)).toFixed(3), frameMsMed: +p(ft, 0.5).toFixed(1), frameMsP95: +p(ft, 0.95).toFixed(1) };
-  }, level);
-  await page.evaluate(() => { window.__noRender = false; });
-  const hi = await run(0); await page.evaluate(() => { __derby.game.state = 'menu'; }); const lo = await run(+(process.env.LOW_LEVEL || 7));
+    }, level); await o.browser.close(); return r; };
+  const med = (xs, k) => [...xs].map((x) => x[k]).sort((a, b) => a - b)[xs.length >> 1];
+  const measure = async (level) => { const rs = []; for (let i = 0; i < RUNS; i++) rs.push(await one(level));
+    const out = { level, runs: RUNS }; for (const k of ['callsAvg', 'callsMax', 'trisAvg', 'geometries', 'textures', 'frameMsMed', 'frameMsP95']) out[k] = med(rs, k);
+    out.physMsPerStep = Math.min(...rs.map((r) => r.physMsPerStep)); out.spread = { callsAvg: [Math.min(...rs.map((r) => r.callsAvg)), Math.max(...rs.map((r) => r.callsAvg))] }; return out; };
+  const hi = await measure(0); const lo = await measure(+(process.env.LOW_LEVEL || 7));
   const cur = { high: hi, low: lo }; console.log(JSON.stringify(cur));
   const pe = errors.filter((e) => !e.includes('ERR_FAILED'));
   if (process.env.UPDATE_BASELINE) { fs.writeFileSync(BASE, JSON.stringify(cur, null, 2) + '\n'); console.log('baseline written'); }
@@ -39,5 +44,5 @@ const BASE = path.join(__dirname, 'perf-baseline.json');
   } else fails.push('no baseline: run UPDATE_BASELINE=1 node tests/perfbudget.js');
   if (pe.length) fails.push('page errors: ' + pe.slice(0, 2).join(' | '));
   fails.forEach((f) => console.log('FAIL ' + f));
-  await browser.close(); console.log(fails.length ? 'PERF FAIL' : 'PERF PASS'); process.exit(fails.length ? 1 : 0);
+  console.log(fails.length ? 'PERF FAIL' : 'PERF PASS'); process.exit(fails.length ? 1 : 0);
 })();

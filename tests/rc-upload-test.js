@@ -3,6 +3,7 @@
 const { open } = require('./harness');
 (async () => {
   const { browser, page, errors } = await open({ viewport: { width: 800, height: 500 } });
+  await page.evaluate(() => { __derby.PLAYLOG.MIN_GAP = 0; }); // (this tests the transport; the 10-minute batching has its own test, b70.js)
   const fails = []; const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (!c) fails.push(m); };
   const W = (ms) => page.waitForTimeout(ms);
   // the stub lives in localStorage too, so the calls of both page loads are counted
@@ -17,7 +18,7 @@ const { open } = require('./harness');
     };
   });
   await page.evaluate(() => { for (const k of Object.keys(localStorage)) if (k.startsWith('derby-pl') || k.startsWith('test-')) localStorage.removeItem(k); localStorage.setItem('test-failfirst', '2'); });
-  await page.reload({ timeout: 180000 }); await page.waitForFunction(() => window.__derby, null, { timeout: 180000 });
+  await page.reload({ timeout: 180000 }); await page.waitForFunction(() => window.__derby, null, { timeout: 180000 }); await page.evaluate(() => { __derby.PLAYLOG.MIN_GAP = 0; });
   await page.evaluate(() => { window.__noRender = true; __derby.S.aiCount = 5; document.getElementById('btnStart').click(); });
   await page.waitForFunction(() => __derby.PLAYLOG.m && __derby.game.countdown <= 0, null, { timeout: 60000 });
   await page.waitForFunction(() => __derby.game.time >= 5, null, { timeout: 120000, polling: 500 });
@@ -44,7 +45,7 @@ const { open } = require('./harness');
   // reload mid-match: the closed match is recovered on the next load and uploaded with the page-load upload
   await page.waitForFunction(() => __derby.game.time >= 5, null, { timeout: 120000, polling: 500 });
   const idLive = await page.evaluate(() => __derby.PLAYLOG.m.id);
-  await page.reload({ timeout: 180000 }); await page.waitForFunction(() => window.__derby, null, { timeout: 180000 });
+  await page.reload({ timeout: 180000 }); await page.waitForFunction(() => window.__derby, null, { timeout: 180000 }); await page.evaluate(() => { __derby.PLAYLOG.MIN_GAP = 0; });
   await page.waitForFunction(() => { const o = __derby.PLAYLOG.meta(); return o.idx.length > 0 && o.idx.filter((e) => e[0] > o.up).length === 0; }, null, { timeout: 60000, polling: 1000 }).catch(() => {});
   await W(2000);
   const fin = await page.evaluate(() => { const P = __derby.PLAYLOG, o = P.meta(); return { up: o.up, seq: o.seq, stored: P.records().map((s) => JSON.parse(s)), st: JSON.parse(localStorage.getItem('test-up')), meter: P.meterText() }; });

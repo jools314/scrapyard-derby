@@ -5726,6 +5726,11 @@ class Car {
   loseWheel(i, by) {
     if (this.T.noWheelLoss) return;
     this.wheelLost[i] = true;
+    // no wheels left to drive on (all but one gone): it's a wreck, not a car stuck on its belly forever (bug report: Tanker with 6 of 6 wheels gone, 20 hp, stranded)
+    if (MP.role !== 'guest' && !this.cripT && this.wheelLost.filter(Boolean).length >= this.nW - 1) {
+      if (by && by !== this) { this.lastAttacker = by; this.lastAttackTime = simTime; }
+      this.cripT = setTimeout(() => { this.cripT = 0; if (!this.wrecked && cars.includes(this) && game.state === 'playing' && this.wheelLost.filter(Boolean).length >= this.nW - 1) { this.health = 0; this.wreck(); } }, 1500);
+    }
     const w = this.vehicle.wheelInfos[i];
     w.radius = 0.08; w.suspensionRestLength = 0.05; w.maxSuspensionTravel = 0.05; w.suspensionStiffness = 60;
     const wm = this.wheelMeshes[i];
@@ -7309,9 +7314,15 @@ const barks = {
       return;
     }
   },
+  heardLog(who, line) { // how often each line is heard (this match and this session): to find what repeats and vary it
+    const m = PLAYLOG.m; if (!m || game.state !== 'playing') return; const k = who + '|' + String(line).slice(0, 90);
+    const H = m.heard || (m.heard = new Map()); H.set(k, (H.get(k) || 0) + 1);
+    const S2 = this.sessHeard || (this.sessHeard = new Map()); const n = (S2.get(k) || 0) + 1; S2.set(k, n); if (n > 1) m.heardRepS = (m.heardRepS || 0) + 1; m.heardN = (m.heardN || 0) + 1;
+  },
   show(P0, color, line0) {
     if (MP.role === 'host') MP.event({ k: 'b', i: P0 === ANNOUNCER ? -1 : P0 === SHAZZA ? -3 : cars.findIndex((c) => c.persona === P0), x: String(line0).slice(0, 140) });
     const [P, line] = this.who(P0, line0);
+    this.heardLog(P.nick, line);
     const d = document.createElement('div');
     d.className = 'sub';
     d.innerHTML = '<b></b><span></span>';
@@ -7387,9 +7398,12 @@ const barks = {
     if (this.badVoices.size && vs.length && left <= Math.max(1, vs.length / 4)) { NETLOG.incident('me', `voices: ${this.badVoices.size} of ${vs.length} voices were banned - giving them all another chance`); this.badVoices.clear(); }
   },
   recover(why, soft) { // the full reset: cancel (only when that is safe), resume, forget our own bookkeeping, let the engine settle, and use voices on this device for a while
-    const ss = window.speechSynthesis, now = performance.now(); if (!ss) return;
+    const ss = window.speechSynthesis, now = performance.now(); if (!ss || this.speechDead) return;
     if (now - (this.lastSpeakT || -1e9) < 1000) return; // never cancel right after handing it a line (that is what wedges it): the doctor looks again in a second
-    this.recoveries++; if (!soft) this.failedRecoveries++; this.recoverT = now; if (soft && (this.softN = (this.softN || 0) + 1) > 3) { this.asked = 0; this.firstAskT = 0; try { ss.cancel(); } catch (e) {} return; } // (logged the first few times only)
+    this.recoveries++; if (!soft) this.failedRecoveries++;
+    if (!soft && this.failedRecoveries >= 6) { // six resets in a row and not one word: this browser's speech engine is broken (seen on Mac Chrome: 129 resets in 20 min). Stop poking it for this session.
+      this.speechDead = true; try { ss.cancel(); } catch (e) {} this.live.clear(); this.queued = 0;
+      NETLOG.incident('me', `voices: this browser's speech engine never spoke after ${this.failedRecoveries} resets - recorded voices and subtitles only for the rest of this session`); return; } this.recoverT = now; if (soft && (this.softN = (this.softN || 0) + 1) > 3) { this.asked = 0; this.firstAskT = 0; try { ss.cancel(); } catch (e) {} return; } // (logged the first few times only)
     const st = this.stats = this.stats || { sent: 0, started: 0, errors: 0, resets: 0, lastVoice: '' }; st.resets++; st.recoveries = this.recoveries;
     const waiting = [...this.live], usedNet = waiting.some((u) => u.voice && u.voice.localService === false) || / online\)$/.test(st.lastVoice || ''), giveUp = !soft && this.failedRecoveries >= 3;
     NETLOG.incident('me', `voices: stuck - ${why} (last voice ${st.lastVoice || 'default'}, ${ss.getVoices().length} voices, ${this.ssState()}, ${waiting.length} lines waiting, ${this.recoveries} resets so far) - full speech reset${usedNet ? ', switching to voices on this device' : ''}${giveUp ? ', cartoon voices for 30 s then trying again' : ''}`);
@@ -7451,6 +7465,7 @@ const barks = {
   speak(P0, line0, pos, opt) { // opt: { fx: 'megaphone' } for the in-game sound of a recorded clip, { noClip: true } = Web Speech only
     if (VOICES_OFF) return; // the subtitles still show
     if (!(opt && opt.noClip) && VCLIP.speak(P0, line0, pos, opt)) return; // a recorded clip (voices/manifest.json) when there is one
+    if (this.speechDead) return; // the browser's speech engine is broken here: the subtitle shows, nothing else
     ptag('voice line');
     const [P, line] = this.who(P0, line0);
     if (typeof document !== 'undefined' && document.hidden) return; // a hidden tab's speech is paused: don't pile lines up behind it
@@ -9519,7 +9534,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '69'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '70'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
@@ -9962,7 +9977,7 @@ const NETLOG = {
   exportText() {
     const pad = (v, n) => String(v ?? '').padStart(n), ts = (t) => new Date(t).toISOString().slice(11, 19);
     const L = [`Scrapyard Derby network log · build ${BUILD} · ${MP.role} · via ${MP.via || MP.transport || '?'} · ${new Date().toISOString()}`,
-      `Device: ${navigator.userAgent}`, `Voices: ${VOICES_OFF ? 'OFF in menu' : 'on'} · sound ${sfx.muted ? 'OFF' : 'on'} · voice volume ${S.voiceVolume} · speech ${window.speechSynthesis ? speechSynthesis.getVoices().length + ' voices' : 'none'} · ${JSON.stringify(barks.stats || {})} · engine ok=${barks.speechOK} lastErr=${barks.lastErr || '-'} · ${barks.voiceReport()}`, `Screen ${innerWidth}x${innerHeight} @${devicePixelRatio} · quality now ${QUALITY.level}/${QSTEPS.length - 1} (0 best) · mode ${GAME_MODE}`,
+      `Device: ${navigator.userAgent}`, `Uploads to the log drop: ${DROP.sent} sent this session · ${DROP.errN} refused${DROP.lastErr ? ' (last: HTTP ' + DROP.lastErr + ' at ' + new Date(DROP.lastErrAt).toISOString().slice(11, 19) + ')' : ''}${DROP.blockUntil > Date.now() ? ' · backing off until ' + new Date(DROP.blockUntil).toISOString().slice(11, 16) + ' UTC' : ''} · ${PLAYLOG.meta ? PLAYLOG.pending(PLAYLOG.meta()) : '?'} records waiting on this device`, `Voices: ${VOICES_OFF ? 'OFF in menu' : 'on'} · sound ${sfx.muted ? 'OFF' : 'on'} · voice volume ${S.voiceVolume} · speech ${window.speechSynthesis ? speechSynthesis.getVoices().length + ' voices' : 'none'} · ${JSON.stringify(barks.stats || {})} · engine ok=${barks.speechOK} lastErr=${barks.lastErr || '-'} · ${barks.voiceReport()}`, `Screen ${innerWidth}x${innerHeight} @${devicePixelRatio} · quality now ${QUALITY.level}/${QSTEPS.length - 1} (0 best) · mode ${GAME_MODE}`,
       `Players: ${cars.filter((c) => c.remote || c.netPeer || c.isPlayer).map((c) => (c.isPlayer ? MP.nick() + ' (this device)' : c.name) + ' · ' + c.T.name).join(', ')}`,
       'Host sends 20 snapshots/s; guests should see ~20 updates/s, jitter < 30 ms, smoothing 80-200 ms, gaps < 150 ms.', '',
       `Performance reports (${this.perf.length}, newest last; sent after each wreck and every 2 minutes; times in ms per frame):`,
@@ -10099,13 +10114,13 @@ function bugReport() {
 }
 // The drop: reports go to a public ntfy.sh topic (free, no account; text kept 12 h, big reports become a file kept 3 h)
 // so Claude can fetch them directly instead of you copying and pasting. Nothing secret is in them.
-const DROP = { topic: 'scrapyard-derby-f74277e052a2', sent: 0 };
+const DROP = { topic: 'scrapyard-derby-f74277e052a2', sent: 0, errN: 0, lastErr: null, blockUntil: 0 }; // (errors and back-off: the free drop limits how much one connection may send per day)
 function dropUpload(kind, text) {
   if (!window.fetch || window.__noDrop) return Promise.resolve(false);
   const dev = (/iPhone|iPad|Mac|Android|Windows/.exec(navigator.userAgent) || ['web'])[0], stamp = new Date().toISOString().replace(/[:.]/g, '-');
   const name = `${kind}-b${BUILD}-${dev}-${stamp}.txt`;
   return fetch('https://ntfy.sh/' + DROP.topic, { method: 'PUT', body: text, headers: { Filename: name, Title: `${kind} · build ${BUILD} · ${dev}`, Tags: kind } })
-    .then((r) => { if (!r.ok) throw new Error(r.status); DROP.sent++; if (kind === 'bug') { toast('🐞 SENT TO CLAUDE ✓', 'cool'); const el = $('nlSum'); if (el) el.textContent = 'Sent to Claude automatically, and copied. (Also kept on this device.)'; } return true; })
+    .then((r) => { if (!r.ok) { DROP.errN++; if (DROP.lastErr !== r.status) NETLOG.incident('me', `upload refused by the log drop: HTTP ${r.status}${r.status === 429 ? ' (too many uploads from this connection today: backing off 1 h, logs stay on this device)' : ''}`); DROP.lastErr = r.status; DROP.lastErrAt = Date.now(); if (r.status === 429) DROP.blockUntil = Date.now() + 3600e3; throw new Error(r.status); } DROP.sent++; DROP.lastErr = null; if (kind === 'bug') { toast('🐞 SENT TO CLAUDE ✓', 'cool'); const el = $('nlSum'); if (el) el.textContent = 'Sent to Claude automatically, and copied. (Also kept on this device.)'; } return true; })
     .catch(() => { if (kind === 'bug') { const el = $('nlSum'); if (el) el.textContent = 'Copied! Paste it to Claude (auto-send was blocked here). Also kept on this device.'; } return false; });
 }
 window.dropUpload = window.dropUpload || dropUpload; // the play log looks for it here (a test may install its own first)
@@ -10854,7 +10869,9 @@ Object.assign(PLAYLOG, {
     const bs = barks.stats || {}, b0 = m.bark0, K = m.kinds;
     return { v: 2, kind, id: m.id, n: m.n, sid: this.sid, dev: this.devId, build: BUILD, start: new Date(m.at).toISOString(), end: new Date(now).toISOString(), ended,
       role: m.role, mode: m.mode, room: MP.role !== 'solo' ? MP.code || '' : undefined, device: PERFREP.device(), ua: this.uaShort(), cores: navigator.hardwareConcurrency || null, screen: `${screen.width}x${screen.height}@${devicePixelRatio} view ${innerWidth}x${innerHeight}`,
-      game: Math.round(game.time), real: Math.round((performance.now() - m.p0) / 1000), hidden: Math.round((m.hidden + (m.hidAt ? performance.now() - m.hidAt : 0)) / 1000), env: TABENV.summary(), test: navigator.webdriver ? true : undefined, cars: cars.length, vs: m.vs, vsD, talk: { s: Math.round(m.talkS || 0), n: m.talkN || 0, drop: m.talkDrop || 0 }, score: game.score, voices: !VOICES_OFF, sound: !sfx.muted,
+      game: Math.round(game.time), real: Math.round((performance.now() - m.p0) / 1000), hidden: Math.round((m.hidden + (m.hidAt ? performance.now() - m.hidAt : 0)) / 1000), env: TABENV.summary(), test: navigator.webdriver ? true : undefined, cars: cars.length, vs: m.vs, vsD, talk: { s: Math.round(m.talkS || 0), n: m.talkN || 0, drop: m.talkDrop || 0 }, heard: (() => { const H = m.heard; if (!H) return undefined; const by = {}; let rep = 0;
+        for (const [k, n] of H) { const w = k.split('|')[0], b = by[w] || (by[w] = [0, 0]); b[0] += n; b[1]++; if (n > 1) rep += n - 1; }
+        return { n: m.heardN || 0, uniq: H.size, repMatch: rep, repSession: m.heardRepS || 0, by, top: [...H].filter((e) => e[1] > 1).sort((a, b) => b[1] - a[1]).slice(0, 12) }; })(), score: game.score, voices: !VOICES_OFF, sound: !sfx.muted,
       q: { start: m.q0, end: QUALITY.level, ch: m.qCh, auto: !!S.autoGfx, gfx: S.gfx, res: Math.round(renderer.getPixelRatio() * 100) },
       fps: m.frames ? { med: fps(this.pct(m, 0.5)), p5: fps(this.pct(m, 0.95)), low1: fps(this.pct(m, 0.99)), avg: fps(m.ftSum / m.frames), worstMs: Math.round(m.worst), frames: m.frames } : null,
       slow: { n: m.inc.length, secs: r1(m.inc.reduce((a, x) => a + x.secs, 0)), worstMs: m.inc.reduce((a, x) => Math.max(a, x.worst || 0), 0), causes, list: m.inc },
@@ -10910,8 +10927,12 @@ Object.assign(PLAYLOG, {
   lock() { const now = Date.now(); let v = null; try { v = JSON.parse(this.ls(this.LOCK) || 'null'); } catch (e) {} if (v && v.sid !== this.sid && now - v.t < 60000) return false; this.ls(this.LOCK, JSON.stringify({ sid: this.sid, t: now })); return true; },
   unlock() { let v = null; try { v = JSON.parse(this.ls(this.LOCK) || 'null'); } catch (e) {} if (v && v.sid === this.sid) this.ls(this.LOCK, null); },
   retry(ms) { clearTimeout(this.retryTimer); this.retryTimer = setTimeout(() => { this.retryTimer = 0; this.upload('retry'); }, ms); },
+  MIN_GAP: 10 * 60e3, // play logs go up in batches at most every 10 minutes (bug reports, page close and updates go at once): the free drop has a daily limit per connection
   async upload(why) {
     if (typeof window.dropUpload !== 'function') return false; // (nowhere to send it: it stays queued here)
+    const urgent = /hand|page|updat|test|online/i.test(String(why)), now0 = Date.now(); // (back online after an outage: send what waited)
+    if (!urgent && now0 < (DROP.blockUntil || 0)) { this.retry(DROP.blockUntil - now0 + 5000); return false; }
+    if (!urgent && now0 - (this.lastUpT || 0) < this.MIN_GAP) { if (!this.retryTimer) this.retry(this.MIN_GAP - (now0 - (this.lastUpT || 0)) + 2000); return false; }
     if (this.busy) { this.again = why; return false; }
     if (!this.lock()) { this.retry(20000); return false; }
     this.busy = true; this.lastTry = { at: Date.now(), why }; let ok = true, sent = 0;
@@ -10936,6 +10957,7 @@ Object.assign(PLAYLOG, {
         const o2 = this.meta(); if (last > o2.up) { o2.up = last; o2.upAt = Date.now(); o2.upRecT = lastT; } if (o2.sentX) o2.sentX = o2.sentX.filter((x) => x > o2.up); this.saveMeta(o2); this.ls(this.LOCK, JSON.stringify({ sid: this.sid, t: Date.now() }));
       }
     } catch (e) { ok = false; } finally { this.busy = false; this.unlock(); }
+    if (sent) this.lastUpT = Date.now();
     if (ok) { this.fails = 0; } else { this.fails++; this.retry(Math.min(600000, 15000 * 2 ** Math.min(6, this.fails - 1))); } // offline or the server said no: try again later (and when the network is back)
     if (this.again) { const w = this.again; this.again = null; if (ok) setTimeout(() => this.upload(w), 0); }
     return ok;
@@ -11107,7 +11129,7 @@ for (const ev of ['keydown', 'pointerdown', 'pointermove', 'wheel', 'touchstart'
 setInterval(() => IDLE.check(), 5000);
 window.__derby = { AUTO, PLAYLOG, BOULDERS, get mapShapes() { return mapShapes; }, respawnCar: (o, t) => respawnCar(o, t), PHYS, cockpitEye: (c) => cockpitEye(c), wakeProp: (pr) => wakeProp(pr), addConcrete: (x, z, r, k) => addConcrete(x, z, r, k), igniteProp: (pr, t) => igniteProp(pr, t), cookBull: (bl, by, dt) => cookBull(bl, by, dt), tankerBoom: (p, c) => tankerBoom(p, c), CAR_TYPES, sfx, CANNON, barks, PERF, shells, NETLOG, nearHostAdd: () => nearHostAdd(), nearJoin: () => nearJoin(), JUMBO, BALL, BOLLARDS, GASQ, updateArenaPub: (dt) => updateArena(dt), CRUSHER, crushNow: () => crushNow(), applyNight: () => applyNight(), FIREWORKS, ARENA, CROWD, MP, QUALITY, applyQuality: (i) => applyQuality(i), MERGED, camera, updatePropActivity: (dt) => updatePropActivity(dt), renderer, scene, spawnFree: (x, z, r) => spawnFree(x, z, r), BULLS, updateBulls: (dt) => updateBulls(dt), updateShells, tilt, setTilt, get CRANE() { return CRANE; }, updateCrane: (dt) => updateCrane(dt), CONCRETE, THREE, craters, shells, pickups, barks, PERSONAS, TUNE, game, cars, S, world, CAR_TYPES, sfx, touch, drawGauge, get player() { return player; }, keys, startMatch, selectCar, setValue, debris, props, platformOf, get simTime() { return simTime; }, set simTime(v) { simTime = v; } }; // console tinkering + tests
 requestAnimationFrame(frame);
-window.__derby.IDLE = IDLE; window.__derby.TALK = TALK; window.__derby.SCORE = SCORE; window.__derby.UPDATE = UPDATE; window.__derby.TABENV = TABENV; window.__derby.PERFREP = PERFREP; // (test hooks)
+window.__derby.IDLE = IDLE; window.__derby.TALK = TALK; window.__derby.DROP = DROP; window.__derby.SCORE = SCORE; window.__derby.UPDATE = UPDATE; window.__derby.TABENV = TABENV; window.__derby.PERFREP = PERFREP; // (test hooks)
 window.__derby.VR = VR; window.__derby.XRS = XRS; window.__derby.composer = composer;
 window.__derby.VCLIP = VCLIP; window.__derby.ROAST_BY = ROAST_BY; window.__derby.ROAST_PAIR = ROAST_PAIR; window.__derby.SHAZZA = SHAZZA; window.__derby.CAR_CAST = CAR_CAST; window.__derby.ANNOUNCER = ANNOUNCER; window.__derby.COP = COP; window.__derby.megaphone = megaphone; window.__derby.hornLine = hornLine;
 </script>

@@ -141,6 +141,23 @@ if VS:
     for k, c in top: L.append(f"- {k.replace('>', ' wrecked ')}: {c['k']}×" + (f" ({c['dragged']} dragged into a hazard)" if c['dragged'] else '') + f" · {c['dmg']} damage")
     L.append('')
 VSROWS = [{'build': b, 'killer': k.split('>')[0], 'victim': k.split('>')[1], 'kills': c['k'], 'dragged': c['dragged'], 'dmg': c['dmg']} for (b, k), c in sorted(VS.items())]
+# --- voice variety (build 70+): how often each line is heard, repeats within a match and across a session
+HV = [m for m in real if m.get('heard')]
+if HV:
+    lb = max(int(m.get('build') or 0) for m in HV); xs = [m for m in HV if int(m.get('build') or 0) == lb]
+    n = sum(m['heard']['n'] for m in xs); rm = sum(m['heard']['repMatch'] for m in xs); rs = sum(m['heard'].get('repSession', 0) for m in xs)
+    L.append(f'## Voice variety (build {lb}, {len(xs)} matches)\n')
+    L.append(f'- {n} lines heard; {round(rm / max(1, n) * 100)}% were repeats within the same match, {round(rs / max(1, n) * 100)}% repeats of a line already heard this session')
+    by = collections.defaultdict(lambda: [0, 0])
+    for m in xs:
+        for w, (said, uniq) in (m['heard'].get('by') or {}).items(): by[w][0] += said; by[w][1] += uniq
+    L.append('- per character (lines heard / distinct): ' + ', '.join(f"{w} {a}/{b}" for w, (a, b) in sorted(by.items(), key=lambda kv: -kv[1][0])[:16]))
+    top = collections.Counter()
+    for m in xs:
+        for k, c in (m['heard'].get('top') or []): top[k] += c
+    if top: L.append('- most repeated lines: ' + '; '.join(f"{k.replace('|', ': ', 1)[:70]} ×{c}" for k, c in top.most_common(8)))
+    J['voiceRepeatPct'] = round(rm / max(1, n) * 100)
+    L.append('')
 # --- voices, errors, network
 L.append('## Voices, errors, network\n')
 for d in sorted({dev_name(m) for m in real}):

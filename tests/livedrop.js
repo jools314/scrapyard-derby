@@ -17,6 +17,7 @@ const { chromium } = require('playwright'); const { execFileSync } = require('ch
     return route.abort(); });
   await page.goto('http://game.local/', { timeout: 300000 }); await page.waitForFunction(() => window.__derby, null, { timeout: 300000 });
   const t0 = Math.floor(Date.now() / 1000);
+  await page.evaluate(() => { __derby.PLAYLOG.MIN_GAP = 0; }); // (this tests the transport; the 10-minute batching has its own test)
   await page.evaluate(() => { window.__noRender = true; __derby.S.aiCount = 3; document.getElementById('btnStart').click(); });
   await page.waitForFunction(() => __derby.game.countdown <= 0, null, { timeout: 300000 }); await page.waitForTimeout(8000);
   const up = await page.evaluate(async () => { const r = await window.playLogUpload?.('test'); return { r, has: typeof window.dropUpload }; });

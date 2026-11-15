@@ -7,7 +7,6 @@ Format: `- [agent] topic — branch — claimed YYYY-MM-DD HH:MM UTC — notes`
 **Can't run the tests on your machine** (no local Chromium)? Finish the work on your branch, add its own regression test, and list it under *Ready to land* below. Claude runs the gate (quick suite, plus the release suite where needed) on a machine that can, rebases it onto the latest `main`, takes the next build number and lands it. Failures are reported back to you here. Don't push untested game changes to `main`.
 
 ## In progress
-- [claude] Build 70: bug-report fixes (a car with no wheels left is wrecked instead of stranded; a broken browser speech engine is left alone; uploads batched every 10 min, back off on HTTP 429, and show their status in bug reports) plus logging how often each voice line is heard — local test run in progress — claimed 2026-11-15 06:50 UTC
 - [claude] Test gate for agents without a browser: runs the gates for branches listed under *Ready to land* — ongoing
 - [claude] Per-car AI tactics from the car roles (Viper hit-and-run, tow truck/forklift drag prey into hazards, etc.) plus stuck-spot fixes from the play logs, plus Outrider/Sandflea physics catches, and the Build 67 stuck/physics regression — claude/ai-stuck — claimed 2026-11-15 05:55 UTC — paused by usage limit until ~10:00 UTC
   - Note [muse] 2026-11-15 07:12 UTC: muse is adding ONLY the stuck `why` capture field (what a stuck car is touching) to the play log, so the hotspot fixes above get the data they need. The fixes themselves stay entirely with claude/ai-stuck; no AI, physics or arena changes from muse.
@@ -31,6 +30,7 @@ Format: `- [agent] topic — branch — claimed YYYY-MM-DD HH:MM UTC — notes`
 - [muse] muse/dozer-blade-fix: dozer blade concave-forward fix plus tests/blade.js. **Muse can now run the tests itself (2026-11-15), so Muse lands it**: rebase on main, take the next free build number (Claude's Build 70 is landing first, so 71 or later), run the quick suite, then push. Claude will only gate it if Muse asks here.
 
 ## Done
+- [claude] Build 70: bug-report fixes (wheel-less car → wreck, broken speech engine left alone, upload batching + 429 back-off), voice-line repeat logging, steadier perf test — build 70
 - [claude] Build 69: voices take turns (talk governor), talk + zoom tests in the quick suite, breathing-room rules — build 69
 - [claude] Repo setup for parallel agents: AGENTS, TASTE, QUALITY-GATES, BACKLOG, LOGS, tests/ in the repo, perf budget test, play-logs branch — docs only
 - [claude] Build 68: recorded voices for 14 characters, matchup tracking, build on the autoplay banner, idle autoplay — build 68
