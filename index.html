@@ -5413,7 +5413,7 @@ class Car {
     if (player) { const d = player.body.position.distanceTo(b.position); sfx.at(b.position).explosion(clamp(1 - d / 160, 0, 1), true); game.shake = Math.min(2, game.shake + clamp(1 - d / 60, 0, 1) * 1.6); }
     if (game.state === 'playing') {
       toast(this.isPlayer ? 'TURRET BLOWN OFF! TANK DISABLED' : `${this.name.toUpperCase()}'S TURRET BLEW OFF!`, this.isPlayer ? 'bad' : undefined);
-      barks.announce('turretOff', { a: this.isPlayer ? 'our hero' : this.name }, true);
+      barks.announce(Math.random() < 0.5 ? 'barrelBurst' : 'turretOff', { a: this.isPlayer ? 'our hero' : this.name }, true); // R2-60: the barrelBurst pool existed but was never called — the burst and the turret leaving are the same moment, so the two pools now share it
     }
     this.applyDamage(this.health, this.lastBender || null, 'top', new THREE.Vector3(0, this.T.H + 1, 0), 30); // that's the end of this tank
   }
@@ -6696,19 +6696,19 @@ const ANN_LINES = {
   status: ['The crowd is on its feet! {n} cars left and not a straight panel among them!', 'Smoke, fire and {n} very angry drivers! I love this job!', '{n} cars left in the yard and the paramedics have already gone home!', '{n} cars still running, and the crowd wants more!', 'Smoke everywhere, folks! {n} left in the yard!', 'Somebody hand the medics a crowbar, {n} cars to go!', '{n} drivers left and not one of them has a working mirror!'],
   crush: ['Into the press! {v} is about to become modern art!', '{a} just parked a TANK on {v}!', '{v} is being flattened like a pancake!', 'Crunch time for {v}! Literally!'],
   shell: ['{a} is shelling the yard!', 'Who brought a TANK to a demolition derby?!', 'Direct fire from {a}! Duck, folks!', 'That will leave a crater!'],
-  leak: ['The tanker is LEAKING! Everybody back up!', 'That is a rolling bonfire now, folks!', 'Fuel on the floor! Nobody light a match!'],
+  leak: ['The tanker is LEAKING! Everybody back up!', 'That is a rolling bonfire now, folks!', 'Fuel on the floor! Nobody light a match!', 'Somebody put a bucket under that tanker!'],
   ball: ['{v} just got a visit from the wrecking ball! Demolition, folks!', 'The ball wins again! {v} is going for a ride!'],
   crusher: ['{v} just got BALED! That is a cube now, folks!', 'Into the crusher goes {v}! Recycling at its finest!', 'The crusher says hello to {v}! Flat as a pancake!'],
-  bullGore: ['A BULL just gored {v}! Ole!', '{v} got the horns! Somebody wave a red flag!', 'Bull one, {v} nothing!'],
+  bullGore: ['A BULL just gored {v}! Ole!', '{v} got the horns! Somebody wave a red flag!', 'Bull one, {v} nothing!', 'The bull is outscoring half the cars tonight!'],
   bullDown: ['{a} just bowled over a bull! It looks furious!', 'Bull down! It will remember that, {a}!'],
-  towHook: ['{a} just hooked {v}! Somebody call a lawyer!', '{v} is being towed! Illegally parked, folks!', 'Hooked and booked! {a} is dragging {v} around the yard!'],
-  towWhip: ['{a} cracks the whip and {v} goes spinning!', 'And {v} is cut loose at full speed! Look at it go!'],
-  craneGrab: ['THE MAGNET HAS {v}! Up, up and away!', 'The crane just picked up {v} like a toy!', 'Whoa! {v} is going for a ride on the big magnet!'],
-  craneDrop: ['And the crane lets {v} go! Look out below!', 'Gravity, meet {v}! {v}, meet gravity!', 'Special delivery from the crane: one {vcar}, slightly used!'],
-  forkLift: ['{a} just picked up {v} like a pallet of toilet paper!', 'Forklift certified! {a} has {v} up on the forks!', '{v} is going UP! Mind the overhead guard!'],
-  forkToss: ['And {a} tosses {v} like yesterday\'s pallets!', 'Return to sender! {a} flings {v}!'],
-  trackOff: ['{a} just knocked a track off {v}! That tank is going in circles now!', 'TRACK OFF! {v} is a very expensive pillbox!', 'There goes the track! {v} can only turn left now. Or right. Mostly sad.'],
-  bentGun: ['{a} just bent {v}\'s gun like a drinking straw!', 'That cannon now shoots round corners, folks!', '{a} tied a knot in the TANK! Somebody get a picture!'],
+  towHook: ['{a} just hooked {v}! Somebody call a lawyer!', '{v} is being towed! Illegally parked, folks!', 'Hooked and booked! {a} is dragging {v} around the yard!', 'Hooked! {v} is going wherever {a} is going, like it or not!'],
+  towWhip: ['{a} cracks the whip and {v} goes spinning!', 'And {v} is cut loose at full speed! Look at it go!', 'The line snaps tight and {v} is a spinning top!', '{a} lets go at the perfect moment — {v} is pointing everywhere at once!'],
+  craneGrab: ['THE MAGNET HAS {v}! Up, up and away!', 'The crane just picked up {v} like a toy!', 'Whoa! {v} is going for a ride on the big magnet!', 'Scrap metal, meet the sky! {v} is airborne!'],
+  craneDrop: ['And the crane lets {v} go! Look out below!', 'Gravity, meet {v}! {v}, meet gravity!', 'Special delivery from the crane: one {vcar}, slightly used!', 'Dropped from the cheap seats! {v} lands with interest!'],
+  forkLift: ['{a} just picked up {v} like a pallet of toilet paper!', 'Forklift certified! {a} has {v} up on the forks!', '{v} is going UP! Mind the overhead guard!', 'Warehouse rules! {a} just shelved {v}!'],
+  forkToss: ['And {a} tosses {v} like yesterday\'s pallets!', 'Return to sender! {a} flings {v}!', '{v} has been POSTED! No stamp, no address, just thrown!', 'Forklift javelin! {a} launches {v} across the yard!'],
+  trackOff: ['{a} just knocked a track off {v}! That tank is going in circles now!', 'TRACK OFF! {v} is a very expensive pillbox!', 'There goes the track! {v} can only turn left now. Or right. Mostly sad.', 'One track, no steering — {v} is a merry-go-round now!'],
+  bentGun: ['{a} just bent {v}\'s gun like a drinking straw!', 'That cannon now shoots round corners, folks!', '{a} tied a knot in the TANK! Somebody get a picture!', 'That barrel is a pretzel now! {v} could not hit the yard from inside it!'],
   turretOff: ['KABOOM! {a} fired a bent gun and the TURRET just left the building!', 'The turret is flying! {a} has a convertible now!', 'Rule one of tanks, {a}: never fire a bent barrel!'],
   barrelBurst: ['KABOOM! {a} fired a bent gun and it peeled open like a banana!', 'The gun just blew up in {a}\'s face! That is going to sting!', 'Note to {a}: never fire a bent barrel!'],
   sandwich: ['It\'s a {v} sandwich! Hold the mayo!', 'Squished in the middle like the last biscuit in the packet!', 'SANDWICH! {v} just got pressed like a panini!', 'Ooh, {v} caught in the middle! That is a club sandwich!'],
