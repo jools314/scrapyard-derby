@@ -1695,7 +1695,14 @@ const CRUSHER = { x: -112, z: -95, hx: 3.8, hz: 2.5, top: 6.4, low: 1.15, y: 6.4
 function crusherInside(p, pad = 0) { const C = CRUSHER; return Math.abs(p.x - C.x) < C.hx + pad && Math.abs(p.z - C.z) < C.hz + pad && p.y < 4.5; }
 function crushNow() {
   const C = CRUSHER, dummy = { isPlayer: false };
+  const cardboard = props.filter((pr) => pr.kind === 'cardboard' && crusherInside(pr.body.position)).length;
   for (const pr of props.slice()) if (crusherInside(pr.body.position)) flattenProp(pr, dummy);
+  if (cardboard > 0) { // CRUSHER CONFETTI: cardboard in the press and the crusher erupts confetti out of its top vent like a party popper (particles only)
+    C.confetti = (C.confetti || 0) + cardboard;
+    const mats = [BIT.cone, BIT.paper, BIT.blue, goldMat];
+    for (let i = 0; i < 36; i++) emit('debris', C.x + rand(-1, 1), 9.2, C.z + rand(-1, 1), rand(-4, 4), rand(7, 13), rand(-4, 4), rand(1.2, 2.2), rand(0.06, 0.14), mats[i % mats.length]);
+    if (game.state === 'playing') toast('🎉 CRUSHER CONFETTI!', 'cool');
+  }
   for (const c of cars) {
     if (!crusherInside(c.body.position)) continue;
     c.body.wakeUp(); c.body.velocity.set(0, -4, 0); c.body.angularVelocity.set(0, 0, 0);
@@ -9606,7 +9613,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '81'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '82'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
