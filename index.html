@@ -5495,6 +5495,7 @@ class Car {
 
     // Which face took the hit
     const zone = zoneOf(nl);
+    if (this.isPlayer && otherCar && vImp > 4) this.hitFrom = { x: nl.z, y: nl.y, t: simTime, v: vImp }; // R2-4: where the hit came from, in view space (x = right, y = up; local +x is the nose) — the VR vignette flashes toward it
     if (this.T.dozer && otherCar && zone !== 'front' && zone !== 'bottom') dv = Math.max(dv, vImp * 0.55); // 14 t barely moves, but a car punched into its flank still caves the panels in
     if (this.trackHp && otherCar && (zone === 'left' || zone === 'right') && vImp > 4 && local.y < 0.4) { // a car slamming into the running gear: momentum, not the tank's tiny dv, is what snaps links
       this.hurtTrack(zone === 'left' ? 0 : 1, (vImp - 4) * Math.pow(Mo / 1500, 0.7) * 3.5 * (otherCar.ramT > 0 ? 1.6 : 1), otherCar);
@@ -10278,9 +10279,9 @@ const VR = (() => {
     add(new THREE.CircleGeometry(0.035, 16), wm, 0, 0); add(new THREE.BoxGeometry(0.02, 0.03, 0.02), am, 0, 0.16); }
   // comfort vignette + fade: a sphere around your head, dark outside a circle that narrows when you turn or accelerate
   const vig = new THREE.Mesh(new THREE.SphereGeometry(0.5, 32, 16), new THREE.ShaderMaterial({
-    uniforms: { uInner: { value: 3.2 }, uFade: { value: 1 } }, side: THREE.BackSide, transparent: true, depthTest: false, depthWrite: false, fog: false,
+    uniforms: { uInner: { value: 3.2 }, uFade: { value: 1 }, uHit: { value: 0 }, uHitVec: { value: new THREE.Vector2(0, 0) } }, side: THREE.BackSide, transparent: true, depthTest: false, depthWrite: false, fog: false,
     vertexShader: 'varying vec3 vP; void main(){ vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-    fragmentShader: 'uniform float uInner, uFade; varying vec3 vP; void main(){ float a = acos(clamp(-normalize(vP).z, -1.0, 1.0)); float v = smoothstep(uInner, uInner + 0.32, a); gl_FragColor = vec4(0.0, 0.0, 0.0, clamp(max(v, uFade), 0.0, 1.0)); }' }));
+    fragmentShader: 'uniform float uInner, uFade, uHit; uniform vec2 uHitVec; varying vec3 vP; void main(){ vec3 d = -normalize(vP); float a = acos(clamp(d.z, -1.0, 1.0)); float v = smoothstep(uInner, uInner + 0.32, a); float hl = length(uHitVec); float al = hl < 0.35 ? 1.0 : clamp(dot(normalize(vec2(d.x, d.y) + vec2(1e-4)), uHitVec / max(hl, 1e-4)), 0.0, 1.0); float glow = uHit * al * al * smoothstep(0.30, 0.85, a); gl_FragColor = vec4(vec3(0.80, 0.12, 0.06) * glow, clamp(max(max(v, uFade), glow * 0.85), 0.0, 1.0)); }' })); // R2-4: uHit/uHitVec flash a red rim toward the last hit (front hits ring the whole rim)
   vig.renderOrder = 1000; vig.frustumCulled = false; cam.add(vig);
   // Touch controllers: a small body and a laser for the menu
   const ctrl = {};
@@ -10652,6 +10653,7 @@ const VR = (() => {
     V.motion += (m - V.motion) * (1 - Math.exp(-dt * (m > V.motion ? 8 : 2.5)));
     vig.material.uniforms.uInner.value = V.set.vig ? lerp(1.05, V.set.vig === 2 ? 0.5 : 0.72, V.motion) : 3.2;
     vig.material.uniforms.uFade.value = V.fade;
+    { const hf = player.hitFrom, ha = hf ? clamp(1 - (simTime - hf.t) / 0.7, 0, 1) : 0; vig.material.uniforms.uHit.value = ha * (hf ? clamp(hf.v / 12, 0.25, 1) : 0); if (hf) vig.material.uniforms.uHitVec.value.set(hf.x, hf.y); } // R2-4
     // cockpit furniture
     const cockpit = !V.set.view && game.state !== 'menu';
     wheelT.visible = cockpit; wheel.rotation.z = (player.ctrl.steer || 0) * 2.0;
