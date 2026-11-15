@@ -2294,24 +2294,29 @@ const pickups = [];
 const pickupMat = {
   repair: new THREE.MeshStandardMaterial({ color: 0x8cc76f, emissive: 0x5fa040, emissiveIntensity: 0.9, metalness: 0.6, roughness: 0.3 }),
   nitro: new THREE.MeshStandardMaterial({ color: 0x5fc3ff, emissive: 0x2f90d0, emissiveIntensity: 0.9, metalness: 0.6, roughness: 0.3 }),
+  shield: new THREE.MeshStandardMaterial({ color: 0xb07fff, emissive: 0x7a3fd0, emissiveIntensity: 0.9, metalness: 0.6, roughness: 0.3 }),
 };
 function pickupMesh(kind) {
   const g = new THREE.Group();
   if (kind === 'repair') { // wrench
     const h = new THREE.Mesh(new THREE.BoxGeometry(0.22, 1.3, 0.14), pickupMat.repair); g.add(h);
     const head = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.1, 6, 12, Math.PI * 1.5), pickupMat.repair); head.position.y = 0.75; head.rotation.z = Math.PI * 0.75; g.add(head);
+  } else if (kind === 'shield') { // a violet gem: five seconds of half damage
+    const s = new THREE.Mesh(new THREE.OctahedronGeometry(0.55), pickupMat.shield); s.position.y = 0.1; g.add(s);
   } else { // canister
     const c = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 1.0, 14), pickupMat.nitro); g.add(c);
     const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.25, 10), M.chrome); cap.position.y = 0.6; g.add(cap);
   }
-  const ring = new THREE.Mesh(new THREE.RingGeometry(1.0, 1.25, 32), new THREE.MeshBasicMaterial({ color: kind === 'repair' ? 0x8cc76f : 0x5fc3ff, transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthWrite: false }));
+  const ring = new THREE.Mesh(new THREE.RingGeometry(1.0, 1.25, 32), new THREE.MeshBasicMaterial({ color: kind === 'repair' ? 0x8cc76f : kind === 'shield' ? 0xb07fff : 0x5fc3ff, transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthWrite: false }));
   ring.rotation.x = -Math.PI / 2; ring.position.y = -0.95; g.add(ring);
   return g;
 }
 function buildPickups() {
   for (const p of pickups) scene.remove(p.mesh);
   pickups.length = 0;
-  for (const [x, z, kind] of PICKUP_SPOTS) {
+  const kinds = PICKUP_SPOTS.map((s) => s[2]); kinds[4] = 'shield'; kinds[9] = 'shield'; // two of the ten spots are shields, and which spots hold what is shuffled every match
+  for (let i = kinds.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0; const tmp = kinds[i]; kinds[i] = kinds[j]; kinds[j] = tmp; }
+  for (let si = 0; si < PICKUP_SPOTS.length; si++) { const [x, z] = PICKUP_SPOTS[si], kind = kinds[si];
     const plat = platformOf({ x, y: 50, z }); // spots on the mesa tier or the gap plateau float above that surface
     const y = (Math.abs(x) < 4 && Math.abs(z) < 4) ? 5.2 : plat ? plat.y + 1.2 : 1.2;
     const mesh = pickupMesh(kind); mesh.position.set(x, y, z); scene.add(mesh);
@@ -2333,9 +2338,10 @@ function updatePickups(dt) {
         if (lost >= 0) c.refitWheel(lost);
         for (const z of ZONES) c.zones[z] = Math.max(0, c.zones[z] - 25);
         c.applyDamage(0, null, null, null); // refresh paint and effects
-      } else c.nitro = 1;
-      for (let i = 0; i < 20; i++) emit('spark', p.x, p.y, p.z, rand(-4, 4), rand(2, 7), rand(-4, 4), rand(0.3, 0.7), rand(0.08, 0.15), p.kind === 'repair' ? pickupMat.repair : pickupMat.nitro);
-      if (c.isPlayer) { toast(p.kind === 'repair' ? '+30 HULL · REPAIRED' : 'NITRO FULL', 'cool'); sfx.clank(0.4); }
+      } else if (p.kind === 'shield') c.shieldT = 5;
+      else c.nitro = 1;
+      for (let i = 0; i < 20; i++) emit('spark', p.x, p.y, p.z, rand(-4, 4), rand(2, 7), rand(-4, 4), rand(0.3, 0.7), rand(0.08, 0.15), p.kind === 'repair' ? pickupMat.repair : p.kind === 'shield' ? pickupMat.shield : pickupMat.nitro);
+      if (c.isPlayer) { toast(p.kind === 'repair' ? '+30 HULL · REPAIRED' : p.kind === 'shield' ? 'SHIELD! HALF DAMAGE FOR 5s' : 'NITRO FULL', 'cool'); sfx.clank(0.4); }
       else if (Math.random() < 0.5) barks.say(c, 'taunt');
       break;
     }
@@ -5643,6 +5649,7 @@ class Car {
     if (this.trackHp && (zone === 'left' || zone === 'right') && dmg > 3 && !by) this.hurtTrack(zone === 'left' ? 0 : 1, dmg * 2, by); // blasts beside the tank
     if (this.T.gun && dmg >= 10 && !this.wrecked && simTime - (this.smokeScrT ?? -99) > 18 && MP.role !== 'guest') { this.smokeScrT = simTime; smokeScreen(this); } // a big hit: the Tiger pops smoke
     if (this.T.flimsy && (zone === 'left' || zone === 'right' || zone === 'rear')) { dmg *= 1.6; if (dmg >= 1.5) this.shedJunk(zone, dmg); } // RV walls are plywood and staples: they cave in and spill the contents
+    if (this.shieldT > 0 && dmg > 0) dmg *= 0.5; // shield pickup: half damage while it lasts
     dmg = Math.min(dmg, this.health);
     this.health -= dmg; if (PLAYLOG.m) PLAYLOG.dmg(this, dmg, by);
     if (zone && this.zones[zone] !== undefined) {
@@ -7807,7 +7814,7 @@ function drawMinimap() {
   const W = mm.width, s = W / (A * 2 + 8);
   mctx.clearRect(0, 0, W, W);
   mctx.drawImage(mmBase, 0, 0);
-  for (const pk of pickups) if (pk.respawn <= 0) { mctx.fillStyle = pk.kind === 'repair' ? '#8cc76f' : '#5fc3ff'; mctx.fillRect((pk.x + A + 4) * s - 3, (pk.z + A + 4) * s - 3, 6, 6); }
+  for (const pk of pickups) if (pk.respawn <= 0) { mctx.fillStyle = pk.kind === 'repair' ? '#8cc76f' : pk.kind === 'shield' ? '#b07fff' : '#5fc3ff'; mctx.fillRect((pk.x + A + 4) * s - 3, (pk.z + A + 4) * s - 3, 6, 6); }
   for (const c of cars) {
     const p = c.body.position, x = (p.x + A + 4) * s, y = (p.z + A + 4) * s;
     if (c.isPlayer) {
@@ -10189,6 +10196,7 @@ function simBody(now) {
     } else if (game.state === 'playing') game.grace -= dt;
     SEC.run('cars', () => { for (const c of cars) c.frameUpdate(dt); });
     if (MP.role !== 'guest') unwedge(dt);
+    for (const c of cars) if (c.shieldT > 0) { c.shieldT -= dt; if (Math.random() < dt * 6) { const p = c.body.position; emit('spark', p.x + rand(-1, 1), p.y + 0.8, p.z + rand(-1, 1), 0, 1, 0, 0.4, 0.1, pickupMat.shield); } } // shield pickups burn down and shimmer
     SEC.run('arena', () => { updateCrane(dt); updateBulls(dt); updateBumps(dt); updateCrawlerCrush(dt); updateBoulders(dt); updateLobs(dt); });
     SEC.run('lod', () => updatePropActivity(dt));
     updateRespawns(dt);
