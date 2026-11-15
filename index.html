@@ -1752,7 +1752,7 @@ function updateCrusher(dt) {
   if (MP.role !== 'guest') {
     let occ = false; for (const c of cars) if (crusherInside(c.body.position)) { occ = true; break; }
     C.occ = occ ? C.occ + dt : 0;
-    if (C.state === 'idle') { C.y = Math.min(C.top, C.y + dt * 2.2); if ((C.occ > 0.6 || C.t <= 0) && game.state !== 'menu') { C.state = 'warn'; C.t = 1.3; } }
+    if (C.state === 'idle') { C.y = Math.min(C.top, C.y + dt * 2.2); if ((C.occ > 0.6 || C.t <= 0) && game.state !== 'menu') { C.state = 'warn'; C.t = 2.0; const inC = cars.find((c) => crusherInside(c.body.position)); if (inC && game.state === 'playing') barks.announce('crusherWarn', { v: inC.isPlayer ? 'our hero' : inC.name }, true); } }
     else if (C.state === 'warn') { if (C.t <= 0) { C.state = 'slam'; C.jam = false; } }
     else if (C.state === 'slam') { let floorY = C.low; for (const c of cars) if (c.T.skid && crusherInside(c.body.position)) floorY = Math.max(floorY, c.body.position.y + c.T.H + 0.9);
       C.y = Math.max(floorY, C.y - dt * 26); if (C.y <= floorY + 0.01) { crushNow(); C.state = 'hold'; C.t = 1.2; } }
@@ -6721,6 +6721,8 @@ const ANNOUNCER = { nick: 'Crash Cam Kev', caller: true, lang: 'en-AU', pitch: 0
 const ANN_LINES = {
   harvest: ['{a} is HARVESTING {v}! Straw bales out the back, folks!', 'Oh no, {v} has gone into the combine! Bit of a rough cut there!', 'That\'s not wheat, {a}! That\'s {v}!', 'Old MacDonald had a {v}, and now he has a bale!'],
   crushed: ['{a} just PANCAKED {v}! Flat as a tack!', 'Oh, {v} has been squashed like a bug on a windscreen!', '{a} parks fourteen tonnes on {v}. Rude!', 'That\'s not a car anymore, that\'s a sandwich press special!'],
+  crusherWarn: ['The crusher is winding up — {v} is standing right under it!', 'Warning lights on the press! {v}, MOVE!', 'Two seconds, {v}! The press does not do refunds!'],
+  craneWarn: ['The magnet crane has its eye on {v}!', 'Crane incoming! {v} is about to go flying!'],
   followUp: ['And ANOTHER one, just for good measure!', 'Oh, they\'ve gone back for seconds! Cheeky!', 'Hit \'em again! A little top-up for {v}!', 'Double tap! {v} did not need that, but {a} gave it anyway!', 'One for the road! Absolutely unnecessary, absolutely beautiful!'],
   aiHit: ['OHHH! {a} has absolutely cleaned up {v}!', 'Bang! {a} into {v} at {kmh} k\'s! Lovely!', '{v} never saw {a} coming. Classic!', 'And {a} sends {v} for a little spin! Round and round she goes!', 'Crunch! {a} and {v}, the worst first date in history!'],
   carFire: ['{v} is ON FIRE! Somebody get the hose!', '{a} just set {v} alight!', 'Is it hot in here, or is it just {v}?', 'Flame-grilled {v}, coming right up!'],
@@ -8750,7 +8752,7 @@ function updateCrane(dt) {
     else {
       const da = slewTo(angOf(tp), 0.5); C.r += clamp(radOf(tp) - C.r, -4 * dt, 4 * dt);
       const m = craneMagnetPos(C), hd = Math.hypot(m.x - tp.x, m.z - tp.z), topY = tp.y + t.T.H + (t.T.cabin ? t.T.cabin.h : 0) + 0.2;
-      if (C.state === 'seek') { C.h = lerp(C.h, 14, dt * 2); if (hd < 1.6 && da < 0.05) { C.state = 'lower'; if (t.isPlayer) toast('MAGNET ABOVE YOU! MOVE!', 'bad'); } }
+      if (C.state === 'seek') { C.h = lerp(C.h, 14, dt * 2); if (hd < 1.6 && da < 0.05) { C.state = 'lower'; if (t.isPlayer) { toast('MAGNET ABOVE YOU! MOVE!', 'bad'); sfx.at(tp).honk(t.type, 0.6, 0.4); barks.announce('craneWarn', { v: 'our hero' }, true); } } }
       else {
         if (hd > 3.5) { C.state = 'seek'; } else C.h = Math.max(topY + 0.5, C.h - dt * 5.5);
         if (C.h <= topY + 0.75 && hd < 2.2) { // clang: grabbed
