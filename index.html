@@ -649,6 +649,7 @@
         <span class="modes" id="fieldChips" role="group" aria-label="Field size"><button type="button" data-n="4">4 cars</button><button type="button" data-n="6">6</button><button type="button" data-n="9">9</button><button type="button" data-n="12">12</button></span>
         <button id="btnStart" class="primary" type="button">Start derby</button>
         <button id="btnFree" type="button">Free drive</button>
+        <button id="btnSpec" type="button">👁 Watch a brawl</button>
         <button id="btnVR" type="button" hidden>🥽 Enter VR</button>
         <button id="btnAutoplay" type="button" title="The computer drives every car, match after match, and logs how the game runs (fps, physics glitches, stuck cars, balance). Any key or tap stops it.">🤖 Autoplay (learn)</button>
         <button id="btnApReport2" type="button" class="quiet" title="What the play log has measured so far">Report</button>
@@ -8215,6 +8216,7 @@ function startMatch() {
   game.countdown = 1.8; game.grace = 8; game.lastCount = 4;
   if (FREE_DRIVE) { game.countdown = 0; toast('FREE DRIVE — NO SCORE, NO STAKES', 'cool'); }
   else if (GAME_MODE === 'respawn' && (S.matchMinutes > 0 || S.wreckTarget > 0)) toast(S.wreckTarget > 0 ? `FIRST TO ${S.wreckTarget} WRECKS WINS` : `${S.matchMinutes} MINUTE MATCH`, 'cool');
+  SPECTATE.car = null;
   game.tut = !TUT.done && MP.role === 'solo' && !FREE_DRIVE ? 0 : -1;
 }
 function showMenu() {
@@ -8445,6 +8447,7 @@ function refreshFieldChips() { for (const b of document.querySelectorAll('#field
 for (const b of document.querySelectorAll('#fieldChips button')) b.addEventListener('click', () => { setValue('aiCount', +b.dataset.n); refreshFieldChips(); b.blur(); });
 refreshFieldChips();
 $('btnReplay').addEventListener('click', () => { if (ARENA.lastWreck) { el.over.hidden = true; game.replayBack = true; game.replayBackT = clock + 7; startReplay(ARENA.lastWreck); toast('REPLAY ON THE BIG SCREEN', 'cool'); } });
+$('btnSpec').addEventListener('click', () => { const pool = cars.filter((c) => !c.isPlayer); SPECTATE.car = SPECTATE.car ? null : pool[Math.random() * pool.length | 0] || null; toast(SPECTATE.car ? `WATCHING ${SPECTATE.car.name.toUpperCase()}` : 'BACK TO YOUR CAR', 'cool'); });
 $('btnAgain').addEventListener('click', startMatch);
 $('btnGarage').addEventListener('click', showMenu);
 
@@ -8684,7 +8687,8 @@ const desired = new THREE.Vector3();
 const lastFlat = new THREE.Vector2(0, -1);
 let clock = 0;
 let camRoll = 0;
-function camTarget() { const c = AUTO.on && AUTO.camCar; return c && !c.wrecked && cars.includes(c) ? c : player; }
+const SPECTATE = { car: null }; // watch-the-brawl cam: follows another car (menu attract, or a guest waiting out a round)
+function camTarget() { const c = SPECTATE.car || (AUTO.on && AUTO.camCar); return c && !c.wrecked && cars.includes(c) ? c : player; }
 function updateCamera(dt) {
   if (XRS.on) { VR.update(dt); return; } // VR: the seated cockpit rig (yaw only, no shake, no crash cam, no FOV changes)
   const player = camTarget(); // (autoplay can follow another car for a while)
