@@ -6095,6 +6095,7 @@ class Car {
     const angle = Math.atan2(-local.z, local.x); // + = target on the left
     let steer = clamp(angle * 1.8, -1, 1);
     let throttle = 0.72 + 0.28 * S.aiSkill;
+    if (GAME_MODE === 'respawn' && game.state === 'playing') throttle *= clamp(1 + 0.025 * (((player && player.kills) || 0) - (this.kills || 0)), 0.93, 1.07); // rubber band: the field hunts the leader and eases off a struggler
     if (Math.abs(angle) > 0.7 && this.speed > 28) throttle = -0.5; // brake for the turn
     if (Math.abs(angle) > 2.4 && dist < 16) { throttle = -1; steer = -steer; }
 
