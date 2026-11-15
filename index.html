@@ -8388,6 +8388,7 @@ function setValue(key, v) {
       g.innerHTML = `<span class="label">${d.group}</span>`;
       host.appendChild(g);
       groups[d.group] = g;
+      { const db = document.createElement('button'); db.type = 'button'; db.className = 'grpdef'; db.textContent = 'Defaults'; db.title = `Reset the ${d.group} settings to their defaults`; db.addEventListener('click', () => { for (const dd of SETTINGS_DEF) if (dd.group === d.group) setValue(dd.key, dd.def); db.blur(); }); g.appendChild(db); }
       if (d.group === 'World') {
         const pr = document.createElement('div');
         pr.className = 'presets';
