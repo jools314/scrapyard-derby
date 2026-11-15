@@ -7310,7 +7310,7 @@ const barks = {
   lastT: -99, el: null, voices: [],
   init() {
     this.el = $('subs');
-    try { const load = () => { this.voices = window.speechSynthesis ? speechSynthesis.getVoices() : []; }; load(); if (window.speechSynthesis) { speechSynthesis.onvoiceschanged = load; try { speechSynthesis.addEventListener('voiceschanged', load); } catch (e) {} } } catch (e) {} // (the list can arrive late, and change when network voices come and go)
+    try { const load = () => { this.voices = window.speechSynthesis ? speechSynthesis.getVoices() : []; }; if (window.speechSynthesis) { speechSynthesis.onvoiceschanged = load; try { speechSynthesis.addEventListener('voiceschanged', load); } catch (e) {} } } catch (e) {} // the voice list itself loads lazily (unlock() and speak() fetch it on first use): boot and first paint never wait on the speech stack. (The list can arrive late, and change when network voices come and go)
     document.addEventListener('visibilitychange', () => { try { this.onVis(); } catch (e) {} });
     // (the doctor used to run on a 1 s setInterval; it rides the frame loop now — see frameBody — so a hidden tab does literally nothing)
   },
