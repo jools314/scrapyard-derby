@@ -10593,6 +10593,10 @@ const VR = (() => {
         g.beginPath(); g.moveTo(0, -s); g.lineTo(s * 0.8, s); g.lineTo(-s * 0.8, s); g.closePath(); g.fill(); g.restore();
       }
     }
+    // R2-3: the countdown lives in the DOM overlay; show it here too (a muted or deaf VR player otherwise gets no start signal at all)
+    if (game.countdown > 0) { V.cdWas = game.countdown; g.font = '800 150px system-ui, sans-serif'; g.textAlign = 'center'; g.fillStyle = '#f2a20c'; g.strokeStyle = 'rgba(0,0,0,0.65)'; g.lineWidth = 10; const n = String(Math.max(1, Math.ceil(game.countdown))); g.strokeText(n, W / 2, 190); g.fillText(n, W / 2, 190); }
+    else if (V.cdWas > 0) { V.cdWas = 0; V.goUntil = performance.now() + 700; }
+    if (V.goUntil && performance.now() < V.goUntil) { g.font = '800 130px system-ui, sans-serif'; g.textAlign = 'center'; g.fillStyle = '#8cc76f'; g.strokeStyle = 'rgba(0,0,0,0.65)'; g.lineWidth = 10; g.strokeText('GO!', W / 2, 190); g.fillText('GO!', W / 2, 190); }
     hud.tex.needsUpdate = true; V.stats.hudDraws++;
   }
 
