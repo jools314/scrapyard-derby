@@ -7862,12 +7862,13 @@ function drawMinimap() {
       mctx.beginPath(); mctx.arc(x, y, 6, 0, 7); mctx.fill(); mctx.stroke();
     }
   }
+  if (game.pingPos && simTime - game.pingT < 2) { const x = (game.pingPos.x + A + 4) * s, y = (game.pingPos.z + A + 4) * s; mctx.strokeStyle = '#ffd23e'; mctx.lineWidth = 3; mctx.beginPath(); mctx.arc(x, y, 8 + (simTime - game.pingT) * 14, 0, 7); mctx.stroke(); } // the double-honk ping, expanding for two seconds
 }
 
 /* ---------------- Game flow ---------------- */
 const game = {
   state: 'menu', slowmo: 0, hitStop: 0, fovPunch: 0, countdown: 0, grace: 0, lastCount: 0, stuckT: 0, score: 0, time: 0, paused: false, overTimer: -1, attractReset: -1, shake: 0, flash: 0, propHits: 0, propToast: -9,
-  matchT: 0, biggestHit: 0, bestAir: 0, bestWheelie: 0, propCombo: 0, propComboT: -9, tut: -1, hitDirA: 0, hitDirT: -9, hitDirS: 0, scrapeT: -9, nmT: 0, shots: 0, hits: 0,
+  matchT: 0, biggestHit: 0, bestAir: 0, bestWheelie: 0, propCombo: 0, propComboT: -9, tut: -1, hitDirA: 0, hitDirT: -9, hitDirS: 0, scrapeT: -9, nmT: 0, shots: 0, hits: 0, pingT: -9, pingPos: null, lastHonk: null, honkT: -9,
   addScore(n, label) {
     this.score += n;
     if (label && n >= 40) toast(`+${n} ${label}`);
@@ -9513,6 +9514,7 @@ const MP = {
       else if (e.k === 'bd') { const host = cars.find((c) => c.T.special === 'dump') || { body: { velocity: new CANNON.Vec3(), pointToWorldFrame: () => new CANNON.Vec3() }, T: { L: 0, H: 0 }, fwd: new CANNON.Vec3(1, 0, 0), comShift: 0 }; dropBoulder(host, e.p); }
       else if (e.k === 'ss') { addSpikeStrip(e.p[0], e.p[1], e.p[2], null); }
       else if (e.k === 'x') { explodeShell(new CANNON.Vec3(e.p[0], e.p[1], e.p[2]), null, this.dummy, e.s || 1); }
+      else if (e.k === 'ping') { const c = cars[e.i]; if (c) { game.pingT = simTime; game.pingPos = { x: c.body.position.x, z: c.body.position.z }; } }
     }
     // my stick and buttons go back to the host
     if (player && player.isPlayer) {
@@ -10375,7 +10377,7 @@ function drawBody(dt) {
     let near = null;
     for (const c of cars) if (!c.isPlayer && !c.wrecked) { const d = c.body.position.distanceTo(pp); if (!near || d < near.dist) near = { car: c, dist: d }; }
     sfx.update(player, near, live);
-    { const hn = live && player.ctrl.horn && !player.wrecked; if (hn && !player.hornHeld) hornLine(player); player.hornHeld = hn; sfx.horn(hn, player.type); }
+    { const hn = live && player.ctrl.horn && !player.wrecked; if (hn && !player.hornHeld) { hornLine(player); const pp = player.body.position; game.lastHonk = { t: simTime, x: pp.x, z: pp.z }; if (simTime - game.honkT < 0.6) { game.pingT = simTime; game.pingPos = { x: pp.x, z: pp.z }; if (MP.role === 'host') MP.event({ k: 'ping', i: cars.indexOf(player) }); } game.honkT = simTime; } player.hornHeld = hn; sfx.horn(hn, player.type); } // a quick double-honk is the family signal: "over here!" — it pings your dot on the minimap
     { const cop = cars.find((c) => (c.T.police || c.T.siren) && c.sirenOn && !c.wrecked); sfx.siren(!!cop && live, cop ? (cop.isPlayer ? 1 : clamp(1 - cop.body.position.distanceTo(pp) / 130, 0.08, 1)) : 0); }
   }
   SEC.run('hud', () => updateHUD(dt));
