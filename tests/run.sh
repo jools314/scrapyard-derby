@@ -49,9 +49,13 @@ quick() {
   t bales 600 "BALES PASS"
   t helisign 600 "HELISIGN PASS"
   t helisignfix 600 "HELISIGNFIX PASS"
+  t harpoon 600 "HARPOON PASS"
+  t ball 600 "BALL PASS"
+  t stuckspots 1500 "STUCKSPOTS PASS" QUICK=1
 }
 release() {
   quick
+  TAG=-full t stuckspots 4800 "STUCKSPOTS PASS"
   t mp-respawn 1200 '"errs": \[\]'
   t bugcopy 900 "BUGCOPY PASS"
   t envupdate 1500 "ENVUPDATE PASS"
