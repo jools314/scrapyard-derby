@@ -9992,7 +9992,7 @@ const PERFREP = { f: [], max: 900, seq: 0, lastT: 0, r0: 0, render: 0, calls: 0,
     const wait = Math.max(0, fa - ba), simA = avg(sim), drawA = avg(draw), rendA = avg(rend);
     const verdict = fa < 20 ? 'smooth' : wait > ba ? 'waiting on the graphics chip (fewer pixels/effects would help)' : simA > drawA ? 'the game step (physics/AI) is the slow part' : 'preparing the drawing (draw calls) is the slow part';
     return { why, at: Date.now(), who: MP.role === 'solo' ? 'this device' : MP.nick(), car: player ? player.T.name : '?', secs: Math.round(F.reduce((s, x) => s + x[0], 0) / 1000),
-      fps: Math.round(1000 / fa), frame: r1(fa), frame95: r1(pc(fr, 0.95)), frameMax: Math.round(fr[fr.length - 1]), busy: r1(ba), sim: r1(simA), sim95: r1(pc(sim, 0.95)), draw: r1(drawA), render: r1(rendA), wait: r1(wait), verdict,
+      fps: Math.round(1000 / fa), frame: r1(fa), frame95: r1(pc(fr, 0.95)), frameMax: Math.round(fr[fr.length - 1]), busy: r1(ba), sim: r1(simA), sim95: r1(pc(sim, 0.95)), draw: r1(drawA), render: r1(rendA), wait: r1(wait), verdict, blowups: PHYS.blowups,
       parts: parts.filter(([, v]) => v >= 0.05).map(([k, v]) => `${k} ${v.toFixed(1)}`).join(', '), slowMoments: this.incidents.slice(-5), q: QUALITY.level, res: Math.round(renderer.getPixelRatio() * 100), calls: this.calls, tris: this.tris, cars: cars.length, role: MP.role, dev: this.device() };
   },
   send(why) {
@@ -10044,6 +10044,7 @@ function perfLiveText() {
     'By system (ms per frame):', ...String(p.parts || '').split(', ').filter(Boolean).map((x) => '  ' + x), '',
     `Quality ${p.q} of ${QSTEPS.length - 1} (0 best) · resolution ${p.res}% · ${p.calls} draw calls · ${p.tris} triangles · ${p.cars} cars`,
     `${MP.role === 'solo' ? 'Single player' : MP.role === 'host' ? 'Hosting' : 'Guest'}${MP.role === 'guest' && MP.net ? ` · ${Math.round(1 / MP.net.iv)} updates/s, smoothing ${Math.round((MP.delay || 0) * 1000)} ms` : ''}`,
+    `Physics blow-ups clamped this session: ${PHYS.blowups}`,
     p.dev, '', PERFREP.incidentText()];
   return [p.verdict, L.join('\n')];
 }
