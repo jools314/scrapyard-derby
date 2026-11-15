@@ -613,6 +613,7 @@
       <p id="streakLine" class="quiet" style="margin:0"></p>
       <p id="chalLine" class="quiet" style="margin:0"></p>
       <p id="weekLine" class="quiet" style="margin:0"></p>
+      <p id="scrapLine" class="quiet" style="margin:0"></p>
       <p style="margin:8px 0 0"><button id="btnCareer" type="button">Career &amp; match history</button> <button id="btnCard" type="button">Share stats card</button></p>
       <div id="careerPanel" hidden></div>
       <div id="historyPanel" hidden></div>
@@ -7814,7 +7815,7 @@ const game = {
     if (killer && MP.role !== 'guest' && Math.random() < 0.5) { const [kw] = rivalPair(rivalName(killer), rivalName(car)); if (kw >= 3) barks.announce('grudge', { a: rivalName(killer), v: rivalName(car), n: kw }, true); } // R2-62: the announcers remember a one-sided history and say so — {a} has now wrecked {v} {n} times across matches
     if (car.bounty && killer === player) { this.score += car.bounty; toast(`🎯 BOUNTY CLAIMED +${car.bounty}`, 'cool'); car.bounty = 0; } // R2-58
     if (killer === player) firstMark('wreck', 'WRECK'); // R2-56
-    if (killer === player) { chalHit('wrecks', killer.type); weekHit('wrecks', killer.type); } // R2-45 + R2-57
+    if (killer === player) { chalHit('wrecks', killer.type); weekHit('wrecks', killer.type); scrapAdd(10); } // R2-45 + R2-57 + R2-47: a credited wreck also pays scrap
     if (PLAYLOG.m) PLAYLOG.wreck(car, killer); if (AUTO.on && car === player) car.respawnType = AUTO.nextType(); // (autoplay: every life a different vehicle)
     SCORE.wreck(car, killer); // (host / solo only: guests get the table from the host)
     if (GAME_MODE === 'respawn' && MP.role === 'guest') { if (car.isPlayer) toast('WRECKED', 'bad'); else toast(`${car.name} is wrecked`); return; } // the host brings it back
@@ -7976,6 +7977,9 @@ function rivalRecord(winner, loser) {
 function rivalPair(a, b) { const p = rivalLoad()[[a, b].sort().join('|')] || {}; return [p[a] || 0, p[b] || 0]; }
 function rivalNemesis() { const R = rivalLoad(); let best = null, n = 0; for (const k in R) { const [a, b] = k.split('|'), foe = a === 'You' ? b : b === 'You' ? a : null; if (foe && (R[k][foe] || 0) > n) { n = R[k][foe]; best = foe; } } return best ? { name: best, n } : null; }
 /* R2-56: first-time ceremonies — the first wreck, first win and first 1,000-point match are marked once, on the day they happen ('derby-firsts-v1'), toasted in the moment and listed on the career screen (R2-43). */
+/* R2-47 (partial): scrap — a garage currency earned by wrecking (10 per credited wreck, plus 1 per 100 pts at match end), persisted in 'derby-scrap-v1'. The earn side and the counter land here; the spend side (paint finishes, horn sounds, plate styles) needs the cosmetics surface, which does not exist on main yet — the balance accrues meanwhile, so nothing earned is wasted. */
+function scrapGet() { try { return +localStorage.getItem('derby-scrap-v1') || 0; } catch (e) { return 0; } }
+function scrapAdd(n) { try { localStorage.setItem('derby-scrap-v1', String(scrapGet() + n)); } catch (e) {} const el = $('scrapLine'); if (el) el.textContent = `🔩 Scrap: ${scrapGet().toLocaleString()}`; }
 function firstsLoad() { try { return JSON.parse(localStorage.getItem('derby-firsts-v1') || '{}'); } catch (e) { return {}; } }
 function firstMark(key, label) { const F = firstsLoad(); if (F[key]) return false; F[key] = new Date().toISOString().slice(0, 10); try { localStorage.setItem('derby-firsts-v1', JSON.stringify(F)); } catch (e) {} toast(`🏆 FIRST ${label}!`, 'cool'); return true; }
 /* R2-53: win streaks ('derby-streak-v1') — counted once per match in showOver (its only caller is the over-timer, host/solo side), shown on the menu, and announced at 3+. */
@@ -8200,7 +8204,7 @@ function showOver() {
   const ai = cars.filter((c) => !c.isPlayer);
   $('rWrecks').textContent = GAME_MODE === 'respawn' ? String(player.kills || 0) : `${ai.filter((c) => c.wrecked).length} / ${ai.length}`;
   { const nm = rivalNemesis(); $('rNemesis').textContent = nm ? `${nm.name} ×${nm.n}` : '—'; } // R2-44: who has wrecked you most, across every match on this device
-  { const won = /Yard cleared|You win!/.test($('overTitle').textContent); if (won) firstMark('win', 'WIN'); if (game.score >= 1000) firstMark('k1000', '1,000-POINT MATCH'); const sk = streakNote(won); if (won && sk.n >= 2) toast(`🔥 WIN STREAK: ${sk.n}`, 'cool'); chalMatchEnd(game.score, won); weekMatchEnd(game.score, won, playerType); } // R2-56: match-level firsts are judged here, where the final numbers are known · R2-53: and the streak is counted here, once per match · R2-45: and the daily challenge is judged · R2-57: and the weekly trio
+  { const won = /Yard cleared|You win!/.test($('overTitle').textContent); if (won) firstMark('win', 'WIN'); if (game.score >= 1000) firstMark('k1000', '1,000-POINT MATCH'); const sk = streakNote(won); if (won && sk.n >= 2) toast(`🔥 WIN STREAK: ${sk.n}`, 'cool'); chalMatchEnd(game.score, won); weekMatchEnd(game.score, won, playerType); scrapAdd(Math.floor(game.score / 100)); } // R2-56: match-level firsts are judged here, where the final numbers are known · R2-53: and the streak is counted here, once per match · R2-45: and the daily challenge is judged · R2-57: and the weekly trio · R2-47: match-end scrap (1 per 100 pts)
   $('overBoard').hidden = GAME_MODE !== 'respawn'; if (GAME_MODE === 'respawn') $('overTable').innerHTML = SCORE.table();
   el.over.hidden = false;
 }
@@ -8266,7 +8270,7 @@ function buildGarage() {
   { const P = playerType === 'cruiser' ? COP : CAR_CAST[playerType]; const dc = $('driverCard'); // R2-70: the driver card — the cast was invisible until they talked; now the picker shows who drives your pick, their style, and your head-to-head with them (R2-44)
     if (P) { const [yw, tw] = rivalPair('You', P.nick); dc.textContent = `Driven by ${P.nick} — ${P.from || ''}${P.style ? ` · style: ${P.style}` : ''}${yw + tw ? ` · vs you: ${yw} wreck${yw === 1 ? '' : 's'} dealt, ${tw} taken` : ''}`; } else dc.textContent = ''; }
   { const sk = streakLoad(); $('streakLine').textContent = sk.n >= 2 ? `🔥 Win streak: ${sk.n} (best ${sk.best})` : sk.best >= 2 ? `Best win streak: ${sk.best}` : ''; } // R2-53
-  chalRender(); weekRender(); // R2-45 + R2-57
+  chalRender(); weekRender(); $('scrapLine').textContent = `🔩 Scrap: ${scrapGet().toLocaleString()} (earned by wrecking — spends arrive with the cosmetics pass)`; // R2-45 + R2-57 + R2-47
 }
 function selectCar(key) {
   playerType = key;
