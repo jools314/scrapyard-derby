@@ -9982,7 +9982,7 @@ function governQuality(realDt) {
 /* ---------------- Main loop ---------------- */
 resetMatch();
 let lastT = performance.now();
-let frameErrors = 0;
+let frameErrors = 0, frameErrStreak = 0, frameDead = false;
 // Frame pacing: a 120 Hz screen (ProMotion Macs and iPads) calls us 120 times a second. Drawing and simulating every one of them doubles
 // the CPU and GPU work (and the heat) for a picture kids can't tell apart from 60. So draw on a fixed cadence: skip the rAF callbacks in between.
 // The menu's attract brawl runs at 30, a paused game at 10 (the frozen picture stays on screen), and a phone that is still too slow at the
@@ -9997,6 +9997,7 @@ function paceInterval() {
   return fps ? 1000 / fps : 0;
 }
 function frame(now) {
+  if (frameDead) return; // a persistent frame error stopped the loop and opened the bug panel: a frozen picture with a path to help beats a silent one
   if (XRS.on) { VR.rafIdle = true; return; } // in VR the headset's own frame loop calls frameBody (VR.loop); this one restarts when VR ends. Pacing never applies there.
   requestAnimationFrame(frame); // schedule first: an error below must never freeze the game
   const iv = paceInterval(); PACE.iv = iv;
@@ -10005,7 +10006,7 @@ function frame(now) {
     PACE.next = now - PACE.next > iv ? now + iv : PACE.next + iv;
   }
   PACE.drawn++;
-  try { frameBody(now); } catch (e) { if (frameErrors++ < 5) console.error('frame error', e); }
+  try { frameBody(now); frameErrStreak = 0; } catch (e) { if (frameErrors++ < 5) console.error('frame error', e); if (++frameErrStreak >= 30 && !frameDead) { frameDead = true; try { openBugReport(); } catch (e2) {} } } // 30 broken frames in a row is not a glitch, it's a dead game: stop and hand the player the bug report (FLIGHT/ERRS ride along)
 }
 /* ---------------- Network health: every player measures how the game feels for them, the host collects it ----------------
    Each second a player records: frame rate, worst frame, updates received, jitter, smoothing delay, longest gap, how often the
