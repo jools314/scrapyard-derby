@@ -613,7 +613,7 @@
       <p id="streakLine" class="quiet" style="margin:0"></p>
       <p id="chalLine" class="quiet" style="margin:0"></p>
       <p id="weekLine" class="quiet" style="margin:0"></p>
-      <p style="margin:8px 0 0"><button id="btnCareer" type="button">Career &amp; match history</button></p>
+      <p style="margin:8px 0 0"><button id="btnCareer" type="button">Career &amp; match history</button> <button id="btnCard" type="button">Share stats card</button></p>
       <div id="careerPanel" hidden></div>
       <div id="historyPanel" hidden></div>
       <p class="quiet" style="margin:0">Green wrenches repair you and refit a lost wheel; blue canisters refill nitro. Bright, glowing junk flies when you hit it. Dark objects are heavy and shove back. Hazard stripes mean solid: steer around.</p>
@@ -8361,6 +8361,23 @@ let songI = 0; try { songI = Math.max(0, SONGS.findIndex((x) => x[0] === localSt
 function applySong() { const [k, name] = SONGS[songI]; sfx.songPick = k || null; sfx.setStyle(k || MUSIC_FOR[player ? player.type : 'outrider'] || 'rock', true); $('btnSong').textContent = 'Song: ' + name; try { localStorage.setItem('derby-song', k); } catch (e) {} }
 $('btnSong').addEventListener('click', (e) => { e.currentTarget.blur(); songI = (songI + 1) % SONGS.length; applySong(); if (!sfx.musicOn) toggleMusic(); });
 $('btnCareer').addEventListener('click', () => { const p = $('careerPanel'), hp = $('historyPanel'), open = p.hidden; p.hidden = !open; hp.hidden = !open; if (open) { careerRender(); if (typeof historyRender === 'function') historyRender(); } }); // R2-43 (+ R2-49's history in the same panel)
+$('btnCard').addEventListener('click', () => { // R2-52: a shareable stats card — the career highlights drawn to a canvas and downloaded as a PNG (the play log's export is for Claude; this one is for humans)
+  let recs = []; try { recs = PLAYLOG.matches().filter((r) => (r.game || 0) >= 3); } catch (e) {}
+  const wins = recs.filter((r) => /Yard cleared|You win!/.test(r.ended || '')).length, wrecks = recs.reduce((a, r) => a + (r.me || []).reduce((x, l) => x + (l.k || 0), 0), 0);
+  const best = recs.reduce((a, r) => ((r.score || 0) > (a.score || 0) ? r : a), { score: 0 });
+  const usage = carUsage(); const fav = Object.entries(usage).sort((a, b) => b[1].secs - a[1].secs)[0]; const nm = rivalNemesis(); const sk = streakLoad();
+  const cv = document.createElement('canvas'); cv.width = 1200; cv.height = 630; const g = cv.getContext('2d');
+  g.fillStyle = '#14161c'; g.fillRect(0, 0, 1200, 630); g.fillStyle = '#f2a20c'; g.fillRect(0, 0, 1200, 14);
+  g.fillStyle = '#f5f2ea'; g.font = '700 64px system-ui, sans-serif'; g.fillText('SCRAPYARD DERBY', 60, 110);
+  g.font = '500 34px system-ui, sans-serif'; g.fillStyle = '#b8bdd0';
+  g.fillText(`${recs.length} matches · ${wins} wins · ${wrecks} wrecks dealt`, 60, 190);
+  g.fillText(`Best match: ${(best.score || 0).toLocaleString()} pts`, 60, 260);
+  if (fav) g.fillText(`Favourite car: ${(CAR_TYPES[fav[0]] || {}).name || fav[0]} (${fav[1].lives} driven)`, 60, 330);
+  if (nm) g.fillText(`Nemesis: ${nm.name} — wrecked me ${nm.n}×`, 60, 400);
+  if (sk.best >= 2) g.fillText(`Best win streak: ${sk.best}`, 60, 470);
+  g.fillStyle = '#6d7a90'; g.font = '400 26px system-ui, sans-serif'; g.fillText(`Build ${BUILD} · ${new Date().toISOString().slice(0, 10)}`, 60, 570);
+  cv.toBlob((b) => { if (!b) return; const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'scrapyard-derby-stats.png'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); });
+});
 setTimeout(applySong, 0);
 $('btnVoiceTest').addEventListener('click', () => { // speaks right inside the tap (browsers only allow speech from a user gesture) and reports exactly what the speech engine did
   const ss = window.speechSynthesis, vs = ss ? ss.getVoices() : [];
