@@ -9386,7 +9386,7 @@ const MP = {
       const ct = player.ctrl; if (ct.fire) { this.inN.fire++; ct.fire = false; } if (ct.jump) { this.inN.jump++; ct.jump = false; }
       const f = (ct.handbrake ? 1 : 0) | (ct.nitro ? 2 : 0) | (ct.horn ? 4 : 0) | (ct.wheelie ? 8 : 0) | (ct.pitch > 0 ? 16 : 0) | (ct.pitch < 0 ? 32 : 0);
       const inp = [Math.round(ct.throttle * 100), Math.round(ct.steer * 100), f, this.inN.fire, this.inN.jump], key = inp.join(',');
-      if (key !== this.sentIn) { this.sentIn = key; this.room.presence({ in: inp }, true).catch(() => {}); }
+      if (key !== this.sentIn && performance.now() - (this.inAt || 0) >= 45) { this.sentIn = key; this.inAt = performance.now(); this.room.presence({ in: inp }, true).catch(() => {}); } // R2-29: clamp guest inputs to roughly the snapshot rate (20/s). The dedupe key alone was defeated by analogue-stick jitter — the rounded steer/throttle changed every frame and flooded the room. Nothing is lost: fire/jump are cumulative counters, so a press inside the gate still changes the key and goes out when it opens.
     }
   },
   applyCrane() {
