@@ -33,6 +33,7 @@ quick() {
   t talk 900 "TALK PASS"
   t b70 900 "B70 PASS"
   t hudscore 600 "HUDSCORE PASS"
+  t duck 600 "DUCK PASS"
 }
 release() {
   quick
