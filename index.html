@@ -770,6 +770,7 @@ const SETTINGS_DEF = [
   { key: 'tiltDead',            group: 'Controls', label: 'Tilt dead zone',   unit: '°',     min: 0,    max: 8,     step: 0.5,  def: 2.5 },
   { key: 'tiltFull',            group: 'Controls', label: 'Tilt full lock at', unit: '°',    min: 12,   max: 45,    step: 1,    def: 25 },
   { key: 'shakeAmt',            group: 'Controls', label: 'Camera shake',     unit: '',      min: 0,    max: 1,     step: 0.05, def: 1 },
+  { key: 'reduceMotion',        group: 'Controls', label: 'Reduce motion',    unit: '',      min: 0,    max: 1,     step: 1,    def: 0, note: '1 = no screen shake, hit-stop, slow motion or low-health pulsing' },
   { key: 'touchLayout',         group: 'Controls', label: 'Touch steering: 0 = stick, 1 = buttons', unit: '', min: 0, max: 1, step: 1, def: 0 },
   { key: 'cbPalette',           group: 'Controls', label: 'Colour-blind damage colours', unit: '', min: 0, max: 1,   step: 1,    def: 0, note: 'damage in blue/amber/white instead of green/amber/red' },
   { key: 'sfxVolume',           group: 'Audio', label: 'Effects volume',      unit: '',      min: 0,    max: 1,     step: 0.05, def: 0.85 },
@@ -8828,7 +8829,7 @@ function updateCamera(dt) {
     camLook.lerp(new THREE.Vector3(p.x + fx * 4, p.y + 1, p.z + fz * 4), 1 - Math.exp(-dt * 14));
   }
   if (game.shake > 0.01) {
-    const s = game.shake * 0.35 * S.shakeAmt;
+    const s = game.shake * 0.35 * (S.reduceMotion ? 0 : S.shakeAmt);
     camera.position.x += rand(-s, s); camera.position.y += rand(-s, s); camera.position.z += rand(-s, s);
     game.shake *= Math.exp(-dt * 6);
   }
@@ -10362,7 +10363,7 @@ function simBody(now) {
     SEC.run('lod', () => updatePropActivity(dt));
     updateRespawns(dt);
     SEC.run('arena', () => updateArena(dt));
-    const sdt = dt * S.timeScale * (game.hitStop > 0 ? 0.22 : game.slowmo > 0 ? 0.35 : 1); // hit-stop on big impacts, slow-mo on your kills
+    const sdt = dt * S.timeScale * (S.reduceMotion ? 1 : game.hitStop > 0 ? 0.22 : game.slowmo > 0 ? 0.35 : 1); // hit-stop on big impacts, slow-mo on your kills (reduce-motion turns both off)
     game.hitStop -= dt; game.slowmo -= dt;
     SEC.run('physics', () => { const pa = SEC.n > 30 ? (SEC.t.physics || 0) / SEC.n : 0; const cap = pa > 9 ? Math.max(2, (QUALITY.subSteps || 8) - 3) : (QUALITY.subSteps || 8); world.step(FIXED, sdt, cap); }); // the catch-up cap follows measured physics time (SEC), not just the graphics tier: if physics itself overran, shed steps before dropping picture quality
     simTime += sdt;
@@ -10483,7 +10484,7 @@ function drawBody(dt) {
   PERF.n = (PERF.n || 0) + 1; PERF.hostSkip = MP.role === 'host' && QUALITY.level === QSTEPS.length - 1 && PERF.fps < 34 && MP.guests().length > 0;
   if (PERF.hostSkip && PERF.n % 2 && !XRS.on) return; // (never skip a headset frame)
   PERFREP.r0 = performance.now();
-  if (!window.__noRender) { const gq = Math.min(S.gfx, S.autoGfx ? (QUALITY.gfxCap ?? 2) : 2); if (XRS.on) renderer.render(scene, VR.cam); /* VR: straight into the headset, no post chain */ else if (gq > 0) { grade.uniforms.uTime.value = clock % 10; { const low = player && game.state === 'playing' ? clamp((30 - Math.max(0, player.health)) / 30, 0, 1) : 0; grade.uniforms.uSat.value = lerp(grade.uniforms.uSat.value, 1.16 - low * 0.65, 0.08); grade.uniforms.uVig.value = 0.42 + low * (0.16 + 0.1 * Math.sin(clock * 7)); } sunGlare(); grade.enabled = gq > 1; outPass.enabled = !grade.enabled; bloom.strength = gq > 1 ? 0.42 : 0.34; composer.render(); } else renderer.render(scene, camera); PERFREP.render = performance.now() - PERFREP.r0; SEC.add('render', PERFREP.render); } // tests can skip drawing to run physics faster
+  if (!window.__noRender) { const gq = Math.min(S.gfx, S.autoGfx ? (QUALITY.gfxCap ?? 2) : 2); if (XRS.on) renderer.render(scene, VR.cam); /* VR: straight into the headset, no post chain */ else if (gq > 0) { grade.uniforms.uTime.value = clock % 10; { const low = player && game.state === 'playing' && !S.reduceMotion ? clamp((30 - Math.max(0, player.health)) / 30, 0, 1) : 0; grade.uniforms.uSat.value = lerp(grade.uniforms.uSat.value, 1.16 - low * 0.65, 0.08); grade.uniforms.uVig.value = 0.42 + low * (0.16 + 0.1 * Math.sin(clock * 7)); } sunGlare(); grade.enabled = gq > 1; outPass.enabled = !grade.enabled; bloom.strength = gq > 1 ? 0.42 : 0.34; composer.render(); } else renderer.render(scene, camera); PERFREP.render = performance.now() - PERFREP.r0; SEC.add('render', PERFREP.render); } // tests can skip drawing to run physics faster
 }
 /* =====================================================================
    VR MODE (WebXR: Meta Quest 2 / 3 / 3S in the Quest Browser)
