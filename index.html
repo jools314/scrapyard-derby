@@ -8292,13 +8292,14 @@ $('btnGear').addEventListener('click', (e) => { e.stopPropagation(); e.currentTa
 for (const id of ['btnTune', 'btnNew', 'btnPerf', 'btnNetLog']) $(id).addEventListener('click', () => gearOpen(false));
 document.addEventListener('pointerdown', (e) => { if (!$('gearMenu').hidden && !e.target.closest('#gearMenu, #btnGear')) gearOpen(false); });
 // New-version check (GitHub Pages): a tab left open, or the browser's cache, can keep running an old build. Look for a newer one and offer a one-tap reload.
-const UPDATE = { checked: 0, newer: null,
+const UPDATE = { checked: 0, newer: null, CANON: 'https://jools314.github.io/scrapyard-derby/', // R2-77: the canonical deploy. Mirrors (fernverk.com) check against this instead of never checking at all — a mirror used to serve a stale build forever with no signal.
   async check() {
-    if (!/github\.io$/.test(location.hostname) || this.newer) return;
+    if (this.newer || /^(localhost|127\.|::1|\[::1\])/.test(location.hostname)) return;
+    const onCanon = /github\.io$/.test(location.hostname);
     try {
-      const r = await fetch(location.pathname, { cache: 'no-cache' }); if (!r.ok) return; // (a conditional request: usually a cheap 304)
+      const r = await fetch(onCanon ? location.pathname : this.CANON, { cache: 'no-cache' }); if (!r.ok) return; // (on the canonical origin a conditional request: usually a cheap 304; from a mirror, a cross-origin read of the Pages copy — Pages sends CORS headers; if it ever stops, this just quietly does nothing, as before)
       const m = (await r.text()).match(/const BUILD = '(\d+)'/); this.checked = Date.now();
-      if (m && +m[1] > +BUILD) { this.newer = m[1]; if (AUTO.on) this.autoUpdate(); else this.show(); }
+      if (m && +m[1] > +BUILD) { this.newer = m[1]; if (AUTO.on && onCanon) this.autoUpdate(); else this.show(!onCanon); } // a mirror must not auto-'update': reloading it would serve the same old copy in a loop. It shows the banner instead, and the banner goes to the canonical version.
     } catch (e) {}
   },
   // Autoplay: nobody is playing, so take the new build straight away: finish this match (or give it 3 minutes at most),
@@ -8310,11 +8311,11 @@ const UPDATE = { checked: 0, newer: null,
       location.replace(location.pathname + '?autoplay=1&v=' + this.newer); };
     this.goNow = go; setTimeout(go, 180000); // (a long match doesn't hold the update back for more than 3 minutes)
   },
-  show() {
+  show(mirror) {
     const b = document.createElement('button'); b.id = 'updBanner'; b.type = 'button';
-    b.textContent = `🆕 Build ${this.newer} is out (you have ${BUILD}) · tap to update`;
+    b.textContent = mirror ? `🆕 Build ${this.newer} is out (you have ${BUILD}) · tap to open the updated version` : `🆕 Build ${this.newer} is out (you have ${BUILD}) · tap to update`;
     b.style.cssText = 'position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 8px);transform:translateX(-50%);z-index:60;padding:10px 16px;border-radius:12px;border:1px solid #f2a20c;background:rgba(20,17,14,.92);color:#ffd9a0;font:600 14px/1.2 system-ui,sans-serif;cursor:pointer;max-width:calc(100vw - 32px)';
-    b.addEventListener('click', () => { location.replace(location.pathname + '?v=' + this.newer); });
+    b.addEventListener('click', () => { location.replace(mirror ? this.CANON + '?v=' + this.newer : location.pathname + '?v=' + this.newer); });
     document.body.appendChild(b); NETLOG.incident('me', `newer build ${this.newer} available (running ${BUILD})`);
   },
 };
