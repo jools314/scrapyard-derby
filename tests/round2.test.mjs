@@ -131,6 +131,7 @@ test('R2-100', 'readable-font toggle (body.dys, Verdana stack)', () => { has(/dy
 test('R2-99', 'screen-reader: menu/garage roles + live-region announcements', () => { has(/id="ariaLive" role="status" aria-live="polite"/); has(/function ariaSay/); has(/aria-label="Pick your car"/); });
 test('R2-97', 'first-run tour: once-only overlay with done flag', () => { has(/derby-tour-done/); has(/R2-97/); });
 test('R2-93', 'visual sound cues: crusher/bull/charge/horn on the compass strip', () => { has(/const CUES =/); has(/CUES\.update\(\)/); has(/id="cues"/); });
+test('R2-95', 'one-thumb auto-throttle at the input merge', () => { has(/autoThrottle/); has(/R2-95/); });
 
 // ---- run ----
 let pass = 0, fail = 0;

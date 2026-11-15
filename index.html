@@ -724,6 +724,7 @@ const SETTINGS_DEF = [
   { key: 'flashSafe',           group: 'World', label: 'Reduce flashing',     unit: '',      min: 0,    max: 1,     step: 1,    def: 0, note: 'R2-92: photosensitivity — steady crusher lamps (no 8 Hz strobe), damage flash capped, fireworks reduced to a single gentle burst' },
   { key: 'uiScale',             group: 'World', label: 'HUD scale',           unit: '%',     min: 100,  max: 150,   step: 25,   def: 100, note: 'R2-94: scales the whole HUD layer — numerals, gauge labels, toasts — for small screens and tired eyes' },
   { key: 'dysFont',             group: 'World', label: 'Readable font',       unit: '',      min: 0,    max: 1,     step: 1,    def: 0, note: 'R2-100: a heavier, wider-spaced face (Verdana stack) across menus, HUD and subtitles — easier letter shapes for dyslexic readers, no download needed' },
+  { key: 'autoThrottle',        group: 'World', label: 'One-thumb driving',   unit: '',      min: 0,    max: 1,     step: 1,    def: 0, note: 'R2-95: the car cruises at half throttle by itself — you only steer (and brake). For one-handed play; any pedal or key input takes over instantly' },
   { key: 'playerMassScale',     group: 'Car',   label: 'Your car weight',     unit: '×',     min: 0.3,  max: 4,     step: 0.05, def: 1, mass: 'player' },
   { key: 'aiMassScale',         group: 'Car',   label: 'Opponent weight',     unit: '×',     min: 0.3,  max: 4,     step: 0.05, def: 1 },
   { key: 'frontWeight',         group: 'Car',   label: 'Weight on front axle', unit: '%',    min: 35,   max: 65,    step: 1,    def: 50 },
@@ -8777,6 +8778,7 @@ function readPlayerInput() {
   const c = player.ctrl;
   const kt = (k('KeyW', 'ArrowUp') ? 1 : 0) - (k('KeyS', 'ArrowDown') ? 1 : 0);
   c.throttle = kt !== 0 ? kt : touch.throttle;
+  if (S.autoThrottle && c.throttle === 0 && !c.handbrake && game.state === 'playing' && game.countdown <= 0) c.throttle = 0.55; // R2-95 (partial): one-thumb mode — with no pedal input the car cruises at half throttle; the player only steers, and any real input (pedal, keys, handbrake) takes over instantly. The full one-thumb LAYOUT (bigger steer zone, pedals hidden) is the remaining piece.
   const ks = (k('KeyA', 'ArrowLeft') ? 1 : 0) - (k('KeyD', 'ArrowRight') ? 1 : 0);
   c.steer = ks !== 0 ? ks : touch.steer !== 0 ? touch.steer : tilt.on ? tilt.steer : 0;
   c.handbrake = k('Space', 'KeyX') || touch.hb; // rear-wheel handbrake: brakes and lets the back slide
