@@ -1194,7 +1194,8 @@ M.rim.map = canvasTex(128, (g, s) => { const c = s / 2; g.fillStyle = '#8f8a84';
   g.fillStyle = '#d8d4cf'; g.beginPath(); g.arc(c, c, s * 0.13, 0, 7); g.fill();
   g.fillStyle = '#26231f'; for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI * 2; g.beginPath(); g.arc(c + Math.cos(a) * s * 0.18, c + Math.sin(a) * s * 0.18, s * 0.03, 0, 7); g.fill(); } }, 1, 1); // lug nuts
 function mulberry(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
-const CROWD = { t: { value: 0 }, x: { value: 0 } }; // the crowd's bob and excitement, fed to its vertex shader
+const CROWD = { t: { value: 0 }, x: { value: 0 }, w: { value: 0 }, waveT: 0 }; // the crowd's bob and excitement, fed to its vertex shader · R2-72: w/waveT = the crowd wave (a crest that travels the stands)
+function crowdWave() { CROWD.waveT = 2.6; if (typeof sfx !== 'undefined' && sfx.cheer) sfx.cheer(1); } // R2-72: triggered on player wrecks and lead changes (see game.onWreck and EVT.tick)
 let _det2 = null;
 function DET2() { // shared materials for the second detail pass (made once)
   if (_det2) return _det2; const sm = (o) => new THREE.MeshStandardMaterial(o);
@@ -1595,8 +1596,8 @@ function buildArena() {
   // Grandstands with a crowd, north and south, outside the walls
   const crowdGeo = new THREE.BoxGeometry(0.5, 0.9, 0.42);
   const crowdMat = new THREE.MeshStandardMaterial({ roughness: 0.9 });
-  crowdMat.onBeforeCompile = (sh) => { sh.uniforms.uT = CROWD.t; sh.uniforms.uX = CROWD.x;
-    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nuniform float uT; uniform float uX;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvec3 ip = vec3(instanceMatrix[3][0], instanceMatrix[3][1], instanceMatrix[3][2]); float ph = ip.x * 1.7 + ip.z * 3.1; transformed.y += (0.04 + uX * 0.45) * max(0.0, sin(uT * (2.5 + uX * 6.0) + ph)); transformed.x += uX * 0.08 * sin(uT * 9.0 + ph * 2.0);'); };
+  crowdMat.onBeforeCompile = (sh) => { sh.uniforms.uT = CROWD.t; sh.uniforms.uX = CROWD.x; sh.uniforms.uW = CROWD.w; // R2-72
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nuniform float uT; uniform float uX; uniform float uW;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvec3 ip = vec3(instanceMatrix[3][0], instanceMatrix[3][1], instanceMatrix[3][2]); float ph = ip.x * 1.7 + ip.z * 3.1; transformed.y += (0.04 + uX * 0.45) * max(0.0, sin(uT * (2.5 + uX * 6.0) + ph)); transformed.x += uX * 0.08 * sin(uT * 9.0 + ph * 2.0); transformed.y += uW * 0.85 * max(0.0, sin(ip.x * 0.32 - uT * 9.0));'); }; // R2-72: the wave term — a crest running along the stands (x) while uW's envelope lasts
   const rows = 8, perRow = 200;
   const crowd = new THREE.InstancedMesh(crowdGeo, crowdMat, rows * perRow * 2);
   const cm = new THREE.Matrix4(), cc = new THREE.Color();
@@ -1962,6 +1963,7 @@ function updateArena(dt) {
   updateCrusher(dt); updateGeysers(dt); updateFireworks(dt); updateWeeds(dt); if ((BOARD.tick = (BOARD.tick || 0) - dt) <= 0) { BOARD.tick = 0.5; updateBoard(); }
   if (ARENA.coal) { ARENA.coal.emissiveIntensity = 0.5 + Math.sin(clock * 3) * 0.15 + Math.sin(clock * 7.7) * 0.1; const F = ARENA.firePit; if (Math.hypot(camera.position.x - 43, camera.position.z - F.z) < 150) for (let k = 0; k < 3; k++) emit('fire', rand(F.x0, F.x1), 0.2, F.z + rand(-F.hz, F.hz), rand(-0.3, 0.3), rand(2, 4), rand(-0.3, 0.3), rand(0.4, 0.8), rand(0.8, 1.4)); }
   CROWD.t.value = clock; CROWD.x.value = Math.max(0, CROWD.x.value - dt * 0.25);
+  if (CROWD.waveT > 0) { CROWD.waveT -= dt; CROWD.w.value = Math.min(1, CROWD.w.value + dt * 3); } else CROWD.w.value = Math.max(0, CROWD.w.value - dt * 0.5); // R2-72: wave envelope — fast rise, ~2 s travel, gentle settle
   const cam = camera.position;
   // fire barrels: flames, smoke and a flickering glow when you're near
   for (const b of ARENA.barrels) { const d = Math.hypot(b.x - cam.x, b.z - cam.z); b.t += dt;
@@ -7832,6 +7834,7 @@ const game = {
     if (killer && MP.role !== 'guest' && Math.random() < 0.5) { const [kw] = rivalPair(rivalName(killer), rivalName(car)); if (kw >= 3) barks.announce('grudge', { a: rivalName(killer), v: rivalName(car), n: kw }, true); } // R2-62: the announcers remember a one-sided history and say so — {a} has now wrecked {v} {n} times across matches
     if (car.bounty && killer === player) { this.score += car.bounty; toast(`🎯 BOUNTY CLAIMED +${car.bounty}`, 'cool'); car.bounty = 0; } // R2-58
     if (killer === player) firstMark('wreck', 'WRECK'); // R2-56
+    if (car.isPlayer || killer === player) crowdWave(); // R2-72: the crowd does the wave when the player wrecks or is wrecked
     if (killer === player) { chalHit('wrecks', killer.type); weekHit('wrecks', killer.type); scrapAdd(10); } // R2-45 + R2-57 + R2-47: a credited wreck also pays scrap
     if (PLAYLOG.m) PLAYLOG.wreck(car, killer); if (AUTO.on && car === player) car.respawnType = AUTO.nextType(); // (autoplay: every life a different vehicle)
     SCORE.wreck(car, killer); // (host / solo only: guests get the table from the host)
@@ -7882,6 +7885,7 @@ const EVT = { cur: null, until: 0, next: 40, warned: false, pending: null,
   tick() {
     if (game.state !== 'playing' || MP.role === 'guest') { if (this.cur) { this.cur.clear(); this.cur = null; game.evtMul = 1; } return; } // host/solo run the scheduler; guests receive the effects through snapshots
     const t = game.time;
+    { const top = SCORE.list()[0]; const lk = top ? top.key : ''; if (this.leadKey && lk && lk !== this.leadKey) crowdWave(); if (lk) this.leadKey = lk; } // R2-72: a lead change sets the crowd off too (checked on this 1 s tick)
     if (this.cur && t > this.until) { this.cur.clear(); this.cur = null; toast('EVENT OVER — BACK TO NORMAL', 'cool'); this.next = t + 45 + Math.random() * 30; }
     if (!this.cur && !this.warned && t > this.next - 5) { this.warned = true; this.pending = EVT_KINDS[(Math.random() * EVT_KINDS.length) | 0]; barks.announce('evtWarn', { e: this.pending.name }, true); toast(`⚠️ INCOMING: ${this.pending.name}`, 'cool'); }
     if (!this.cur && t >= this.next) { const k = this.pending || EVT_KINDS[0]; this.pending = null; this.warned = false; this.cur = k; this.until = t + 30; k.apply(); barks.announce('evtStart', { e: k.name }, true); toast(`🎉 ${k.name} — 30 SECONDS!`, 'cool'); }
