@@ -95,6 +95,8 @@
   #hitDir { position: fixed; left: 50%; top: 50%; width: 54vmin; height: 54vmin; margin: -27vmin 0 0 -27vmin; border-radius: 50%; pointer-events: none; z-index: 24; background: conic-gradient(from -25deg, transparent 0deg, rgba(228,71,44,.55) 50deg, transparent 100deg); -webkit-mask: radial-gradient(closest-side, transparent 60%, #000 61%, #000 88%, transparent 89%); mask: radial-gradient(closest-side, transparent 60%, #000 61%, #000 88%, transparent 89%); }
   .floatScore { position: fixed; z-index: 26; font-family: var(--display); color: var(--accent); text-shadow: 0 2px 0 #000; pointer-events: none; animation: floatUp 1.1s forwards; font-size: clamp(16px, 3vw, 24px); }
   @keyframes floatUp { from { transform: translate(-50%, 0); opacity: 1; } to { transform: translate(-50%, -56px); opacity: 0; } }
+  #dmgSvg text { display: none; font-size: 7px; fill: #fff; text-anchor: middle; font-family: system-ui, sans-serif; font-weight: 700; }
+  body.cbp #dmgSvg text { display: block; }
   @media (max-width: 900px) and (orientation: landscape) { .stats { max-height: 58px; overflow: hidden; } .stats:hover, .stats:active { max-height: 82vh; overflow-y: auto; } }
   .toast.bad { color: var(--danger); }
   .toast.cool { color: var(--nitro); }
@@ -467,6 +469,7 @@
         <rect id="z-right" x="39" y="18" width="9" height="50" rx="2"></rect>
         <rect id="z-top" x="15" y="20" width="22" height="46" rx="3"></rect>
         <rect id="z-rear" x="10" y="70" width="32" height="14" rx="3"></rect>
+        <text x="26" y="12">F</text><text x="8.5" y="46">L</text><text x="43.5" y="46">R</text><text x="26" y="46">T</text><text x="26" y="80">B</text>
         <circle id="w-0" cx="6" cy="22" r="4.5"></circle>
         <circle id="w-1" cx="46" cy="22" r="4.5"></circle>
         <circle id="w-2" cx="6" cy="64" r="4.5"></circle>
@@ -768,6 +771,7 @@ const SETTINGS_DEF = [
   { key: 'tiltFull',            group: 'Controls', label: 'Tilt full lock at', unit: '°',    min: 12,   max: 45,    step: 1,    def: 25 },
   { key: 'shakeAmt',            group: 'Controls', label: 'Camera shake',     unit: '',      min: 0,    max: 1,     step: 0.05, def: 1 },
   { key: 'touchLayout',         group: 'Controls', label: 'Touch steering: 0 = stick, 1 = buttons', unit: '', min: 0, max: 1, step: 1, def: 0 },
+  { key: 'cbPalette',           group: 'Controls', label: 'Colour-blind damage colours', unit: '', min: 0, max: 1,   step: 1,    def: 0, note: 'damage in blue/amber/white instead of green/amber/red' },
   { key: 'sfxVolume',           group: 'Audio', label: 'Effects volume',      unit: '',      min: 0,    max: 1,     step: 0.05, def: 0.85 },
   { key: 'musicVolume',         group: 'Audio', label: 'Music volume',        unit: '',      min: 0,    max: 1,     step: 0.05, def: 0.4 },
   { key: 'voiceVolume',         group: 'Audio', label: 'Driver voices (0 = subtitles only)', unit: '', min: 0, max: 1, step: 0.05, def: 0.9 },
@@ -6333,7 +6337,7 @@ const el = {
   menu: $('menu'), over: $('over'), panel: $('panel'), touch: $('touch'),
 };
 const zoneEls = ZONES.map((z) => $('z-' + z)), wheelEls = [0, 1, 2, 3].map((i) => $('w-' + i));
-function dmgColor(v) { return v < 30 ? '#8cc76f' : v < 65 ? '#f2a20c' : '#e4472c'; }
+function dmgColor(v) { if (S.cbPalette) return v < 30 ? '#4f9cf9' : v < 65 ? '#f2a20c' : '#ffffff'; return v < 30 ? '#8cc76f' : v < 65 ? '#f2a20c' : '#e4472c'; } // colour-blind palette: blue / amber / white instead of green / amber / red (and the damage diagram grows zone letters — see body.cbp)
 function toast(text, kind) {
   const d = document.createElement('div');
   const chip = typeof text === 'string' && text.startsWith('+'); // score toasts stack as small chips; warnings and callouts get the big type and a longer life, so a +1000 can't erase the warning that mattered
@@ -8352,6 +8356,7 @@ function applySetting(key) {
     case 'carWeight': case 'truckWeight': case 'suspensionStiffness': case 'suspensionDamping': case 'rideHeight': case 'suspensionTravel': for (const c of cars) c.applyWheelSettings(); break;
     case 'enginePower': buildGarageSoon(); break;
     case 'sfxVolume': case 'musicVolume': sfx.setVolumes(); break;
+    case 'cbPalette': document.body.classList.toggle('cbp', !!S.cbPalette); break;
     case 'touchLayout': applyTouchLayout(); break;
   }
 }
@@ -8419,6 +8424,7 @@ let VOICES_OFF = false; try { VOICES_OFF = localStorage.getItem('derby-voices') 
 try { if (!localStorage.getItem('derby-voices') && /iPhone|iPad|iPod/.test(navigator.userAgent)) VOICES_OFF = true; } catch (e) {} // first run on iOS: subtitles only — iOS voices are the weakest first impression; the player can turn voices on
 function setVoices(off) { VOICES_OFF = off; $('btnVoices').firstChild.textContent = off ? 'Voices off' : 'Voices on'; try { localStorage.setItem('derby-voices', off ? 'off' : 'on'); } catch (e) {} if (off) try { speechSynthesis.cancel(); } catch (e) {} if (off) VCLIP.stopAll(); }
 setVoices(VOICES_OFF);
+document.body.classList.toggle('cbp', !!S.cbPalette);
 $('btnVoices').addEventListener('click', (e) => { e.currentTarget.blur(); setVoices(!VOICES_OFF); });
 function showNote(t) { let n = $('note'); if (!n) { n = document.createElement('div'); n.id = 'note'; n.addEventListener('click', () => { n.hidden = true; }); document.body.appendChild(n); } n.textContent = t + '  (tap to close)'; n.hidden = false; clearTimeout(n.tm); n.tm = setTimeout(() => { n.hidden = true; }, 12000); }
 const SONGS = [['', "your car's"], ['rock', 'Rock'], ['hillbilly', 'Hillbilly'], ['funk', '70s Funk'], ['march', 'March'], ['synth', 'Synthwave'], ['surf', 'Surf'], ['country', 'Country'], ['dirge', 'Dirge']];
