@@ -10485,7 +10485,8 @@ const VR = (() => {
       { t: 'row', h: 100, b: [B('DRIVE AGAIN', () => startMatch(), { primary: true, dis: guest })] },
       { t: 'row', b: [B('Change car', () => { showMenu(); V.page = 'cars'; }), B('Exit VR', exit)] }];
     const T = CAR_TYPES[playerType] || player.T, mp = [];
-    if (MP.api && MP.role === 'solo') mp.push({ t: 'row', b: [B('Host a game', () => { MP.host(); }), B('Join with code', () => { V.page = 'join'; })] });
+    if (MP.api && MP.role === 'solo') { mp.push({ t: 'row', b: [B('Host a game', () => { MP.host(); }), B('Join with code', () => { V.page = 'join'; })] });
+      mp.push({ t: 'row', b: [B('Family yard', () => { MP.famJoin(); })] }); } // R2-6: the one-tap family yard was a DOM-only button — a Quest player had to leave the headset to tap the 2D page
     else if (MP.role !== 'solo') mp.push({ t: 'row', b: [B('Leave game', () => MP.leave())] });
     const code = MP.role === 'host' && MP.code !== 'near' ? joinCodeOf() : '';
     if (code) mp.push({ t: 'text', s: `Game code: ${code}  ·  friends type it in Join with code (or scan the QR on your 2D screen)` });
