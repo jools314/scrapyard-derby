@@ -8038,7 +8038,7 @@ function spawnCars() {
       let type = g.presence.want && CAR_TYPES[g.presence.want] && !taken.has(g.presence.want) ? g.presence.want : Object.keys(CAR_TYPES).find((k) => !taken.has(k));
       if (!type) break; taken.add(type);
       const k = cars.length, a = (-165 + k * 37) * D2R, sp = findSpawn(Math.cos(a) * 112, Math.sin(a) * 105);
-      const car = new Car({ type, name: String(g.presence.nick || 'Player').slice(0, 14), color: CAR_TYPES[type].color, number: 1 + k, isPlayer: false, x: sp.x, z: sp.z, yaw: Math.atan2(sp.z, -sp.x) });
+      const car = new Car({ type, name: cleanNick(g.presence.nick, MP.nick()), color: CAR_TYPES[type].color, number: 1 + k, isPlayer: false, x: sp.x, z: sp.z, yaw: Math.atan2(sp.z, -sp.x) });
       car.remote = g.peer; car.did = g.presence.did || null; cars.push(car);
     }
     const left = Object.keys(CAR_TYPES).filter((k) => !taken.has(k)).sort(() => Math.random() - 0.5);
@@ -8966,6 +8966,13 @@ function famPing(code, key, wait = 2500) { // ask on the family topic who is hos
   });
 }
 function netIn(pr) { if (!pr || !pr.s || typeof MP === 'undefined' || MP.role !== 'guest') return; pr.s.a = performance.now() / 1000; MP.inbox.push(pr.s); if (MP.inbox.length > 24) MP.inbox.shift(); }
+function cleanNick(v, hostNick) { // R2-30: light hygiene for names that land on the scoreboard, the roster and in announced lines. A slur/swear name quietly becomes the plain default (no scene made of it); a guest wearing the host's exact name gets a visible (guest) tag.
+  let s = String(v || '').trim().replace(/\s+/g, ' ').slice(0, 14);
+  if (!s) return 'Player';
+  if (/(n[i1]gg|f[a4]gg|fuck|shit|bitch|cunt|whore|slut|retard|kike|spic|chink)/i.test(s)) s = 'Player';
+  if (hostNick && s.toLowerCase() === String(hostNick).trim().toLowerCase()) s = (s + ' (guest)').slice(0, 20);
+  return s;
+}
 const MP = {
   inbox: [], role: 'solo', api: null, lobby: null, room: null, code: '', snaps: [], rt: 0, ev: [], evSeq: 0, seen: 0, rk: '', builtRk: '',
   inN: { fire: 0, jump: 0 }, rsSeen: new Map(), sidN: 0, slotRv: [], sentIn: '', snapT: 0, lastFire: new Map(), lastJump: new Map(), statusTxt: '',
@@ -8994,7 +9001,7 @@ const MP = {
     'network': "couldn't reach the matchmaking server. Check the internet connection.", 'server-error': 'the matchmaking server had a problem. Try again in a minute.',
     'browser-incompatible': "this browser can't do peer-to-peer. Try Safari or Chrome.", 'unavailable-id': 'that game code is taken. Host again for a new code.',
     'webrtc': 'the phones could not reach each other directly. Try both on the same Wi-Fi.', 'timeout': "no answer from the host. Make sure the host's game is open on screen; same Wi-Fi helps." })[t] || t; },
-  nick() { const v = ($('mpNick').value || '').trim().slice(0, 14) || 'Player'; try { localStorage.setItem('derby-nick', v); } catch (e) {} return v; },
+  nick() { const v = cleanNick($('mpNick').value); try { localStorage.setItem('derby-nick', v); } catch (e) {} return v; },
   status(t) { this.statusTxt = t; $('mpStatus').textContent = '· ' + t; },
   myPeer(room) { const me = (room || this.room).peers().find((p) => p.sameTab); return me ? me.peer : null; },
   renderGames() {
@@ -9127,7 +9134,7 @@ const MP = {
     const gs = this.players().filter((g) => g.presence.nick && g.presence.did), live = new Set(gs.map((g) => g.peer)); let ch = false;
     for (const g of gs) {
       if (cars.some((c) => c.remote === g.peer)) continue;
-      const nick = String(g.presence.nick).slice(0, 14), did = g.presence.did;
+      const nick = cleanNick(g.presence.nick, this.nick()), did = g.presence.did;
       const own = cars.find((c) => !c.isPlayer && c.did === did && !(c.remote && live.has(c.remote))); // its car, even if the stale connection still holds it
       if (own) { if (own.remote) { this.lastFire.delete(own); this.lastJump.delete(own); } own.remote = g.peer; own.persona = null; own.name = nick; ch = true; NETLOG.incident('host', `${nick} is back in their car`); continue; }
       const ai = cars.filter((c) => !c.isPlayer && !c.remote && !c.did && c.persona !== COP); if (!ai.length) continue;
