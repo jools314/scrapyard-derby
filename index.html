@@ -754,6 +754,7 @@ const SETTINGS_DEF = [
   { key: 'wreckTarget',         group: 'Match', label: 'Wrecks to win (respawn)', unit: '',  min: 0,    max: 25,    step: 1,    def: 0, note: 'first driver to this many wrecks ends the match; 0 = off' },
   { key: 'tiltDead',            group: 'Controls', label: 'Tilt dead zone',   unit: '°',     min: 0,    max: 8,     step: 0.5,  def: 2.5 },
   { key: 'tiltFull',            group: 'Controls', label: 'Tilt full lock at', unit: '°',    min: 12,   max: 45,    step: 1,    def: 25 },
+  { key: 'shakeAmt',            group: 'Controls', label: 'Camera shake',     unit: '',      min: 0,    max: 1,     step: 0.05, def: 1 },
   { key: 'touchLayout',         group: 'Controls', label: 'Touch steering: 0 = stick, 1 = buttons', unit: '', min: 0, max: 1, step: 1, def: 0 },
   { key: 'sfxVolume',           group: 'Audio', label: 'Effects volume',      unit: '',      min: 0,    max: 1,     step: 0.05, def: 0.85 },
   { key: 'musicVolume',         group: 'Audio', label: 'Music volume',        unit: '',      min: 0,    max: 1,     step: 0.05, def: 0.4 },
@@ -8737,7 +8738,7 @@ function updateCamera(dt) {
     camLook.lerp(new THREE.Vector3(p.x + fx * 4, p.y + 1, p.z + fz * 4), 1 - Math.exp(-dt * 14));
   }
   if (game.shake > 0.01) {
-    const s = game.shake * 0.35;
+    const s = game.shake * 0.35 * S.shakeAmt;
     camera.position.x += rand(-s, s); camera.position.y += rand(-s, s); camera.position.z += rand(-s, s);
     game.shake *= Math.exp(-dt * 6);
   }
