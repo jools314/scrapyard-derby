@@ -5981,6 +5981,7 @@ class Car {
         if (c.isPlayer && game.state === 'playing') s *= game.grace > 0 ? 3 : (st === 'brawler' ? 0.25 : 1 - 0.65 * S.aiSkill); // give you a moment after GO
         if (c === this.lastAttacker && simTime - this.lastAttackTime < 5) s *= 0.5; // revenge
         if (st === 'vulture') s *= 0.25 + c.health / 100 * 0.9;           // circles the weakest
+        if (c.health < 25 && st !== 'coward') s *= 0.55;                     // finish the wounded: a limping car draws the field
         if (st === 'chaos') s *= rand(0.3, 1.7);
         if (st === 'coward' && c.isPlayer) s *= 2.5;                        // prefers easier prey
         if (c.T.gun && !this.T.gun) s *= st === 'brawler' ? 1.6 : 3;        // nobody sane picks a fight with a tank
