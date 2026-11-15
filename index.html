@@ -613,7 +613,7 @@
         <div class="mprow" id="codeRow"><input id="mpCode" maxlength="40" placeholder="Game code" aria-label="Game code" autocomplete="off" autocapitalize="off" spellcheck="false"><button id="btnJoinCode" type="button">Join with code</button></div>
         <p id="mpCodeShow" class="quiet" style="margin:0" hidden></p>
         <p id="mpInfo" class="quiet" style="margin:0"></p>
-        <details id="famSet"><summary class="quiet">Family yard name</summary><div class="mprow" style="margin-top:6px"><input id="famName" maxlength="40" aria-label="Family yard name" style="width:14em"><button id="btnFamName" type="button">Save</button></div><p class="quiet" style="margin:4px 0 0">Everyone whose game has the same name here lands in the same yard when they tap Play together. Pick something only your family knows.</p></details>
+        <details id="famSet"><summary class="quiet">Family yard name</summary><div class="mprow" style="margin-top:6px"><input id="famName" maxlength="40" aria-label="Family yard name" style="width:14em"><button id="btnFamName" type="button">Save</button></div><div class="mprow" style="margin-top:6px"><input id="famPin" maxlength="4" inputmode="numeric" placeholder="PIN (optional)" aria-label="Family yard PIN" style="width:9em"><button id="btnFamPin" type="button">Save PIN</button></div><p class="quiet" style="margin:4px 0 0">Everyone whose game has the same name here lands in the same yard when they tap Play together. Pick something only your family knows — and for a yard nobody can guess, set the same 4-digit PIN on every device.</p></details>
         <div id="mpShare" class="mpshare" hidden><canvas id="mpQR" width="180" height="180" aria-label="QR code to join"></canvas><div><p class="quiet" style="margin:0 0 6px">Scan to join, or send this link:</p><input id="mpLink" readonly aria-label="Join link"><button id="btnShareLink" type="button" class="primary" hidden>Share link</button> <button id="btnCopyLink" type="button">Copy link</button></div></div>
       </div>
       <div>
@@ -9084,6 +9084,8 @@ function famCode(name) { // 12 characters, a-z0-9: also a valid join code
   for (const ch of t) { const c = ch.codePointAt(0); a = Math.imul(a ^ c, 16777619); b = Math.imul(b ^ c, 2246822519); b ^= b >>> 13; }
   return ('f' + (a >>> 0).toString(36).padStart(7, '0') + (b >>> 0).toString(36).padStart(7, '0')).slice(0, 12);
 }
+function famPin() { try { return (localStorage.getItem('derby-fampin') || '').replace(/\D/g, '').slice(0, 4); } catch (e) { return ''; } } // optional 4-digit PIN: same PIN on every family device
+function famKey() { const pin = famPin(); return famCode(pin ? famName() + '·' + pin : famName()); } // the room code folds the PIN in, so the same name with a different PIN is a different, unguessable yard
 function famOn() { try { return localStorage.getItem('derby-family') === '1'; } catch (e) { return false; } } // "I'm in the family yard": rejoin on reload
 function famSet(on) { try { localStorage.setItem('derby-family', on ? '1' : '0'); } catch (e) {} }
 // MY_DID: this player, across reloads (the host gives a returning player their own car back and hangs up on their old connection).
@@ -9173,7 +9175,7 @@ const MP = {
   },
   async join(code) {
     if (!(this.lobby || this.transport === 'peer') || this.role !== 'solo') return;
-    if (code !== famCode(famName())) { this.family = false; famSet(false); } // a friend's link: an ordinary game
+    if (code !== famKey()) { this.family = false; famSet(false); } // a friend's link: an ordinary game
     try {
       if (this.transport === 'peer') { const pj = /^p-/.test(code); this.status(`joining ${code} · build ${BUILD} · ${pj ? 'peerjs' : 'relay'}…`); if (pj) { await loadPeerJS(); this.room = await peerRoom(code.slice(2), false); } else this.room = await relayJoin(code); }
       else this.room = await this.lobby.join('derby-' + code);
@@ -9181,7 +9183,7 @@ const MP = {
     this.role = 'guest'; this.code = code; this.snaps = []; this.builtRk = ''; this.rt = 0; this.seen = 0; this.joinT = Date.now();
     if (this.lobby) this.lobby.presence({ host: null });
     this.sendWant();
-    $('btnHost').hidden = true; $('btnFamily').hidden = true; $('btnLeave').hidden = false; $('btnStart').hidden = true; this.status(this.family && code === famCode(famName()) ? 'in the family yard' : `in game ${code}`); this.renderGames();
+    $('btnHost').hidden = true; $('btnFamily').hidden = true; $('btnLeave').hidden = false; $('btnStart').hidden = true; this.status(this.family && code === famKey() ? 'in the family yard' : `in game ${code}`); this.renderGames();
     $('mpInfo').textContent = 'Joined! Pick your car; the host starts the round.';
   },
   async leave(keepFamily) { // the Leave button: back to playing alone (and stay out of the family yard on reload)
@@ -9208,7 +9210,7 @@ const MP = {
   // ---------- the family yard ----------
   async famJoin() { // find whoever hosts the family yard and join them; nobody there: host it
     if (this.role !== 'solo' || this.famBusy || !(this.lobby || this.transport === 'peer')) return;
-    this.famBusy = true; this.family = true; famSet(true); clearTimeout(this.famRT); const code = famCode(famName()); this.renderFam(); this.status('looking for the family yard…');
+    this.famBusy = true; this.family = true; famSet(true); clearTimeout(this.famRT); const code = famKey(); this.renderFam(); this.status('looking for the family yard…');
     try {
       if (this.lobby) { const g = this.lobby.peers().find((p) => !p.sameTab && p.presence && p.presence.host === code); this.famBusy = false; if (g) await this.join(code); else await this.host(code); } // in Claude: the room lists the host (two at once: the newer steps down by itself)
       else {
@@ -9793,9 +9795,10 @@ function mpShim() {
 }
 $('btnHost').addEventListener('click', () => MP.host());
 $('btnFamily').addEventListener('click', () => MP.famJoin());
+$('famPin').value = famPin(); $('btnFamPin').addEventListener('click', async () => { const v = $('famPin').value.replace(/\D/g, '').slice(0, 4); try { if (v) localStorage.setItem('derby-fampin', v); else localStorage.removeItem('derby-fampin'); } catch (e) {} $('famPin').value = famPin(); toast(v ? 'FAMILY PIN SET — SAME PIN ON EVERY DEVICE' : 'FAMILY PIN CLEARED', 'cool'); if (MP.family && MP.role !== 'solo' && MP.code !== famKey()) { await MP.leave(true); MP.famJoin(); } });
 $('famName').value = famName(); $('famName').addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter') $('btnFamName').click(); });
 $('btnFamName').addEventListener('click', async () => { const v = $('famName').value.trim().slice(0, 40); try { if (!v || v === FAM_DEFAULT) localStorage.removeItem('derby-famname'); else localStorage.setItem('derby-famname', v); } catch (e) {} $('famName').value = famName();
-  toast('FAMILY YARD NAME SAVED', 'cool'); if (MP.family && MP.role !== 'solo' && MP.code !== famCode(famName())) { await MP.leave(true); MP.famJoin(); } else MP.renderFam(); });
+  toast('FAMILY YARD NAME SAVED', 'cool'); if (MP.family && MP.role !== 'solo' && MP.code !== famKey()) { await MP.leave(true); MP.famJoin(); } else MP.renderFam(); });
 document.addEventListener('visibilitychange', () => { if (document.hidden || !MP.family) return; if (MP.role === 'host') setTimeout(() => MP.famProbe(), 800); else if (MP.role === 'solo' && famOn()) MP.famRetry(); }); // back from the background: make sure we're still in the one yard
 $('btnLeave').addEventListener('click', () => MP.leave());
 $('btnNearHost').addEventListener('click', () => nearHostAdd());
