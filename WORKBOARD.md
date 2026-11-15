@@ -24,6 +24,7 @@ Format: `- [agent] topic — branch — claimed YYYY-MM-DD HH:MM UTC — notes`
 ## Ready to land (needs the test gate)
 
 ## Done
+- [claude] Build 89: crusher open on all four sides (four corner posts only); crusheropen test in the quick suite; stuckspots west -105,-90 49/49 — build 89
 - [muse] Build 88: Helicopter Sign — a yard sign spinning over 9 rad/s lifts off, helicopters for 2 s, then clatters down as a normal sign; helisign test in the quick suite — build 88
 - [muse] Build 87: Read the Bales — ~15% of Combine bales come out printed with a message (HELP / SEND NITRO / I WAS A VIPER / …), one cached texture per message; bales test in the quick suite — build 87
 - [muse] Build 86: Potty Cannon — a porta-potty on a geyser when it blows gets the full cannon flight (vy 26, tumble, counted once per blow); pottycannon test in the quick suite — build 86
