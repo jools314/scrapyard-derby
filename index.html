@@ -8290,7 +8290,7 @@ function buildGarage() {
     b.innerHTML = `<span class="nm"><span class="sw" style="background:#${new THREE.Color(T.color).getHexString()}"></span>${T.name}</span>
       <span class="kg">${T.mass.toLocaleString()} kg · ${Math.round(S.enginePower * T.power)} kW</span>
       <span class="stat">Speed ${pct((T.power / T.mass) / maxPW)}</span>
-      <span class="stat">Weight ${pct(Math.log(T.mass / 600) / Math.log(7500 / 600))}</span>
+      <span class="stat">Armour ${pct((1.3 - T.armor) / 1.0)}</span>
       <span class="stat">Grip ${pct(T.grip / 1.15)}</span>
       <span class="stat">Mastery ${'★'.repeat(masteryStars(key))}${'☆'.repeat(3 - masteryStars(key))}</span>`;
     b.addEventListener('click', () => selectCar(key));
