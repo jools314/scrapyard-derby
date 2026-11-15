@@ -6714,6 +6714,7 @@ const ANN_LINES = {
   bentGun: ['{a} just bent {v}\'s gun like a drinking straw!', 'That cannon now shoots round corners, folks!', '{a} tied a knot in the TANK! Somebody get a picture!', 'That barrel is a pretzel now! {v} could not hit the yard from inside it!'],
   turretOff: ['KABOOM! {a} fired a bent gun and the TURRET just left the building!', 'The turret is flying! {a} has a convertible now!', 'Rule one of tanks, {a}: never fire a bent barrel!'],
   barrelBurst: ['KABOOM! {a} fired a bent gun and it peeled open like a banana!', 'The gun just blew up in {a}\'s face! That is going to sting!', 'Note to {a}: never fire a bent barrel!'],
+  grudge: ['{a} has put {v} in the wall {n} times now. That is not racing, that is a hobby.', '{n} times, {a}! {v}, love, at some point it stops being bad luck and starts being a pattern.', 'Again! {a} on {v} \u2014 {n} and counting. Somebody separate these two.', '{a} versus {v} is the oldest story in this yard: {n} wrecks and counting.'], // R2-62: cross-match memory \u2014 fired from game.onWreck when the R2-44 store says a pairing has turned one-sided (Kev even, Shazza odd, as with every pool)
   sandwich: ['It\'s a {v} sandwich! Hold the mayo!', 'Squished in the middle like the last biscuit in the packet!', 'SANDWICH! {v} just got pressed like a panini!', 'Ooh, {v} caught in the middle! That is a club sandwich!'],
 };
 // Kev's co-commentator: Shazza takes every other call (the odd-numbered lines of each pool, plus her own below)
@@ -7800,6 +7801,7 @@ const game = {
     const killer = car.lastAttacker && car.lastAttacker !== car && simTime - (car.lastAttackTime || 0) < 6 ? car.lastAttacker : null;
     if (killer) killer.kills = (killer.kills || 0) + 1;
     if (killer && MP.role !== 'guest') rivalRecord(rivalName(killer), rivalName(car)); // R2-44: host/solo are authoritative (guests would double-count from snapshots)
+    if (killer && MP.role !== 'guest' && Math.random() < 0.5) { const [kw] = rivalPair(rivalName(killer), rivalName(car)); if (kw >= 3) barks.announce('grudge', { a: rivalName(killer), v: rivalName(car), n: kw }, true); } // R2-62: the announcers remember a one-sided history and say so — {a} has now wrecked {v} {n} times across matches
     if (car.bounty && killer === player) { this.score += car.bounty; toast(`🎯 BOUNTY CLAIMED +${car.bounty}`, 'cool'); car.bounty = 0; } // R2-58
     if (PLAYLOG.m) PLAYLOG.wreck(car, killer); if (AUTO.on && car === player) car.respawnType = AUTO.nextType(); // (autoplay: every life a different vehicle)
     SCORE.wreck(car, killer); // (host / solo only: guests get the table from the host)
