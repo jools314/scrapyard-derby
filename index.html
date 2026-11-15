@@ -3621,7 +3621,7 @@ const sfx = {
   },
   stopMusic() { this.musicPlaying = false; clearInterval(this.mTimer); },
   schedule() {
-    const sixteenth = 60 / (MUSIC[this.musicStyle] || MUSIC.rock).bpm / 4;
+    const sixteenth = 60 / (MUSIC[this.musicStyle] || MUSIC.rock).bpm / 4 / (1 + 0.12 * (this.phase || 0)); // R2-73: phase-aware tempo — the endgame literally speeds up (this.phase is set by EVT.tick: Elimination's last cars standing)
     while (this.mNext < this.ctx.currentTime + 0.15) { this.playStep(this.mStep, this.mNext); this.mNext += sixteenth; this.mStep++; }
   },
   mVoice(type, freq, t, dur, peak, cutoff, dest) {
@@ -3667,6 +3667,8 @@ const sfx = {
     if (section !== 'intro' && kick[s]) { const o = this.mVoice('sine', 150, t, 0.32, 0.9, 4000); o.frequency.exponentialRampToValueAtTime(42, t + 0.12); }
     if (section !== 'intro' && (s === 4 || s === 12)) { this.mNoise(t, 0.18, 0.4, 'bandpass', 1900); this.mVoice('triangle', 190, t, 0.1, 0.25, 3000); }
     if (s % 2 === 0) this.mNoise(t, s % 4 === 2 ? 0.08 : 0.035, section === 'intro' ? 0.06 : 0.1, 'highpass', 7500);
+    if (this.phase >= 1 && section === 'main' && s % 2 === 1) this.mNoise(t, 0.03, 0.07, 'highpass', 8000); // R2-73: endgame density (rock sequencer) — off-beat hats join at full phase
+    if (this.phase >= 0.5 && section === 'main' && s === 14) this.guitar(n(24), t, 0.2, 0.35); // R2-73: and an extra stab from half phase
     if (bar === 11 && s >= 12) { const o = this.mVoice('sine', 220 - (s - 12) * 35, t, 0.2, 0.5, 3000); o.frequency.exponentialRampToValueAtTime(70, t + 0.18); } // tom fill
     // Bass: chugging 16ths with riff accents
     const riff = [0, 0, 12, 0, 0, 0, 1, 0, 0, 0, 3, 0, 1, 0, -2, 0];
@@ -7883,6 +7885,7 @@ const EVT_KINDS = [
 ];
 const EVT = { cur: null, until: 0, next: 40, warned: false, pending: null,
   tick() {
+    { const alive = cars.filter((c) => !c.wrecked).length; sfx.phase = game.state === 'playing' && GAME_MODE === 'elim' ? (alive <= 2 ? 1 : alive <= 4 ? 0.5 : 0) : 0; } // R2-73: the music phase is per-device (guests included), so it is computed before the host-only scheduler below bows out
     if (game.state !== 'playing' || MP.role === 'guest') { if (this.cur) { this.cur.clear(); this.cur = null; game.evtMul = 1; } return; } // host/solo run the scheduler; guests receive the effects through snapshots
     const t = game.time;
     { const top = SCORE.list()[0]; const lk = top ? top.key : ''; if (this.leadKey && lk && lk !== this.leadKey) crowdWave(); if (lk) this.leadKey = lk; } // R2-72: a lead change sets the crowd off too (checked on this 1 s tick)
