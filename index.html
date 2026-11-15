@@ -9741,6 +9741,7 @@ function nearRoom() {
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
 const BUILD = '67'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD_HASH = ''; // R2-85: the short git hash of the commit this file shipped in — stamped by the release process (see TESTING.md); empty in a hand-edited file. Records and play-log headers carry it when set, so two pushes sharing a build number stay distinguishable.
 const BOB_PASS_R2 = 'improvements-round2'; // round-2 improvement pass (branch bob/improvements-round2): one commit per item, subjects R2-<n>; BUILD deliberately unchanged. (Named apart from round 1's BOB_PASS so the two branches can merge in any order.)
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
@@ -11125,7 +11126,7 @@ Object.assign(PLAYLOG, {
     const stuck = m.stuck.slice(); for (const c of cars) if (c.__apS && c.__apS.t >= 4 && stuck.length < 16) stuck.push({ car: c.type, secs: c.__apS.t, x: c.__apS.x, z: c.__apS.z, me: c === player || undefined, ongoing: true });
     const causes = {}; for (const x of m.inc) causes[x.why] = r1((causes[x.why] || 0) + x.secs);
     const bs = barks.stats || {}, b0 = m.bark0, K = m.kinds;
-    return { v: 2, kind, id: m.id, n: m.n, sid: this.sid, dev: this.devId, build: BUILD, start: new Date(m.at).toISOString(), end: new Date(now).toISOString(), ended,
+    return { v: 2, kind, id: m.id, n: m.n, sid: this.sid, dev: this.devId, build: BUILD, hash: BUILD_HASH || undefined, start: new Date(m.at).toISOString(), end: new Date(now).toISOString(), ended, // R2-85: hash rides along when stamped
       role: m.role, mode: m.mode, room: MP.role !== 'solo' ? MP.code || '' : undefined, device: PERFREP.device(), ua: this.uaShort(), cores: navigator.hardwareConcurrency || null, screen: `${screen.width}x${screen.height}@${devicePixelRatio} view ${innerWidth}x${innerHeight}`,
       game: Math.round(game.time), real: Math.round((performance.now() - m.p0) / 1000), hidden: Math.round((m.hidden + (m.hidAt ? performance.now() - m.hidAt : 0)) / 1000), env: TABENV.summary(), test: navigator.webdriver ? true : undefined, cars: cars.length, score: game.score, voices: !VOICES_OFF, sound: !sfx.muted,
       q: { start: m.q0, end: QUALITY.level, ch: m.qCh, auto: !!S.autoGfx, gfx: S.gfx, res: Math.round(renderer.getPixelRatio() * 100) },
@@ -11206,7 +11207,7 @@ Object.assign(PLAYLOG, {
           lines.push(s); size += b; last = e[0]; lastT = e[3];
         }
         if (lines.length) {
-          const head = `#derby-playlog v2 dev=${o.dev} sid=${this.sid} build=${BUILD} sent=${new Date().toISOString()} why=${String(why).replace(/\s+/g, '_').slice(0, 60)} seq=${todo[0][0]}-${last}`;
+          const head = `#derby-playlog v2 dev=${o.dev} sid=${this.sid} build=${BUILD}${BUILD_HASH ? '@' + BUILD_HASH : ''} sent=${new Date().toISOString()} why=${String(why).replace(/\s+/g, '_').slice(0, 60)} seq=${todo[0][0]}-${last}`; // R2-85
           if (size <= this.CHUNK) { if (!(await send(head + '\n' + lines.join('\n')))) { ok = false; break; } }
           else { const s = lines[0], step = Math.floor(this.CHUNK / 3), n = Math.ceil(s.length / step); // one record over the limit: in pieces (3 bytes per character at most)
             for (let i = 0; i < n && ok; i++) if (!(await send(`${head} part=${i + 1}/${n}\n` + s.slice(i * step, (i + 1) * step)))) ok = false;
