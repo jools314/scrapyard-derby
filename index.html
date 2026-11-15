@@ -11074,7 +11074,7 @@ Object.assign(PLAYLOG, {
     this.m = { n: this.n, id: this.sid + '-' + this.n, at: Date.now(), p0: performance.now(), hidden: 0, hidAt: document.hidden ? performance.now() : 0,
       role: AUTO.on ? 'autoplay' : MP.role, mode: GAME_MODE, q0: QUALITY.level, qNow: QUALITY.level, qCh: [], hist: new Uint32Array(400), frames: 0, ftSum: 0, worst: 0,
       veh: {}, L: new Map(), weap: {}, me: [], meCur: null, meP: null, stuck: [], stuckN: 0, stuckS: 0, launch: 0, launchW: [], below: 0, nan: 0,
-      phys0: { fixes: PHYS.fixes, clamps: PHYS.clamps, blowups: PHYS.blowups }, kinds: {}, physL: [], blow: [], inc: [], errs: [], errN: 0, voice: [], voiceN: 0, net: [], netN: 0, // (blow: R2-87 blowup pose captures)
+      phys0: { fixes: PHYS.fixes, clamps: PHYS.clamps, blowups: PHYS.blowups }, kinds: {}, physL: [], blow: [], rep: [], repT: 0, inc: [], errs: [], errN: 0, voice: [], voiceN: 0, net: [], netN: 0, // (blow: R2-87 blowup pose captures · rep: R2-23 replay pose stream)
       ev: [], evDrop: 0, bark0: { sent: bs.sent || 0, started: bs.started || 0, errors: bs.errors || 0, resets: bs.resets || 0 }, sampT: 0 };
     this.ev('start', `${this.m.role} ${GAME_MODE} · ${cars.length} cars · q${QUALITY.level}`);
     this.curT = this.upT = performance.now(); this.soonGap = 60000; this.writeCur();
@@ -11138,6 +11138,12 @@ Object.assign(PLAYLOG, {
       const ms = rawDt * 1000; m.hist[Math.min(399, Math.floor(ms * 2))]++; m.frames++; m.ftSum += ms; if (ms > m.worst) m.worst = ms;
     }
     if (QUALITY.level !== m.qNow) { m.qNow = QUALITY.level; if (m.qCh.length < 30) m.qCh.push([Math.round(game.time), QUALITY.level]); this.ev('q', QUALITY.level); }
+    if (game.countdown <= 0 && game.time - (m.repT || 0) >= 0.5) { // R2-23 (partial): an exportable replay — every half second of game time, every car's body pose joins a ring stream (last ~80 s) that ships inside the match record, so a match can be re-watched later from the exported play log. The in-game replay PLAYER is the remaining piece; the data format is the snapCar body pose, self-describing per frame.
+      m.repT = game.time;
+      const fr = [Math.round(game.time * 10) / 10];
+      for (const c of cars) { const p = c.body.position, q = c.body.quaternion; fr.push([c.type, Math.round(p.x * 10) / 10, Math.round(p.y * 10) / 10, Math.round(p.z * 10) / 10, Math.round(q.x * 100) / 100, Math.round(q.y * 100) / 100, Math.round(q.z * 100) / 100, Math.round(q.w * 100) / 100]); }
+      m.rep.push(fr); if (m.rep.length > 160) m.rep.shift();
+    }
     const now = performance.now();
     if (now - this.curT > 30000) { this.curT = now; this.writeCur(); }
     if (now - this.upT > 180000) { this.upT = now; this.ck('every 3 min'); this.upload('every 3 min'); }
@@ -11192,6 +11198,7 @@ Object.assign(PLAYLOG, {
       fps: m.frames ? { med: fps(this.pct(m, 0.5)), p5: fps(this.pct(m, 0.95)), low1: fps(this.pct(m, 0.99)), avg: fps(m.ftSum / m.frames), worstMs: Math.round(m.worst), frames: m.frames } : null,
       slow: { n: m.inc.length, secs: r1(m.inc.reduce((a, x) => a + x.secs, 0)), worstMs: m.inc.reduce((a, x) => Math.max(a, x.worst || 0), 0), causes, list: m.inc },
       phys: { fixes: PHYS.fixes - m.phys0.fixes, clamps: PHYS.clamps - m.phys0.clamps, blowups: PHYS.blowups - m.phys0.blowups, kinds: K, rescues: K['fell through floor, lifted back'] || 0, undos: K['solver kick undone'] || 0, escapes: K['escaped the arena, put back'] || 0, launches: m.launch, launchList: m.launchW, below: m.below, nan: m.nan, list: m.physL, blow: m.blow.length ? m.blow : undefined }, // (blow: R2-87)
+      replay: m.rep.length > 10 ? { hz: 2, secs: Math.round(m.rep.length / 2), frames: m.rep } : undefined, // R2-23: [t, [type,x,y,z,qx,qy,qz,qw] per car] — rides the normal play-log export; a viewer is future work
       stuck: { n: m.stuckN, secs: r1(m.stuckS), list: stuck.sort((a, b) => b.secs - a.secs) },
       veh, me, weap: m.weap,
       voice: { n: m.voiceN, list: m.voice, sent: (bs.sent || 0) - b0.sent, started: (bs.started || 0) - b0.started, errors: (bs.errors || 0) - b0.errors, resets: (bs.resets || 0) - b0.resets, ok: barks.speechOK ?? null, lastErr: barks.lastErr || undefined },

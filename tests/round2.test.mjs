@@ -60,6 +60,7 @@ test('R2-18', 'per-car seat height in VR', () => has(/R2-18/));
 test('R2-19', 'host kick + session blocklist', () => { has(/MP\.blocked|blocked = new Set|blocked:/); has(/R2-19/); });
 test('R2-20', 'handover carries score + round clock (ho pack)', () => has(/R2-20/));
 test('R2-24', 'family beacons are signed; bad signatures dropped', () => { has(/famMac/); has(/R2-24/); });
+test('R2-23', 'exportable replay: pose stream recorded into the record', () => { has(/m\.rep\.push/); has(/replay: m\.rep\.length/); });
 test('R2-25', 'snapshot trim by priority class', () => has(/R2-25/));
 test('R2-26', 'quick-chat phrases ride presence (qc)', () => { has(/QC_PHRASES/); has(/R2-26/); });
 test('R2-29', 'guest input rate gate (45 ms)', () => has(/R2-29/));
