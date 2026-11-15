@@ -645,6 +645,7 @@
         </dl>
       </details>
       <p id="menuBest" class="quiet" style="margin:0"></p>
+      <p id="chalCard" class="quiet" style="margin:0"></p>
       <div class="actions">
         <span class="modes" role="group" aria-label="Game mode"><button type="button" class="mode" data-mode="respawn" aria-pressed="true">Respawn</button><button type="button" class="mode" data-mode="elim" aria-pressed="false">Elimination</button></span>
         <span class="modes" id="fieldChips" role="group" aria-label="Field size"><button type="button" data-n="4">4 cars</button><button type="button" data-n="6">6</button><button type="button" data-n="9">9</button><button type="button" data-n="12">12</button></span>
@@ -2526,7 +2527,7 @@ function liftRelease(car, toss) { // drop the load; with a flick of the mast it 
   if (toss) {
     const f = car.fwd, bv = car.body.velocity;
     vb.velocity.set(bv.x + f.x * 7, 5.5, bv.z + f.z * 7); vb.angularVelocity.set(rand(-2, 2), rand(-1, 1), rand(-2, 2));
-    k.c.lastAttacker = car; k.c.lastAttackTime = simTime;
+    k.c.lastAttacker = car; k.c.lastAttackTime = simTime; if (car.isPlayer) k.c.tossedBy = simTime;
     if (game.state === 'playing') { if (car.isPlayer) toast(`TOSSED ${k.c.name}!`); barks.announce('forkToss', { a: car.isPlayer ? 'Our hero' : car.name, v: k.c.isPlayer ? 'our hero' : k.c.name }); }
   }
   car.liftUp = 0.6; sfx.at(car.body.position).clank(0.7 * wv(car)); sfx.at(car.body.position).hydraulic(wv(car));
@@ -7886,6 +7887,7 @@ const game = {
     if (killer) killer.kills = (killer.kills || 0) + 1;
     if (PLAYLOG.m) PLAYLOG.wreck(car, killer); if (AUTO.on && car === player) car.respawnType = AUTO.nextType(); // (autoplay: every life a different vehicle)
     SCORE.wreck(car, killer); // (host / solo only: guests get the table from the host)
+    if (killer === player && !FREE_DRIVE) { chalDone('firstwreck'); if (car.tossedBy && simTime - car.tossedBy < 8) chalDone('forktoss'); }
     if (!FREE_DRIVE && GAME_MODE === 'respawn' && MP.role !== 'guest' && S.wreckTarget > 0 && killer && (killer.kills || 0) >= S.wreckTarget) { SCORE.finish(); return; } // first to the wreck target ends it
     if (!FREE_DRIVE && car.dmgLog) { const others = car.dmgLog.filter((x) => x.by !== car && x.by !== killer && simTime - x.t < 10).sort((a, b) => b.amt - a.amt); if (others[0] && others[0].by === player) { this.score += 250; toast('ASSIST +250', 'cool'); } } // second-biggest damager gets an assist
     if (GAME_MODE === 'respawn' && MP.role === 'guest') { if (car.isPlayer) toast('WRECKED', 'bad'); else toast(`${car.name} is wrecked`); return; } // the host brings it back
@@ -7919,6 +7921,7 @@ const game = {
   endMatch(won) {
     this.state = 'over';
     if (player) saveBest(GAME_MODE, player.type, this.score, player.kills || 0);
+    if (player && !FREE_DRIVE && MP.role !== 'guest') { if (game.propHits >= 25) chalDone('props25'); if ((player.kills || 0) >= 10) chalDone('wrecks10'); if (won && GAME_MODE === 'elim') chalDone('elimwin'); }
     this.overTimer = won ? 2 : 1.2;
     $('overEyebrow').textContent = won ? 'Last car running' : 'Match over';
     $('overTitle').textContent = won ? 'Yard cleared' : 'Wrecked';
@@ -8127,6 +8130,18 @@ function refreshBestLine() { const b = bestFor(GAME_MODE, playerType), e = $('me
 const TUT = { done: false }; try { TUT.done = localStorage.getItem('derby-taught') === '1'; } catch (e) {} // the guided first match runs once, ever
 function myColorStored() { try { const v = localStorage.getItem('derby-mycolor'); return v ? parseInt(v, 10) : null; } catch (e) { return null; } }
 function myColor(type) { const v = myColorStored(); return v != null && isFinite(v) ? v : CAR_TYPES[type].color; } // your own paint, if you've picked one — so "hit the pink one" works as family tactics
+/* Standing challenges + per-car mastery: the collection loop that carries between sessions */
+const CHAL_DEFS = [
+  { id: 'firstwreck', label: 'Wreck your first car' },
+  { id: 'forktoss', label: 'Wreck a car with the forklift toss' },
+  { id: 'air2', label: 'Land a 2-second air in the Sandflea' },
+  { id: 'props25', label: 'Flatten 25 props in one match' },
+  { id: 'wrecks10', label: 'Score 10 wrecks in one match' },
+  { id: 'elimwin', label: 'Win an Elimination match' },
+  { id: 'rival', label: 'Wreck your named rival' },
+];
+function chalDone(id) { let D; try { D = JSON.parse(localStorage.getItem('derby-challenges') || '[]'); } catch (e) { D = []; } if (D.includes(id)) return; D.push(id); try { localStorage.setItem('derby-challenges', JSON.stringify(D)); } catch (e) {} const def = CHAL_DEFS.find((c) => c.id === id); toast(`★ CHALLENGE: ${def ? def.label : id}`, 'cool'); refreshChal(); }
+function refreshChal() { const e = $('chalCard'); if (!e) return; let D = []; try { D = JSON.parse(localStorage.getItem('derby-challenges') || '[]'); } catch (err) {} e.textContent = CHAL_DEFS.map((c) => `${D.includes(c.id) ? '★' : '☆'} ${c.label}`).join('  ·  '); }
 function spawnCars() {
   for (const c of cars) c.dispose();
   cars.length = 0;
@@ -8263,7 +8278,7 @@ function buildGarage() {
     garage.appendChild(b);
   }
   $('blurb').textContent = CAR_TYPES[playerType].blurb;
-  refreshBestLine();
+  refreshBestLine(); refreshChal();
 }
 function selectCar(key) {
   playerType = key;
@@ -10318,6 +10333,7 @@ function simBody(now) {
         if (player.airTime > 1.0 && player.type === 'sandflea' && !player.wrecked) landingBlast(player); // the buggy lands in a fireball
         if (player.airTime > 0.8) {
           game.bestAir = Math.max(game.bestAir, player.airTime);
+          if (player.airTime >= 2 && player.type === 'sandflea') chalDone('air2');
           const pts = Math.round(player.airTime * 100);
           player.nitro = Math.min(1, player.nitro + player.airTime * 0.12);
           game.addScore(pts, `AIR ${player.airTime.toFixed(1)}s`);
