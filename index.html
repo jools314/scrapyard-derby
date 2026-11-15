@@ -619,6 +619,7 @@
       <div>
         <p class="label" style="margin:0 0 8px">Pick your car</p>
         <div class="garage" id="garage"></div>
+        <div class="mprow"><label class="quiet" for="myColor">Your paint</label><input type="color" id="myColor" value="#c8402a"><button id="btnMyColorReset" type="button">Car's own colour</button></div>
       </div>
       <p id="blurb"></p>
       <p class="quiet" style="margin:0">Green wrenches repair you and refit a lost wheel; blue canisters refill nitro. Bright, glowing junk flies when you hit it. Dark objects are heavy and shove back. Hazard stripes mean solid: steer around.</p>
@@ -7975,7 +7976,7 @@ function respawnCar0(old, type) {
   }
   if (CRANE.held === old) craneRelease(CRANE, false);
   const sp = respawnSpot(old), human = old.isPlayer || old.remote;
-  const nc = new Car({ type, name: old.name, color: human ? CAR_TYPES[type].color : old.baseColor.getHex(), number: old.number, isPlayer: old.isPlayer, x: sp.x, z: sp.z, yaw: sp.yaw });
+  const nc = new Car({ type, name: old.name, color: human ? (old.isPlayer ? myColor(type) : (old.remoteCol != null ? old.remoteCol : CAR_TYPES[type].color)) : old.baseColor.getHex(), number: old.number, isPlayer: old.isPlayer, x: sp.x, z: sp.z, yaw: sp.yaw });
   nc.remote = old.remote; nc.did = old.did || null; nc.origType = old.origType || old.type; nc.persona = !human && type !== old.type ? (type === 'cruiser' ? COP : CAR_CAST[type] || old.persona) : old.persona; if (!human && nc.persona) nc.name = nc.persona.nick; nc.kills = old.kills || 0; nc.deaths = (old.deaths || 0) + (old.wrecked ? 1 : 0); nc.spawnT = simTime;
   const te = threatEls.get(old); if (te) { te.remove(); threatEls.delete(old); }
   old.dispose(); cars[i] = nc;
@@ -8124,6 +8125,8 @@ function saveBest(mode, type, score, wrecks) { if (FREE_DRIVE || MP.role === 'gu
 function bestFor(mode, type) { return loadBest()[bestKey(mode, type)] || null; }
 function refreshBestLine() { const b = bestFor(GAME_MODE, playerType), e = $('menuBest'); if (e) e.textContent = b ? `Your best in the ${CAR_TYPES[playerType].name} (${GAME_MODE === 'elim' ? 'Elimination' : 'Respawn'}): ${b.score.toLocaleString()} pts · ${b.wrecks} wrecks` : ''; }
 const TUT = { done: false }; try { TUT.done = localStorage.getItem('derby-taught') === '1'; } catch (e) {} // the guided first match runs once, ever
+function myColorStored() { try { const v = localStorage.getItem('derby-mycolor'); return v ? parseInt(v, 10) : null; } catch (e) { return null; } }
+function myColor(type) { const v = myColorStored(); return v != null && isFinite(v) ? v : CAR_TYPES[type].color; } // your own paint, if you've picked one — so "hit the pink one" works as family tactics
 function spawnCars() {
   for (const c of cars) c.dispose();
   cars.length = 0;
@@ -8131,7 +8134,7 @@ function spawnCars() {
   const n = Math.min(Math.round(S.aiCount), types.length);
   // You start on the south side; the pack starts across the yard on the north side, ~190 m away
   const ps = findSpawn(30, 100);
-  player = new Car({ type: playerType, name: 'You', color: CAR_TYPES[playerType].color, number: 1, isPlayer: true, x: ps.x, z: ps.z, yaw: Math.PI / 2 }); player.did = MY_DID;
+  player = new Car({ type: playerType, name: 'You', color: myColor(playerType), number: 1, isPlayer: true, x: ps.x, z: ps.z, yaw: Math.PI / 2 }); player.did = MY_DID;
   cars.push(player);
   const castOrder = PERSONAS.filter((P) => !CAST_SET.has(P)).sort(() => Math.random() - 0.5); // extras, for cars without their own character
   let nAI = n;
@@ -8141,8 +8144,8 @@ function spawnCars() {
       let type = g.presence.want && CAR_TYPES[g.presence.want] && !taken.has(g.presence.want) ? g.presence.want : Object.keys(CAR_TYPES).find((k) => !taken.has(k));
       if (!type) break; taken.add(type);
       const k = cars.length, a = (-165 + k * 37) * D2R, sp = findSpawn(Math.cos(a) * 112, Math.sin(a) * 105);
-      const car = new Car({ type, name: String(g.presence.nick || 'Player').slice(0, 14), color: CAR_TYPES[type].color, number: 1 + k, isPlayer: false, x: sp.x, z: sp.z, yaw: Math.atan2(sp.z, -sp.x) });
-      car.remote = g.peer; car.did = g.presence.did || null; cars.push(car);
+      const car = new Car({ type, name: String(g.presence.nick || 'Player').slice(0, 14), color: g.presence.col != null ? g.presence.col : CAR_TYPES[type].color, number: 1 + k, isPlayer: false, x: sp.x, z: sp.z, yaw: Math.atan2(sp.z, -sp.x) });
+      car.remote = g.peer; car.did = g.presence.did || null; car.remoteCol = g.presence.col != null ? g.presence.col : null; cars.push(car);
     }
     const left = Object.keys(CAR_TYPES).filter((k) => !taken.has(k)).sort(() => Math.random() - 0.5);
     types.length = 0; types.push(...left); nAI = Math.min(left.length, Math.max(0, 11 - cars.length), MP.family ? Math.max(0, Math.round(S.aiCount) + 1 - cars.length) : n); // family yard: AI backfill to a fixed total field (you + aiCount cars), so two humans still get a full derby; the yard never holds more than 12
@@ -8272,7 +8275,7 @@ function selectCar(key) {
   if (game.state === 'menu') { // swap the showroom car in place
     const old = player;
     const idx = cars.indexOf(old);
-    const nc = new Car({ type: key, name: 'You', color: CAR_TYPES[key].color, number: 1, isPlayer: true, x: old.body.position.x, z: old.body.position.z, yaw: Math.atan2(-old.fwd.z, old.fwd.x) });
+    const nc = new Car({ type: key, name: 'You', color: myColor(key), number: 1, isPlayer: true, x: old.body.position.x, z: old.body.position.z, yaw: Math.atan2(-old.fwd.z, old.fwd.x) });
     old.dispose();
     cars[idx] = nc; player = nc;
   }
@@ -8448,6 +8451,10 @@ $('btnFree').addEventListener('click', () => { const b = document.querySelector(
 function refreshFieldChips() { for (const b of document.querySelectorAll('#fieldChips button')) b.setAttribute('aria-pressed', String(+b.dataset.n === Math.round(S.aiCount))); }
 for (const b of document.querySelectorAll('#fieldChips button')) b.addEventListener('click', () => { setValue('aiCount', +b.dataset.n); refreshFieldChips(); b.blur(); });
 refreshFieldChips();
+{ const mc = $('myColor'); if (mc) { const swap = () => { if (game.state === 'menu' && player) { const old = player, idx = cars.indexOf(old); const nc = new Car({ type: playerType, name: 'You', color: myColor(playerType), number: 1, isPlayer: true, x: old.body.position.x, z: old.body.position.z, yaw: Math.atan2(-old.fwd.z, old.fwd.x) }); old.dispose(); cars[idx] = nc; player = nc; } if (MP.role === 'guest') MP.sendWant(); };
+  mc.value = '#' + new THREE.Color(myColor(playerType)).getHexString();
+  mc.addEventListener('input', () => { try { localStorage.setItem('derby-mycolor', String(new THREE.Color(mc.value).getHex())); } catch (e) {} swap(); });
+  $('btnMyColorReset').addEventListener('click', () => { try { localStorage.removeItem('derby-mycolor'); } catch (e) {} mc.value = '#' + new THREE.Color(CAR_TYPES[playerType].color).getHexString(); swap(); }); } }
 $('btnReplay').addEventListener('click', () => { if (ARENA.lastWreck) { el.over.hidden = true; game.replayBack = true; game.replayBackT = clock + 7; startReplay(ARENA.lastWreck); toast('REPLAY ON THE BIG SCREEN', 'cool'); } });
 $('btnRematch').addEventListener('click', () => { if (MP.role === 'host') { MP.event({ k: 'rm' }); startMatch(); } });
 $('btnSpec').addEventListener('click', () => { const pool = cars.filter((c) => !c.isPlayer); SPECTATE.car = SPECTATE.car ? null : pool[Math.random() * pool.length | 0] || null; toast(SPECTATE.car ? `WATCHING ${SPECTATE.car.name.toUpperCase()}` : 'BACK TO YOUR CAR', 'cool'); });
@@ -9209,7 +9216,7 @@ const MP = {
     for (const g of list || this.guests()) { const d = g.presence.did; if (!d) { out.push(g); continue; } const o = newest.get(d); if (!o || (g.presence.jt || 0) > (o.presence.jt || 0)) newest.set(d, g); }
     return out.concat([...newest.values()]);
   },
-  sendWant() { if (this.room) this.room.presence({ nick: this.nick(), want: playerType, did: MY_DID, jt: this.joinT || 0 }); }, // did: this device (survives reloads); jt: when this connection joined (newest wins)
+  sendWant() { if (this.room) this.room.presence({ nick: this.nick(), want: playerType, did: MY_DID, jt: this.joinT || 0, col: myColorStored() }); }, // did: this device (survives reloads); jt: when this connection joined (newest wins); col: your paint
   dropStale() { // (host) a player who reloaded is back on a new connection: hang up on the old one, so nobody counts, meshes with or elects a ghost
     if (this.role !== 'host' || !this.room || !this.room.drop) return; const keep = new Set(this.players().map((g) => g.peer));
     for (const g of this.guests()) if (g.presence.did && !keep.has(g.peer)) { NETLOG.incident('host', `${g.presence.nick || 'a player'} is back on a new connection: closing the old one`); this.room.drop(g.peer); }
