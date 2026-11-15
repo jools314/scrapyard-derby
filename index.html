@@ -644,6 +644,7 @@
         <span class="modes" role="group" aria-label="Game mode"><button type="button" class="mode" data-mode="respawn" aria-pressed="true">Respawn</button><button type="button" class="mode" data-mode="elim" aria-pressed="false">Elimination</button></span>
         <span class="modes" id="fieldChips" role="group" aria-label="Field size"><button type="button" data-n="4">4 cars</button><button type="button" data-n="6">6</button><button type="button" data-n="9">9</button><button type="button" data-n="12">12</button></span>
         <button id="btnStart" class="primary" type="button">Start derby</button>
+        <button id="btnFree" type="button">Free drive</button>
         <button id="btnVR" type="button" hidden>🥽 Enter VR</button>
         <button id="btnAutoplay" type="button" title="The computer drives every car, match after match, and logs how the game runs (fps, physics glitches, stuck cars, balance). Any key or tap stops it.">🤖 Autoplay (learn)</button>
         <button id="btnApReport2" type="button" class="quiet" title="What the play log has measured so far">Report</button>
@@ -7846,6 +7847,7 @@ const game = {
   onWreck(car) {
     if (this.state !== 'playing') return;
     ARENA.lastWreck = car.body.position.clone();
+    if (FREE_DRIVE) { if (GAME_MODE === 'respawn' && MP.role !== 'guest') { car.respawnT = 2; if (car.isPlayer) { toast('WRECKED — BACK IN 2s', 'bad'); startReplay(car.body.position); } } return; }
     const killer = car.lastAttacker && car.lastAttacker !== car && simTime - (car.lastAttackTime || 0) < 6 ? car.lastAttacker : null;
     if (killer) killer.kills = (killer.kills || 0) + 1;
     if (PLAYLOG.m) PLAYLOG.wreck(car, killer); if (AUTO.on && car === player) car.respawnType = AUTO.nextType(); // (autoplay: every life a different vehicle)
@@ -7910,6 +7912,7 @@ function findSpawn(x, z) {
 }
 /* ---------------- Respawn mode (default): wrecked cars come back, people can swap cars any time ---------------- */
 let GAME_MODE = 'respawn'; try { GAME_MODE = localStorage.getItem('scrapyard-derby-mode') === 'elim' ? 'elim' : 'respawn'; } catch (e) {}
+let FREE_DRIVE = false; // the menu's Free drive: no score, no stakes, wrecks come straight back (set by the button, cleared by showMenu)
 const RESPAWN_AI = 5, RESPAWN_HUMAN = 6; // seconds until a wreck comes back by itself
 // somewhere easy to drive off from: near where you were, but not on top of the thing you were stuck on, open ground, away from the pack
 function respawnSpot(old) {
@@ -8175,12 +8178,13 @@ function startMatch() {
   game.state = 'playing'; game.paused = false;
   el.menu.hidden = true; el.over.hidden = true;
   game.countdown = 1.8; game.grace = 8; game.lastCount = 4;
+  if (FREE_DRIVE) { game.countdown = 0; toast('FREE DRIVE — NO SCORE, NO STAKES', 'cool'); }
   else if (GAME_MODE === 'respawn' && (S.matchMinutes > 0 || S.wreckTarget > 0)) toast(S.wreckTarget > 0 ? `FIRST TO ${S.wreckTarget} WRECKS WINS` : `${S.matchMinutes} MINUTE MATCH`, 'cool');
   game.tut = !TUT.done && MP.role === 'solo' && !FREE_DRIVE ? 0 : -1;
 }
 function showMenu() {
   el.over.hidden = true; el.menu.hidden = false;
-  game.state = 'menu';
+  game.state = 'menu'; FREE_DRIVE = false;
   resetMatch(); refreshBestLine();
 }
 function showOver() {
@@ -8398,6 +8402,7 @@ const unlockAudio = () => sfx.init();
 window.addEventListener('pointerdown', unlockAudio, { once: true });
 window.addEventListener('keydown', unlockAudio, { once: true });
 $('btnStart').addEventListener('click', startMatch);
+$('btnFree').addEventListener('click', () => { const b = document.querySelector('.modes .mode[data-mode="respawn"]'); if (b && GAME_MODE !== 'respawn') b.click(); FREE_DRIVE = true; startMatch(); });
 function refreshFieldChips() { for (const b of document.querySelectorAll('#fieldChips button')) b.setAttribute('aria-pressed', String(+b.dataset.n === Math.round(S.aiCount))); }
 for (const b of document.querySelectorAll('#fieldChips button')) b.addEventListener('click', () => { setValue('aiCount', +b.dataset.n); refreshFieldChips(); b.blur(); });
 refreshFieldChips();
