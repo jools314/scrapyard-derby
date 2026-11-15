@@ -71,6 +71,12 @@ def main():
     ok('solver kick undone 88' in md, 'A1 kinds come from the census (88), not the listed sample (1)')
     ok('capped sample' in md and 'at most 40 per match' in md, 'A1 per-vehicle catch list labelled as the capped sample')
 
+    # A2: slow-incident breakdown — the recorded per-incident list is bucketed by
+    # cause x quality x match phase, and the worst incidents keep their detail.
+    ok('waiting on the graphics chip (fewer pixels/effects would help) · q1 · 0-5 min: 2.5' in md, 'A2 GPU-wait incident bucketed q1 / first 5 min with its seconds')
+    ok('preparing the drawing (draw calls) is the slow part · q2 · 15+ min: 3.5' in md, 'A2 draw-prep incident bucketed q2 / 15+ min')
+    ok('worst slow incidents' in md and '800 ms: render' in md and '40 particles' in md, 'A2 worst incidents listed with worst-frame detail and particle load')
+
     print('FAILED ' + str(len(fails)) if fails else 'ALL PASS')
     return 1 if fails else 0
 

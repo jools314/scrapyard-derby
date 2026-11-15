@@ -94,6 +94,15 @@ causes = collections.Counter()
 for m in real:
     for k, v in (m.get('slow', {}).get('causes') or {}).items(): causes[k] += v
 if causes: L.append('- slow moments by cause (seconds): ' + '; '.join(f'{k}: {round(v, 1)}' for k, v in causes.most_common()))
+inc = [x for m in real for x in (m.get('slow', {}).get('list') or [])]
+if inc:
+    def phase(t): return '0-5 min' if (t or 0) < 300 else '5-15 min' if (t or 0) < 900 else '15+ min'
+    bk = collections.Counter()
+    for x in inc: bk[(x.get('why') or '?', x.get('q'), phase(x.get('t')))] += x.get('secs', 0)
+    L.append('- slow incidents by cause × quality × match phase (seconds): ' + '; '.join(f'{w} · q{q} · {p}: {round(s, 1)}' for (w, q, p), s in bk.most_common()))
+    top = sorted(inc, key=lambda x: -x.get('secs', 0))[:5]
+    L.append('- worst slow incidents: ' + '; '.join(f"t{x.get('t')}s: {x.get('secs')}s at {x.get('fps')} fps (worst {x.get('worst')} ms) q{x.get('q')} · {x.get('particles', 0)} particles, {x.get('fires', 0)} fires, {x.get('booms', 0)} blasts · worst frame {x.get('worstF') or '?'}" for x in top))
+    J['slowTop'] = [{'t': x.get('t'), 'secs': x.get('secs'), 'why': x.get('why'), 'q': x.get('q')} for x in top]
 L.append('')
 # --- stuck hotspots: cluster on a 12 m grid
 L.append('## Stuck hotspots\n')
