@@ -10536,6 +10536,14 @@ const VR = (() => {
   function pageItems() {
     if (!player) return null;
     const st = game.state, guest = MP.role === 'guest';
+    if (V.page === 'tune') return [{ t: 'title', s: 'MATCH TUNE' }, // R2-16: the Match group + song, in-headset — until now every one of these meant leaving VR for the 2D settings
+      { t: 'label', s: `Opponents: ${Math.round(S.aiCount)} (applies next match)` },
+      { t: 'row', b: [B('Fewer', () => { S.aiCount = clamp(Math.round(S.aiCount) - 1, 1, 12); saveSettings(); }), B('More', () => { S.aiCount = clamp(Math.round(S.aiCount) + 1, 1, 12); saveSettings(); })] },
+      { t: 'label', s: `Damage: ×${(+S.damage).toFixed(1)}` },
+      { t: 'row', b: [B('Softer', () => { S.damage = clamp(Math.round((+S.damage - 0.5) * 10) / 10, 0, 4); saveSettings(); }), B('Harder', () => { S.damage = clamp(Math.round((+S.damage + 0.5) * 10) / 10, 0, 4); saveSettings(); })] },
+      { t: 'label', s: `Song: ${SONGS[songI][1]}` },
+      { t: 'row', b: [B('◀ Song', () => { songI = (songI + SONGS.length - 1) % SONGS.length; applySong(); }), B('Song ▶', () => { songI = (songI + 1) % SONGS.length; applySong(); })] },
+      { t: 'row', b: [B(S.night ? 'Night: on (next match)' : 'Night: off', () => { S.night = S.night ? 0 : 1; saveSettings(); }), B('Back', () => { V.page = 'main'; }, { primary: true })] }];
     if (V.page === 'settings') return [{ t: 'title', s: 'VR SETTINGS' },
       { t: 'label', s: 'Comfort vignette (darkens the edges when you turn or speed up)' },
       { t: 'row', b: ['Off', 'Low', 'High'].map((n, i) => B(n, () => { V.set.vig = i; saveSet(); }, { on: V.set.vig === i })) },
@@ -10586,7 +10594,7 @@ const VR = (() => {
       { t: 'small', s: T.blurb },
       { t: 'row', b: [B('Respawn mode', () => setMode('respawn'), { on: GAME_MODE === 'respawn' }), B('Elimination', () => setMode('elim'), { on: GAME_MODE === 'elim' })] },
       ...mp,
-      { t: 'row', b: [B('VR settings', () => { V.page = 'settings'; }), B('Recenter', () => recenter()), B('Exit VR', exit)] },
+      { t: 'row', b: [B('VR settings', () => { V.page = 'settings'; }), B('Match tune', () => { V.page = 'tune'; }), B('Recenter', () => recenter()), B('Exit VR', exit)] }, // R2-16: tune page entry
       { t: 'help', s: 'Point and pull a trigger to choose. Driving: R trigger gas · L trigger brake · L stick steer · A fire · B nitro · X jump · R stick click: pause' }];
   }
   function drawMenu(items) {
