@@ -50,6 +50,7 @@ quick() {
   t helisign 600 "HELISIGN PASS"
   t helisignfix 600 "HELISIGNFIX PASS"
   t aim 900 "AIM PASS"
+  t heaps 300 "HEAPS PASS"
 }
 release() {
   quick

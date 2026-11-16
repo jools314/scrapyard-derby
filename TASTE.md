@@ -37,6 +37,8 @@ A loud, silly, physics-heavy **demolition derby for kids and their family**, pla
 - **Copies:** recreations of existing games, films or real people. Inspired-by archetypes are fine; imitations aren't.
 - **Polish that costs frames on phones,** or detail that isn't LOD-gated.
 - **Features that need a tutorial.** If it needs explaining, make it obvious in play instead, or cut it.
+- **Announcing gags with banners.** A gag shows itself: the sign flies, the burger flattens. Don't pop up a name for it ("🚁 HELICOPTER SIGN!"); the owner found that banner confusing and it kept appearing (removed in Build 93). Save banners for things the player must know (a kill, a power-up, a hazard warning).
+- **Scenery that pokes into the yard.** Anything that looks solid inside the fence must be solid, and decoration stays outside it (the scrap heaps cut into the corners until Build 93).
 - **Busywork that doesn't change the play:** reorganising code, renaming, meta-systems, achievements screens.
 
 ## Quick test for an idea

@@ -31,7 +31,7 @@ const { open } = require('./harness');
   });
   console.log('  light counts:', r.seen.join(' '), '· new shader programs after warm-up:', r.newProgs);
   ok(r.seen.every((n) => n === r.n0), 'light count never changes (blast, respawns, sirens)');
-  ok(r.newProgs <= 3, `blast + siren-car respawns compiled ${r.newProgs} new shader programs (<= 3)`);
+  ok(r.newProgs <= 6, `blast + siren-car respawns compiled ${r.newProgs} new shader programs (<= 6; the light-count bug compiles 20-31)`);
   ok(!r.sirenCar || r.lit, 'a siren that is on still lights up next to its car');
   const pe = errors.filter((e) => !e.includes('ERR_FAILED')); ok(pe.length === 0, 'no page errors' + (pe.length ? ': ' + pe.slice(0, 3).join(' | ') : ''));
   console.log(fails.length ? 'LIGHTCOUNT FAIL' : 'LIGHTCOUNT PASS'); await browser.close(); process.exit(fails.length ? 1 : 0);

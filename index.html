@@ -1647,11 +1647,14 @@ function buildArena() {
     }, 7, 4);
     const heapMat = new THREE.MeshStandardMaterial({ map: junkTex, bumpMap: junkTex, bumpScale: 2, vertexColors: true, roughness: 0.92, metalness: 0.12, flatShading: true, envMapIntensity: 0.3 });
     const per = [[], [], []];
-    for (let i = 0; i < 110; i++) { const a = rand(0, Math.PI * 2), r = rand(A + 34, A + 170), s = rand(6, 24) * (r > A + 100 ? 1.4 : 1); per[i % 3].push([Math.cos(a) * r, Math.sin(a) * r, s]); }
+    for (let i = 0; i < 110; i++) { const a = rand(0, Math.PI * 2), r = rand(A + 34, A + 170), s = rand(6, 24) * (r > A + 100 ? 1.4 : 1); let x = Math.cos(a) * r, z = Math.sin(a) * r;
+      const edge = Math.max(Math.abs(x), Math.abs(z)), need = A + 4 + s * 2.35; // the yard is square, not round: a heap placed on a circle cut into the corners (a heap reaches up to s*1.6 (scale) * 1.44 (lumps) = 2.3 s sideways)
+      if (edge < need) { const k = need / edge; x *= k; z *= k; } // push it straight out until all of it is beyond the fence
+      per[i % 3].push([x, z, s]); }
     const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler();
     shapes.forEach((g, k) => { const im = new THREE.InstancedMesh(g, heapMat, per[k].length);
       per[k].forEach(([x, z, s], i) => { e.set(rand(-0.08, 0.08), rand(0, 6.3), rand(-0.08, 0.08)); q.setFromEuler(e); m4.compose(tmpV.set(x, -s * 0.05, z), q, new THREE.Vector3(s * rand(1, 1.6), s * rand(0.45, 0.8), s * rand(1, 1.5))); im.setMatrixAt(i, m4); });
-      im.userData.shared = true; scene.add(im); });
+      im.userData.shared = true; im.userData.heaps = per[k]; scene.add(im); });
   }
   // Floodlight towers
   for (const [x, z] of [[A + 8, A + 8], [-A - 8, A + 8], [A + 8, -A - 8], [-A - 8, -A - 8]]) {
@@ -2265,7 +2268,7 @@ function updateSigns(dt) { // HELICOPTER SIGN: knock a sign spinning fast enough
     if (pr.body.position.y < 2.5 && av.x * av.x + av.y * av.y + av.z * av.z > 81) { // spinning faster than 9 rad/s, still near the ground: it takes off
       pr.heliT = 2; pr.heliFlights = (pr.heliFlights || 0) + 1; pr.body.velocity.y = Math.max(pr.body.velocity.y, 7);
       const l = Math.sqrt(av.x * av.x + av.y * av.y + av.z * av.z); if (l > 7) { const k = 7 / l; av.x *= k; av.y *= k; av.z *= k; } // bleed the spin to 7 rad/s, under the 9 rad/s lift threshold: one knock, one flight. A sign that lands in a pile still whirling must not chain straight into another flight — chained flights kept signs airborne in the busiest corners and drove the 82->88 physics-catches regression
-      if (game.state === 'playing') toast('🚁 HELICOPTER SIGN!', 'cool');
+      // (no banner: owner feedback, Build 91 - "keeps saying helicopter sign, it doesn't make sense"; the flying sign speaks for itself)
     }
   }
 }
@@ -9786,7 +9789,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '92'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '93'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
