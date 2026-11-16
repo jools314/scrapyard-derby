@@ -18,6 +18,7 @@ const { open } = require('./harness');
     // every car type has been in the arena once (its own materials compile here, before we count), and you drive the cruiser
     for (const t of Object.keys(D.CAR_TYPES)) { const c = D.cars.find((c) => !c.isPlayer); D.respawnCar(c, t); await frames(3); }
     D.respawnCar(D.player, 'cruiser'); const ai = D.cars.filter((c) => !c.isPlayer); D.respawnCar(ai[0], 'firetruck'); await frames(20);
+    { let last = -1, still = 0; const t0 = performance.now(); while (still < 30 && performance.now() - t0 < 20000) { await frames(1); const n = progs(); if (n === last) still++; else { still = 0; last = n; } } } // wait until shader compiling has settled (under load the warm-up frames above are not enough)
     const pos = D.player.body.position, n0 = lights(), p0 = progs(), seen = [n0];
     for (const c of D.cars.filter((c) => c.T.police || c.T.siren)) c.sirenOn = true; await frames(10); seen.push(lights());
     D.tankerBoom({ x: pos.x + 25, y: 1, z: pos.z }, D.cars.find((c) => !c.isPlayer)); await frames(15); seen.push(lights());

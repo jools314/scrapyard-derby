@@ -8895,6 +8895,14 @@ const CRANE = (() => {
   box(0.3, 4, 0.3, steel, 0, 3.6, 0, slew);                                     // A-frame peak with tie bars
   const tie = (x1) => { const len = Math.hypot(x1, 3.4), t = box(len, 0.05, 0.05, steel, x1 / 2, 3.6, 0, slew); t.rotation.z = -Math.atan2(3.4, x1) * Math.sign(x1); };
   tie(R1 * 0.7); tie(-8);
+  { // the tower lattice and the jib bracing were ~110 separate yellow boxes (one draw call each, two with shadows): built after mergeStatic(), so nothing merged them. Bake each part's steel into one mesh; the slewing arm keeps its own (it turns as a unit).
+    const bake = (parent) => { parent.updateMatrix(); const parts = parent.children.filter((o) => o.isMesh && o.material === steel && !o.children.length); if (parts.length < 2) return;
+      const geos = parts.map((o) => { o.updateMatrix(); const gg = o.geometry.clone(); gg.applyMatrix4(o.matrix); return gg; });
+      const merged = mergeGeometries(geos, false); geos.forEach((gg) => gg.dispose()); if (!merged) return;
+      merged.computeBoundingSphere(); const m = new THREE.Mesh(merged, steel); m.castShadow = m.receiveShadow = true; parent.add(m);
+      for (const o of parts) { parent.remove(o); o.geometry.dispose(); } };
+    bake(g); bake(slew);
+  }
   const trolley = box(1.1, 0.4, 1.1, dark, R0, 1.45, 0, slew);
   const magnet = new THREE.Group(); scene.add(magnet);
   const mm = new THREE.Mesh(new THREE.CylinderGeometry(1.25, 1.25, 0.45, 24), new THREE.MeshStandardMaterial({ color: 0x3a3836, roughness: 0.45, metalness: 0.85 })); mm.castShadow = true; magnet.add(mm);
@@ -9846,7 +9854,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '98'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '99'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
