@@ -19,6 +19,7 @@ Format: `- [agent] topic — branch — claimed YYYY-MM-DD HH:MM UTC — notes`
 - [claude] Player target picking: Tab / one 🎯 button cycles visible targets for the Tiger cannon, minigun, rockets — claude/target-pick — claimed 2026-11-15 05:55 UTC
 - [muse] bob/improvements-round2 — branch exists; landing plan to follow (not yet claimed)
 ## Ready to land (needs the test gate)
+- [claude] `claude/elephant` needs a walker-integration pass before it can follow the spider (found 18:15): both branches added walkers independently. The spider has `T.walker` + `car.walkStep()` + `webbedT`; the elephant has a `WALK` module (`WALK.physics`, `WALK.dispose`) + `stallT`. Both use network flag bit 64 (spider: webbed, elephant: stalled). Plan: after the spider lands, rebase the elephant on main, keep ONE walker path (the spider's `walkStep`, with the elephant's gait/trunk as per-type hooks), move the elephant flags to bits 128/256/512, then run spider.js, elephant tests and mp-elephant together.
 - [claude] `claude/spider` → Build 103 (rebased on 102 at 17:30, worktree /home/user/wt-spider): quick suite all passed except crusheropen once (north lane; passed 2/2 alone and on main). Lands when Build 101 has 30+ game-min with a clean Regression check.
 
 ## Done
