@@ -1,6 +1,6 @@
-# Scrapyard Derby play-log report · 2026-11-16 18:39 UTC
+# Scrapyard Derby play-log report · 2026-11-16 20:39 UTC
 
-739 matches (727 from real devices, 2216.3 game-minutes), 55 page loads, 8 bug reports.
+739 matches (727 from real devices, 2216.3 game-minutes), 57 page loads, 8 bug reports.
 
 ## Who and what
 
@@ -42,7 +42,7 @@
 
 - **Android**: fps median 60, typical 1% low 40, worst frame 92 ms · quality 0, res 100% · 1 matches · 2 s throttled/hidden (excluded)
 - **Mac**: fps median 60, typical 1% low 53, worst frame 983 ms · quality 0, res 100% · 416 matches · 7872 s throttled/hidden (excluded)
-- **iPhone**: fps median 58, typical 1% low 47, worst frame 319 ms · quality 0, res 100% · 1 matches · 2 s throttled/hidden (excluded)
+- **iPhone**: fps median 58, typical 1% low 47, worst frame 319 ms · quality 0, res 100% · 1 matches · 3 s throttled/hidden (excluded)
 - **other**: fps median 60, typical 1% low 20, worst frame 984 ms · quality 7, res 50% · 304 matches · 2917 s throttled/hidden (excluded)
 ### Release to release
 
@@ -63,7 +63,7 @@
 | Mac | 92 | 19 | 57 | 60 | 55 | 53 | 566 | 100% | 4.8 | 55 | 193 | 0 | – |
 | Mac | 93 | 18 | 54 | 60 | 56 | 53 | 733 | 100% | 11.3 | 51 | 312 | 0 | – |
 | Mac | 94 | 101 | 315 | 60 | 53 | 31 | 983 | 92% | 56.8 | 122 | 337 | 6864 | 7.8 |
-| iPhone | 100 | 1 | 3 | 58 | 55 | 47 | 319 | 100% | 0.0 | 47 | 47 | 2 | 0.0 |
+| iPhone | 100 | 1 | 3 | 58 | 55 | 47 | 319 | 100% | 0.0 | 46 | 46 | 3 | 0.0 |
 | other | 70 | 41 | 123 | 60 | 30 | 20 | 517 | 50% | 185.3 | 54 | 700 | 302 | – |
 | other | 71 | 34 | 102 | 60 | 30 | 20 | 884 | 50% | 240.3 | 68 | 658 | 419 | – |
 | other | 75 | 64 | 192 | 60 | 30 | 20 | 984 | 50% | 402.8 | 66 | 548 | 1011 | – |
@@ -90,6 +90,7 @@ Portal players leave if the page sits frozen. scriptMs = building the yard, comp
 | device | build | loads | first frame ms (median) | worst | script ms | compile ms | parallel |
 |---|---|---|---|---|---|---|---|
 | iPhone | 100 | 1 | 1418 | 1418 | 289 | 147 | 1/1 |
+| iPhone | 102 | 2 | 1580 | 1580 | 347 | 422 | 2/2 |
 
 ### Time to start (a person: page open -> driving in the first match)
 
@@ -98,6 +99,7 @@ load = page open to first frame, menu = time on the menu before Start, start = S
 | device | build | starts | page open -> driving s (median) | load s | menu s | start s |
 |---|---|---|---|---|---|---|
 | iPhone | 100 | 1 | 25.0 | 1.4 | 21.6 | 1.9 |
+| iPhone | 102 | 1 | 7.9 | 1.6 | 4.3 | 2.0 |
 
 ## Memory (GPU objects over a session)
 
@@ -161,7 +163,7 @@ Build 102+ reloads an autoplaying page whose memory runs away and logs what was 
 
 ## Physics safety-net catches
 
-- totals (full census): blowups 14521, fixes 3414625, clamps 123596, undos 13057, escapes 38, launches 75, rescues 11, below 27, nan 0 · safety-net work: fixes 3414625 (92441/h), clamps 123596 (3346/h) · kinds (census): solver kick undone 13057, blow-up clamped 1464, escaped the arena, put back 38, fell through floor, lifted back 11
+- totals (full census): blowups 14521, fixes 3414646, clamps 123596, undos 13057, escapes 38, launches 75, rescues 11, below 27, nan 0 · safety-net work: fixes 3414646 (92442/h), clamps 123596 (3346/h) · kinds (census): solver kick undone 13057, blow-up clamped 1464, escaped the arena, put back 38, fell through floor, lifted back 11
 - by vehicle (listed catches only — the game lists at most 40 per match, so this is a capped sample): Outrider 2281, Sandflea 1336, Viper 1020, Tow Truck 1001, bull 906, Cruiser 876, Forklift 852, Hellbender 762 · listed kinds: solver kick undone 9523, blow-up clamped 1293, escaped the arena, put back 36, fell through floor, lifted back 10
 
 - catch locations (listed catches with a position, same 12 m grid as stuck — do the two maps agree?): (97, 92): 371× · solver kick undone 370, fell through floor, lifted back 1; (98, 87): 338× · solver kick undone 338; (108, -60): 273× · solver kick undone 273; (0, 37): 203× · solver kick undone 203; (116, -71): 192× · solver kick undone 192; (84, -60): 179× · solver kick undone 178, fell through floor, lifted back 1; (95, -52): 170× · solver kick undone 170; (95, -58): 165× · solver kick undone 165
@@ -215,7 +217,7 @@ Build 102+ reloads an autoplaying page whose memory runs away and logs what was 
 - Mac: voice failures 371 over 418 matches · lines sent 16, started 0, errors 7 (engine never started)
 - iPhone: voice failures 0 over 1 matches · lines sent 1, started 1, errors 0
 - other: voice failures 22 over 307 matches · lines sent 1, started 0, errors 1 (engine never started)
-- errors & incidents (in and out of matches): 7× voice: voices: stuck - # lines asked for, engine busy # s and none started (last voice default, # voices, spea; 7× voice: voices: # recorded clips loaded (# voices); 2× voice: voices: stuck - still busy # s after the tab came back from # s in the background (last voice default, ; 1× voice: voices: stuck - # lines asked for and not one reported back, engine idle (last voice default, # voices,
+- errors & incidents (in and out of matches): 8× voice: voices: # recorded clips loaded (# voices); 7× voice: voices: stuck - # lines asked for, engine busy # s and none started (last voice default, # voices, spea; 2× voice: voices: stuck - still busy # s after the tab came back from # s in the background (last voice default, ; 1× voice: voices: stuck - # lines asked for and not one reported back, engine idle (last voice default, # voices,
 - network incidents: 52
 
 ## Autoplay
