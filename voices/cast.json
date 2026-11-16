@@ -181,27 +181,27 @@
       "designed_voice": true,
       "design_model": "eleven_ttv_v3 (/v1/text-to-voice/design, preview 1 of 3)"
     },
-    "rocket-raju": {
-      "speaker": "Rocket Raju",
-      "role": "Sandflea buggy",
+    "emeka-danfo": {
+      "speaker": "Emeka Danfo",
+      "role": "Sandflea buggy (Emeka \"Danfo\" Okafor)",
       "gender": "male",
-      "age": "young",
-      "accent": "indian (bollywood action hero)",
-      "description": "A swaggering Bollywood action-movie hero in his thirties speaking English with a very thick, exaggerated Indian accent: big dramatic baritone, rolling R's, theatrical pauses and sudden shouts, delivering every line like the climax of a blockbuster film, full of himself and hilarious.",
-      "library_search": "bollywood hero dramatic",
-      "voice_id": "pGU41KfmJqbdRZNSp2wH",
-      "voice_name": "Derby - Rocket Raju",
+      "age": "middle_aged",
+      "accent": "nigerian english with pidgin (lagos)",
+      "description": "A booming, joyful Nigerian man in his forties, a Lagos danfo bus driver turned dune-buggy daredevil, speaking very fast Nigerian English with a rich, thick Nigerian accent and pidgin: huge warm belly laugh, flamboyant showman energy, loud, theatrical, fast-talking and full of joy. Original character.",
+      "library_search": "nigerian accent energetic",
+      "voice_id": "x8pKrFfLv2OFidwTOGgy",
+      "voice_name": "Derby - Emeka Danfo Okafor",
       "tier": 1,
       "settings": {
-        "stability": 0.25,
+        "stability": 0.3,
         "similarity_boost": 0.8,
-        "style": 0.85,
+        "style": 0.8,
         "use_speaker_boost": true,
         "speed": 1.08
       },
       "library_voice": null,
       "designed_voice": true,
-      "design_model": "eleven_ttv_v3 (/v1/text-to-voice/design, preview 1 of 3)"
+      "design_model": "eleven_ttv_v3 (/v1/text-to-voice/design), owner-picked sample 12A"
     },
     "maxine-mactavish": {
       "speaker": "Maxine MacTavish",

@@ -29,6 +29,11 @@ The game normally speaks its lines with the browser's Web Speech voices. This fo
 
 After you add or change lines in the game: run `extract.mjs`, then `render.mjs` (it renders only the new ids), then optionally `render.mjs --prune` to delete clips for lines that no longer exist.
 
+## Status (Build 70, voice round 5)
+- Recorded: all 18 main voices. Kev and Lulu are fully recorded (Kev's new `KEV_LINES` and Lulu's `SHAZZA_R5` are on `eleven_flash_v2_5`; their older calls are on `eleven_multilingual_v2`). Emeka Danfo, Uncle Bogdan, Ragnar Rustbeard and Maxine MacTavish are entirely on Flash.
+- Not yet recorded: the 15 round-5 lines per driver (`CAST_R5` in index.html, 225 lines, ~10k characters). Render them after the credit reset: `node voices/render.mjs --tier 1` renders only what is missing. `tests/voicelines.js` allows at most 15 unrecorded lines per car character, so render them before adding more.
+- Credits: check `GET /v1/user/subscription` (`character_limit - character_count`) before every batch.
+
 ## Size and cost (current lines)
 
 | Batch | Clips | Characters billed | Rough cost* |

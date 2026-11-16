@@ -52,6 +52,7 @@ quick() {
   t aim 900 "AIM PASS"
   t heaps 300 "HEAPS PASS"
   t inside 600 "INSIDE PASS"
+  t voicelines 300 "VOICELINES PASS"
 }
 release() {
   quick
