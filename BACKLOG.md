@@ -28,6 +28,8 @@ Current state of the game: [RELEASES.md](RELEASES.md). Data to work from: the `p
 - **Performance on real phones:** use the play-log "Release to release" table per device. Any device below 50 fps for its 1% low is a target.
 - **The near-second hitches.** Slow time on the Mac is 62% "waiting on the graphics chip", and the worst single frames run 750–983 ms. Using the slow-incident breakdown (cause × quality level × match phase), find what those frames are — fire and particle load is the first suspect — and cut the worst offender. **Done:** the worst-frame cause named with log data, and slow seconds per hour down in the report after the fix.
 
+- **Portal readiness, next steps (owner asked 2026-11-16):** Build 100 did the menu order, parallel shader compile with menu-time warm-up, time-to-start logging and the watchdog updater. Still open, in order: (1) read the new Startup section after a day of data. Done when first frame is under 3 s on the Mac and under 5 s on the Chromebook, or the slow part is named. (2) The weak-laptop 1% low (the Chromebook item above). (3) A light reason to come back that adds no menu, e.g. a "best wrecks" record on the end-of-match card. (4) A milder line set for kids' portals (Poki): needs the owner's OK. (5) The portal SDK: ads only between matches, mute during ads. Needs the owner's OK and a portal pick.
+
 ## Breathing room and clarity (see TASTE.md)
 - **Arena and screen clarity pass:** check screenshots at phone and laptop sizes, and cut visual clutter. Small junk, particle overload, popups and HUD noise are candidates. **Done:** before/after screenshots in the commit, open-space ≥ 75% (QUALITY-GATES 3b), perf the same or better.
 

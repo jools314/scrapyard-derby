@@ -110,6 +110,30 @@ if inc:
     J['slowTop'] = [{'t': x.get('t'), 'secs': x.get('secs'), 'why': x.get('why'), 'q': x.get('q')} for x in top]
 L.append('')
 # --- stuck hotspots: cluster on a 12 m grid
+boots = [r for r in recs if r.get('kind') == 'boot' and not is_test(r)]
+if boots:
+    L.append('## Startup (page open -> first frame drawn)\n')
+    L.append('Portal players leave if the page sits frozen. scriptMs = building the yard, compileMs = shaders (parallel = compiled off the main thread), first frame = all of it.\n')
+    bb = collections.defaultdict(list)
+    for r in boots: bb[(dev_name(r), str(r.get('build')))].append(r)
+    def med(xs): xs = sorted(x for x in xs if isinstance(x, (int, float))); return xs[len(xs) // 2] if xs else '–'
+    L.append('| device | build | loads | first frame ms (median) | worst | script ms | compile ms | parallel |')
+    L.append('|---|---|---|---|---|---|---|---|')
+    for (d, b), xs in sorted(bb.items(), key=lambda kv: (kv[0][0], int(kv[0][1]) if kv[0][1].isdigit() else 0)):
+        L.append(f"| {d} | {b} | {len(xs)} | {med([x.get('firstFrameMs') for x in xs])} | {max((x.get('firstFrameMs') or 0) for x in xs)} | {med([x.get('scriptMs') for x in xs])} | {med([x.get('compileMs') for x in xs])} | {sum(1 for x in xs if x.get('parallel'))}/{len(xs)} |")
+    L.append('')
+starts = [r for r in recs if r.get('kind') == 'start' and not is_test(r) and not r.get('auto')]
+if starts:
+    L.append('### Time to start (a person: page open -> driving in the first match)\n')
+    L.append('load = page open to first frame, menu = time on the menu before Start, start = Start to the end of the countdown.\n')
+    bs = collections.defaultdict(list)
+    for r in starts: bs[(dev_name(r), str(r.get('build')))].append(r)
+    def med2(xs): xs = sorted(x for x in xs if isinstance(x, (int, float))); return round(xs[len(xs) // 2] / 1000, 1) if xs else '–'
+    L.append('| device | build | starts | page open -> driving s (median) | load s | menu s | start s |')
+    L.append('|---|---|---|---|---|---|---|')
+    for (d, b), xs in sorted(bs.items(), key=lambda kv: (kv[0][0], int(kv[0][1]) if kv[0][1].isdigit() else 0)):
+        L.append(f"| {d} | {b} | {len(xs)} | {med2([x.get('driveMs') for x in xs])} | {med2([x.get('loadMs') for x in xs])} | {med2([x.get('menuMs') for x in xs])} | {med2([x.get('startMs') for x in xs])} |")
+    L.append('')
 L.append('## Stuck hotspots\n')
 st = [s for m in real for s in (m.get('stuck', {}).get('list') or [])]
 cl = collections.defaultdict(list)

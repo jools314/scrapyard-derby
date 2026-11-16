@@ -1,10 +1,11 @@
 const { chromium } = require('playwright');
 const fs = require('fs'); const path = require('path');
 const NM = path.join(__dirname, 'node_modules');
-async function open(ctxOpts) {
+async function open(ctxOpts, init) { // init: optional function run in the page before the game loads (page.addInitScript)
   const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   const page = await browser.newPage(ctxOpts || { viewport: { width: 1280, height: 760 } });
   const errors = [];
+  if (init) await page.addInitScript(init);
   page.on('console', m => { if (m.type() === 'error' || m.type() === 'warning') errors.push(m.type() + ': ' + m.text()); });
   page.on('pageerror', e => errors.push('pageerror: ' + e.message));
   await page.route('**/*', async route => {

@@ -3,7 +3,37 @@
 <title>Scrapyard Derby</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'"><!-- (not render-blocking: the page paints with system fonts and swaps when these arrive) -->
+<meta name="derby-build" content="100"><!-- must equal BUILD in the script and version.txt (tests/syntax.js checks) -->
+<script>
+// Updater of last resort (Build 100). Runs on its own, outside the game script, so a build whose game code breaks, a CDN
+// that fails, or a bug in the in-game update check (Build 94's Mac sat stuck for hours) can't strand a computer on an old build.
+// Every 4 min it reads version.txt (a few bytes). It reloads into the newer build only when nobody is playing:
+//  - the game never started on this page (crashed or stuck loading), or
+//  - the game's own updater has had 12 minutes and the page is autoplaying or has had no input for 10 minutes.
+// It also retries a page whose game never started at all (up to 3 times, 5 min apart), in case the CDN had a hiccup.
+(function () {
+  var M = document.querySelector('meta[name=derby-build]'), MY = M ? +M.content : 0, K = window.__wdFast || 1, now = function () { return Date.now(); };
+  if (!(/github\.io$/.test(location.hostname) || window.__updTest) || !MY) return;
+  var W = window.__wd = { my: MY, checks: 0, newer: 0, at: 0, log: [] }, t0 = now(), lastInput = now();
+  ['pointerdown', 'keydown', 'touchstart'].forEach(function (e) { addEventListener(e, function () { lastInput = now(); }, true); });
+  var auto = function () { var D = window.__derby; return /[?&]autoplay=1/.test(location.search) || !!(D && D.AUTO && D.AUTO.on); };
+  var booted = function () { var D = window.__derby; return !!(D && D.BOOT && D.BOOT.frame); };
+  var go = function (why, v) { W.log.push(why); try { var q = new URLSearchParams(location.search); if (v) q.set('v', v); if (auto()) q.set('autoplay', '1'); q.set('wd', String(now() % 1e6));
+    (window.__wdReload || function (u) { location.replace(u); })(location.pathname + '?' + q); } catch (e) {} };
+  var check = function () { W.checks++; if (booted()) { try { sessionStorage.removeItem('derby-wd-retry'); } catch (e) {} }
+    (window.__wdFetch || fetch)('version.txt?u=' + now(), { cache: 'no-store' }).then(function (r) { return r.ok ? r.text() : ''; }).then(function (t) {
+      var n = parseInt(t, 10);
+      if (n > MY) { if (!W.newer) W.at = now(); W.newer = n;
+        if (!booted() && now() - t0 > 60000 / K) return go('game never started here; build ' + n + ' is out', n);
+        if (now() - W.at > 12 * 60000 / K && (auto() || now() - lastInput > 10 * 60000 / K)) return go('in-game update did not happen in 12 min: going to build ' + n, n); }
+      else if (!booted() && now() - t0 > 5 * 60000 / K) { var k = 0; try { k = +sessionStorage.getItem('derby-wd-retry') || 0; sessionStorage.setItem('derby-wd-retry', String(k + 1)); } catch (e) { k = 9; }
+        if (k < 3) go('game never started in 5 min: retry ' + (k + 1)); }
+    }).catch(function () {}); };
+  setTimeout(check, 20000 / K); setInterval(check, 4 * 60000 / K);
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) setTimeout(check, 3000 / K); });
+})();
+</script>
 <style>
   /* Layout: full-bleed 3D viewport; HUD pinned to corners; car select docked left over a live showroom; tuning drawer on the right.
      Single deliberate look: rust, sodium-lamp amber and soot, dark only. */
@@ -190,7 +220,8 @@
   .controls dt { font-weight: 700; color: var(--accent); }
   .controls dd { margin: 0; color: var(--fg); }
   .actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-  #menu .card .actions { position: sticky; bottom: -24px; margin: 0 -24px -24px; padding: 12px 24px 16px; background: linear-gradient(0deg, var(--panel) 75%, rgba(0,0,0,0)); z-index: 2; } /* Start derby is always on screen, however long the menu */
+  #menu .card .actions { position: sticky; bottom: -24px; margin: 0 -24px; padding: 12px 24px 14px; background: linear-gradient(0deg, var(--panel) 75%, rgba(0,0,0,0)); z-index: 2; } /* Start derby is always on screen, however long the menu */
+  #menu #btnStart { font-size: 20px; padding: 14px 34px; } /* the one thing a new player should see: car, then Start (Build 100) */
   @media (min-width: 900px) and (max-height: 1100px) { /* laptop screens: fit the menu without scrolling, keep the car visible beside it */
     #menu .card { gap: 10px; padding: 18px 22px 22px; }
     #menu .card h1 { font-size: 46px; margin: 0; line-height: 1.05; }
@@ -586,9 +617,23 @@
     <div class="card">
       <p class="eyebrow">Demolition derby · physics sandbox</p>
       <h1>Scrapyard Derby</h1>
-      <p>Wreck every opponent in the yard. Hit them nose first: your front bumper takes half damage. Knock off bumpers, doors and wheels. Every car has real mass, suspension and momentum.</p>
+      <p>Pick a car and wreck everyone in the yard. Hit them nose first: your front bumper takes half damage.</p>
+      <div>
+        <p class="label" style="margin:0 0 8px">Pick your car</p>
+        <div class="garage" id="garage"></div>
+      </div>
+      <p id="blurb"></p>
+      <div class="actions">
+        <span class="modes" role="group" aria-label="Game mode"><button type="button" class="mode" data-mode="respawn" aria-pressed="true">Respawn</button><button type="button" class="mode" data-mode="elim" aria-pressed="false">Elimination</button></span>
+        <button id="btnStart" class="primary" type="button">Start derby</button>
+        <button id="btnVR" type="button" hidden>🥽 Enter VR</button>
+        <button id="btnAutoplay" type="button" title="The computer drives every car, match after match, and logs how the game runs (fps, physics glitches, stuck cars, balance). Any key or tap stops it.">🤖 Autoplay (learn)</button>
+        <button id="btnApReport2" type="button" class="quiet" title="What the play log has measured so far">Report</button>
+        <button id="btnFull" class="touch-only" type="button">⛶ Full screen</button>
+        <span class="quiet">or press Enter</span>
+      </div>
       <div id="mpBox" class="mp">
-        <p class="label" style="margin:0">Multiplayer <span id="mpStatus" class="quiet"></span></p>
+        <p class="label" style="margin:0">Play with friends <span id="mpStatus" class="quiet"></span></p>
         <div class="mprow"><input id="mpNick" maxlength="14" placeholder="Your name" aria-label="Your name"><button id="btnFamily" type="button" class="join">Play together</button><button id="btnHost" type="button">Host with a link</button><button id="btnLeave" type="button" hidden>Leave</button></div>
         <p id="famWho" class="quiet" style="margin:0" aria-live="polite"></p>
         <div class="mprow" id="nearRow" hidden><button id="btnNearHost" type="button">Add nearby player</button><button id="btnNearJoin" type="button">Join nearby</button><span class="quiet">No internet service: the phones scan each other's screens, then talk over your Wi-Fi.</span></div>
@@ -599,11 +644,6 @@
         <details id="famSet"><summary class="quiet">Family yard name</summary><div class="mprow" style="margin-top:6px"><input id="famName" maxlength="40" aria-label="Family yard name" style="width:14em"><button id="btnFamName" type="button">Save</button></div><p class="quiet" style="margin:4px 0 0">Everyone whose game has the same name here lands in the same yard when they tap Play together. Pick something only your family knows.</p></details>
         <div id="mpShare" class="mpshare" hidden><canvas id="mpQR" width="180" height="180" aria-label="QR code to join"></canvas><div><p class="quiet" style="margin:0 0 6px">Scan to join, or send this link:</p><input id="mpLink" readonly aria-label="Join link"><button id="btnShareLink" type="button" class="primary" hidden>Share link</button> <button id="btnCopyLink" type="button">Copy link</button></div></div>
       </div>
-      <div>
-        <p class="label" style="margin:0 0 8px">Pick your car</p>
-        <div class="garage" id="garage"></div>
-      </div>
-      <p id="blurb"></p>
       <p class="quiet" style="margin:0">Green wrenches repair you and refit a lost wheel; blue canisters refill nitro. Bright, glowing junk flies when you hit it. Dark objects are heavy and shove back. Hazard stripes mean solid: steer around.</p>
       <details>
         <summary>Controls</summary>
@@ -627,15 +667,6 @@
           <dt>Touch</dt><dd>Drag left side to steer, pedals on the right</dd>
         </dl>
       </details>
-      <div class="actions">
-        <span class="modes" role="group" aria-label="Game mode"><button type="button" class="mode" data-mode="respawn" aria-pressed="true">Respawn</button><button type="button" class="mode" data-mode="elim" aria-pressed="false">Elimination</button></span>
-        <button id="btnStart" class="primary" type="button">Start derby</button>
-        <button id="btnVR" type="button" hidden>🥽 Enter VR</button>
-        <button id="btnAutoplay" type="button" title="The computer drives every car, match after match, and logs how the game runs (fps, physics glitches, stuck cars, balance). Any key or tap stops it.">🤖 Autoplay (learn)</button>
-        <button id="btnApReport2" type="button" class="quiet" title="What the play log has measured so far">Report</button>
-        <button id="btnFull" class="touch-only" type="button">⛶ Full screen</button>
-        <span class="quiet">or press Enter</span>
-      </div>
     </div>
   </div>
 
@@ -678,6 +709,7 @@
 </script>
 <script type="module">
 import * as THREE from 'three';
+const BOOT = { t0: performance.now() }; // startup timing for the play log: script start, shaders compiled, first frame drawn
 import * as CANNON from 'cannon-es';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
@@ -8341,6 +8373,7 @@ function resetMatch() {
 // so every tap or key press retries (at most every few seconds) until a voice has actually been heard.
 for (const ev of ['pointerdown', 'keydown', 'touchend']) addEventListener(ev, () => { if (barks.speechOK !== true && window.speechSynthesis && performance.now() - (barks.unlockT || -1e9) > 4000) barks.unlock(); }, { capture: true, passive: true });
 function startMatch() {
+  if (!BOOT.click) BOOT.click = performance.now(); // (time to start: when the first match was asked for)
   if (MP.role === 'guest') { toast('THE HOST STARTS THE ROUND', 'cool'); return; }
   sfx.init();
   if (sfx.ctx && sfx.ctx.state === 'suspended') sfx.ctx.resume();
@@ -8537,9 +8570,11 @@ const UPDATE = { checked: 0, newer: null,
       else if (this.updating && Date.now() - (this.upAt || 0) > 6 * 60000) { this.note('update stuck for 6 min: retrying'); this.going = false; this.upAt = Date.now(); this.goNow && this.goNow(); }
       return; }
     try {
-      const r = await fetch(location.pathname + '?u=' + Date.now(), { cache: 'no-store' }); this.checked = Date.now(); // (a fresh copy every time: a conditional revalidation could be answered from a stale cache)
-      if (!r.ok) { this.note('check: HTTP ' + r.status); return; }
-      const m = (await r.text()).match(/const BUILD = '(\d+)'/);
+      // version.txt: a few bytes instead of the whole 1.1 MB page every 5 minutes (Build 100); the page itself if it's missing
+      let r = await fetch(location.pathname.replace(/[^/]*$/, '') + 'version.txt?u=' + Date.now(), { cache: 'no-store' }), m = null; this.checked = Date.now();
+      if (r.ok) { const t = (await r.text()).trim(); if (/^\d+$/.test(t)) m = [t, t]; }
+      if (!m) { r = await fetch(location.pathname + '?u=' + Date.now(), { cache: 'no-store' }); // (a fresh copy every time: a conditional revalidation could be answered from a stale cache)
+        if (!r.ok) { this.note('check: HTTP ' + r.status); return; } m = (await r.text()).match(/const BUILD = '(\d+)'/); }
       this.n = (this.n || 0) + 1; this.last = m ? 'build ' + m[1] : 'no build number';
       if (m && +m[1] > +BUILD) { this.newer = m[1]; this.note('found build ' + m[1]); if (AUTO.on) this.autoUpdate(); else this.show(); }
     } catch (e) { this.note('check failed: ' + (e && e.message || e)); }
@@ -9854,7 +9889,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '99'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '100'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
@@ -10360,17 +10395,29 @@ let lastDrawT = performance.now();
 let WARMED = false;
 function warmShaders() { // compile every shader the round will need during the countdown, so the first blast or fire doesn't stall mid-fight
   WARMED = true; if (window.__noRender) return;
-  const t0 = performance.now(), tmp = new THREE.Group(), g = new THREE.SphereGeometry(1, 8, 6);
+  const t0 = performance.now(), tmp = warmGroup();
+  scene.add(tmp);
+  try { renderer.compile(scene, camera); } catch (e) {}
+  scene.remove(tmp); // (materials kept alive: disposing them would throw the compiled shaders away again)
+  ptag('shader warm-up', performance.now() - t0);
+}
+// Where the browser compiles shaders in parallel, do the same warm-up while the menu is up (Build 100): off the main thread, in a
+// scene of its own (nothing drawn) lit and fogged like the yard, so Start goes straight to the countdown. Before, pressing Start
+// compiled them all in one blocking step (seconds on a slow laptop between Start and driving).
+function prewarmAsync() {
+  if (WARMED || window.__noRender || !BOOT.parallel || !renderer.compileAsync) return; WARMED = true;
+  const t0 = performance.now(), ws = new THREE.Scene(); ws.add(warmGroup());
+  try { renderer.compileAsync(ws, camera, scene).then(() => { BOOT.warmMs = Math.round(performance.now() - t0); }, () => {}); } catch (e) {}
+}
+function warmGroup() {
+  const tmp = new THREE.Group(), g = new THREE.SphereGeometry(1, 8, 6);
   const mats = [new THREE.MeshBasicMaterial({ color: 0xffb040, transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending }),
     new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8, side: THREE.DoubleSide, depthWrite: false }),
     new THREE.MeshBasicMaterial({ color: 0x333333, transparent: true, opacity: 0.6, depthWrite: false }),
     new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 1 }), new THREE.MeshLambertMaterial({ color: 0x884422 })];
   for (const m of mats) { const x = new THREE.Mesh(g, m); x.position.copy(camera.position); tmp.add(x); }
   tmp.add(new THREE.Points(new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0], 3)), new THREE.PointsMaterial({ size: 1, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })));
-  scene.add(tmp);
-  try { renderer.compile(scene, camera); } catch (e) {}
-  scene.remove(tmp); // (materials kept alive: disposing them would throw the compiled shaders away again)
-  ptag('shader warm-up', performance.now() - t0);
+  return tmp;
 }
 function cockpitEye(c) { // where the driver's eye goes: toward the nose and just above the tallest part of the car ahead of it, so a cab, turret, crane or drum never fills the view
   const g = c.group, P = g.position.clone(), Q = g.quaternion.clone();
@@ -10454,6 +10501,8 @@ function openBugReport() { // one tap: the full report goes straight to the clip
   ptag('bug report taken'); dropUpload('bug', t);
 }
 function frameBody(now) {
+  if (!BOOT.drive && BOOT.frame && game.state === 'playing' && game.countdown <= 0 && player) bootDrive();
+  if (!BOOT.frame) { if (BOOT.f1) bootFrame(); else BOOT.f1 = performance.now(); } // (logged when the second frame starts: the first one, with any shader compiles it needed, is on screen)
   const rawDt = (now - lastDrawT) / 1000; lastDrawT = now;
   TABENV.frame(rawDt); PLAYLOG.frame(rawDt); // the play log: every match, whoever is driving (and autoplay's match loop)
   governQuality(rawDt); NETLOG.frame(rawDt); FLIGHT.rec();
@@ -11532,7 +11581,23 @@ const IDLE = { ms: 3 * 60 * 1000, last: performance.now(), on: !/[?&]noidle=1\b/
 for (const ev of ['keydown', 'pointerdown', 'pointermove', 'wheel', 'touchstart', 'touchmove']) addEventListener(ev, (e) => { if (e.isTrusted || window.__idleTest) IDLE.poke(); }, { capture: true, passive: true });
 setInterval(() => IDLE.check(), 5000);
 window.__derby = { GP, PICK, cyclePick: (d) => cyclePick(d), setPick: (c) => setPick(c, false), canAim, frontTarget: (c, r, k) => frontTarget(c, r, k), AUTO, PLAYLOG, INSIDE, BOULDERS, get mapShapes() { return mapShapes; }, respawnCar: (o, t) => respawnCar(o, t), PHYS, cockpitEye: (c) => cockpitEye(c), wakeProp: (pr) => wakeProp(pr), addConcrete: (x, z, r, k) => addConcrete(x, z, r, k), igniteProp: (pr, t) => igniteProp(pr, t), cookBull: (bl, by, dt) => cookBull(bl, by, dt), hoseBull: (car, bl, p, f, dt) => hoseBull(car, bl, p, f, dt), DUCKS, goldConeReveal: (pr) => goldConeReveal(pr), sadTromboneKind: (t) => sadTromboneKind(t), honkBack: (car) => honkBack(car), smashBurger: (bl, how) => smashBurger(bl, how), bladeSlam: (car) => bladeSlam(car), wearBunHat: (bl) => wearBunHat(bl), bunHatRoll: (bl) => bunHatRoll(bl), shakeOff: (bl) => shakeOff(bl), harvestProp: (car, pr) => harvestProp(car, pr), baleMsgRoll: () => baleMsgRoll(), BALE_MSGS, updateSigns: (dt) => updateSigns(dt), SIGN_PROPS, tankerBoom: (p, c) => tankerBoom(p, c), CAR_TYPES, sfx, CANNON, barks, PERF, shells, NETLOG, nearHostAdd: () => nearHostAdd(), nearJoin: () => nearJoin(), JUMBO, BALL, BOLLARDS, GASQ, updateArenaPub: (dt) => updateArena(dt), CRUSHER, crushNow: () => crushNow(), applyNight: () => applyNight(), FIREWORKS, ARENA, CROWD, MP, QUALITY, applyQuality: (i) => applyQuality(i), MERGED, camera, updatePropActivity: (dt) => updatePropActivity(dt), renderer, scene, spawnFree: (x, z, r) => spawnFree(x, z, r), BULLS, updateBulls: (dt) => updateBulls(dt), updateShells, tilt, setTilt, get CRANE() { return CRANE; }, updateCrane: (dt) => updateCrane(dt), CONCRETE, THREE, craters, shells, pickups, barks, PERSONAS, TUNE, game, cars, S, world, CAR_TYPES, sfx, touch, drawGauge, get player() { return player; }, keys, startMatch, selectCar, setValue, debris, props, platformOf, get simTime() { return simTime; }, set simTime(v) { simTime = v; } }; // console tinkering + tests
-requestAnimationFrame(frame);
+// Startup: compile every shader the menu scene needs off the main thread first (KHR_parallel_shader_compile), then start drawing.
+// Before Build 100 the first frame compiled them all in one blocking step: several seconds of a frozen page on a slow laptop
+// before the menu would even react to a click. Where the browser can't compile in parallel this costs the same as before.
+function startLoop(why) { if (BOOT.loop) return; BOOT.loop = why; BOOT.compiled = performance.now(); requestAnimationFrame(frame); }
+function bootFrame() { BOOT.frame = performance.now(); try { PLAYLOG.add({ v: 2, kind: 'boot', test: navigator.webdriver ? true : undefined, sid: PLAYLOG.sid, dev: PLAYLOG.devId, build: BUILD, at: new Date().toISOString(), device: PERFREP.device(),
+  scriptMs: Math.round(BOOT.ready - BOOT.t0), compileMs: Math.round(BOOT.compiled - BOOT.ready), firstFrameMs: Math.round(BOOT.frame), parallel: BOOT.parallel, how: BOOT.loop }); } catch (e) {}
+  setTimeout(prewarmAsync, 300); }
+function bootDrive() { BOOT.drive = performance.now(); // time to start: page open -> your car is yours to drive (first match's countdown over)
+  try { PLAYLOG.add({ v: 2, kind: 'start', test: navigator.webdriver ? true : undefined, sid: PLAYLOG.sid, dev: PLAYLOG.devId, build: BUILD, at: new Date().toISOString(), device: PERFREP.device(),
+    driveMs: Math.round(BOOT.drive), loadMs: Math.round(BOOT.frame), menuMs: BOOT.click ? Math.round(BOOT.click - BOOT.frame) : null, startMs: BOOT.click ? Math.round(BOOT.drive - BOOT.click) : null,
+    auto: AUTO.on || undefined, role: MP.role || undefined, warmMs: BOOT.warmMs }); } catch (e) {} }
+BOOT.ready = performance.now();
+try { BOOT.parallel = !!renderer.getContext().getExtension('KHR_parallel_shader_compile');
+  if (window.__noRender || !BOOT.parallel || !renderer.compileAsync) startLoop('direct');
+  else { renderer.compileAsync(scene, camera).then(() => startLoop('async'), () => startLoop('async-failed')); setTimeout(() => startLoop('timeout'), 8000); }
+} catch (e) { startLoop('error'); }
+window.__derby.BOOT = BOOT;
 window.__derby.IDLE = IDLE; window.__derby.TALK = TALK; window.__derby.DROP = DROP; window.__derby.SCORE = SCORE; window.__derby.UPDATE = UPDATE; window.__derby.TABENV = TABENV; window.__derby.PERFREP = PERFREP; // (test hooks)
 window.__derby.VR = VR; window.__derby.XRS = XRS; window.__derby.composer = composer;
 window.__derby.VCLIP = VCLIP; window.__derby.ROAST_BY = ROAST_BY; window.__derby.ROAST_PAIR = ROAST_PAIR; window.__derby.SHAZZA = SHAZZA; window.__derby.CAR_CAST = CAR_CAST; window.__derby.ANNOUNCER = ANNOUNCER; window.__derby.COP = COP; window.__derby.megaphone = megaphone; window.__derby.hornLine = hornLine;

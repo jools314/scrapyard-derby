@@ -24,6 +24,8 @@ quick() {
   t blade 600 "BLADE PASS"
   t crusheropen 600 "CRUSHEROPEN PASS"
   t lightcount 600 "LIGHTCOUNT PASS"
+  t portalstart 900 "PORTALSTART PASS"
+  t watchdog 600 "WATCHDOG PASS"
   t interact 1200 "^16/16"
   t twothumb 600 "TWO-THUMB PASS"
   t zoom 600 '"twoFingerBlocked":true,"oneFingerAllowed":true,"gestureBlocked":true'
