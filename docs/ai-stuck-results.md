@@ -1,6 +1,6 @@
 # claude/ai-stuck: per-car AI, stuck spots, harpoon / wrecking-ball physics — measurements
 
-Branch `claude/ai-stuck` (rebased on Build 90). Not landed: per AGENTS.md hard rules it waits for a clean Regression check.
+Branch `claude/ai-stuck` (rebased on Build 91). Not landed: per AGENTS.md hard rules it waits for a clean Regression check.
 
 ## What changed (index.html)
 - **Per-car AI** (`AI_ROLE`, `AI_PREY`, `AI_COUNTER` next to `PLAN_WEIGHTS`; tactics block in `Car.think`), from docs/car-roles.md:
@@ -46,3 +46,28 @@ game-s base 800 new 828; physics catches/game-h base 1642 new 530; play-log stuc
 | tanker | 1.13 → **0.29** | 2.26 → 0.40 | 30 → 44 | 14 → 10 | 10.4 → 8.3 | 2 → 0 |
 
 Read with care: two short runs per side. Clear wins: physics catches ÷3, stuck seconds ÷8, Viper/Outrider/Cruiser/tow truck/forklift up, Tiger up (its shells now earn kills). Still off: Bertha too high (5.5), Tanker, Camper, Fire truck low (0.2–0.33), Sandflea flat at 0.4; fewer wrecks per minute overall (the light cars break off instead of trading).
+
+## Balance pass (after review), Build 91 vs branch, 40 real minutes each (33 vs 35 game-min)
+Changes: camper lobs propane from 20-32 m instead of ramming; tanker kites chasers over its fuel slick and sidesteps fire users; sandflea orbits its target at 14 m laying a fire ring and hops clear of heavies; light cars hit Bertha on the beam (not her boulder-dropping tail) and Bertha can't target a small car right under her nose; the fast cars hunt the Tiger (its counters no longer fear it, it no longer flees them; it opens fire inside 65 m); the fire-truck hose earns the wreck of a car it rolls; the Cruiser kite line had been commented out by a stray `//` (fixed). Stats: tank shells x0.72, armour Tiger 0.3->0.4, Bertha 0.35->0.5, Sandflea 1.0->0.85, Outrider 0.9->0.8, Camper 0.9->0.8.
+Kill credit check: one wreck credits exactly one killer (game.onWreck); applyDamage only sets lastAttacker, the drag credit still wins after 1 s, so nothing is counted twice.
+
+game-s base 1972 new 2101; physics catches/game-h base 1254 new 399; play-log stuck>=4s s/game-h base 603 new 40
+| car | K/D base → new | kills/alive-min | avg life s | % time wrecked | stuck s/alive-min | phys catches/alive-h |
+|---|---|---|---|---|---|---|
+| outrider | 0.34 → **0.48** | 1.82 → 1.46 | 11 → 20 | 35 → 23 | 5.6 → 4.4 | 196 → 65 |
+| viper | 0.28 → **1.07** | 0.84 → 1.43 | 20 → 45 | 20 → 10 | 8.8 → 6.7 | 100 → 45 |
+| towtruck | 1.03 → **0.78** | 2.22 → 1.12 | 28 → 42 | 15 → 11 | 7.3 → 6.0 | 19 → 11 |
+| forklift | 0.67 → **0.75** | 1.35 → 0.84 | 30 → 53 | 14 → 9 | 10.0 → 9.2 | 14 → 15 |
+| sandflea | 0.30 → **0.24** | 1.23 → 0.46 | 15 → 31 | 25 → 14 | 8.6 → 4.9 | 78 → 19 |
+| camper | 0.37 → **0.18** | 1.00 → 0.29 | 22 → 38 | 18 → 12 | 7.9 → 4.6 | 196 → 10 |
+| mixer | 0.81 → **0.53** | 1.35 → 0.63 | 36 → 50 | 12 → 9 | 9.7 → 7.2 | 2 → 0 |
+| firetruck | 1.00 → **0.28** | 1.43 → 0.35 | 42 → 48 | 11 → 10 | 12.1 → 8.5 | 3 → 1 |
+| hellbender | 0.85 → **1.14** | 1.66 → 1.89 | 31 → 36 | 14 → 12 | 7.8 → 6.9 | 18 → 19 |
+| cruiser | 0.55 → **0.34** | 1.31 → 0.66 | 25 → 31 | 17 → 14 | 9.2 → 10.0 | 32 → 25 |
+| tiger | 0.29 → **4.50** | 0.74 → 1.86 | 23 → 145 | 18 → 3 | 7.7 → 6.1 | 7 → 0 |
+| dozer | 1.68 → **2.27** | 2.73 → 2.09 | 37 → 65 | 12 → 7 | 6.6 → 7.9 | 0 → 0 |
+| combine | 1.81 → **1.16** | 2.66 → 1.35 | 41 → 52 | 11 → 9 | 12.3 → 8.5 | 0 → 0 |
+| bertha | 2.42 → **4.39** | 2.65 → 3.76 | 55 → 70 | 8 → 7 | 7.0 → 6.4 | 2 → 0 |
+| tanker | 1.42 → **0.78** | 2.35 → 0.91 | 36 → 52 | 12 → 9 | 11.9 → 5.3 | 4 → 0 |
+
+Still outside 0.5-2.0: Tiger 4.5 and Bertha 4.4 (high), Camper 0.18, Sandflea 0.24, Fire truck 0.28, Cruiser 0.34 (low). Run-to-run noise is large (the fire truck read 0.88 in the previous 24-min run), so a car needs about 30+ game-minutes before a reading means much.
