@@ -41,7 +41,7 @@
       "accent": "german (thick, theatrical)",
       "description": "Oberst Klaus, a theatrical German panzer officer in his fifties with an extremely thick, exaggerated German accent: rolling R's, 'ze' and 'zis', crisp barked consonants, grandly polite and menacing, savouring every word like a cartoon villain.",
       "library_search": "german accent male officer villain",
-      "voice_id": "W3jXNbNy6hv4WqCrdiTy",
+      "voice_id": "CVP7d0EDsPO8YR2fweYp",
       "voice_name": "Derby - Oberst Klaus",
       "tier": 1,
       "settings": {
@@ -52,7 +52,9 @@
         "speed": 0.95
       },
       "library_voice": null,
-      "designed_voice": true
+      "designed_voice": true,
+      "retired_voice_id": "W3jXNbNy6hv4WqCrdiTy",
+      "note": "2026-11-16: designed voice retired to free a voice slot (Starter plan, 10 max) after all 123 lines were recorded with it. Any NEW Klaus line uses this library voice (Derby - Oberst Klaus), which sounds similar but not identical."
     },
     "tony-cement": {
       "speaker": "Tony Cement",
