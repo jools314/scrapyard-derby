@@ -58,7 +58,8 @@ const INIT = () => {
     await page.evaluate(() => { const D = __derby, ai = D.cars.filter((c) => !c.isPlayer); const find = (n) => D.PERSONAS.find((P) => P.nick === n);
       ai[0].persona = find('Tony Cement'); ai[1].persona = find('Dom'); ai[2].persona = D.COP; ai[0].name = 'Tony Cement'; ai[1].name = 'Dom'; window.__t = { tony: ai[0], dom: ai[1], cop: ai[2] }; });
     const snap = () => page.evaluate(() => ({ starts: __vc.starts, spoken: speechSynthesis.spoken.length, stats: { ...__derby.VCLIP.stats }, subs: document.getElementById('subs').textContent }));
-    const act = async (fn, arg) => { const a = await snap(); const L0 = await page.evaluate(() => __derby.VCLIP.stats.clips); const line = await page.evaluate(fn, arg); await page.waitForTimeout(3000); const b = await snap();
+    const calm = () => page.evaluate(() => { const T = __derby.TALK; if (T) { T.endT = 0; T.quietUntil = 0; T.hist = []; } for (const c of __derby.cars) if (c !== __t.tony && c !== __t.dom) c.lastBark = performance.now() / 1000 + 4; }); // (each step tests the clip layer, not pacing: clear the talk governor and hold back the drivers' own chatter for the step, so the step's forced line gets the slot; tests/talk.js covers pacing)
+    const act = async (fn, arg) => { await calm(); const a = await snap(); const L0 = await page.evaluate(() => __derby.VCLIP.stats.clips); const line = await page.evaluate(({ src, arg }) => { const T = __derby.TALK; if (T) { T.endT = 0; T.quietUntil = 0; T.hist = []; } __derby.VCLIP.stopAll(); return (0, eval)('(' + src + ')')(arg); }, { src: fn.toString(), arg }); /* governor cleared and any playing clip stopped in the same tick as the step's line, so nothing else can take the slot in between */ await page.waitForTimeout(3000); const b = await snap();
       const newSpoken = await page.evaluate((n) => speechSynthesis.spoken.slice(n), a.spoken);
       const played = await page.evaluate((n) => __derby.VCLIP.log.slice(-(__derby.VCLIP.stats.clips - n)), L0); // the clips that started during this step
       return { a, b, line, newSpoken, played: b.stats.clips > L0 ? played : [] }; };
@@ -76,19 +77,22 @@ const INIT = () => {
       r = await act(() => { __derby.barks.lastT = -99; __derby.barks.announce('intoCrusher', { a: 'Tony Cement', v: 'Dom' }, true); return [...document.querySelectorAll('#subs .sub')].map((d) => d.textContent).join(' | '); });
       g = r.played.find((x) => /Crash Cam Kev|Lulu/.test(x.who));
       ok('An announcer naming two drivers says the generic recorded call instead', !!g && genericOf.has((g.who === 'Lulu' ? 'lulu|' : 'crash-cam-kev|') + g.line) && !/Dom|Tony/.test(g.line) && r.line.includes(g.line), JSON.stringify(g || r.played));
-      r = await act(() => { const seen = []; for (let i = 0; i < 4; i++) { __derby.barks.lastT = -99; __derby.barks.announce(['bigHit', 'wreck', 'youCrash', 'headOn'][i], { a: 'You', v: 'Dom', vcar: 'Viper', kmh: 80 }, true); seen.push(document.querySelector('#subs .sub:last-child b').textContent); } return seen.join(','); });
+      r = await act(() => { const seen = []; for (let i = 0; i < 4; i++) { __derby.barks.lastT = -99; Object.assign(__derby.TALK, { endT: 0, quietUntil: 0, hist: [] }); __derby.barks.announce(['bigHit', 'wreck', 'youCrash', 'headOn'][i], { a: 'You', v: 'Dom', vcar: 'Viper', kmh: 80 }, true); seen.push(document.querySelector('#subs .sub:last-child b').textContent); } return seen.join(','); });
       ok('Kev and Lulu take turns on the calls', /Crash Cam Kev/.test(r.line) && /Lulu/.test(r.line), r.line);
       await page.evaluate(() => { window.__seen = []; new MutationObserver((ms) => { for (const m of ms) for (const n of m.addedNodes) window.__seen.push(n.textContent); }).observe(document.getElementById('subs'), { childList: true }); });
-      const setup = () => page.evaluate(() => { const { tony, dom } = __t, p = __derby.player.body.position; for (const c of __derby.cars) if (c !== tony && c !== dom && !c.isPlayer) c.body.position.set(p.x - 60, c.body.position.y, p.z - 60);
-        tony.body.position.set(p.x + 6, p.y + 0.5, p.z + 6); dom.body.position.set(p.x + 18, p.y + 0.5, p.z + 6); tony.body.velocity.set(11, 0, 0); dom.body.velocity.set(-11, 0, 0); __derby.barks.lastT = -99; tony.lastBark = -99; dom.lastBark = -99; window.__seen.length = 0; });
+      const setup = (fresh) => page.evaluate((fresh) => { for (const k of ['tony', 'dom']) { const o = __t[k]; if (o.wrecked) { const n = __derby.respawnCar(o, o.type); if (n) { n.persona = o.persona; n.name = o.name; __t[k] = n; } } } /* (a driver wrecked by the match meanwhile can't roast or be roasted: bring them back) */ const { tony, dom } = __t, p = __derby.player.body.position; for (const c of __derby.cars) if (c !== tony && c !== dom && !c.isPlayer) c.body.position.set(p.x - 60, c.body.position.y, p.z - 60);
+        tony.body.position.set(p.x + 6, p.y + 0.5, p.z + 6); dom.body.position.set(p.x + 18, p.y + 0.5, p.z + 6); tony.body.velocity.set(11, 0, 0); dom.body.velocity.set(-11, 0, 0); __derby.barks.lastT = -99; tony.lastBark = -99; dom.lastBark = -99; Object.assign(__derby.TALK, { endT: 0, quietUntil: 0, hist: [] }); if (fresh) __derby.ROAST_PAIR.clear(); window.__seen.length = 0; }, fresh);
       const roastsTD = await page.evaluate(() => [...__derby.ROAST_BY.get(__t.tony.persona).get('Dom'), ...__derby.ROAST_BY.get(__t.dom.persona).get('Tony Cement')]);
       const isRoast = (t) => roastsTD.some((x) => t.endsWith(x.replace(/^B\|/, '')));
       let seen = [], allSeen = [];
-      for (let tries = 0; tries < 4 && !seen.some(isRoast); tries++) { await setup(); await page.waitForTimeout(2500); seen = await page.evaluate(() => window.__seen.slice()); allSeen.push(...seen); } // (another driver's bark can take the slot first: try a few passes)
-      ok('Close pass: a roast naming the other driver plays and is captioned', seen.some(isRoast), JSON.stringify(allSeen));
+      await page.evaluate(() => { const B = __derby.barks; B.__say = B.say; B.__ann = B.announce; B.say = function (car, ev, ...rest) { return ev === 'roast' ? B.__say.call(this, car, ev, ...rest) : undefined; }; B.announce = () => {}; }); // (only roasts during this step: the match's other chatter and calls would take the talk slot first)
+      for (let tries = 0; tries < 8 && !seen.some(isRoast); tries++) { await calm(); await setup(true); await page.waitForTimeout(2500); seen = await page.evaluate(() => window.__seen.slice()); allSeen.push(...seen); } // (another driver's bark can take the slot first: try a few passes)
+      const why = await page.evaluate(() => ({ state: __derby.game.state, tonyWrecked: !!__t.tony.wrecked, domWrecked: !!__t.dom.wrecked, gap: +(__t.tony.body.position.distanceTo(__t.dom.body.position)).toFixed(1), toPlayer: +(__t.tony.body.position.distanceTo(__derby.player.body.position)).toFixed(1), playerWrecked: !!__derby.player.wrecked }));
+      ok('Close pass: a roast naming the other driver plays and is captioned', seen.some(isRoast), JSON.stringify(allSeen) + ' ' + JSON.stringify(why));
       const pairT = await page.evaluate(() => Object.fromEntries(__derby.ROAST_PAIR));
       await setup(); await page.waitForTimeout(2500);
       seen = await page.evaluate(() => window.__seen.slice()); const pairT2 = await page.evaluate(() => Object.fromEntries(__derby.ROAST_PAIR));
+      await page.evaluate(() => { const B = __derby.barks; B.say = B.__say; B.announce = B.__ann; });
       ok('  ...and the same pair does not roast again within the cooldown', !seen.some(isRoast) && ['Tony Cement|Dom', 'Dom|Tony Cement'].every((k) => pairT[k] === pairT2[k]), JSON.stringify({ seen, pairT, pairT2 }));
       r = await act(() => { __derby.barks.lastT = -99; __derby.megaphone(__t.cop, 'backup'); });
       const mg = r.played.filter((x) => x.who === 'Sheriff Buck');
@@ -108,7 +112,7 @@ const INIT = () => {
       ok('Web Speech never used for a line that has a clip (whole match)', wrong.length === 0, `spoken ${all.spoken.length}, wrongly spoken: ${JSON.stringify(wrong.slice(0, 3))}; stats ${JSON.stringify(all.stats)}`);
       ok('Clips were preloaded for the drivers on track', all.preloaded > 5, `fetched ${all.preloaded}, decoded cache ${(all.bytes / 1e6).toFixed(2)} MB`);
     } else {
-      const r = await act(() => { __derby.barks.say(__t.tony, 'gotHit', true); __derby.barks.say(__t.dom, 'gotHit', true); return [...document.querySelectorAll('#subs .sub')].map((d) => d.textContent).join(' | '); });
+      const r = await act(() => { __derby.barks.say(__t.tony, 'gotHit', true); Object.assign(__derby.TALK, { endT: 0, quietUntil: 0, hist: [] }); __derby.barks.say(__t.dom, 'gotHit', true); return [...document.querySelectorAll('#subs .sub')].map((d) => d.textContent).join(' | '); });
       const sp = r.newSpoken.filter((x) => !/Welcome|Here we go/.test(x));
       ok('No manifest: VCLIP stays off and the lines go to Web Speech as before', (await page.evaluate(() => __derby.VCLIP.clips)) === null && sp.length >= 2 && r.b.starts === r.a.starts && /Tony Cement.*Dom/.test(r.line) && sp.some((x) => r.line.includes(x)), JSON.stringify(sp) + ' captions: ' + r.line);
       ok('No manifest: only the manifest was requested', reqs.length === 1 && reqs[0].endsWith('/voices/manifest.json'), JSON.stringify(reqs));
@@ -118,5 +122,5 @@ const INIT = () => {
   }
   try { await run(true); await run(false); } catch (e) { console.log('ERROR', e.message); results.push(false); }
   await browser.close();
-  console.log(results.every(Boolean) ? `ALL ${results.length} PASSED` : `${results.filter((x) => !x).length} FAILED of ${results.length}`);
+  console.log(results.every(Boolean) ? `ALL ${results.length} PASSED` : `${results.filter((x) => !x).length} FAILED of ${results.length}`); process.exitCode = results.every(Boolean) ? 0 : 1;
 })();
