@@ -22,6 +22,7 @@ Format: `- [agent] topic — branch — claimed YYYY-MM-DD HH:MM UTC — notes`
 ## Ready to land (needs the test gate)
 
 ## Done
+- [claude] Build 98: autoplay auto-update made reliable and logged; updatecheck test — build 98
 - [claude] Build 97: plane ground + debris sleeps sooner (~25% less physics per step) — build 97
 - [claude] Build 96: broadphase sorts by its own key every step (no more missed touching pairs near the centre); broadphase test — build 96
 - [claude] Voice round 5: Emeka "Danfo" Okafor replaces Rocket Raju (Sandflea); Emeka, Bogdan, Ragnar, Maxine recorded on Flash; 60 new calls each for Kev and Lulu (recorded); 15 more lines per driver (CAST_R5, 225 lines, not recorded yet: ~10k chars, ~2k credits, after the 14 Dec reset or now if the owner OKs; 8,325 credits left); voiceclips-test fixed for the talk governor; tests/voicelines.js — build 95
