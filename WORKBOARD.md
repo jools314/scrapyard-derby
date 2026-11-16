@@ -21,6 +21,7 @@ Format: `- [agent] topic — branch — claimed YYYY-MM-DD HH:MM UTC — notes`
 ## Ready to land (needs the test gate)
 
 ## Done
+- [claude] Build 102: memory guard (leak census in the play log, autoplay reload when memory runs away; Memory section in the report) — build 102.
 - [claude] Build 101: GPU memory leak fixed (the Chromebook/Mac regressions), HUD 20 Hz + solver 8 on weak laptops — build 101. Next: Build 102 memory guard (claude/memguard), then spider/elephant renumbered 103+.
 - [claude] Build 100: portal-style start (menu order, parallel shader compile + menu-time warm-up, fonts non-blocking), time-to-start in the play log, watchdog updater + version.txt — build 100. Spider/elephant renumber to 101+.
 - [claude] tests only: `rc-voices-exhaust` matches the talk governor (calm gaps between announcements, plus a check that a back-to-back burst is dropped); passes 3/3 on Build 99 — no build

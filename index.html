@@ -4,7 +4,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'"><!-- (not render-blocking: the page paints with system fonts and swaps when these arrive) -->
-<meta name="derby-build" content="101"><!-- must equal BUILD in the script and version.txt (tests/syntax.js checks) -->
+<meta name="derby-build" content="102"><!-- must equal BUILD in the script and version.txt (tests/syntax.js checks) -->
 <script>
 // Updater of last resort (Build 100). Runs on its own, outside the game script, so a build whose game code breaks, a CDN
 // that fails, or a bug in the in-game update check (Build 94's Mac sat stuck for hours) can't strand a computer on an old build.
@@ -709,7 +709,13 @@
 </script>
 <script type="module">
 import * as THREE from 'three';
-const BOOT = { t0: performance.now() }; // startup timing for the play log: script start, shaders compiled, first frame drawn
+const BOOT = { t0: performance.now() };
+// Memory guard, part 1 (Build 102): every geometry and texture the GPU holds a copy of. three.js adds a 'dispose' listener when it
+// uploads one and removes it when it is freed, so this Set is exactly what is on the GPU. Costs a Set add/delete per upload.
+const GPULIVE = new Set();
+for (const C of [THREE.BufferGeometry, THREE.Texture]) { const P = C.prototype, a = P.addEventListener, rm = P.removeEventListener;
+  P.addEventListener = function (t, f) { if (t === 'dispose') GPULIVE.add(this); return a.call(this, t, f); };
+  P.removeEventListener = function (t, f) { if (t === 'dispose') GPULIVE.delete(this); return rm.call(this, t, f); }; } // startup timing for the play log: script start, shaders compiled, first frame drawn
 import * as CANNON from 'cannon-es';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
@@ -8567,6 +8573,36 @@ $('btnGear').addEventListener('click', (e) => { e.stopPropagation(); e.currentTa
 for (const id of ['btnTune', 'btnNew', 'btnPerf', 'btnNetLog']) $(id).addEventListener('click', () => gearOpen(false));
 document.addEventListener('pointerdown', (e) => { if (!$('gearMenu').hidden && !e.target.closest('#gearMenu, #btnGear')) gearOpen(false); });
 // New-version check (GitHub Pages): a tab left open, or the browser's cache, can keep running an old build. Look for a newer one and offer a one-tap reload.
+// Memory guard, part 2 (Build 102): long sessions must not slowly fill the GPU (Build 101 fixed a leak that took the Chromebook from
+// 60 to 15 fps over 25 autoplay matches). After every match: compare with the first match. If memory is running away, first find out
+// WHAT is leaking - the uploaded objects no longer in the scene, grouped by what they are and what last held them - log and upload that
+// (a 'leak' record, in the play-log report), and then, when nobody is playing (autoplay), reload into autoplay. A person is never
+// interrupted: their session only logs it.
+const MEMGUARD = { owner: new WeakMap(), base: null, n: 0, tripped: false, log: [],
+  stats() { const m = renderer.info.memory, pm = performance.memory; return { g: m.geometries, t: m.textures, live: GPULIVE.size, heapMB: pm ? Math.round(pm.usedJSHeapSize / 1e6) : null, objs: (() => { let k = 0; scene.traverse(() => k++); return k; })() }; },
+  label(o) { // what held it: the nearest name, or the top-level object's kind (a car's type, a prop's kind, a tagged group)
+    for (let p = o; p && p !== scene; p = p.parent) { if (p.name) return p.name; const u = p.userData || {}; if (u.kind || u.what) return String(u.kind || u.what); if (u.car && u.car.type) return 'car:' + u.car.type; }
+    let top = o; while (top.parent && top.parent !== scene) top = top.parent; const u = Object.keys(top.userData || {}).slice(0, 3).join(','); return top.type + (u ? '{' + u + '}' : ''); },
+  walk() { const seen = new Set(); scene.traverse((o) => { const lb = () => this.label(o); if (o.geometry) { seen.add(o.geometry); this.owner.set(o.geometry, lb()); }
+      for (const m of [].concat(o.material || [])) if (m) for (const k in m) { const t = m[k]; if (t && t.isTexture) { seen.add(t); this.owner.set(t, lb()); } } }); return seen; },
+  desc(x) { if (x.isTexture) { const im = x.image || {}; return 'texture ' + (im.width || '?') + 'x' + (im.height || '?') + (x.isDataTexture ? ' data' : im.tagName === 'CANVAS' ? ' canvas' : ''); }
+    const pr = x.parameters ? Object.values(x.parameters).slice(0, 3).map((v) => typeof v === 'number' ? +v.toFixed(2) : v).join('×') : ''; return x.type + (pr ? ' ' + pr : '') + ' (' + (x.attributes.position ? x.attributes.position.count : 0) + ' verts)'; },
+  census() { const inScene = this.walk(), groups = new Map(); let n = 0;
+    for (const x of GPULIVE) { if (inScene.has(x)) continue; n++; const k = (this.owner.get(x) || 'never in the scene') + ' · ' + this.desc(x); groups.set(k, (groups.get(k) || 0) + 1); }
+    return { orphans: n, top: [...groups].sort((a, b) => b[1] - a[1]).slice(0, 15) }; },
+  check(where) { // returns true when it has started a reload
+    try { this.n++; this.walk(); const s = this.stats(); if (!this.base) { if (this.n >= 1) this.base = s; return false; }
+      const b = this.base, run = s.g > b.g + 1500 || s.t > b.t + 400 || s.live > b.live + 2000 || (s.heapMB && b.heapMB && s.heapMB > Math.max(1500, b.heapMB * 4));
+      if (!run || this.tripped) return false; this.tripped = true;
+      const c = this.census(), rec = { v: 2, kind: 'leak', test: navigator.webdriver ? true : undefined, sid: PLAYLOG.sid, dev: PLAYLOG.devId, build: BUILD, at: new Date().toISOString(), device: PERFREP.device(), where, matches: this.n, base: b, now: s, orphans: c.orphans, top: c.top, auto: AUTO.on || undefined };
+      this.last = rec; PLAYLOG.add(rec); NETLOG.incident('me', `memory running away after ${this.n} matches: ${b.g} -> ${s.g} geometries, ${b.t} -> ${s.t} textures; top leak: ${c.top[0] ? c.top[0][0] + ' ×' + c.top[0][1] : '?'}`);
+      if (!AUTO.on) { PLAYLOG.upload('memory running away'); return false; } // a person is playing: log it, never interrupt
+      let k = 0; try { k = +sessionStorage.getItem('derby-mem-reloads') || 0; sessionStorage.setItem('derby-mem-reloads', String(k + 1)); } catch (e) {}
+      if (k >= 3) { PLAYLOG.upload('memory running away (reload limit reached)'); return false; } // (3 per tab session: never a reload loop)
+      const go = () => UPDATE.reload(location.pathname + '?autoplay=1' + (AUTO.idle ? '&idle=1' : '') + '&mem=' + (k + 1));
+      Promise.race([PLAYLOG.upload('memory running away: reloading'), new Promise((r) => setTimeout(r, 15000))]).then(go, go); return true;
+    } catch (e) { return false; } },
+};
 const UPDATE = { checked: 0, newer: null,
   async check() {
     if (!/github\.io$/.test(location.hostname) && !window.__updTest) return;
@@ -9894,7 +9930,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '101'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '102'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
@@ -10506,6 +10542,7 @@ function openBugReport() { // one tap: the full report goes straight to the clip
   ptag('bug report taken'); dropUpload('bug', t);
 }
 function frameBody(now) {
+  if (now - (MEMGUARD.walkT || 0) > 5000) { MEMGUARD.walkT = now; try { MEMGUARD.walk(); } catch (e) {} } // (who holds each GPU object, every 5 s: so a leak can be named later)
   if (!BOOT.drive && BOOT.frame && game.state === 'playing' && game.countdown <= 0 && player) bootDrive();
   if (!BOOT.frame) { if (BOOT.f1) bootFrame(); else BOOT.f1 = performance.now(); } // (logged when the second frame starts: the first one, with any shader compiles it needed, is on screen)
   const rawDt = (now - lastDrawT) / 1000; lastDrawT = now;
@@ -11350,6 +11387,7 @@ Object.assign(PLAYLOG, {
     const o = this.meta(); this.dropCk(o, m.id); this.saveMeta(o);
     if (r && (r.game >= 3 || r.errs.n || r.phys.list.length)) { this.add(r); this.upload('match end'); } // (a round thrown away in its first seconds says nothing)
     if (r && AUTO.on) AUTO.logged(r);
+    if (!AUTO.on) MEMGUARD.check('match end');
     return r;
   },
   roundReset() { if (this.m) this.finish(game.state === 'menu' ? 'quit to menu' : 'restarted'); this.closed = false; }, // resetMatch: a new round may start
@@ -11480,7 +11518,7 @@ Object.assign(AUTO, {
     showMenu(); buildGarage(); ptag('autoplay off'); toast('AUTOPLAY STOPPED', 'cool');
   },
   async lock() { try { if (this.on && !this.idle && navigator.wakeLock && !document.hidden && (!this.wl || this.wl.released)) this.wl = await navigator.wakeLock.request('screen'); } catch (e) {} }, // keep the screen awake
-  nextMatch() { if (UPDATE.updating && UPDATE.goNow) { UPDATE.goNow(); return; } this.pending = false; // (a new build is waiting: switch at the match boundary)
+  nextMatch() { if (UPDATE.updating && UPDATE.goNow) { UPDATE.goNow(); return; } if (MEMGUARD.check('autoplay match end')) return; this.pending = false; // (a new build is waiting: switch at the match boundary)
  playerType = this.nextType(); startMatch(); this.seq++; this.camCar = null; this.camHold = 0; },
   logged(r) { this.last = r; if (this.on) toast(`MATCH ${this.seq} LOGGED`, 'cool'); },
   tick(dt) { // (from the play log's sim step, while autoplay is on)
@@ -11602,7 +11640,7 @@ try { BOOT.parallel = !!renderer.getContext().getExtension('KHR_parallel_shader_
   if (window.__noRender || !BOOT.parallel || !renderer.compileAsync) startLoop('direct');
   else { renderer.compileAsync(scene, camera).then(() => startLoop('async'), () => startLoop('async-failed')); setTimeout(() => startLoop('timeout'), 8000); }
 } catch (e) { startLoop('error'); }
-window.__derby.BOOT = BOOT;
+window.__derby.BOOT = BOOT; window.__derby.MEMGUARD = MEMGUARD; window.__derby.GPULIVE = GPULIVE;
 window.__derby.IDLE = IDLE; window.__derby.TALK = TALK; window.__derby.DROP = DROP; window.__derby.SCORE = SCORE; window.__derby.UPDATE = UPDATE; window.__derby.TABENV = TABENV; window.__derby.PERFREP = PERFREP; // (test hooks)
 window.__derby.VR = VR; window.__derby.XRS = XRS; window.__derby.composer = composer;
 window.__derby.VCLIP = VCLIP; window.__derby.ROAST_BY = ROAST_BY; window.__derby.ROAST_PAIR = ROAST_PAIR; window.__derby.SHAZZA = SHAZZA; window.__derby.CAR_CAST = CAR_CAST; window.__derby.ANNOUNCER = ANNOUNCER; window.__derby.COP = COP; window.__derby.megaphone = megaphone; window.__derby.hornLine = hornLine;

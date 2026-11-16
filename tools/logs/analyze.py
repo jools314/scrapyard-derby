@@ -134,6 +134,31 @@ if starts:
     for (d, b), xs in sorted(bs.items(), key=lambda kv: (kv[0][0], int(kv[0][1]) if kv[0][1].isdigit() else 0)):
         L.append(f"| {d} | {b} | {len(xs)} | {med2([x.get('driveMs') for x in xs])} | {med2([x.get('loadMs') for x in xs])} | {med2([x.get('menuMs') for x in xs])} | {med2([x.get('startMs') for x in xs])} |")
     L.append('')
+# memory over a session: GPU geometries per match by device/build (a leak shows as a steady climb), plus the guard's leak reports
+L.append('## Memory (GPU objects over a session)\n')
+L.append('Build 102+ reloads an autoplaying page whose memory runs away and logs what was leaking first. A healthy session stays flat.\n')
+bysid = collections.defaultdict(list)
+for m in real:
+    mm = m.get('mem') or {}
+    if mm.get('geo') is not None: bysid[m.get('sid')].append(m)
+grow = collections.defaultdict(list)
+for sid, xs in bysid.items():
+    xs.sort(key=lambda r: r.get('start', ''))
+    if len(xs) >= 6:
+        g0, g1 = xs[1]['mem']['geo'], xs[-1]['mem']['geo']
+        grow[(dev_name(xs[-1]), str(xs[-1].get('build')))].append(round((g1 - g0) / (len(xs) - 2), 1))
+if grow:
+    L.append('| device | build | sessions (6+ matches) | geometries added per match (median) |')
+    L.append('|---|---|---|---|')
+    for (d, b), v in sorted(grow.items()):
+        v = sorted(v); L.append(f'| {d} | {b} | {len(v)} | {v[len(v)//2]} |')
+    L.append('')
+leaks = [r for r in recs if r.get('kind') == 'leak' and not is_test(r)]
+for r in leaks[-5:]:
+    top = '; '.join(f'{k} ×{n}' for k, n in (r.get('top') or [])[:5])
+    L.append(f"- **leak** {dev_name(r)} build {r.get('build')} after {r.get('matches')} matches ({'autoplay, reloaded' if r.get('auto') else 'person playing'}): geometries {r.get('base', {}).get('g')} -> {r.get('now', {}).get('g')}, textures {r.get('base', {}).get('t')} -> {r.get('now', {}).get('t')}; {r.get('orphans')} orphaned: {top}")
+if not leaks: L.append('- no leak reports from the memory guard')
+L.append('')
 L.append('## Stuck hotspots\n')
 st = [s for m in real for s in (m.get('stuck', {}).get('list') or [])]
 cl = collections.defaultdict(list)
