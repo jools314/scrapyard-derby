@@ -4,7 +4,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'"><!-- (not render-blocking: the page paints with system fonts and swaps when these arrive) -->
-<meta name="derby-build" content="100"><!-- must equal BUILD in the script and version.txt (tests/syntax.js checks) -->
+<meta name="derby-build" content="101"><!-- must equal BUILD in the script and version.txt (tests/syntax.js checks) -->
 <script>
 // Updater of last resort (Build 100). Runs on its own, outside the game script, so a build whose game code breaks, a CDN
 // that fails, or a bug in the in-game update check (Build 94's Mac sat stuck for hours) can't strand a computer on an old build.
@@ -2233,8 +2233,9 @@ function updatePropBatches() {
 }
 function buildProps() {
   PROPID.n = 0; PROPID.map.clear();
-  for (const p of props) { world.removeBody(p.body); scene.remove(p.mesh); p.dormant = false; }
-  for (const m of flats) scene.remove(m); flats.length = 0;
+  // (each match rebuilds the props: free the old ones' GPU buffers, or every match leaked ~100 geometries; see Build 101)
+  for (const p of props) { world.removeBody(p.body); scene.remove(p.mesh); freeObject(p.mesh, []); p.dormant = false; }
+  for (const m of flats) { scene.remove(m); freeObject(m, []); } flats.length = 0;
   props.length = 0;
   const crateShape = new CANNON.Box(new CANNON.Vec3(0.6, 0.6, 0.6));
   const wall = (ox, oz, alongX) => {
@@ -2361,7 +2362,7 @@ function pickupMesh(kind) {
   return g;
 }
 function buildPickups() {
-  for (const p of pickups) scene.remove(p.mesh);
+  for (const p of pickups) { scene.remove(p.mesh); freeObject(p.mesh, []); }
   pickups.length = 0;
   for (const [x, z, kind] of PICKUP_SPOTS) {
     const plat = platformOf({ x, y: 50, z }); // spots on the mesa tier or the gap plateau float above that surface
@@ -3423,6 +3424,7 @@ function addDebris(mesh, shape, shapeOffset, shapeQuat, mass, vel, angVel) {
 }
 function freeObject(root, ownMats) { // release the GPU buffers of everything under root; shared geometry is marked userData.shared and kept
   const seen = new Set(); root.traverse((o) => { const g = o.geometry; if (g && !seen.has(g) && !(g.userData && g.userData.shared)) { seen.add(g); g.dispose(); }
+    if (o.isSkinnedMesh && o.skeleton && !seen.has(o.skeleton)) { seen.add(o.skeleton); o.skeleton.dispose(); } // (a bull's bone texture; three rebuilds it if the skeleton is ever drawn again)
     for (const m of [].concat(o.material || [])) if (m && m.map && m.map.userData && m.map.userData.own && !seen.has(m)) { seen.add(m); m.map.dispose(); m.dispose(); } }); // a car's own number plates and track belts
   for (const m of ownMats) if (m && m.dispose) m.dispose();
 }
@@ -4110,7 +4112,8 @@ class Car {
       const tg = new THREE.Sprite(this.tailGlow); tg.position.set(-0.08, 0, 0); tg.scale.set(0.6, 0.35, 1); tl.add(tg);
     }
     // Doors with racing numbers, mirrors
-    const numMat = new THREE.MeshStandardMaterial({ map: numberTex(this.number, this.baseColor), roughness: 0.45, metalness: 0.3 });
+    const numTx = numberTex(this.number, this.baseColor); numTx.userData.own = true; // (one per car: freed with it, like the plates; it leaked on every respawn before Build 101)
+    const numMat = new THREE.MeshStandardMaterial({ map: numTx, roughness: 0.45, metalness: 0.3 });
     const doorL = Math.min(C.l * 0.9, L * 0.4);
     if (st !== 'tank') for (const s of [-1, 1]) {
       const side = s < 0 ? 'left' : 'right';
@@ -6437,6 +6440,7 @@ let hudT = 0;
 const _hudW = new WeakMap(); // last value written per element, so a frame that changes nothing touches nothing
 function hudTxt(e, v) { if (_hudW.get(e) !== v) { _hudW.set(e, v); e.textContent = v; } }
 function hudWidth(e, v) { const k = 'w' + v; if (_hudW.get(e.style) !== k) { _hudW.set(e.style, k); e.style.width = v; } }
+const HUDLITE = { t: 0 };
 function updateHUD(dt) {
   if (!player) return;
   hudT -= dt;
@@ -6445,8 +6449,9 @@ function updateHUD(dt) {
     if (pk && game.state === 'playing') { const p = pk.body.position; tv3.set(p.x, p.y + 0.7, p.z).project(camera);
       if (tv3.z < 1 && Math.abs(tv3.x) < 1.1 && Math.abs(tv3.y) < 1.1) { show = true; pm.style.transform = `translate(${((tv3.x + 1) / 2 * canvas.clientWidth).toFixed(0)}px, ${((1 - tv3.y) / 2 * canvas.clientHeight).toFixed(0)}px)`; hudTxt($('pickName'), '🎯 ' + pk.name); pm.classList.toggle('far', !!player.pickLost); } }
     if (pm.hidden === show) pm.hidden = !show; }
-  drawGauge();
-  updateThreats();
+  // weak devices (the two lowest quality levels): the speedometer and the off-screen threat arrows redraw ~20 times a second, not every
+  // frame. On a 4x-throttled CPU they were ~4.5% of the frame (Build 101); 20 Hz looks the same for a needle and edge arrows.
+  { const now = performance.now(); if (QUALITY.level < 6 || now - (HUDLITE.t || 0) >= 48) { HUDLITE.t = now; drawGauge(); updateThreats(); } }
   updateTags();
   if (player.T.special) { // special weapon cooldown
     const W = WEAPONS[player.T.special], cd = player.specialCd || 0;
@@ -8355,9 +8360,9 @@ function resetMatch() {
   for (const p of parts) if (p) p.mesh.visible = false;
   for (const p of sprites) if (p) p.mesh.visible = false;
   while (debris.length) removeDebris(debris[0]);
-  for (const sh of shells) scene.remove(sh.mesh); shells.length = 0;
-  for (const c of craters) scene.remove(c); craters.length = 0;
-  for (const c of CONCRETE.list) scene.remove(c.mesh); CONCRETE.list.length = 0;
+  for (const sh of shells) { scene.remove(sh.mesh); freeObject(sh.mesh, []); } shells.length = 0;
+  for (const c of craters) { scene.remove(c); freeObject(c, []); } craters.length = 0;
+  for (const c of CONCRETE.list) { scene.remove(c.mesh); freeObject(c.mesh, []); } CONCRETE.list.length = 0;
   for (const c of cars) if (c.cable) WEAPONS.harpoon.end(c);
   for (const e of threatEls.values()) e.remove();
   barks.safeCancel(); VCLIP.stopAll();
@@ -9223,8 +9228,8 @@ function honkBack(car) { // HONK BACK: honk at a bull and it answers with a moo 
   return { bull: best, f, n: best.honkN };
 }
 function resetBulls() {
-  for (const bl of BULLS) { scene.remove(bl.g); world.removeBody(bl.body); } BULLS.length = 0;
-  for (const d of DUCKS) scene.remove(d.g); DUCKS.length = 0;
+  for (const bl of BULLS) { scene.remove(bl.g); freeObject(bl.g, []); world.removeBody(bl.body); } BULLS.length = 0; // (freed: new bulls every match)
+  for (const d of DUCKS) { scene.remove(d.g); freeObject(d.g, []); } DUCKS.length = 0;
   const spots = [[-60, -80], [60, -40], [-100, 20], [100, 80], [-40, 80]];
   for (let i = 0; i < 3; i++) { const [x, z] = spots[(i * 2 + (Math.random() * spots.length | 0)) % spots.length]; const sp = findSpawn(x + rand(-8, 8), z + rand(-8, 8)); makeBull(sp.x, sp.z); }
 }
@@ -9889,7 +9894,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '100'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '101'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
@@ -10080,7 +10085,7 @@ function applyQuality(i) {
   if (QUALITY.level !== i) ptag('quality ' + QUALITY.level + '→' + i);
   QUALITY.level = i; const q = QSTEPS[i];
   for (const m of SCATTER.meshes) m.visible = i < 6; // ground clutter goes first on weak devices
-  world.solver.iterations = i >= 7 ? 10 : i >= 6 ? 11 : 12; QUALITY.subSteps = i >= 6 ? 3 : i >= 5 ? 5 : 8; // weak devices: a cheaper solver, and never pile up catch-up steps (that spiral is what makes slow devices choke)
+  world.solver.iterations = i >= 7 ? 8 : i >= 6 ? 11 : 12; QUALITY.subSteps = i >= 6 ? 3 : i >= 5 ? 5 : 8; // weak devices: a cheaper solver, and never pile up catch-up steps (that spiral is what makes slow devices choke)
   if (isTouchUI()) world.solver.iterations = 10; // phones and tablets: the lightest solver from the start (12 -> 10 passes; it's what the slowest desktop level already runs). Catch-up steps stay as they are: solo frames are capped at 50 ms (3 steps) anyway, and a phone hosting a match must keep real time
   QUALITY.scale = q.scale; QUALITY.gfxCap = q.gfx;
   if (sun.shadow.mapSize.x !== Math.min(q.shadow, isTouchUI() ? 1024 : 2048)) { sun.shadow.mapSize.set(Math.min(q.shadow, isTouchUI() ? 1024 : 2048), Math.min(q.shadow, isTouchUI() ? 1024 : 2048)); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }

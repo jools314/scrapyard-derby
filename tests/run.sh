@@ -20,6 +20,9 @@ quick() {
   TAG=-a t drive 900 "" ONLY=outrider,viper,towtruck,forklift,sandflea
   TAG=-b t drive 900 "" ONLY=camper,mixer,firetruck,hellbender,cruiser
   TAG=-c t drive 900 "" ONLY=tiger,dozer,combine,bertha,tanker
+  TAG=-q7 t drive 900 "" ONLY=tiger,dozer,bertha,tanker,mixer,camper Q7=1
+  t hudlite 600 "HUDLITE PASS"
+  t memleak 600 "MEMLEAK PASS"
   t tracks 900 "TRACKS PASS"
   t blade 600 "BLADE PASS"
   t crusheropen 600 "CRUSHEROPEN PASS"
