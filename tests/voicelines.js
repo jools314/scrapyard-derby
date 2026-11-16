@@ -22,7 +22,7 @@ ok(!missingFiles.length, `${missingFiles.length} manifest clips point at missing
 const t1 = fresh.filter((l) => l.tier === 1);
 const long = t1.filter((l) => l.say.length > 105);
 ok(!long.length, `${long.length} main-cast lines over 105 characters (~6 s), e.g. "${long[0] && long[0].say}"`);
-const BANNED = /\b(fuck\w*|shit\w*|bitch\w*|bastard\w*|cunt\w*|dick\w*|piss\w*|wank\w*|bollocks|stugots|stugatz|faen|cabr[oó]n|pendejo|putain|bugger\w*|private parts)\b|Raju|Bollywood|Dhishoom/i;
+const BANNED = /\b(fuck\w*|shit(?!o\b)\w*|bitch\w*|bastard\w*|cunt\w*|dick\w*|piss\w*|wank\w*|bollocks|stugots|stugatz|faen|cabr[oó]n|pendejo|putain|bugger\w*|private parts)\b|Raju|Bollywood|Dhishoom/i;
 const bad = fresh.filter((l) => BANNED.test(l.text));
 ok(!bad.length, `${bad.length} lines hit the banned list, e.g. "${bad[0] && bad[0].text}"`);
 ok(!fresh.some((l) => /[{}]/.test(l.say)), 'a recorded line still has a {blank} in it');
