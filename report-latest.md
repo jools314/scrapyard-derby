@@ -1,6 +1,6 @@
-# Scrapyard Derby play-log report · 2026-11-16 20:39 UTC
+# Scrapyard Derby play-log report · 2026-11-16 22:39 UTC
 
-739 matches (727 from real devices, 2216.3 game-minutes), 57 page loads, 8 bug reports.
+739 matches (727 from real devices, 2216.3 game-minutes), 57 page loads, 9 bug reports.
 
 ## Who and what
 
@@ -227,7 +227,6 @@ Build 102+ reloads an autoplaying page whose memory runs away and logs what was 
 
 ## Bug reports
 
-- 1794706963-lliE33pDU7vD-bug-b68-web-2026-11-15T01-42-43-652Z · {"code":40401,"http":404,"error":"page not found"}
 - 1794725414-tgRRYQWpPVYF-bug-b69-web-2026-11-15T06-50-14-834Z · {"code":40401,"http":404,"error":"page not found"}
 - 1794725451-7bKoH5NiFJwx-bug-b69-web-2026-11-15T06-50-50-843Z · {"code":40401,"http":404,"error":"page not found"}
 - 1794725479-21679ipLjuMa-bug-b69-web-2026-11-15T06-51-18-901Z · {"code":40401,"http":404,"error":"page not found"}
@@ -235,6 +234,7 @@ Build 102+ reloads an autoplaying page whose memory runs away and logs what was 
 - 1794762450-qP4SGsaf1ReF-bug-b88-web-2026-11-15T17-07-29-004Z · SCRAPYARD DERBY BUG REPORT · build 88 · 2026-11-15T17:07:28.909Z · jools314.github.io
 - 1794762454-YXtovFkBoLSJ-bug-b88-web-2026-11-15T17-07-33-490Z · SCRAPYARD DERBY BUG REPORT · build 88 · 2026-11-15T17:07:33.426Z · jools314.github.io
 - 1794765234-1sVPyW2OhGl0-bug-b88-Mac-2026-11-15T17-53-54-310Z · SCRAPYARD DERBY BUG REPORT · build 88 · 2026-11-15T17:53:54.020Z · jools314.github.io
+- 1794861650-4OEyahRzMUcG-bug-b102-iPhone-2026-11-16T20-40-50- · SCRAPYARD DERBY BUG REPORT · build 102 · 2026-11-16T20:40:49.991Z · jools314.github.io
 
 ## Changes since the previous report
 
