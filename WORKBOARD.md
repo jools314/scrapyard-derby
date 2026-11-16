@@ -19,6 +19,7 @@ Format: `- [agent] topic — branch — claimed YYYY-MM-DD HH:MM UTC — notes`
 - [claude] Player target picking: Tab / one 🎯 button cycles visible targets for the Tiger cannon, minigun, rockets — claude/target-pick — claimed 2026-11-15 05:55 UTC
 - [muse] bob/improvements-round2 — branch exists; landing plan to follow (not yet claimed)
 ## Ready to land (needs the test gate)
+- [claude] `claude/weak-laptop` → Build 101 (HUD 20 Hz at q6+, solver 8 at q7, from Codex's chromebook branch; tests hudlite + drive-q7). First in the hourly queue (owner put weak laptops first), then spider, elephant, ai-stuck, weak-spots. Lands when Build 99 has 30+ min with a clean Regression check.
 
 ## Done
 - [claude] Build 100: portal-style start (menu order, parallel shader compile + menu-time warm-up, fonts non-blocking), time-to-start in the play log, watchdog updater + version.txt — build 100. Spider/elephant renumber to 101+.
