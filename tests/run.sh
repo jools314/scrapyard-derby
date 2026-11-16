@@ -53,6 +53,7 @@ quick() {
   t heaps 300 "HEAPS PASS"
   t inside 600 "INSIDE PASS"
   t voicelines 300 "VOICELINES PASS"
+  t broadphase 600 "BROADPHASE PASS"
 }
 release() {
   quick
