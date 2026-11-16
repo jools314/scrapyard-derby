@@ -25,6 +25,7 @@ quick() {
   t memleak 600 "MEMLEAK PASS"
   t memguard 900 "MEMGUARD PASS"
   TAG=-spider t drive 900 "" ONLY=spider
+  TAG=-spider t crusheropen 600 "CRUSHEROPEN PASS" TYPE=spider
   t tracks 900 "TRACKS PASS"
   t blade 600 "BLADE PASS"
   t crusheropen 600 "CRUSHEROPEN PASS"
