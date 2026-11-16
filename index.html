@@ -1245,7 +1245,7 @@ function addStaticBox(hx, hy, hz, pos, quat, mat, opts = {}) {
   body.addShape(new CANNON.Box(new CANNON.Vec3(hx, hy, hz)));
   body.position.set(pos.x, pos.y, pos.z);
   if (quat) body.quaternion.copy(quat);
-  body.isObstacle = !!opts.obstacle;
+  body.isObstacle = !!opts.obstacle; body.what = opts.what || opts.map || 'block'; // (what: named in the "car inside an object" log)
   world.addBody(body);
   const mesh = new THREE.Mesh(new THREE.BoxGeometry(hx * 2, hy * 2, hz * 2), mat);
   mesh.position.copy(body.position);
@@ -1281,7 +1281,7 @@ function addConvex(verts, faces, pos, yaw, mat, opts = {}) {
   const cy = Math.cos(yaw), sy = Math.sin(yaw); // rotate the centroid offset by the yaw
   body.position.set(pos.x + c[0] * cy + c[2] * sy, pos.y + c[1], pos.z - c[0] * sy + c[2] * cy);
   body.quaternion.setFromAxisAngle(AX_Y, yaw);
-  body.isObstacle = !!opts.obstacle;
+  body.isObstacle = !!opts.obstacle; body.what = opts.what || 'mound';
   world.addBody(body);
   const p = [];
   for (const f of F) for (let k = 1; k < f.length - 1; k++) for (const i of [f[0], f[k], f[k + 1]]) p.push(V[i].x - c[0], V[i].y - c[1], V[i].z - c[2]);
@@ -1309,7 +1309,7 @@ function addFrustum(x, z, tx, tz, h, run, mat, kind = 'mesa', runs) {
              [-tx + k * 4, h, -tz + k * 4], [tx - k * 4, h, -tz + k * 4], [tx - k * 4, h, tz - k * 4], [-tx + k * 4, h, tz - k * 4]];
   const f = [[0, 1, 2, 3], [8, 9, 10, 11]];
   for (let i = 0; i < 4; i++) { const j = (i + 1) % 4; f.push([i, j, j + 4, i + 4]); f.push([i + 4, j + 4, j + 8, i + 8]); }
-  addConvex(v, f, { x, y: 0, z }, 0, mat);
+  addConvex(v, f, { x, y: 0, z }, 0, mat, { what: kind });
   mapShapes.push({ kind, x, z, yaw: 0, l: tx * 2 + r[0] * 0.6 + r[1] * 0.6, w: tz * 2 + r[2] * 0.6 + r[3] * 0.6 });
 }
 function yawPitchQuat(yaw, roll, aboutX) {
@@ -1349,7 +1349,7 @@ function addProfile(profile, cx, cz, yaw, hw, bw, hMax, mat, kind, mapL, mapW) {
   const f = [[0, n - 1, 2 * n - 1, n]];                       // bottom
   for (let i = 0; i < n - 1; i++) f.push([i, i + 1, n + i + 1, n + i]); // top surfaces
   f.push([...Array(n).keys()]); f.push([...Array(n).keys()].map((i) => n + i)); // the two sides
-  addConvex(v, f, { x: cx, y: 0, z: cz }, yaw, mat);
+  addConvex(v, f, { x: cx, y: 0, z: cz }, yaw, mat, { what: kind || 'ramp' });
   mapShapes.push({ kind: kind || 'ramp', x: cx, z: cz, yaw, l: mapL, w: mapW });
 }
 function addTabletop(cx, cz, dx, dz, h, angleDeg, topLen, W, sideDeg = 28) {
@@ -1442,7 +1442,7 @@ function buildArena() {
     cap.position.set(x, H * 2 - 0.3, z);
     scene.add(cap);
     const fence = new CANNON.Body({ type: CANNON.Body.STATIC, material: sceneryMat }); // invisible catch fence: nothing leaves the yard over the top
-    fence.addShape(new CANNON.Box(new CANNON.Vec3(hx, 6, hz))); fence.position.set(x, H * 2 + 6, z); world.addBody(fence);
+    fence.addShape(new CANNON.Box(new CANNON.Vec3(hx, 6, hz))); fence.position.set(x, H * 2 + 6, z); fence.what = 'catch fence'; world.addBody(fence);
   }
 
   // Banked corners: 30° wall-ride bends tangent to both walls
@@ -1468,7 +1468,7 @@ function buildArena() {
       col(st / 2 + 0.05, w / 2, sx * (A - R + u + st / 2), sz * (A - w / 2)); // along the z wall
       col(w / 2, st / 2 + 0.05, sx * (A - w / 2), sz * (A - R + u + st / 2)); // along the x wall
     }
-    world.addBody(fill); // one compound body per corner keeps the broadphase cheap
+    fill.what = 'corner fill'; world.addBody(fill); // one compound body per corner keeps the broadphase cheap
     for (const g of fillGeos) { const m = new THREE.Mesh(g, M.bank); m.receiveShadow = true; scene.add(m); }
   }
 
@@ -1483,14 +1483,14 @@ function buildArena() {
   }
   ELEVATED.push(mesa);
   // King-of-the-hill tier on top
-  { const tier = addConvex([[-4.5, 3, -4.5], [4.5, 3, -4.5], [4.5, 3, 4.5], [-4.5, 3, 4.5], [-3, 4, -3], [3, 4, -3], [3, 4, 3], [-3, 4, 3]], [[0, 1, 2, 3], [4, 5, 6, 7], [0, 1, 5, 4], [1, 2, 6, 5], [2, 3, 7, 6], [3, 0, 4, 7]], { x: 0, y: 0, z: 0 }, 0, M.concrete); }
+  { const tier = addConvex([[-4.5, 3, -4.5], [4.5, 3, -4.5], [4.5, 3, 4.5], [-4.5, 3, 4.5], [-3, 4, -3], [3, 4, -3], [3, 4, 3], [-3, 4, 3]], [[0, 1, 2, 3], [4, 5, 6, 7], [0, 1, 5, 4], [1, 2, 6, 5], [2, 3, 7, 6], [3, 0, 4, 7]], { x: 0, y: 0, z: 0 }, 0, M.concrete, { what: 'mesa tier' }); }
 
   // Concrete pillars
   for (let k = 0; k < 6; k++) {
     const ang = k * Math.PI / 3 + Math.PI / 6;
     const x = Math.cos(ang) * 42, z = Math.sin(ang) * 42;
     const body = new CANNON.Body({ type: CANNON.Body.STATIC, shape: new CANNON.Cylinder(1.3, 1.3, 6, 16), material: sceneryMat });
-    body.position.set(x, 3, z); body.isObstacle = true;
+    body.position.set(x, 3, z); body.isObstacle = true; body.what = 'pillar';
     world.addBody(body);
     const mesh = new THREE.Mesh(new THREE.CylinderGeometry(1.3, 1.3, 6, 24), M.concrete);
     mesh.position.copy(body.position); mesh.castShadow = mesh.receiveShadow = true;
@@ -1550,7 +1550,7 @@ function buildArena() {
     const x = BUMPS.x0 + k * BUMPS.gap, z = BUMPS.z, R = 1.4, h = 0.3;
     BUMPS.xs.push(x);
     const body = new CANNON.Body({ type: CANNON.Body.STATIC, shape: new CANNON.Cylinder(R, R, 18, 28), material: sceneryMat });
-    body.position.set(x, h - R, z);
+    body.position.set(x, h - R, z); body.what = 'speed bump';
     body.quaternion.setFromAxisAngle(AX_X, Math.PI / 2);
     world.addBody(body);
     const mesh = new THREE.Mesh(new THREE.CylinderGeometry(R, R, 18, 56), bumpMat);
@@ -1574,7 +1574,7 @@ function buildArena() {
   // Crushed-car stacks (east-north)
   for (let i = 0; i < 4; i++) for (let l = 0; l < 3; l++) {
     const m = new THREE.MeshStandardMaterial({ color: [0x7a3a2a, 0x3f5a6a, 0x6b6a3a, 0x4a3f55][(i + l) % 4], roughness: 0.6, metalness: 0.4, flatShading: true });
-    addStaticBox(2.3, 0.45, 1.0, { x: 100 + i * 6, y: 0.45 + l * 0.9, z: -60 + rand(-0.4, 0.4) }, yawPitchQuat(rand(-0.15, 0.15), 0), m, { obstacle: true, map: l === 0 ? 'block' : false });
+    addStaticBox(2.3, 0.45, 1.0, { x: 100 + i * 6, y: 0.45 + l * 0.9, z: -60 + rand(-0.4, 0.4) }, yawPitchQuat(rand(-0.15, 0.15), 0), m, { obstacle: true, map: l === 0 ? 'block' : false, what: 'car stack' });
     if (l === 0) { const band = new THREE.Mesh(new THREE.BoxGeometry(4.7, 0.3, 2.1), new THREE.MeshStandardMaterial({ map: hazardTex(3), roughness: 0.7 })); band.position.set(100 + i * 6, 0.15, -60); scene.add(band); }
   }
 
@@ -1679,7 +1679,7 @@ const ARENA = { mud: [{ x: -100, z: 12, r: 11 }, { x: 62, z: -40, r: 7 }], boost
     const frame = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 6.6), new THREE.MeshStandardMaterial({ color: 0x1a1816, roughness: 0.8, polygonOffset: true, polygonOffsetFactor: -2 })); frame.rotation.copy(pad.rotation); frame.position.set(b.x, 0.025, b.z); scene.add(frame); }
   const drumMat = new THREE.MeshStandardMaterial({ color: 0x5a3a24, roughness: 0.6, metalness: 0.5, map: grimeTex });
   for (const [x, z] of [[-138, -60], [-138, 50], [138, 95], [138, -20], [-30, 138], [70, 138], [-90, -138], [20, -138], [-10, 30], [24, -14]]) {
-    addStaticBox(0.45, 0.6, 0.45, { x, y: 0.6, z }, null, drumMat, { obstacle: true, map: 'block' });
+    addStaticBox(0.45, 0.6, 0.45, { x, y: 0.6, z }, null, drumMat, { obstacle: true, map: 'block', what: 'fire drum' });
     ARENA.barrels.push({ x, z, t: Math.random() * 10 }); // (no point lights: every extra light costs every pixel; the bloom makes the flames glow)
   }
   const birdMat = new THREE.MeshStandardMaterial({ color: 0x1a1612, roughness: 0.9, side: THREE.DoubleSide });
@@ -1692,7 +1692,7 @@ const CRUSHER = { x: -112, z: -95, hx: 3.8, hz: 2.5, top: 6.4, low: 1.15, y: 6.4
 {
   const C = CRUSHER, steelD = new THREE.MeshStandardMaterial({ color: 0x3d3f42, roughness: 0.45, metalness: 0.85, map: grimeTex }), yellow = new THREE.MeshStandardMaterial({ color: 0xe6a316, roughness: 0.5, metalness: 0.4, map: grimeTex });
   // (no walls: open on all four sides, so cars can be shoved in from any direction and nothing gets wedged along its sides - owner request + play-log stuck hotspot -105,-90)
-  for (const [sx, sz] of [[-1, -1], [-1, 1], [1, -1], [1, 1]]) addStaticBox(0.4, 4.6, 0.4, { x: C.x + sx * (C.hx + 0.35), y: 4.6, z: C.z + sz * (C.hz + 0.75) }, null, yellow, { obstacle: true, map: false });
+  for (const [sx, sz] of [[-1, -1], [-1, 1], [1, -1], [1, 1]]) addStaticBox(0.4, 4.6, 0.4, { x: C.x + sx * (C.hx + 0.35), y: 4.6, z: C.z + sz * (C.hz + 0.75) }, null, yellow, { obstacle: true, map: false, what: 'crusher post' });
   for (const s of [-1, 1]) { const beam = new THREE.Mesh(new THREE.BoxGeometry(2 * C.hx + 1.6, 0.9, 0.5), yellow); beam.position.set(C.x, 9, C.z + s * (C.hz + 0.75)); beam.castShadow = true; scene.add(beam); }
   const cross = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.9, 2 * C.hz + 2), yellow); cross.position.set(C.x, 9, C.z); scene.add(cross);
   const floor = new THREE.Mesh(new THREE.BoxGeometry(2 * C.hx, 0.06, 2 * C.hz), new THREE.MeshStandardMaterial({ color: 0x2a2826, roughness: 0.6, metalness: 0.7 })); floor.position.set(C.x, 0.03, C.z); floor.receiveShadow = true; scene.add(floor);
@@ -1858,11 +1858,11 @@ function updateGas(dt) {
 const BALL = { px: 100, py: 21, pz: 90, len: 18.4, amp: 1.05, w: 0.55, ph: 0, r: 1.7 };
 {
   const B = BALL, yellow = new THREE.MeshStandardMaterial({ color: 0xe6a316, roughness: 0.5, metalness: 0.4, map: grimeTex });
-  for (const s of [-1, 1]) { addStaticBox(0.5, B.py / 2, 0.5, { x: B.px, y: B.py / 2, z: B.pz + s * 9 }, null, yellow, { obstacle: true, map: 'block' }); }
+  for (const s of [-1, 1]) { addStaticBox(0.5, B.py / 2, 0.5, { x: B.px, y: B.py / 2, z: B.pz + s * 9 }, null, yellow, { obstacle: true, map: 'block', what: 'ball post' }); }
   const beam = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 19), yellow); beam.position.set(B.px, B.py + 0.5, B.pz); beam.castShadow = true; scene.add(beam);
   B.mesh = new THREE.Mesh(new THREE.SphereGeometry(B.r, 20, 14), new THREE.MeshStandardMaterial({ color: 0x2a2a2c, roughness: 0.35, metalness: 0.9, map: grimeTex })); B.mesh.castShadow = true; B.mesh.userData.keep = true; scene.add(B.mesh);
   B.chain = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 1, 6), M.steel); B.chain.userData.keep = true; scene.add(B.chain);
-  B.body = new CANNON.Body({ type: CANNON.Body.KINEMATIC, mass: 0, material: sceneryMat }); B.body.addShape(new CANNON.Sphere(B.r)); world.addBody(B.body);
+  B.body = new CANNON.Body({ type: CANNON.Body.KINEMATIC, mass: 0, material: sceneryMat }); B.body.addShape(new CANNON.Sphere(B.r)); B.body.what = 'wrecking ball'; world.addBody(B.body);
   B.body.addEventListener('collide', (e) => { const c = e.body.car; if (!c || MP.role === 'guest' || simTime - (c.ballT || -9) < 0.6) return; c.ballT = simTime;
     const v = B.body.velocity, sp = v.length(); if (sp < 3) return;
     c.body.wakeUp(); const kk = 0.55 * clamp(2500 / c.body.mass, 0.25, 1.3); c.body.velocity.x += v.x * kk; c.body.velocity.z += v.z * kk; c.body.velocity.y += 4;
@@ -1887,7 +1887,7 @@ const BOLLARDS = { list: [], t: 6, up: false, k: 0 };
   const m = new THREE.MeshStandardMaterial({ color: 0xd8d4cf, roughness: 0.4, metalness: 0.7, map: DET.hazard.map });
   for (let i = 0; i < 7; i++) { const x = -54 + i * 4, z = -80;
     const mesh = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 1.4, 12), m); mesh.castShadow = true; mesh.userData.keep = true; scene.add(mesh);
-    const body = new CANNON.Body({ type: CANNON.Body.KINEMATIC, mass: 0, material: sceneryMat }); body.addShape(new CANNON.Cylinder(0.35, 0.35, 1.4, 10)); body.position.set(x, -0.75, z); world.addBody(body); body.isObstacle = true;
+    const body = new CANNON.Body({ type: CANNON.Body.KINEMATIC, mass: 0, material: sceneryMat }); body.addShape(new CANNON.Cylinder(0.35, 0.35, 1.4, 10)); body.position.set(x, -0.75, z); world.addBody(body); body.isObstacle = true; body.what = 'bollard';
     const ring = new THREE.Mesh(new THREE.RingGeometry(0.36, 0.6, 16), new THREE.MeshStandardMaterial({ color: 0x1a1816, roughness: 0.6, polygonOffset: true, polygonOffsetFactor: -3 })); ring.rotation.x = -Math.PI / 2; ring.position.set(x, 0.025, z); scene.add(ring);
     BOLLARDS.list.push({ mesh, body, x, z }); }
 }
@@ -8844,7 +8844,7 @@ const CRANE = (() => {
   const ring = new THREE.Mesh(new THREE.TorusGeometry(1.15, 0.06, 6, 24), new THREE.MeshStandardMaterial({ color: 0xff3a1a, emissive: 0xff2a00, emissiveIntensity: 0 })); ring.rotation.x = Math.PI / 2; ring.position.y = -0.24; magnet.add(ring);
   for (const a of [0, 2.1, 4.2]) { const c = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.5, 4), dark); c.position.set(Math.cos(a) * 0.5, 0.75, Math.sin(a) * 0.5); c.rotation.set(Math.sin(a) * 0.35, 0, -Math.cos(a) * 0.35); magnet.add(c); }
   const cable = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), new THREE.LineBasicMaterial({ color: 0x141210 })); cable.frustumCulled = false; scene.add(cable);
-  const tower = new CANNON.Body({ type: CANNON.Body.STATIC, shape: new CANNON.Box(new CANNON.Vec3(2.2, 10, 2.2)), material: sceneryMat }); tower.position.set(cx, 10, cz); tower.isObstacle = true; world.addBody(tower);
+  const tower = new CANNON.Body({ type: CANNON.Body.STATIC, shape: new CANNON.Box(new CANNON.Vec3(2.2, 10, 2.2)), material: sceneryMat }); tower.position.set(cx, 10, cz); tower.isObstacle = true; tower.what = 'crane tower'; world.addBody(tower);
   const mag = new CANNON.Body({ type: CANNON.Body.KINEMATIC, mass: 0 }); mag.collisionResponse = false; world.addBody(mag);
   return { cx, cz, H, R0, R1, slew, trolley, magnet, ring, cable, mag, ang: 0.8, r: 14, h: 15, state: 'idle', t: 4, target: null, con: null, held: null };
 })();
@@ -9789,7 +9789,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '93'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '94'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
@@ -10976,6 +10976,74 @@ const VR = (() => {
    Performance panel (Copy all / Download / Clear), and sent with window.dropUpload('playlog', text) when that exists: an upload cursor
    means nothing is sent twice or skipped. Records: 'session' (a page load), 'match', 'ck' (a checkpoint of a match still running, sent
    early because something went wrong; the final 'match' record with the same id replaces it), 'errors' (script errors outside a match). */
+// ---------- "car inside an object" detector: once a second on the host/solo, is any car's hull centre, nose or tail deep inside solid scenery
+// (containers, walls, blocks, posts, pillars, mesa and ramps, bollards, the wrecking ball) or a heavy prop? Only physics glitches get a car there.
+// Logged (play log `inside` + a network-log incident for the bug report), not fixed yet. Cheap: reused vectors, a distance prefilter, ~300 bodies x 8 cars.
+const INSIDE = {
+  on: true, every: 1, margin: 0.2, T: 0, list: [], scanT: -1e9, total: 0, n: 0, ms: 0, msMax: 0, msSum: 0, last: null, PART: ['centre', 'nose', 'tail'],
+  tv: new CANNON.Vec3(), tw: new CANNON.Vec3(), tq: new CANNON.Quaternion(), bb: new Float32Array(0), pts: [new CANNON.Vec3(), new CANNON.Vec3(), new CANNON.Vec3()],
+  what(b) { if (b.what) return b.what; if (b.prop) return 'heavy ' + (b.prop.kind || 'prop'); const s = b.shapes[0]; return s instanceof CANNON.Box ? 'box' : s instanceof CANNON.Sphere ? 'sphere' : s instanceof CANNON.Cylinder ? 'cylinder' : 'convex'; },
+  scan() { // the solid things worth checking (not the ground: falling through it is the physics log's "below")
+    const L = this.list; L.length = 0;
+    for (const b of world.bodies) {
+      if (b === groundBody || b.car || !b.collisionResponse || !b.shapes.length || !(b.collisionFilterMask & CARG)) continue;
+      if (b.type === CANNON.Body.DYNAMIC && !(b.prop && b.mass >= 380)) continue; // heavy props only (the orange-band ones); light stuff gets shoved aside
+      let ok = true; for (const s of b.shapes) if (!(s instanceof CANNON.Box || s instanceof CANNON.ConvexPolyhedron || s instanceof CANNON.Sphere)) ok = false;
+      if (ok) { if (!(b.boundingRadius > 0)) b.updateBoundingRadius(); L.push(b); }
+    }
+    if (this.bb.length < L.length * 6) this.bb = new Float32Array(L.length * 12);
+    for (let i = 0; i < L.length; i++) { const b = L[i], a = b.aabb, j = i * 6; // static scenery: its world box, once (the walls and banks are long and thin: a radius would let every car through)
+      if (b.type === CANNON.Body.STATIC) { b.updateAABB(); this.bb[j] = a.lowerBound.x; this.bb[j + 1] = a.lowerBound.y; this.bb[j + 2] = a.lowerBound.z; this.bb[j + 3] = a.upperBound.x; this.bb[j + 4] = a.upperBound.y; this.bb[j + 5] = a.upperBound.z; }
+      else this.bb[j] = NaN; } // (moving things: a radius check against where they are now)
+  },
+  depth(b, p) { // how deep world point p is inside body b, in metres (<= 0: outside)
+    const d = this.tv, q = b.quaternion, tq = this.tq, l = this.tw; p.vsub(b.position, d); tq.set(-q.x, -q.y, -q.z, q.w); tq.vmult(d, d);
+    let best = -1;
+    for (let i = 0; i < b.shapes.length; i++) {
+      const s = b.shapes[i], o = b.shapeOffsets[i], so = b.shapeOrientations[i];
+      l.set(d.x - o.x, d.y - o.y, d.z - o.z); if (so.w < 0.9999999) { tq.set(-so.x, -so.y, -so.z, so.w); tq.vmult(l, l); }
+      const r = s.boundingSphereRadius; if (l.x * l.x + l.y * l.y + l.z * l.z > r * r) continue;
+      let k;
+      if (s instanceof CANNON.Box) { const h = s.halfExtents; k = Math.min(h.x - Math.abs(l.x), h.y - Math.abs(l.y), h.z - Math.abs(l.z)); }
+      else if (s instanceof CANNON.Sphere) k = s.radius - Math.sqrt(l.x * l.x + l.y * l.y + l.z * l.z);
+      else { k = 1e9; const V = s.vertices, F = s.faces, N = s.faceNormals; // convex (cylinders too): inside every face plane
+        for (let f = 0; f < F.length && k > 0; f++) { const n = N[f], v = V[F[f][0]], e = n.x * (v.x - l.x) + n.y * (v.y - l.y) + n.z * (v.z - l.z); if (e < k) k = e; } }
+      if (k > best) best = k;
+    }
+    return best;
+  },
+  check() {
+    const t0 = performance.now();
+    if (simTime - this.scanT > 10 || simTime < this.scanT) { this.scanT = simTime; this.scan(); } // (props come and go: rescan every 10 s; gone bodies are skipped below)
+    const pts = this.pts, M = this.margin, w = this.tw;
+    for (const c of cars) {
+      const b = c.body; if (c.wrecked || !b.world) { c.__in = 0; c.__inE = null; continue; }
+      const q = b.quaternion, T = c.T, hy = HULL_Y0 + T.H / 2, f = T.L * 0.35, px = b.position.x, pz = b.position.z, reach = T.L * 0.5 + 0.5;
+      w.set(0, hy, 0); q.vmult(w, pts[0]); pts[0].vadd(b.position, pts[0]);
+      w.set(f, hy, 0); q.vmult(w, pts[1]); pts[1].vadd(b.position, pts[1]);
+      w.set(-f, hy, 0); q.vmult(w, pts[2]); pts[2].vadd(b.position, pts[2]);
+      let hit = null, hp = 0, hd = M;
+      const py = b.position.y, L = this.list, bb = this.bb;
+      for (let i = 0; i < L.length; i++) {
+        const o = L[i], j = i * 6; if (!o.world) continue;
+        if (bb[j] === bb[j]) { if (px + reach < bb[j] || px - reach > bb[j + 3] || pz + reach < bb[j + 2] || pz - reach > bb[j + 5] || py + reach < bb[j + 1] || py - reach > bb[j + 4]) continue; }
+        else { const R = o.boundingRadius + reach, dx = o.position.x - px, dz = o.position.z - pz; if (dx * dx + dz * dz > R * R) continue; }
+        for (let k = 0; k < 3; k++) { const d = this.depth(o, pts[k]); if (d > hd) { hit = o; hp = k; hd = d; } }
+      }
+      if (hit) { c.__in = (c.__in || 0) + 1; if (c.__in === 2) this.record(c, hit, hp, hd); else if (c.__inE) c.__inE.secs = c.__in * this.every; }
+      else { c.__in = 0; c.__inE = null; }
+    }
+    const ms = performance.now() - t0; this.ms = ms; this.msSum += ms; this.n++; if (ms > this.msMax) this.msMax = ms;
+  },
+  record(c, o, part, d) { // inside for 2 checks in a row: a real one, not a deep crash contact
+    const p = c.body.position, what = this.what(o), m = PLAYLOG.m;
+    const e = { t: Math.round(game.time), who: c.type, x: Math.round(p.x), z: Math.round(p.z), y: Math.round(p.y * 10) / 10, what, part: this.PART[part], depth: Math.round(d * 100) / 100, secs: 2 * this.every, me: c === player || undefined, held: (c.carriedBy || c.craned) ? true : undefined };
+    c.__inE = e; this.last = e; this.total++;
+    if (m) { m.inN = (m.inN || 0) + 1; if (m.inL.length < 12) m.inL.push(e); PLAYLOG.ev('inside', `${c.type} in ${what} at ${e.x},${e.z}`); }
+    if (!m || m.inN <= 6) NETLOG.incident('me', `car inside an object: ${c.type}${c === player ? ' (you)' : ''} ${e.part} ${e.depth} m inside a ${what} at ${e.x},${e.z} (y ${e.y})`);
+  },
+  tick(dt) { if (!this.on || MP.role === 'guest') return; this.T -= dt; if (this.T > 0) return; this.T = this.every; try { this.check(); } catch (e) { if (!this.errd) { this.errd = 1; console.warn('inside check', e); } } },
+};
 Object.assign(PLAYLOG, {
   P: 'derby-pl-', META: 'derby-pl-meta', CUR: 'derby-pl-cur-', LOCK: 'derby-pl-uplock',
   budget: 4e6, CHUNK: 200 * 1024, EVMAX: 400,
@@ -11009,11 +11077,11 @@ Object.assign(PLAYLOG, {
   begin() {
     this.n++;
     if (QUALITY.log.length > 40) QUALITY.log.splice(0, QUALITY.log.length - 40);
-    for (const c of cars) { c.__apS = null; c.__apHeat = 0; c.__apF = false; c.__apL = 0; }
+    for (const c of cars) { c.__apS = null; c.__apHeat = 0; c.__apF = false; c.__apL = 0; c.__in = 0; c.__inE = null; }
     const bs = barks.stats || {};
     this.m = { n: this.n, id: this.sid + '-' + this.n, at: Date.now(), p0: performance.now(), hidden: 0, hidAt: document.hidden ? performance.now() : 0,
       role: AUTO.on ? 'autoplay' : MP.role, mode: GAME_MODE, q0: QUALITY.level, qNow: QUALITY.level, qCh: [], hist: new Uint32Array(400), frames: 0, ftSum: 0, worst: 0,
-      veh: {}, vs: {}, vsD: {}, L: new Map(), weap: {}, me: [], meCur: null, meP: null, stuck: [], stuckN: 0, stuckS: 0, launch: 0, launchW: [], below: 0, nan: 0,
+      veh: {}, vs: {}, vsD: {}, L: new Map(), weap: {}, me: [], meCur: null, meP: null, stuck: [], stuckN: 0, stuckS: 0, inN: 0, inL: [], launch: 0, launchW: [], below: 0, nan: 0,
       phys0: { fixes: PHYS.fixes, clamps: PHYS.clamps, blowups: PHYS.blowups }, kinds: {}, physL: [], inc: [], errs: [], errN: 0, voice: [], voiceN: 0, net: [], netN: 0,
       ev: [], evDrop: 0, bark0: { sent: bs.sent || 0, started: bs.started || 0, errors: bs.errors || 0, resets: bs.resets || 0 }, sampT: 0 };
     this.ev('start', `${this.m.role} ${GAME_MODE} · ${cars.length} cars · q${QUALITY.level}`);
@@ -11043,6 +11111,7 @@ Object.assign(PLAYLOG, {
     else if (player && player.wrecked && m.meP === player) m.meP = null; // the next life (same object, maybe a new vehicle) opens a new entry
     if (AUTO.on) { AUTO.tick(dt); if (!this.m) return; } // (its round may have just ended)
     if (game.countdown > 0) return;
+    INSIDE.tick(dt); // cars inside objects (host/solo, once a second)
     for (const c of cars) {
       this.born(c);
       const f = !!c.ctrl.fire; if (f && !c.__apF && !c.wrecked) { const w = AUTO.weap(c.T); m.weap[w] = (m.weap[w] || 0) + 1; this.V(c.type).fires++; } c.__apF = f;
@@ -11146,6 +11215,7 @@ Object.assign(PLAYLOG, {
       slow: { n: m.inc.length, secs: r1(m.inc.reduce((a, x) => a + x.secs, 0)), worstMs: m.inc.reduce((a, x) => Math.max(a, x.worst || 0), 0), causes, list: m.inc },
       phys: { fixes: PHYS.fixes - m.phys0.fixes, clamps: PHYS.clamps - m.phys0.clamps, blowups: PHYS.blowups - m.phys0.blowups, kinds: K, rescues: K['fell through floor, lifted back'] || 0, undos: K['solver kick undone'] || 0, escapes: K['escaped the arena, put back'] || 0, launches: m.launch, launchList: m.launchW, below: m.below, nan: m.nan, list: m.physL },
       stuck: { n: m.stuckN, secs: r1(m.stuckS), list: stuck.sort((a, b) => b.secs - a.secs) },
+      inside: MP.role !== 'guest' ? { n: m.inN || 0, secs: m.inL.reduce((a, x) => a + x.secs, 0), list: m.inL } : undefined, // cars inside objects (the host's record has them)
       veh, me, weap: m.weap,
       voice: { n: m.voiceN, list: m.voice, sent: (bs.sent || 0) - b0.sent, started: (bs.started || 0) - b0.started, errors: (bs.errors || 0) - b0.errors, resets: (bs.resets || 0) - b0.resets, ok: barks.speechOK ?? null, lastErr: barks.lastErr || undefined },
       net: { n: m.netN, list: m.net }, errs: { n: m.errN, list: m.errs },
@@ -11396,7 +11466,7 @@ const IDLE = { ms: 3 * 60 * 1000, last: performance.now(), on: !/[?&]noidle=1\b/
   } };
 for (const ev of ['keydown', 'pointerdown', 'pointermove', 'wheel', 'touchstart', 'touchmove']) addEventListener(ev, (e) => { if (e.isTrusted || window.__idleTest) IDLE.poke(); }, { capture: true, passive: true });
 setInterval(() => IDLE.check(), 5000);
-window.__derby = { GP, PICK, cyclePick: (d) => cyclePick(d), setPick: (c) => setPick(c, false), canAim, frontTarget: (c, r, k) => frontTarget(c, r, k), AUTO, PLAYLOG, BOULDERS, get mapShapes() { return mapShapes; }, respawnCar: (o, t) => respawnCar(o, t), PHYS, cockpitEye: (c) => cockpitEye(c), wakeProp: (pr) => wakeProp(pr), addConcrete: (x, z, r, k) => addConcrete(x, z, r, k), igniteProp: (pr, t) => igniteProp(pr, t), cookBull: (bl, by, dt) => cookBull(bl, by, dt), hoseBull: (car, bl, p, f, dt) => hoseBull(car, bl, p, f, dt), DUCKS, goldConeReveal: (pr) => goldConeReveal(pr), sadTromboneKind: (t) => sadTromboneKind(t), honkBack: (car) => honkBack(car), smashBurger: (bl, how) => smashBurger(bl, how), bladeSlam: (car) => bladeSlam(car), wearBunHat: (bl) => wearBunHat(bl), bunHatRoll: (bl) => bunHatRoll(bl), shakeOff: (bl) => shakeOff(bl), harvestProp: (car, pr) => harvestProp(car, pr), baleMsgRoll: () => baleMsgRoll(), BALE_MSGS, updateSigns: (dt) => updateSigns(dt), SIGN_PROPS, tankerBoom: (p, c) => tankerBoom(p, c), CAR_TYPES, sfx, CANNON, barks, PERF, shells, NETLOG, nearHostAdd: () => nearHostAdd(), nearJoin: () => nearJoin(), JUMBO, BALL, BOLLARDS, GASQ, updateArenaPub: (dt) => updateArena(dt), CRUSHER, crushNow: () => crushNow(), applyNight: () => applyNight(), FIREWORKS, ARENA, CROWD, MP, QUALITY, applyQuality: (i) => applyQuality(i), MERGED, camera, updatePropActivity: (dt) => updatePropActivity(dt), renderer, scene, spawnFree: (x, z, r) => spawnFree(x, z, r), BULLS, updateBulls: (dt) => updateBulls(dt), updateShells, tilt, setTilt, get CRANE() { return CRANE; }, updateCrane: (dt) => updateCrane(dt), CONCRETE, THREE, craters, shells, pickups, barks, PERSONAS, TUNE, game, cars, S, world, CAR_TYPES, sfx, touch, drawGauge, get player() { return player; }, keys, startMatch, selectCar, setValue, debris, props, platformOf, get simTime() { return simTime; }, set simTime(v) { simTime = v; } }; // console tinkering + tests
+window.__derby = { GP, PICK, cyclePick: (d) => cyclePick(d), setPick: (c) => setPick(c, false), canAim, frontTarget: (c, r, k) => frontTarget(c, r, k), AUTO, PLAYLOG, INSIDE, BOULDERS, get mapShapes() { return mapShapes; }, respawnCar: (o, t) => respawnCar(o, t), PHYS, cockpitEye: (c) => cockpitEye(c), wakeProp: (pr) => wakeProp(pr), addConcrete: (x, z, r, k) => addConcrete(x, z, r, k), igniteProp: (pr, t) => igniteProp(pr, t), cookBull: (bl, by, dt) => cookBull(bl, by, dt), hoseBull: (car, bl, p, f, dt) => hoseBull(car, bl, p, f, dt), DUCKS, goldConeReveal: (pr) => goldConeReveal(pr), sadTromboneKind: (t) => sadTromboneKind(t), honkBack: (car) => honkBack(car), smashBurger: (bl, how) => smashBurger(bl, how), bladeSlam: (car) => bladeSlam(car), wearBunHat: (bl) => wearBunHat(bl), bunHatRoll: (bl) => bunHatRoll(bl), shakeOff: (bl) => shakeOff(bl), harvestProp: (car, pr) => harvestProp(car, pr), baleMsgRoll: () => baleMsgRoll(), BALE_MSGS, updateSigns: (dt) => updateSigns(dt), SIGN_PROPS, tankerBoom: (p, c) => tankerBoom(p, c), CAR_TYPES, sfx, CANNON, barks, PERF, shells, NETLOG, nearHostAdd: () => nearHostAdd(), nearJoin: () => nearJoin(), JUMBO, BALL, BOLLARDS, GASQ, updateArenaPub: (dt) => updateArena(dt), CRUSHER, crushNow: () => crushNow(), applyNight: () => applyNight(), FIREWORKS, ARENA, CROWD, MP, QUALITY, applyQuality: (i) => applyQuality(i), MERGED, camera, updatePropActivity: (dt) => updatePropActivity(dt), renderer, scene, spawnFree: (x, z, r) => spawnFree(x, z, r), BULLS, updateBulls: (dt) => updateBulls(dt), updateShells, tilt, setTilt, get CRANE() { return CRANE; }, updateCrane: (dt) => updateCrane(dt), CONCRETE, THREE, craters, shells, pickups, barks, PERSONAS, TUNE, game, cars, S, world, CAR_TYPES, sfx, touch, drawGauge, get player() { return player; }, keys, startMatch, selectCar, setValue, debris, props, platformOf, get simTime() { return simTime; }, set simTime(v) { simTime = v; } }; // console tinkering + tests
 requestAnimationFrame(frame);
 window.__derby.IDLE = IDLE; window.__derby.TALK = TALK; window.__derby.DROP = DROP; window.__derby.SCORE = SCORE; window.__derby.UPDATE = UPDATE; window.__derby.TABENV = TABENV; window.__derby.PERFREP = PERFREP; // (test hooks)
 window.__derby.VR = VR; window.__derby.XRS = XRS; window.__derby.composer = composer;

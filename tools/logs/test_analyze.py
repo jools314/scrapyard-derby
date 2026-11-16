@@ -89,6 +89,27 @@ def main():
     # A5: voice counters — lines asked for vs actually started vs errors, per device.
     ok('lines sent 50, started 44, errors 3' in md, 'A5 voice line: sent 50, started 44, errors 3 (the asked-vs-started gap)')
 
+    # A6: cars inside objects — a newer record carries `inside`, the older one doesn't: the old one still analyses
+    # ('–' in its inside/h cell), the new one gets a per-hour rate, a hotspot on the 12 m grid, vehicles and what they were in.
+    ok('## Cars inside objects' in md and 'not recorded yet' in md, 'A6 a record without the inside field: section says not recorded yet')
+    m2 = dict(MATCH, id='m2', build='68', game=1800, start='2026-11-15T02:00:00.000Z',
+              inside={'n': 3, 'secs': 9, 'list': [{'t': 30, 'who': 'mixer', 'x': 92, 'z': -110, 'y': 1.2, 'what': 'container', 'part': 'centre', 'depth': 0.9, 'secs': 4},
+                                                  {'t': 90, 'who': 'dozer', 'x': 95, 'z': -108, 'y': 1.0, 'what': 'container', 'part': 'nose', 'depth': 0.5, 'secs': 3},
+                                                  {'t': 400, 'who': 'mixer', 'x': -108, 'z': -92, 'y': 1.9, 'what': 'crusher post', 'part': 'centre', 'depth': 0.3, 'secs': 2}]})
+    arch2 = tempfile.mkdtemp(prefix='sd-arch-'); out2 = tempfile.mkdtemp(prefix='sd-out-')
+    with open(os.path.join(arch2, 'fixture-playlog.txt'), 'w') as f:
+        f.write(json.dumps(SESSION) + '\n'); f.write(json.dumps(MATCH) + '\n'); f.write(json.dumps(m2) + '\n')
+    r = subprocess.run([sys.executable, os.path.join(HERE, 'analyze.py'), arch2, out2], capture_output=True, text=True)
+    md2 = open(os.path.join(out2, 'report-latest.md')).read() if r.returncode == 0 else ''
+    ok(r.returncode == 0, 'A6 analyser runs on a mix of old and new records ' + r.stderr[-300:])
+    ok('total 3 cars caught inside an object over 30.0 game-minutes (6.0 per hour)' in md2, 'A6 total and per-hour rate over the matches that record it')
+    ok('(94, -109): 2× · in container 2 · mixer 1, dozer 1' in md2 and '(-108, -92): 1× · in crusher post 1' in md2, 'A6 hotspots on the 12 m grid with what and who')
+    ok('vehicles: mixer 2, dozer 1' in md2 and 'inside what: container 2, crusher post 1' in md2, 'A6 vehicles and what they were inside')
+    rows = [l for l in md2.split('\n') if l.startswith('| MacBook |')]
+    ok(len(rows) == 2 and rows[0].endswith('| – |') and rows[1].endswith('| 6.0 |'), 'A6 release table: inside/h – for the old build, 6.0 for the new one — got: ' + ' / '.join(rows))
+    tr = json.load(open(os.path.join(out2, 'trend.json')))['perf'] if r.returncode == 0 else []
+    ok([x.get('insidePerHour') for x in tr] == [None, 6.0], 'A6 trend.json carries insidePerHour per build (None when not recorded)')
+
     print('FAILED ' + str(len(fails)) if fails else 'ALL PASS')
     return 1 if fails else 0
 
