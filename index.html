@@ -8531,20 +8531,28 @@ document.addEventListener('pointerdown', (e) => { if (!$('gearMenu').hidden && !
 // New-version check (GitHub Pages): a tab left open, or the browser's cache, can keep running an old build. Look for a newer one and offer a one-tap reload.
 const UPDATE = { checked: 0, newer: null,
   async check() {
-    if (!/github\.io$/.test(location.hostname) || this.newer) return;
+    if (!/github\.io$/.test(location.hostname) && !window.__updTest) return;
+    if (this.newer) { // already found one: make sure autoplay actually takes it (it may have been found while autoplay was off, or a reload may have been lost while the tab slept)
+      if (AUTO.on && !this.updating) this.autoUpdate();
+      else if (this.updating && Date.now() - (this.upAt || 0) > 6 * 60000) { this.note('update stuck for 6 min: retrying'); this.going = false; this.upAt = Date.now(); this.goNow && this.goNow(); }
+      return; }
     try {
-      const r = await fetch(location.pathname, { cache: 'no-cache' }); if (!r.ok) return; // (a conditional request: usually a cheap 304)
-      const m = (await r.text()).match(/const BUILD = '(\d+)'/); this.checked = Date.now();
-      if (m && +m[1] > +BUILD) { this.newer = m[1]; if (AUTO.on) this.autoUpdate(); else this.show(); }
-    } catch (e) {}
+      const r = await fetch(location.pathname + '?u=' + Date.now(), { cache: 'no-store' }); this.checked = Date.now(); // (a fresh copy every time: a conditional revalidation could be answered from a stale cache)
+      if (!r.ok) { this.note('check: HTTP ' + r.status); return; }
+      const m = (await r.text()).match(/const BUILD = '(\d+)'/);
+      this.n = (this.n || 0) + 1; this.last = m ? 'build ' + m[1] : 'no build number';
+      if (m && +m[1] > +BUILD) { this.newer = m[1]; this.note('found build ' + m[1]); if (AUTO.on) this.autoUpdate(); else this.show(); }
+    } catch (e) { this.note('check failed: ' + (e && e.message || e)); }
   },
+  note(msg) { this.log = this.log || []; this.log.push(new Date().toISOString().slice(11, 19) + ' ' + msg); if (this.log.length > 8) this.log.shift(); try { PLAYLOG.ev?.('update', msg); } catch (e) {} },
+  reload(url) { location.replace(url); }, // (one place, so a test can watch it)
   // Autoplay: nobody is playing, so take the new build straight away: finish this match (or give it 3 minutes at most),
   // send the play log, then reload into autoplay on the new version.
   autoUpdate() {
-    if (this.updating) return; this.updating = true; PLAYLOG.ev?.('update', 'build ' + this.newer + ' found during autoplay');
+    if (this.updating) return; this.updating = true; this.upAt = Date.now(); this.note('autoplay will update to build ' + this.newer);
     toast(`🆕 BUILD ${this.newer} OUT · AUTOPLAY WILL UPDATE AFTER THIS MATCH`, 'cool');
     const go = async () => { if (this.going) return; this.going = true; try { PLAYLOG.ck?.('updating to build ' + this.newer); await Promise.race([PLAYLOG.upload('updating to build ' + this.newer), new Promise((r) => setTimeout(r, 15000))]); } catch (e) {}
-      location.replace(location.pathname + '?autoplay=1' + (AUTO.idle ? '&idle=1' : '') + '&v=' + this.newer); }; // (idle autoplay stays idle autoplay: no wake lock)
+      this.reload(location.pathname + '?autoplay=1' + (AUTO.idle ? '&idle=1' : '') + '&v=' + this.newer); }; // (idle autoplay stays idle autoplay: no wake lock)
     this.goNow = go; setTimeout(go, 180000); // (a long match doesn't hold the update back for more than 3 minutes)
   },
   show() {
@@ -8555,7 +8563,7 @@ const UPDATE = { checked: 0, newer: null,
     document.body.appendChild(b); NETLOG.incident('me', `newer build ${this.newer} available (running ${BUILD})`);
   },
 };
-setTimeout(() => UPDATE.check(), 4000); setInterval(() => UPDATE.check(), 5 * 60000); setInterval(() => { if (AUTO.on) UPDATE.check(); }, 2 * 60000); // (autoplay checks more often: it updates itself)
+setTimeout(() => UPDATE.check(), 4000); setInterval(() => UPDATE.check(), 5 * 60000); document.addEventListener('visibilitychange', () => { if (!document.hidden) setTimeout(() => UPDATE.check(), 1500); }); // (back from sleep or the background: look straight away) setInterval(() => { if (AUTO.on) UPDATE.check(); }, 2 * 60000); // (autoplay checks more often: it updates itself)
 document.addEventListener('pointerdown', (e) => { if (!el.panel.hidden && !el.panel.contains(e.target) && !e.target.closest('#btnTune, #gearMenu, #btnGear')) togglePanel(false); }); // a tap anywhere outside the Tune Physics box closes it
 $('btnNew').addEventListener('click', (e) => { e.currentTarget.blur(); if (GAME_MODE === 'respawn' && game.state === 'playing') openRespawnSheet(false); else showMenu(); }); // back to the garage to pick a car
 $('btnPause').addEventListener('click', (e) => { if (game.state === 'playing') game.paused = !game.paused; e.currentTarget.blur(); });
@@ -9838,7 +9846,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '97'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '98'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }

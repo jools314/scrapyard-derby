@@ -54,6 +54,7 @@ quick() {
   t inside 600 "INSIDE PASS"
   t voicelines 300 "VOICELINES PASS"
   t broadphase 600 "BROADPHASE PASS"
+  t updatecheck 300 "UPDATECHECK PASS"
 }
 release() {
   quick
