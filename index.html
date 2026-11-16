@@ -4,7 +4,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'"><!-- (not render-blocking: the page paints with system fonts and swaps when these arrive) -->
-<meta name="derby-build" content="102"><!-- must equal BUILD in the script and version.txt (tests/syntax.js checks) -->
+<meta name="derby-build" content="103"><!-- must equal BUILD in the script and version.txt (tests/syntax.js checks) -->
 <script>
 // Updater of last resort (Build 100). Runs on its own, outside the game script, so a build whose game code breaks, a CDN
 // that fails, or a bug in the in-game update check (Build 94's Mac sat stuck for hours) can't strand a computer on an old build.
@@ -432,6 +432,8 @@
   #mpCode { width: 9em; text-transform: lowercase; }
   body.touch #gearMenu .tonly { display: flex; }
   body.touch #btnMap, body.touch #btnCam, body.touch #btnTilt { display: none !important; }
+  /* phones and tablets: the speedometer IS the camera button (no room for a View button in the top row); the badge says so (owner couldn't find it, Build 103) */
+  body.touch .speedo { cursor: pointer; } body.touch .speedo::after { content: '🎥'; position: absolute; right: -4px; bottom: -4px; font-size: 15px; line-height: 1; padding: 3px 4px; border-radius: 9px; background: rgba(20, 17, 14, 0.78); border: 1px solid rgba(242, 162, 12, 0.7); pointer-events: none; }
   body.touch .rail { display: flex !important; flex-direction: row !important; gap: 6px; }
   body.touch .rail .ic { width: 44px; height: 44px; font-size: 18px; }
   body.touch .rail .ic small { font-size: 8px; }
@@ -509,12 +511,9 @@
         <button id="gmScore" type="button">🏆 Scoreboard<kbd>L</kbd></button>
         <button id="gmTilt" class="tonly" type="button">📱 Tilt steering: off</button>
         <button id="gmFull" type="button">⛶ Full screen</button>
-        <button id="gmBug" class="tonly" type="button">🐞 Bug report</button>
         <button id="btnTune" type="button">Tune physics<kbd>T</kbd></button>
         <button id="btnNew" type="button">New car<kbd>N</kbd></button>
-        <button id="btnPerf" type="button">Performance<kbd>I</kbd></button>
-        <button id="btnNetLog" type="button" hidden>Network log</button>
-        <button id="btnApReport" type="button">Play report</button>
+        <button id="btnPerf" type="button">🩺 Performance &amp; logs<kbd>I</kbd></button>
         <button id="btnMusic" type="button">Music on<kbd>B</kbd></button>
         <button id="btnMute" type="button">Sound on<kbd>M</kbd></button>
         <button id="btnVoices" type="button">Voices on<kbd>U</kbd></button>
@@ -553,14 +552,15 @@
     <div id="pedalZone" class="pedal-zone"><div id="pedal" class="pedal-track"><span class="pl up">GAS ▲</span><div id="pedalKnob" class="knob"></div><span class="pl dn">▼ BRAKE</span></div></div>
   </div>
 
-  <div id="perfdlg" hidden role="dialog" aria-label="Performance">
+  <div id="perfdlg" hidden role="dialog" aria-label="Performance and logs">
     <div class="nl-card">
-      <div class="rs-title">Performance</div>
+      <div class="rs-title">Performance &amp; logs</div>
+      <div class="nl-actions"><button id="gmBug" class="primary" type="button">🐞 Copy bug report</button><button id="btnNetLog" type="button" hidden>Network log</button><button id="plRep" type="button">Play report</button></div> <!-- (one place for everything you send Claude: these were three more gear-menu items, owner asked to combine them) -->
       <div class="rs-sub" id="pfVerdict"></div>
       <pre id="pfText"></pre>
       <div class="nl-actions"><button id="pfHud" type="button">Corner readout: off</button><button id="pfSend" type="button">Save report</button><button id="pfCopy" type="button">Copy</button><button id="pfClose" class="primary" type="button">Close</button></div>
       <div class="rs-sub" id="plMeter">Play log: …</div>
-      <div class="nl-actions"><button id="plCopy" type="button">Copy all play data</button><button id="plDl" type="button">Download</button><button id="plRep" type="button">Report</button><button id="plClear" type="button">Clear</button></div>
+      <div class="nl-actions"><button id="plCopy" type="button">Copy all play data</button><button id="plDl" type="button">Download</button><button id="plClear" type="button">Clear</button></div>
     </div>
   </div>
   <div id="netlog" hidden role="dialog" aria-label="Network log">
@@ -9930,7 +9930,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '102'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '103'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
@@ -11595,11 +11595,12 @@ $('btnPerf').addEventListener('click', () => PLAYLOG.showMeter());
 $('plCopy').addEventListener('click', (e) => PLAYLOG.copy(e.currentTarget));
 $('plDl').addEventListener('click', () => PLAYLOG.download());
 $('plRep').addEventListener('click', () => AUTO.openReport());
+for (const id of ['btnNetLog', 'plRep']) $(id).addEventListener('click', () => perfOpen(false)); // (it opens its own window: don't leave Performance & logs stacked under it)
 $('plClear').addEventListener('click', () => { if (!confirm('Clear the play log on this device? (Anything not uploaded yet is lost.)')) return; PLAYLOG.clear(); PLAYLOG.showMeter(); });
 window.playLogExport = () => PLAYLOG.exportText();
 window.playLogUpload = (why) => PLAYLOG.upload(why || 'by hand');
 $('btnAutoplay').addEventListener('click', (e) => { e.currentTarget.blur(); AUTO.start(); });
-for (const id of ['btnApReport', 'btnApReport2']) $(id).addEventListener('click', (e) => { e.currentTarget.blur(); gearOpen(false); AUTO.openReport(); });
+for (const id of ['btnApReport2']) $(id).addEventListener('click', (e) => { e.currentTarget.blur(); gearOpen(false); AUTO.openReport(); });
 $('apClose').addEventListener('click', () => { $('apReport').hidden = true; });
 $('apGo').addEventListener('click', () => { $('apReport').hidden = true; AUTO.start(); });
 $('apClear').addEventListener('click', () => { if (!confirm('Clear the play log on this device? (Anything not uploaded yet is lost.)')) return; PLAYLOG.clear(); AUTO.openReport(); });
@@ -11640,7 +11641,7 @@ try { BOOT.parallel = !!renderer.getContext().getExtension('KHR_parallel_shader_
   if (window.__noRender || !BOOT.parallel || !renderer.compileAsync) startLoop('direct');
   else { renderer.compileAsync(scene, camera).then(() => startLoop('async'), () => startLoop('async-failed')); setTimeout(() => startLoop('timeout'), 8000); }
 } catch (e) { startLoop('error'); }
-window.__derby.BOOT = BOOT; window.__derby.MEMGUARD = MEMGUARD; window.__derby.GPULIVE = GPULIVE;
+window.__derby.BOOT = BOOT; Object.defineProperty(window.__derby, 'camMode', { get: () => camMode }); window.__derby.MEMGUARD = MEMGUARD; window.__derby.GPULIVE = GPULIVE;
 window.__derby.IDLE = IDLE; window.__derby.TALK = TALK; window.__derby.DROP = DROP; window.__derby.SCORE = SCORE; window.__derby.UPDATE = UPDATE; window.__derby.TABENV = TABENV; window.__derby.PERFREP = PERFREP; // (test hooks)
 window.__derby.VR = VR; window.__derby.XRS = XRS; window.__derby.composer = composer;
 window.__derby.VCLIP = VCLIP; window.__derby.ROAST_BY = ROAST_BY; window.__derby.ROAST_PAIR = ROAST_PAIR; window.__derby.SHAZZA = SHAZZA; window.__derby.CAR_CAST = CAR_CAST; window.__derby.ANNOUNCER = ANNOUNCER; window.__derby.COP = COP; window.__derby.megaphone = megaphone; window.__derby.hornLine = hornLine;
