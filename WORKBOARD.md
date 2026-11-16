@@ -19,6 +19,7 @@ Format: `- [agent] topic — branch — claimed YYYY-MM-DD HH:MM UTC — notes`
 - [claude] Player target picking: Tab / one 🎯 button cycles visible targets for the Tiger cannon, minigun, rockets — claude/target-pick — claimed 2026-11-15 05:55 UTC
 - [muse] bob/improvements-round2 — branch exists; landing plan to follow (not yet claimed)
 ## Ready to land (needs the test gate)
+- [claude] `claude/spider` → Build 103 (rebased on 102 at 17:30, worktree /home/user/wt-spider): quick suite all passed except crusheropen once (north lane; passed 2/2 alone and on main). Lands when Build 101 has 30+ game-min with a clean Regression check.
 
 ## Done
 - [claude] Build 102: memory guard (leak census in the play log, autoplay reload when memory runs away; Memory section in the report) — build 102.
