@@ -49,6 +49,7 @@ quick() {
   t bales 600 "BALES PASS"
   t helisign 600 "HELISIGN PASS"
   t helisignfix 600 "HELISIGNFIX PASS"
+  t inside 600 "INSIDE PASS"
 }
 release() {
   quick

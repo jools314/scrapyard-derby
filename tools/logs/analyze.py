@@ -53,10 +53,14 @@ for d in sorted({dev_name(m) for m in real}):
     J.setdefault('perf', {})[d] = {'med': med, 'low1': low, 'worst': worst}
 # release-to-release trend: the same numbers per build, per device (real, foreground play)
 L.append('### Release to release\n')
-L.append('| device | build | matches | game-min | fps med | p5 | 1% low | worst ms | res | slow s/h | stuck/h | phys catches/h | throttled s |')
-L.append('|---|---|---|---|---|---|---|---|---|---|---|---|---|')
+L.append('| device | build | matches | game-min | fps med | p5 | 1% low | worst ms | res | slow s/h | stuck/h | phys catches/h | throttled s | inside/h |')
+L.append('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|')
 J['trend'] = {}
 TR = []
+def inside_rate(xs): # cars inside objects per game-hour, over the matches that record it (the host/solo/autoplay side, from the build that added it); None = not recorded
+    ys = [m for m in xs if isinstance(m.get('inside'), dict)]
+    if not ys: return None
+    return round(sum(m['inside'].get('n', 0) for m in ys) / max(0.01, sum(m.get('game', 0) for m in ys) / 60) * 60, 1)
 for d in sorted({dev_name(m) for m in real}):
     for b in sorted({m.get('build') for m in real if dev_name(m) == d}, key=lambda x: int(x or 0)):
         xs = [m for m in real if dev_name(m) == d and m.get('build') == b and m.get('fps', {}).get('frames', 0) > 300]
@@ -65,11 +69,12 @@ for d in sorted({dev_name(m) for m in real}):
         slow = sum((m.get('slow') or {}).get('secs', 0) for m in xs); stk = sum((m.get('stuck') or {}).get('n', 0) for m in xs); ph = sum((m.get('phys') or {}).get('blowups', 0) for m in xs)
         res = collections.Counter((m.get('q') or {}).get('res') for m in xs).most_common(1)[0][0]
         thr = sum((m.get('env') or {}).get('throttledS', 0) + (m.get('env') or {}).get('hiddenS', 0) for m in xs) if any(m.get('env') for m in xs) else '–'
-        L.append(f"| {d} | {b} | {len(xs)} | {round(mn)} | {md('med')} | {md('p5')} | {md('low1')} | {max(m['fps']['worstMs'] for m in xs)} | {res}% | {round(slow / mn * 60, 1)} | {round(stk / mn * 60)} | {round(ph / mn * 60)} | {thr} |")
+        ins = inside_rate(xs)
+        L.append(f"| {d} | {b} | {len(xs)} | {round(mn)} | {md('med')} | {md('p5')} | {md('low1')} | {max(m['fps']['worstMs'] for m in xs)} | {res}% | {round(slow / mn * 60, 1)} | {round(stk / mn * 60)} | {round(ph / mn * 60)} | {thr} | {'–' if ins is None else ins} |")
         J['trend'][f'{d}/{b}'] = {'low1': md('low1'), 'med': md('med')}
         TR.append({'device': d, 'build': int(b or 0), 'matches': len(xs), 'gameMin': round(mn, 1), 'fpsMed': md('med'), 'fpsP5': md('p5'), 'fpsLow1': md('low1'),
                    'worstMs': max(m['fps']['worstMs'] for m in xs), 'resPct': res, 'slowSecPerHour': round(slow / mn * 60, 1), 'stuckPerHour': round(stk / mn * 60, 1),
-                   'physPerHour': round(ph / mn * 60, 1), 'throttledSec': thr if thr != '–' else None})
+                   'physPerHour': round(ph / mn * 60, 1), 'throttledSec': thr if thr != '–' else None, 'insidePerHour': ins})
 L.append('')
 # --- regression check (thresholds from QUALITY-GATES.md section 3): newest build vs the one before it, per device, once it has >= 30 game-minutes
 L.append('### Regression check (newest build vs previous, per device)\n')
@@ -118,6 +123,27 @@ for (gx, gz), xs in hot[:12]:
     J['stuck'][f'{cx},{cz}'] = len(xs)
 if not st: L.append('- none')
 L.append(f'- total {len(st)} stuck events, {round(sum(s.get("secs", 0) for s in st), 1)} s, over {mins(real)} game-minutes ({round(len(st) / max(0.1, mins(real)) * 60, 1)} per hour)\n')
+# --- cars inside objects (recorded from the build that added the detector: host/solo/autoplay records only)
+L.append('## Cars inside objects\n')
+IM = [m for m in real if isinstance(m.get('inside'), dict)]
+J['inside'] = {}
+if not IM: L.append('- not recorded yet (no records from a build with the inside-an-object detector)')
+else:
+    ins = [e for m in IM for e in (m['inside'].get('list') or [])]; nIn = sum(m['inside'].get('n', 0) for m in IM)
+    L.append(f'- total {nIn} cars caught inside an object over {mins(IM)} game-minutes ({round(nIn / max(0.1, mins(IM)) * 60, 1)} per hour) · listed {len(ins)} (the game lists at most 12 per match)')
+    for d in sorted({dev_name(m) for m in IM}):
+        for b in sorted({m.get('build') for m in IM if dev_name(m) == d}, key=lambda x: int(x or 0)):
+            xs = [m for m in IM if dev_name(m) == d and m.get('build') == b]; n = sum(m['inside'].get('n', 0) for m in xs)
+            L.append(f"- {d} · build {b}: {n} over {mins(xs)} game-min ({inside_rate(xs)}/h, {sum(1 for m in xs if m['inside'].get('n'))} of {len(xs)} matches)")
+    if ins:
+        cl2 = collections.defaultdict(list)
+        for e in ins: cl2[(round((e.get('x') or 0) / 12), round((e.get('z') or 0) / 12))].append(e)
+        L.append('- hotspots (same 12 m grid as stuck): ' + '; '.join(f"({round(sum(e.get('x', 0) for e in xs) / len(xs))}, {round(sum(e.get('z', 0) for e in xs) / len(xs))}): {len(xs)}× · in " + ', '.join(f'{k} {n}' for k, n in collections.Counter(e.get('what') or '?' for e in xs).most_common(2)) + ' · ' + ', '.join(f'{k} {n}' for k, n in collections.Counter(e.get('who') or '?' for e in xs).most_common(3)) for _, xs in sorted(cl2.items(), key=lambda kv: -len(kv[1]))[:10]))
+        L.append('- vehicles: ' + ', '.join(f'{k} {n}' for k, n in collections.Counter(e.get('who') or '?' for e in ins).most_common()))
+        L.append('- inside what: ' + ', '.join(f'{k} {n}' for k, n in collections.Counter(e.get('what') or '?' for e in ins).most_common()))
+        L.append('- which part (hull centre / nose / tail): ' + ', '.join(f'{k} {n}' for k, n in collections.Counter(e.get('part') or '?' for e in ins).most_common()) + f" · median depth {sorted(e.get('depth', 0) for e in ins)[len(ins) // 2]} m · longest {max(e.get('secs', 0) for e in ins)} s" + (f" · {sum(1 for e in ins if e.get('held'))} while towed/craned" if any(e.get('held') for e in ins) else ''))
+        J['inside'] = {f"{round(sum(e.get('x', 0) for e in xs) / len(xs))},{round(sum(e.get('z', 0) for e in xs) / len(xs))}": len(xs) for _, xs in cl2.items()}
+L.append('')
 # --- physics safety nets per vehicle per hour of that vehicle's driving
 L.append('## Physics safety-net catches\n')
 ph = collections.Counter(); phk = collections.Counter()
@@ -220,6 +246,8 @@ L.append('## Changes since the previous report\n')
 ch = []
 for k, n in J.get('stuck', {}).items():
     if k not in (prev.get('stuck') or {}): ch.append(f'new stuck hotspot at ({k}) ×{n}')
+for k, n in J.get('inside', {}).items():
+    if k not in (prev.get('inside') or {}): ch.append(f'new inside-an-object hotspot at ({k}) ×{n}')
 for v, n in J.get('phys', {}).items():
     if n > (prev.get('phys') or {}).get(v, 0) + 5: ch.append(f'physics catches up for {v}: {(prev.get("phys") or {}).get(v, 0)} → {n}')
 for d, p in (J.get('perf') or {}).items():
