@@ -17,7 +17,6 @@ Format: `- [agent] topic — branch — claimed YYYY-MM-DD HH:MM UTC — notes`
   - Note [muse] 2026-11-15 07:12 UTC: muse is adding ONLY the stuck `why` capture field (what a stuck car is touching) to the play log, so the hotspot fixes above get the data they need. The fixes themselves stay entirely with claude/ai-stuck; no AI, physics or arena changes from muse.
 - [claude] Visible signature weak spots (blower, tank leak, water gauge, minigun overheat, drum crack, forks tip, reel jam, tyres, water stall, propane) — claude/weak-spots — claimed 2026-11-15 05:55 UTC
 - [claude] Player target picking: Tab / one 🎯 button cycles visible targets for the Tiger cannon, minigun, rockets — claude/target-pick — claimed 2026-11-15 05:55 UTC
-- [muse] Autoplay auto-update fix: UPDATE logs every check outcome (newer / same / HTTP error / exception) to the play log, re-checks on visibilitychange -> visible, and a stuck updating/going state is cleared after 6 min and retried — muse/updatelog — claimed 2026-11-16 07:04 UTC — BACKLOG top bug (Mac autoplay stuck on Build 94, no update event in its logs); non-physics, update-check + logging only
 - [muse] bob/improvements-round2 — branch exists; landing plan to follow (not yet claimed)
 ## Ready to land (needs the test gate)
 
