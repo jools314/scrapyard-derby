@@ -830,15 +830,15 @@
       "accent": "kenyan",
       "description": "Mama Wanjiru, a big-hearted Kenyan safari ranger in her fifties driving a brass steam elephant: a booming, warm, laughing voice with a strong Kenyan English accent, bossy like a favourite auntie, bursting into big belly laughs, sprinkling Swahili words (Twende! Pole pole! Haraka!). Original character, not an impression of any real person.",
       "library_search": "kenyan accent woman warm",
-      "voice_id": null,
-      "voice_name": null,
+      "voice_id": "b5vRUH9JeiCw6SNN3FfW",
+      "voice_name": "Derby Mama Wanjiru (designed)",
       "tier": 1,
       "settings": {
         "stability": 0.32,
         "similarity_boost": 0.8,
         "style": 0.7,
         "use_speaker_boost": true,
-        "speed": 1.0
+        "speed": 1
       }
     }
   }
