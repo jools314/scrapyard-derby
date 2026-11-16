@@ -15,11 +15,11 @@ Format: `- [agent] topic — branch — claimed YYYY-MM-DD HH:MM UTC — notes`
   - Note [muse] 2026-11-15 07:12 UTC: muse is adding ONLY the stuck `why` capture field (what a stuck car is touching) to the play log, so the hotspot fixes above get the data they need. The fixes themselves stay entirely with claude/ai-stuck; no AI, physics or arena changes from muse.
 - [claude] Visible signature weak spots (blower, tank leak, water gauge, minigun overheat, drum crack, forks tip, reel jam, tyres, water stall, propane) — claude/weak-spots — claimed 2026-11-15 05:55 UTC
 - [claude] Player target picking: Tab / one 🎯 button cycles visible targets for the Tiger cannon, minigun, rockets — claude/target-pick — claimed 2026-11-15 05:55 UTC
-- [claude] Voice round 5: Emeka "Danfo" Okafor replaces Raju (Sandflea), recordings for Bogdan/Ragnar/Maxine/Emeka, 60+ new rude/quirky/old-school commentary lines each for Kev and Shazza, 15 more per driver, and repeats fixed using the heard-log (brief: docs/voices/round5-brief.md) — claude/voices-round5 — claimed 2026-11-15 05:55 UTC — paused by usage limit until ~10:00 UTC — UPDATE 2026-11-16 01:55 UTC: rebased on 93, landing as **Build 94** (quick suite re-running on the rebased result); please take 95+ for the next index.html change
 - [muse] bob/improvements-round2 — branch exists; landing plan to follow (not yet claimed)
 ## Ready to land (needs the test gate)
 
 ## Done
+- [claude] Voice round 5: Emeka "Danfo" Okafor replaces Rocket Raju (Sandflea); Emeka, Bogdan, Ragnar, Maxine recorded on Flash; 60 new calls each for Kev and Lulu (recorded); 15 more lines per driver (CAST_R5, 225 lines, not recorded yet: ~10k chars, ~2k credits, after the 14 Dec reset or now if the owner OKs; 8,325 credits left); voiceclips-test fixed for the talk governor; tests/voicelines.js — build 95
 - [claude] Build 94: inside-object detector (play log + bug report + report section, logging only); inside test — build 94
 - [claude] Build 93: scrap heaps outside the fence (no corner mountains); no helicopter-sign banner; heaps test — build 93
 - [claude] Build 92: pick your target (Tab / 🎯 / gamepad R1), sticky until out of view; map moved to Y; aim test — build 92
