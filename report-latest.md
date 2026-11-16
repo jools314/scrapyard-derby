@@ -1,4 +1,4 @@
-# Scrapyard Derby play-log report · 2026-11-16 16:39 UTC
+# Scrapyard Derby play-log report · 2026-11-16 18:39 UTC
 
 739 matches (727 from real devices, 2216.3 game-minutes), 55 page loads, 8 bug reports.
 
@@ -98,6 +98,38 @@ load = page open to first frame, menu = time on the menu before Start, start = S
 | device | build | starts | page open -> driving s (median) | load s | menu s | start s |
 |---|---|---|---|---|---|---|
 | iPhone | 100 | 1 | 25.0 | 1.4 | 21.6 | 1.9 |
+
+## Memory (GPU objects over a session)
+
+Build 102+ reloads an autoplaying page whose memory runs away and logs what was leaking first. A healthy session stays flat.
+
+| device | build | sessions (6+ matches) | geometries added per match (median) |
+|---|---|---|---|
+| Mac | 65 | 1 | 241.0 |
+| Mac | 66 | 2 | 160.3 |
+| Mac | 67 | 2 | 196.7 |
+| Mac | 68 | 1 | 158.5 |
+| Mac | 69 | 1 | 164.9 |
+| Mac | 70 | 1 | 161.6 |
+| Mac | 71 | 1 | 157.4 |
+| Mac | 75 | 1 | 163.5 |
+| Mac | 82 | 1 | 174.7 |
+| Mac | 88 | 1 | 184.8 |
+| Mac | 91 | 1 | 154.2 |
+| Mac | 92 | 1 | 170.5 |
+| Mac | 93 | 1 | 170.7 |
+| Mac | 94 | 1 | 162.9 |
+| other | 70 | 1 | 145.7 |
+| other | 71 | 1 | 142.8 |
+| other | 75 | 1 | 148.4 |
+| other | 82 | 1 | 152.2 |
+| other | 88 | 3 | 160.0 |
+| other | 89 | 1 | 149.8 |
+| other | 90 | 1 | 143.1 |
+| other | 91 | 1 | 163.3 |
+| other | 99 | 1 | 128.6 |
+
+- no leak reports from the memory guard
 
 ## Stuck hotspots
 
@@ -204,4 +236,4 @@ load = page open to first frame, menu = time on the menu before Start, start = S
 
 ## Changes since the previous report
 
-- first data from build 100
+- nothing new
