@@ -1408,8 +1408,8 @@ function buildGroundScatter() {
 function mergeGeos(gs) { const pos = [], nor = [], uv = [], idx = []; let off = 0; for (const g of gs) { const gi = g.index ? g : g; pos.push(...g.attributes.position.array); nor.push(...g.attributes.normal.array); uv.push(...g.attributes.uv.array); for (const i of g.index.array) idx.push(i + off); off += g.attributes.position.count; }
   const m = new THREE.BufferGeometry(); m.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); m.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); m.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); m.setIndex(idx); return m; }
 function buildArena() {
-  groundBody = new CANNON.Body({ type: CANNON.Body.STATIC, shape: new CANNON.Box(new CANNON.Vec3(600, 1, 600)), material: sceneryMat });
-  groundBody.position.set(0, -1, 0);
+  groundBody = new CANNON.Body({ type: CANNON.Body.STATIC, shape: new CANNON.Plane(), material: sceneryMat }); // a plane, not a 1200 m box: everything resting on the ground used cannon's box-box SAT every step (the costliest narrowphase pairs in a match); box/convex-vs-plane is a handful of dot products
+  groundBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2); groundBody.aabbNeedsUpdate = true; groundBody.updateAABB(); // normal +y, surface at y = 0 (same top as the old box); static bodies never refresh their AABB, and the wheel rays find the ground through it
   world.addBody(groundBody);
   const gmesh = new THREE.Mesh(new THREE.PlaneGeometry(1200, 1200), M.ground);
   gmesh.rotation.x = -Math.PI / 2;
@@ -3379,7 +3379,7 @@ function harpoonRip(car, c) { // the barb rips the panel facing you clean off; t
   if (player) sfx.at(d.body.position).clank(wv(car));
 }
 function addDebris(mesh, shape, shapeOffset, shapeQuat, mass, vel, angVel) {
-  const body = new CANNON.Body({ mass, linearDamping: 0.05, angularDamping: 0.15, sleepSpeedLimit: 0.3 });
+  const body = new CANNON.Body({ mass, linearDamping: 0.05, angularDamping: 0.15, sleepSpeedLimit: 0.6, sleepTimeLimit: 0.4 }); // debris settles to sleep sooner (it was the most common awake body in a match, rocking on ramps and on other debris); anything that hits it wakes it
   body.addShape(shape, shapeOffset, shapeQuat);
   body.collisionFilterGroup = LIGHT;
   body.position.set(mesh.position.x, mesh.position.y, mesh.position.z);
@@ -9838,7 +9838,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '96'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '97'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
