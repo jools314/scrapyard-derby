@@ -20,6 +20,7 @@ Format: `- [agent] topic — branch — claimed YYYY-MM-DD HH:MM UTC — notes`
 ## Ready to land (needs the test gate)
 
 ## Done
+- [claude] Build 92: pick your target (Tab / 🎯 / gamepad R1), sticky until out of view; map moved to Y; aim test — build 92
 - [muse] Build 91: 82→88 regression fix — culprit was Build 88's Helicopter Sign (the only gag whose physics fires constantly, ~430 flights/h): it kept the knock's full spin, so signs chained flight after flight in wall piles and dropped from ~13 m into traffic. Fix: spin bled to 7 rad/s at lift-off (one knock, one flight) + hover capped at 3 m; helisignfix test (fails on build 88) in the quick suite, full quick suite passed on the landing tree; local census catches 750→258/h, flights 432→282/h. Verdict pending the play-log Regression check after ≥30 game-min on build 91 — build 91
 - [claude] Build 90: fixed scene lights (one boom light, two shared siren lights) so blasts and siren-car respawns no longer rebuild 20+ shaders (0.4–0.7 s freezes); lightcount test; tests/hitchprobe.js diagnostic — build 90
 - [claude] Build 89: crusher open on all four sides (four corner posts only); crusheropen test in the quick suite; stuckspots west -105,-90 49/49 — build 89
