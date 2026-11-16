@@ -26,7 +26,7 @@ const { open } = require('./harness');
     const rec = D.PLAYLOG.rec('test', false), veh = rec.veh || {}, out = {};
     for (const t of types) { const v = veh[t] || { lives: 0, k: 0, d: 0, life: 0 }; const a = acc[t] || { alive: 0, wrecked: 0, stuck: 0 }; out[t] = { lives: v.lives, k: v.k, d: v.d, kd: +(v.k / Math.max(1, v.d)).toFixed(2), aliveS: Math.round(a.alive), wreckedPct: Math.round(100 * a.wrecked / Math.max(1, a.alive + a.wrecked)), avgLifeS: Math.round(a.alive / Math.max(1, v.d)), kPerMin: +(v.k / Math.max(1, a.alive / 60)).toFixed(2), stuckS: Math.round(a.stuck), dmg: Math.round(v.dmg || 0), taken: Math.round(v.taken || 0), fires: v.fires || 0, phys: {} }; }
     for (const [k, n] of Object.entries(window.__ph)) { const [who, kind] = k.split('|'); const t = name2type[who] || who; (out[t] || (out[t] = { phys: {} })).phys[kind] = n; }
-    return { gameS: Math.round(D.game.time - g0), veh: out, stuck: rec.stuck, phL: window.__phL, physTotal: Object.values(window.__ph).reduce((a, b) => a + b, 0) };
+    return { vs: D.PLAYLOG.m && D.PLAYLOG.m.vs, gameS: Math.round(D.game.time - g0), veh: out, stuck: rec.stuck, phL: window.__phL, physTotal: Object.values(window.__ph).reduce((a, b) => a + b, 0) };
   }, MIN);
   console.log(JSON.stringify(r));
   console.log('errors', JSON.stringify(errors.filter((e) => !e.includes('ERR_FAILED')).slice(0, 5)));

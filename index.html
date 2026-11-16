@@ -6074,6 +6074,7 @@ class Car {
         if (st === 'coward' && c.isPlayer) s *= 2.5;                        // prefers easier prey
         if (c.T.gun && !this.T.gun && !(AI_COUNTER[c.type] || []).includes(this.type)) s *= st === 'brawler' ? 1.6 : 3; // nobody sane picks a fight with a tank (except the fast cars that bend its barrel)
         // who I counter (hunt them) and who counters me (leave them alone); see AI_PREY / AI_COUNTER
+        if (this.type === 'bertha' && c.body.mass < 3000) { const q = b.pointToLocalFrame(c.body.position); if (q.x > 0 && q.x < this.T.L / 2 + 9 && Math.abs(q.z) < this.T.W) s *= 4; } // Bertha's blind spot: she can't see a small car right under her nose
         if ((AI_PREY[this.type] || []).includes(c.type) || (this.T.special === 'water' && c.burnT > 0) || ((c.tow || c.carry) && (AI_COUNTER[c.type] || []).includes(this.type))) s *= 0.55; // (a tow truck mid-tow is a Viper's favourite)
         else if ((AI_COUNTER[this.type] || []).includes(c.type)) s *= 1.7;
         const role = this.barrelBend > 0.4 ? null : AI_ROLE[this.type], mr = c.body.mass / b.mass;
@@ -6292,7 +6293,7 @@ class Car {
     }
     if (this.T.gun && !this.gunBlown && this.mode !== 'charge' && this.mode !== 'flee' && !(this.barrelBend > 0.4)) { // tanks hang back and shoot (with a bent barrel: never - it would blow up; it crushes instead)
       if (this.breakT > 0) {} else if (dist < 20) throttle = -0.7; else if (dist < 55) throttle = Math.min(throttle, 0.45);
-      if (dist < 85 && dist > 7 && this.aimErr < 0.06 && this.reload <= 0 && !this.burst && Math.random() < 0.1 * (0.5 + S.aiSkill)) ctrl.fire = true;
+      if (dist < 65 && dist > 7 && this.aimErr < 0.06 && this.reload <= 0 && !this.burst && Math.random() < 0.1 * (0.5 + S.aiSkill)) ctrl.fire = true;
     }
     if (this.T.special === 'lift' && !this.carry && dist < 9 && Math.abs(angle) < 0.6) throttle = Math.min(throttle, 0.45);
     if (this.T.special === 'tow' && !this.tow && dist < 22 && this.mode !== 'flee' && Math.abs(angle) > 2.2) { throttle = -0.8; steer = clamp(-(Math.PI - Math.abs(angle)) * Math.sign(angle) * 1.5, -1, 1); } // reverse onto them, hook first
