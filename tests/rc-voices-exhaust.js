@@ -8,7 +8,11 @@ const MOCK = () => { class U extends EventTarget { constructor(t) { super(); thi
   const r = await page.evaluate(() => { const b = __derby.barks, P = __derby.PERSONAS[0]; let nul = 0, shown = 0; const show0 = b.show; b.show = function () { shown++; };
     const sp = b.speak; b.speak = () => {};
     for (let i = 0; i < 400; i++) if (!b.compose(P, 'kill', { v: 'Bob', vcar: 'car', target: 'you', car: 'car' })) nul++;
-    for (let i = 0; i < 200; i++) { b.lastT = -99; b.annT = -99; b.announce('crusher', { v: 'Bob' }, true); }
+    // 200 announcements, each one after the talk governor (Build 69) has had its quiet time: the pool must not run dry.
+    const T = __derby.TALK, calm = () => { T.endT = 0; T.quietUntil = 0; T.hist = []; b.lastT = -99; b.annT = -99; };
+    for (let i = 0; i < 200; i++) { calm(); b.announce('crusher', { v: 'Bob' }, true); }
+    // and the governor drops (never queues) an announcement straight on top of another one
+    const loop = shown; calm(); const s0 = shown; b.announce('crusher', { v: 'Bob' }, true); b.lastT = -99; b.annT = -99; b.announce('crusher', { v: 'Bob' }, true); const burst = shown - s0; calm();
     b.show = show0; b.speak = sp;
     // banned-list exhaustion: a long session of hiccups gets every voice banned one by one. Then 3 minutes pass.
     b.voices = speechSynthesis.getVoices(); const all = b.voices;
@@ -16,7 +20,7 @@ const MOCK = () => { class U extends EventTarget { constructor(t) { super(); thi
     const before = (b.pickVoice(__derby.PERSONAS[0]) || {}).name || 'default';
     const pn = performance.now.bind(performance), skew = 180000; performance.now = () => pn() + skew; if (b.doctor) b.doctor();
     const after = (b.pickVoice(__derby.PERSONAS[0]) || {}).name || 'default'; performance.now = pn;
-    return { nul, shown, used: b.used.size, before, after }; });
+    return { nul, shown: loop, burst, used: b.used.size, before, after }; });
   await browser.close(); const pe = errors.filter((e) => e.startsWith('pageerror'));
-  const pass = r.nul < 20 && r.shown > 180 && !pe.length && r.after !== 'default'; console.log(`${pass ? 'PASS' : 'FAIL'} line pool: ${r.nul}/400 character lines came back empty, announcer spoke ${r.shown}/200, ${r.used} remembered; every voice banned -> ${r.before}, 3 min later -> ${r.after} ${pe.join(' | ')}`); process.exit(pass ? 0 : 1);
+  const pass = r.nul < 20 && r.shown > 180 && r.burst === 1 && !pe.length && r.after !== 'default'; console.log(`${pass ? 'PASS' : 'FAIL'} line pool: ${r.nul}/400 character lines came back empty, announcer spoke ${r.shown}/200, back-to-back burst spoke ${r.burst} (1), ${r.used} remembered; every voice banned -> ${r.before}, 3 min later -> ${r.after} ${pe.join(' | ')}`); process.exit(pass ? 0 : 1);
 })();

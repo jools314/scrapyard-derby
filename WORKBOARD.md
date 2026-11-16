@@ -21,6 +21,7 @@ Format: `- [agent] topic — branch — claimed YYYY-MM-DD HH:MM UTC — notes`
 ## Ready to land (needs the test gate)
 
 ## Done
+- [claude] tests only: `rc-voices-exhaust` matches the talk governor (calm gaps between announcements, plus a check that a back-to-back burst is dropped); passes 3/3 on Build 99 — no build
 - [claude] Build 99: crane merged into 2 meshes (−~70 draw calls/frame); lightcount flake fixed — build 99
 - [claude] Build 98: autoplay auto-update made reliable and logged; updatecheck test — build 98
 - [claude] Build 97: plane ground + debris sleeps sooner (~25% less physics per step) — build 97
