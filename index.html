@@ -4,7 +4,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'"><!-- (not render-blocking: the page paints with system fonts and swaps when these arrive) -->
-<meta name="derby-build" content="107"><!-- must equal BUILD in the script and version.txt (tests/syntax.js checks) -->
+<meta name="derby-build" content="108"><!-- must equal BUILD in the script and version.txt (tests/syntax.js checks) -->
 <script>
 // Updater of last resort (Build 100). Runs on its own, outside the game script, so a build whose game code breaks, a CDN
 // that fails, or a bug in the in-game update check (Build 94's Mac sat stuck for hours) can't strand a computer on an old build.
@@ -137,6 +137,17 @@
     font-size: 14px; background: var(--panel); border: 1px solid var(--line); padding: 6px 12px; border-radius: 4px; white-space: nowrap;
   }
   #hint:empty { display: none; }
+  body.touch #menu .quiet, body.touch #over .quiet { display: none; }
+  body.touch:has(#menu:not([hidden])) #btnBug { display: none !important; } /* it sat on top of Full screen */
+  @media (max-height: 500px) { /* landscape phones: the cars, not the title, get the room */
+    #menu .card .eyebrow, #menu .card > p:not(.eyebrow):not(#blurb) { display: none; }
+    #menu .card h1 { font-size: 26px !important; }
+    #menu .card .actions { padding-top: 8px; padding-bottom: 8px; }
+  }
+  @media (orientation: portrait) { body.touch #hint { top: calc(128px + env(safe-area-inset-top, 0px)) !important; } } /* below the HUD and speedometer, not across them */
+  body:has(#menu:not([hidden])) #touch, body:has(#over:not([hidden])) #touch, body:has(#menu:not([hidden])) #keys, body:has(#over:not([hidden])) #keys,
+  body:has(#menu:not([hidden])) #btnPause, body:has(#menu:not([hidden])) #btnRespawn { display: none !important; } /* the menu is not a drive: no pedals, stick or FIRE over it */
+  #fireIco svg { display: block; margin: 0 auto; color: #ffcf8a; }
   #threats { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
   .threat { position: absolute; left: 0; top: 0; width: 0; height: 0; }
   #hostlost { position: fixed; inset: 0; z-index: 35; display: flex; align-items: center; justify-content: center; background: rgba(8, 6, 4, 0.55); backdrop-filter: grayscale(0.7); -webkit-backdrop-filter: grayscale(0.7); }
@@ -220,7 +231,7 @@
   .controls dt { font-weight: 700; color: var(--accent); }
   .controls dd { margin: 0; color: var(--fg); }
   .actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-  #menu .card .actions { position: sticky; bottom: -24px; margin: 0 -24px; padding: 12px 24px 14px; background: linear-gradient(0deg, var(--panel) 75%, rgba(0,0,0,0)); z-index: 2; } /* Start derby is always on screen, however long the menu */
+  #menu .card .actions { position: sticky; bottom: -24px; margin: 0 -24px; padding: 12px 24px 14px; background: rgb(26, 21, 16); box-shadow: 0 -10px 14px rgba(26, 21, 16, 0.9); z-index: 2; } /* Start derby is always on screen, however long the menu */
   #menu #btnStart { font-size: 20px; padding: 14px 34px; } /* the one thing a new player should see: car, then Start (Build 100) */
   @media (min-width: 900px) and (max-height: 1100px) { /* laptop screens: fit the menu without scrolling, keep the car visible beside it */
     #menu .card { gap: 10px; padding: 18px 22px 22px; }
@@ -511,14 +522,14 @@
         <button id="gmScore" type="button">🏆 Scoreboard<kbd>L</kbd></button>
         <button id="gmTilt" class="tonly" type="button">📱 Tilt steering: off</button>
         <button id="gmFull" type="button">⛶ Full screen</button>
-        <button id="btnTune" type="button">Tune physics<kbd>T</kbd></button>
-        <button id="btnNew" type="button">New car<kbd>N</kbd></button>
+        <button id="btnTune" type="button">🔧 Tune physics<kbd>T</kbd></button>
+        <button id="btnNew" type="button">🚗 New car<kbd>N</kbd></button>
         <button id="btnPerf" type="button">🩺 Performance &amp; logs<kbd>I</kbd></button>
-        <button id="btnMusic" type="button">Music on<kbd>B</kbd></button>
-        <button id="btnMute" type="button">Sound on<kbd>M</kbd></button>
-        <button id="btnVoices" type="button">Voices on<kbd>U</kbd></button>
-        <button id="btnVoiceTest" type="button">Test voices</button>
-        <button id="btnSong" type="button">Song: your car's</button>
+        <button id="btnMusic" type="button">🎵 Music on<kbd>B</kbd></button>
+        <button id="btnMute" type="button">🔊 Sound on<kbd>M</kbd></button>
+        <button id="btnVoices" type="button">🗣️ Voices on<kbd>U</kbd></button>
+        <button id="btnVoiceTest" type="button">🎙️ Test voices</button>
+        <button id="btnSong" type="button">🎶 Song: your car's</button>
       </div>
     </div>
     <div class="speedo"><canvas id="gauge" aria-label="Speedometer and tachometer"></canvas><div class="gforce" id="gforce"></div></div>
@@ -6883,7 +6894,7 @@ function updateHUD(dt) {
     else if (player.onOil) hint = 'OIL SLICK! Ease off and steer gently';
     else if (player.stuckConcrete) hint = 'STUCK IN CONCRETE! Keep the power on to claw out';
     else if (game.stuckT > 2.2) hint = isTouchUI() ? 'Stuck? Tap Pause, then Reset car' : 'Stuck? Press R to reset your car';
-    else if (AIMHINT.until > game.time && !player.pickT && canAim(player.T) && game.countdown <= 0) hint = isTouchUI() ? 'Tap 🎯 to pick a target' : 'TAB: pick a target';
+    else if (AIMHINT.until > game.time && !player.pickT && canAim(player.T) && game.countdown <= 0 && game.time - (AIMHINT.go ?? (AIMHINT.go = game.time)) > 1.2) hint = isTouchUI() ? 'Tap 🎯 to pick a target' : 'TAB: pick a target';
   }
   if (el.hint.textContent !== hint) el.hint.textContent = hint;
 }
@@ -8771,7 +8782,7 @@ function spawnCars() {
   if (MP.role === 'host') MP.publishRoster();
 }
 const AIMHINT = { until: 0 }; // the "TAB: target" hint, for the first few drives in a car that aims
-function aimHintFor(type) { if (!canAim(CAR_TYPES[type])) return; let n = 0; try { n = +localStorage.getItem('derby-aimhint') || 0; } catch (e) {} if (n >= 3) return; try { localStorage.setItem('derby-aimhint', String(n + 1)); } catch (e) {} AIMHINT.until = 14; } // (game.time restarts at 0 just after this)
+function aimHintFor(type) { if (!canAim(CAR_TYPES[type])) return; let n = 0; try { n = +localStorage.getItem('derby-aimhint') || 0; } catch (e) {} if (n >= 3) return; try { localStorage.setItem('derby-aimhint', String(n + 1)); } catch (e) {} AIMHINT.until = 14; AIMHINT.go = undefined; } // (game.time restarts at 0 just after this)
 function setControlsFor(type) {
   document.body.classList.toggle('has-gun', !!(CAR_TYPES[type].gun || CAR_TYPES[type].pour || CAR_TYPES[type].special));
   { const T0 = CAR_TYPES[type]; // the controls strip and the touch FIRE button follow your car
@@ -8785,9 +8796,13 @@ function setControlsFor(type) {
     document.body.classList.toggle('has-aim', canAim(T0));
     parts.push(kb('H', 'horn'), kb('C', 'camera'), kb('R', 'flip'), kb('N', 'new car'), kb('P', 'pause'));
     $('keys').innerHTML = parts.join(' · ');
-    const ICON = { reel: ['🌾', 'Reel'], dump: ['🪨', 'Boulders'], blade: ['🚜', 'Blade'], harpoon: ['🔱', 'Harpoon'], oil: ['🛢️', 'Oil'], spikes: ['💥', 'Shotgun'], flame: ['🔥', 'Flames'], bomb: ['💣', 'Propane'], water: ['💧', 'Water'], minigun: ['🔫', 'Minigun'], rockets: ['🚀', 'Rockets'], lift: ['⬆️', 'Lift'], tow: ['🪝', 'Hook'], ram: ['🚀', 'Ram'], web: ['🕸️', 'Web'] };
-    const [ic, lb] = T0.gun ? ['💥', 'Cannon'] : T0.pour ? (T0.pour === 'fuel' ? ['⛽', 'Fuel'] : ['🧱', 'Concrete']) : ICON[T0.special] || ['💥', 'Fire'];
-    $('fireIco').textContent = ic; $('fireLab').textContent = lb;
+    const SVG = { // drawn icons where no emoji fits
+      minigun: '<svg viewBox="0 0 48 32" width="1.25em" height="1em" aria-hidden="true"><g fill="currentColor"><rect x="3" y="8" width="26" height="3.2" rx="1.2"/><rect x="3" y="12.6" width="26" height="3.2" rx="1.2"/><rect x="3" y="17.2" width="26" height="3.2" rx="1.2"/><rect x="8" y="6" width="3" height="16.6" rx="1"/><rect x="18" y="6" width="3" height="16.6" rx="1"/><rect x="28" y="5" width="13" height="18" rx="3"/><rect x="33" y="22" width="5" height="8" rx="1.5"/><rect x="41" y="10" width="5" height="4" rx="1"/></g></svg>',
+      shotgun: '<svg viewBox="0 0 48 32" width="1.25em" height="1em" aria-hidden="true"><g fill="currentColor"><rect x="2" y="10" width="28" height="3" rx="1.2"/><rect x="2" y="14" width="28" height="3" rx="1.2"/><rect x="12" y="17.5" width="10" height="4" rx="1.5"/><rect x="28" y="9" width="9" height="11" rx="2"/><path d="M36 10 L47 13 L47 23 L41 23 L36 19 Z"/><rect x="31" y="19" width="3" height="5" rx="1"/></g></svg>',
+      cannon: '<svg viewBox="0 0 48 32" width="1.25em" height="1em" aria-hidden="true"><g fill="currentColor"><rect x="4" y="7" width="4" height="18" rx="1"/><rect x="8" y="9" width="20" height="14" rx="1.5"/><path d="M28 9 Q44 10 46 16 Q44 22 28 23 Z"/><rect x="22" y="9" width="2.5" height="14" fill="rgba(0,0,0,0.35)"/></g></svg>' };
+    const ICON = { reel: ['🌾', 'Reel'], dump: ['🪨', 'Boulders'], blade: ['🚜', 'Blade'], harpoon: ['🔱', 'Harpoon'], oil: ['🛢️', 'Oil'], spikes: [SVG.shotgun, 'Shotgun'], flame: ['🔥', 'Flames'], bomb: ['💣', 'Propane'], water: ['💧', 'Water'], minigun: [SVG.minigun, 'Minigun'], rockets: ['🚀', 'Rockets'], lift: ['⬆️', 'Lift'], tow: ['🪝', 'Hook'], ram: ['🚀', 'Ram'], web: ['🕸️', 'Web'] };
+    const [ic, lb] = T0.gun ? [SVG.cannon, 'Cannon'] : T0.pour ? (T0.pour === 'fuel' ? ['⛽', 'Fuel'] : ['🧱', 'Concrete']) : ICON[T0.special] || ['💥', 'Fire'];
+    if (ic.startsWith('<svg')) $('fireIco').innerHTML = ic; else $('fireIco').textContent = ic; $('fireLab').textContent = lb;
     document.body.classList.toggle('has-siren', !!(T0.police || T0.siren));
   }
   { const T0 = CAR_TYPES[type]; const lab = document.querySelector('.row.gun-only .label'); if (lab) lab.textContent = T0.gun ? 'Cannon' : T0.pour ? (T0.pour === 'fuel' ? 'Fuel' : 'Concrete') : 'Weapon'; }
@@ -8956,13 +8971,13 @@ $('btnRestart').addEventListener('click', (e) => { e.currentTarget.blur(); start
 $('btnDefaults').addEventListener('click', (e) => { e.currentTarget.blur(); for (const d of SETTINGS_DEF) setValue(d.key, d.def); });
 // (Chrome sometimes sits 'speaking' forever and says nothing more: barks.doctor() unsticks it, at a moment when a cancel is safe)
 let VOICES_OFF = false; try { VOICES_OFF = localStorage.getItem('derby-voices') === 'off'; } catch (e) {}
-function setVoices(off) { VOICES_OFF = off; $('btnVoices').firstChild.textContent = off ? 'Voices off' : 'Voices on'; try { localStorage.setItem('derby-voices', off ? 'off' : 'on'); } catch (e) {} if (off) try { speechSynthesis.cancel(); } catch (e) {} if (off) VCLIP.stopAll(); }
+function setVoices(off) { VOICES_OFF = off; $('btnVoices').firstChild.textContent = off ? '🗣️ Voices off' : '🗣️ Voices on'; try { localStorage.setItem('derby-voices', off ? 'off' : 'on'); } catch (e) {} if (off) try { speechSynthesis.cancel(); } catch (e) {} if (off) VCLIP.stopAll(); }
 setVoices(VOICES_OFF);
 $('btnVoices').addEventListener('click', (e) => { e.currentTarget.blur(); setVoices(!VOICES_OFF); });
 function showNote(t) { let n = $('note'); if (!n) { n = document.createElement('div'); n.id = 'note'; n.addEventListener('click', () => { n.hidden = true; }); document.body.appendChild(n); } n.textContent = t + '  (tap to close)'; n.hidden = false; clearTimeout(n.tm); n.tm = setTimeout(() => { n.hidden = true; }, 12000); }
 const SONGS = [['', "your car's"], ['rock', 'Rock'], ['hillbilly', 'Hillbilly'], ['funk', '70s Funk'], ['march', 'March'], ['synth', 'Synthwave'], ['surf', 'Surf'], ['country', 'Country'], ['dirge', 'Dirge']];
 let songI = 0; try { songI = Math.max(0, SONGS.findIndex((x) => x[0] === localStorage.getItem('derby-song'))); } catch (e) {}
-function applySong() { const [k, name] = SONGS[songI]; sfx.songPick = k || null; sfx.setStyle(k || MUSIC_FOR[player ? player.type : 'outrider'] || 'rock', true); $('btnSong').textContent = 'Song: ' + name; try { localStorage.setItem('derby-song', k); } catch (e) {} }
+function applySong() { const [k, name] = SONGS[songI]; sfx.songPick = k || null; sfx.setStyle(k || MUSIC_FOR[player ? player.type : 'outrider'] || 'rock', true); $('btnSong').textContent = '🎶 Song: ' + name; try { localStorage.setItem('derby-song', k); } catch (e) {} }
 $('btnSong').addEventListener('click', (e) => { e.currentTarget.blur(); songI = (songI + 1) % SONGS.length; applySong(); if (!sfx.musicOn) toggleMusic(); });
 setTimeout(applySong, 0);
 $('btnVoiceTest').addEventListener('click', () => { // speaks right inside the tap (browsers only allow speech from a user gesture) and reports exactly what the speech engine did
@@ -8995,14 +9010,14 @@ $('btnVoiceTest').addEventListener('click', () => { // speaks right inside the t
 const btnMute = $('btnMute');
 function toggleMute() {
   sfx.setMuted(!sfx.muted);
-  btnMute.firstChild.textContent = sfx.muted ? 'Sound off' : 'Sound on';
+  btnMute.firstChild.textContent = sfx.muted ? '🔇 Sound off' : '🔊 Sound on';
 }
 btnMute.addEventListener('click', (e) => { sfx.init(); toggleMute(); e.currentTarget.blur(); });
 const btnMusic = $('btnMusic');
 function toggleMusic() {
   sfx.musicOn = !sfx.musicOn;
   if (sfx.musicOn) { sfx.init(); sfx.startMusic(); } else sfx.stopMusic();
-  btnMusic.firstChild.textContent = sfx.musicOn ? 'Music on' : 'Music off';
+  btnMusic.firstChild.textContent = sfx.musicOn ? '🎵 Music on' : '🎵 Music off';
 }
 btnMusic.addEventListener('click', (e) => { toggleMusic(); e.currentTarget.blur(); });
 function gearOpen(open) { $('gearMenu').hidden = !open; $('btnGear').setAttribute('aria-expanded', String(open)); }
@@ -10368,7 +10383,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '107'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '108'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
