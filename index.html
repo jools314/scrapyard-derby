@@ -1555,7 +1555,7 @@ function buildArena() {
     scene.add(mesh);
     const band = new THREE.Mesh(new THREE.CylinderGeometry(1.32, 1.32, 0.6, 24), new THREE.MeshStandardMaterial({ map: hazardTex(4) }));
     band.position.set(x, 1.2, z); scene.add(band);
-    mapShapes.push({ kind: 'pillar', x, z, r: 1.3 }); PILLARS.push({ x, z, r: 1.3, h: 6 });
+    mapShapes.push({ kind: 'pillar', x, z, r: 1.3 }); PILLARS.push({ x, z, r: 1.3, h: 6, body });
   }
 
   // Kicker + landing pairs on the diagonals: jump gaps
@@ -2438,6 +2438,10 @@ function frontTarget(car, range, cone) { // nearest car ahead inside a cone (a h
 }
 /* Target picking: Tab (or the touch 🎯 button) chooses which car your aimed weapons go for.
    The pick sticks until that car is wrecked, out of sight for PICK.lose seconds, or you press again. A guest sends it to the host as a car index. */
+function pillarOnInside(car, turn) { // AI harpoon: a pillar on the inside of the turn it wants, in hooking reach, to swing round it
+  for (const P of PILLARS) { if (!P.body) continue; const l = car.body.pointToLocalFrame(P.body.position); if (l.x > 6 && l.x < 25 && Math.abs(l.z) > 2.5 && Math.abs(l.z) < l.x * 0.8 && Math.sign(-l.z) === Math.sign(turn)) return true; }
+  return false;
+}
 const AIM_SPECIALS = new Set(['minigun', 'rockets', 'harpoon', 'bomb', 'water', 'spikes']);
 function canAim(T) { return !!(T && (T.gun || T.pour === true || AIM_SPECIALS.has(T.special))); } // tank cannon, mixer's concrete bomb, and the specials that aim at a car
 const PICK = { range: 130, lose: 1.5, occT: 0, occ: false };
@@ -2641,6 +2645,7 @@ const WEAPONS = {
       let t = frontTarget(car, 45, 0.5);
       if (!t) { // no car in sight: harpoon a bull (rodeo!) or a barrel and reel it in
         let best = null, bd = 40; const b0 = car.body;
+        for (const P of PILLARS) { if (!P.body) continue; const l = b0.pointToLocalFrame(P.body.position); if (l.x > 4 && l.x < 30 && Math.abs(l.z) < l.x * 0.8 && l.x < bd) { bd = l.x; best = { body: P.body, name: 'the pillar', pillar: true }; } } // a pillar: swing round it like a slingshot
         for (const bl of BULLS) { if (bl.state === 'burger') continue; const l = b0.pointToLocalFrame(bl.body.position); if (l.x > 2 && Math.abs(l.z) < l.x * 0.5 && l.x < bd) { bd = l.x; best = { body: bl.body, name: 'the bull', bull: bl }; } }
         if (!best) for (const pr of props) { if (pr.body.mass > 120 || !props.includes(pr)) continue; const l = b0.pointToLocalFrame(pr.body.position); if (l.x > 2 && Math.abs(l.z) < l.x * 0.4 && l.x < bd) { bd = l.x; best = { body: pr.body, name: 'a ' + (pr.body.propKind === 'wood' ? 'crate' : pr.body.propKind === 'rubber' ? 'tyre' : 'barrel'), prop: pr }; } }
         if (!best) { car.specialCd = 1; car.specialT = 0; if (car.isPlayer) toast('NO TARGET', 'bad'); return; }
@@ -2648,15 +2653,29 @@ const WEAPONS = {
         if (best.bull) { const bl = best.bull; bl.state = 'down'; bl.t = 3.2; best.body.fixedRotation = false; best.body.updateMassProperties(); bullMoo(bl, 1.2); if (game.state === 'playing') { if (car.isPlayer) toast('🤠 RODEO!', 'cool'); if (!car.isPlayer && !car.remote && Math.random() < 0.5) barks.say(car, 'rodeo', true); else barks.announce('rodeo', { a: car.isPlayer ? 'our hero' : car.name }, true); } }
       }
       const d = car.body.position.distanceTo(t.body.position);
-      const con = new CANNON.DistanceConstraint(car.body, t.body, d, 4e5); world.addConstraint(con);
+      const con = new CANNON.DistanceConstraint(car.body, t.body, d, 4e5); if (!t.pillar) world.addConstraint(con); // (a pillar gets a rope instead, in tick: it only stops you going further away)
+      const isCar = !!(t.T && t.body && !t.pillar);
       const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), new THREE.LineBasicMaterial({ color: 0x2a2622 }));
-      scene.add(line); car.cable = { con, t, line, d, age: 0, rip: t.parts && !t.wrecked && MP.role !== 'guest' && Math.random() < (window.__ripChance ?? 0.65) ? rand(0.3, 0.7) : 0 };
+      scene.add(line); car.cable = { con, t, line, d, age: 0, swing: !!t.pillar, zip: isCar ? 1.2 : 0, rip: t.parts && !t.wrecked && MP.role !== 'guest' && Math.random() < (window.__ripChance ?? 0.65) ? rand(0.3, 0.7) + (isCar ? 1.2 : 0) : 0 }; /* (the rip waits for the ram) */
       if (t.parts && !t.wrecked) { const hp = t.body.pointToLocalFrame(car.body.position), zn = Math.abs(hp.x) > Math.abs(hp.z) ? (hp.x > 0 ? 'front' : 'rear') : (hp.z > 0 ? 'right' : 'left'); const m = new THREE.Vector3(zn === 'front' ? t.T.L / 2 : zn === 'rear' ? -t.T.L / 2 : 0, 0.2, zn === 'right' ? t.T.W / 2 : zn === 'left' ? -t.T.W / 2 : 0); t.applyDamage(7 * S.damage * t.T.armor, car, zn, m, 9); t.dent(m, { x: Math.sign(m.x), y: 0, z: Math.sign(m.z) }, 10); sparks(t.body.position, 10); car.cable.zn = zn; } /* the barb punches in */ // sometimes the hook tears a panel off instead of dragging the car
+      if (isCar && MP.role !== 'guest') { const hp2 = t.body.pointToLocalFrame(car.body.position); if (Math.abs(hp2.z) > Math.abs(hp2.x) * 0.8) { // a hook in the side: yank them off their line and spin them out
+          const k = Math.min(1, 3000 / t.body.mass), dx = car.body.position.x - t.body.position.x, dz = car.body.position.z - t.body.position.z, dl = Math.hypot(dx, dz) || 1;
+          t.body.angularVelocity.y += Math.sign(hp2.z) * 4 * k; t.body.velocity.x += dx / dl * 5 * k; t.body.velocity.z += dz / dl * 5 * k; t.body.wakeUp(); car.cable.spun = true;
+          if (car.isPlayer) toast('🌀 SPUN OUT!', 'cool'); } }
+      if (t.pillar && car.isPlayer) toast('🪝 SWING!', 'cool');
       sfx.at(car.body.position).zing(wv(car)); sfx.at(t.body.position).clank(wv(car) * 0.8); if (car.isPlayer && !t.bull) toast(`HARPOONED ${String(t.name).toUpperCase()}!`); else if (t.isPlayer) toast(`${car.name} HARPOONED YOU!`, 'bad'); if (t.bull) car.cable && (car.cable.bull = t.bull);
     },
     tick(car, dt) { const c = car.cable; if (!c) return; c.age += dt; if (c.rip && c.age >= c.rip) harpoonRip(car, c);
-      if (c.t && c.t.parts && !c.t.wrecked) { c.t.applyDamage(5 * dt * S.damage * c.t.T.armor, car, c.zn || 'front', null, 0); if (!c.rip2 && c.age > 1.2 && Math.random() < 0.4) { c.rip2 = true; harpoonRip(car, c); } } /* the barb grinds as it reels in, and may tear off a second panel */ c.con.distance = Math.max(2, c.con.distance - dt * 14); car.ratT = (car.ratT || 0) - dt; if (car.ratT <= 0 && c.con.distance > 2) { car.ratT = 0.09; sfx.at(car.body.position).ratchet(wv(car)); } const p = c.line.geometry.attributes.position; p.setXYZ(0, car.body.position.x, car.body.position.y + 0.8, car.body.position.z); p.setXYZ(1, c.t.body.position.x, c.t.body.position.y + 0.8, c.t.body.position.z); p.needsUpdate = true; c.line.geometry.computeBoundingSphere(); },
-    end(car) { const c = car.cable; if (!c) return; world.removeConstraint(c.con); scene.remove(c.line); c.line.geometry.dispose(); c.line.material.dispose(); car.cable = null; }, // (the line was never freed: 2-vertex lines were the top item in the first MEMGUARD leak record)
+      if (c.t && c.t.parts && !c.t.wrecked) { c.t.applyDamage(5 * dt * S.damage * c.t.T.armor, car, c.zn || 'front', null, 0); if (!c.rip2 && c.age > 1.2 && Math.random() < 0.4) { c.rip2 = true; harpoonRip(car, c); } } /* the barb grinds as it reels in, and may tear off a second panel */ if (c.zip > 0) { c.zip -= dt; const b = car.body, q = c.t.body.position, dx = q.x - b.position.x, dz = q.z - b.position.z, dl = Math.hypot(dx, dz) || 1; // "get over here!": yank yourself at them for a ram
+        if (dl < 5) c.zip = 0; else { const va = Math.max(22, (b.velocity.x * dx + b.velocity.z * dz) / dl); b.velocity.x = dx / dl * va; b.velocity.z = dz / dl * va; b.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), Math.atan2(-dz, dx)); b.angularVelocity.set(0, 0, 0); b.wakeUp(); } /* straight at them, nose first */ c.con.distance = Math.min(c.con.distance, b.position.distanceTo(q)); }
+      if (c.swing) { const b = car.body, q = c.t.body.position, dx = q.x - b.position.x, dz = q.z - b.position.z, L = Math.hypot(dx, dz) || 1; // the rope: closer is fine, further than its length is not, so you swing round
+        if (L < c.d) c.d = Math.max(5, L); /* the line takes up its slack as you close in, so the swing starts as you pass the pillar, not a car-length later */
+        if (L > c.d) { const nx = dx / L, nz = dz / L, vr = b.velocity.x * nx + b.velocity.z * nz;
+          if (vr < 0) { const sp = Math.hypot(b.velocity.x, b.velocity.z), tx = -nz, tz = nx, vt = b.velocity.x * tx + b.velocity.z * tz, sg = c.sg || (c.sg = vt >= 0 ? 1 : -1); // arcade swing: the rope turns your speed sideways round the pillar instead of stopping you
+            const kp = Math.max(0.9, 1 - 0.6 * dt); b.velocity.x = tx * sg * sp * kp; b.velocity.z = tz * sg * sp * kp; /* (the rope's drag per second, not per frame: a 20 fps Chromebook swings like a 60 fps one) */ b.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), Math.atan2(-b.velocity.z, b.velocity.x)); b.angularVelocity.set(0, sg * sp / L, 0); } /* nose along the arc, or the tyres scrub the swing away */
+          b.position.x += nx * (L - c.d); b.position.z += nz * (L - c.d); } }
+      else c.con.distance = Math.max(2, c.con.distance - dt * 14); car.ratT = (car.ratT || 0) - dt; if (car.ratT <= 0 && c.con.distance > 2) { car.ratT = 0.09; sfx.at(car.body.position).ratchet(wv(car)); } const p = c.line.geometry.attributes.position; p.setXYZ(0, car.body.position.x, car.body.position.y + 0.8, car.body.position.z); p.setXYZ(1, c.t.body.position.x, c.t.body.position.y + 0.8, c.t.body.position.z); p.needsUpdate = true; c.line.geometry.computeBoundingSphere(); },
+    end(car) { const c = car.cable; if (!c) return; if (!c.swing) world.removeConstraint(c.con); if (c.swing && MP.role !== 'guest') { const v = car.body.velocity, sp = Math.hypot(v.x, v.z); if (sp > 3) { const k = Math.min(1.35, 30 / sp); v.x *= k; v.z *= k; } } /* letting go of a pillar slings you out */ scene.remove(c.line); c.line.geometry.dispose(); c.line.material.dispose(); car.cable = null; }, // (the line was never freed: 2-vertex lines were the top item in the first MEMGUARD leak record)
   },
   oil: { label: 'OIL SLICK', cd: 7, dur: 1.2,
     start(car) {}, tick(car, dt) { car.oilT = (car.oilT || 0) - dt; if (car.oilT <= 0) { car.oilT = 0.3; const p = behindPoint(car, 1.5); addConcrete(p.x, p.z, rand(2.2, 3), 'oil'); sfx.at(p).glug(wv(car)); } },
@@ -6674,7 +6693,7 @@ class Car {
     if (this.T.special && !this.specialCd && Math.random() < 0.12) { // AI weapon use: every driver knows their gadget
       const sp = this.T.special, l = b.pointToLocalFrame(t.body.position), ahead = l.x > 0 && Math.abs(l.z) < Math.max(2.5, l.x * 0.6);
       const behind = cars.some((c) => c !== this && !c.wrecked && (() => { const q = b.pointToLocalFrame(c.body.position); return q.x < -this.T.L / 2 && q.x > -32 && Math.abs(q.z) < 7 + -q.x * 0.15; })());
-      if ((sp === 'harpoon' && ((ahead && dist > 10 && dist < 40) || !!frontTarget(this, 40, 0.4))) || (sp === 'flame' && ahead && dist < 10) || (sp === 'reel' && !this.reelOn && ahead && dist < 18) || (sp === 'dump' && behind) || (sp === 'blade' && ahead && dist < 7.5) || (sp === 'water' && ahead && dist < 22) || (sp === 'ram' && ahead && dist > 8 && dist < 28) || ((sp === 'oil' || sp === 'bomb') && behind && sp !== 'bomb') || (sp === 'spikes' && ahead && dist < 28) || (sp === 'bomb' && ahead && dist > 12 && dist < 50) || (sp === 'lift' && (this.carry ? this.carry.t > 2.4 && (!this.delivery || this.delivery.gaveUp) : forkReady(this))) || (sp === 'tow' && (this.tow ? this.tow.t > 3.5 && Math.abs(this.speed) > 6 && (!this.delivery || this.delivery.gaveUp) : towable(this))) || (sp === 'minigun' && this.mgTarget && dist < 55) || (sp === 'rockets' && !!frontTarget(this, 90, 0.45) && dist > 10) || (sp === 'web' && spiderWebShot(this))) ctrl.fire = true;
+      if ((sp === 'harpoon' && ((ahead && dist > 10 && dist < 40) || !!frontTarget(this, 40, 0.4) || (Math.abs(angle) > 0.8 && this.speed > 10 && pillarOnInside(this, angle) && !frontTarget(this, 45, 0.5)))) || (sp === 'flame' && ahead && dist < 10) || (sp === 'reel' && !this.reelOn && ahead && dist < 18) || (sp === 'dump' && behind) || (sp === 'blade' && ahead && dist < 7.5) || (sp === 'water' && ahead && dist < 22) || (sp === 'ram' && ahead && dist > 8 && dist < 28) || ((sp === 'oil' || sp === 'bomb') && behind && sp !== 'bomb') || (sp === 'spikes' && ahead && dist < 28) || (sp === 'bomb' && ahead && dist > 12 && dist < 50) || (sp === 'lift' && (this.carry ? this.carry.t > 2.4 && (!this.delivery || this.delivery.gaveUp) : forkReady(this))) || (sp === 'tow' && (this.tow ? this.tow.t > 3.5 && Math.abs(this.speed) > 6 && (!this.delivery || this.delivery.gaveUp) : towable(this))) || (sp === 'minigun' && this.mgTarget && dist < 55) || (sp === 'rockets' && !!frontTarget(this, 90, 0.45) && dist > 10) || (sp === 'web' && spiderWebShot(this))) ctrl.fire = true;
     }
     if (this.T.pour && !this.pourT && this.load > 0.4) { // mixer: pour when someone is right behind
       for (const c of cars) { if (c === this || c.wrecked) continue; const l = b.pointToLocalFrame(c.body.position); if (l.x < -this.T.L / 2 && l.x > -38 && Math.abs(l.z) < 9 && Math.random() < 0.08) { ctrl.fire = true; break; } }

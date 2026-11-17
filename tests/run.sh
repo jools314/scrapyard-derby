@@ -70,6 +70,7 @@ quick() {
   t updatecheck 300 "UPDATECHECK PASS"
   t spider 1200 "SPIDER PASS"
   t spidertricks 600 "SPIDERTRICKS PASS"
+  t harpoon2 600 "HARPOON2 PASS"
 }
 release() {
   quick
