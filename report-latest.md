@@ -1,12 +1,13 @@
-# Scrapyard Derby play-log report · 2026-11-17 06:44 UTC
+# Scrapyard Derby play-log report · 2026-11-17 08:40 UTC
 
-820 matches (808 from real devices, 2441.1 game-minutes), 69 page loads, 9 bug reports.
+868 matches (856 from real devices, 2581.0 game-minutes), 72 page loads, 9 bug reports.
 
 ## Who and what
 
+- Mac · build 106 · autoplay: 4 matches
 - Mac · build 105 · solo: 1 matches
-- Mac · build 105 · autoplay: 10 matches
-- other · build 105 · autoplay: 17 matches
+- Mac · build 105 · autoplay: 46 matches
+- other · build 105 · autoplay: 25 matches
 - Mac · build 104 · autoplay: 48 matches
 - Mac · build 104 · solo: 1 matches
 - iPhone · build 102 · solo: 1 matches
@@ -47,9 +48,9 @@
 ## Performance (foreground)
 
 - **Android**: fps median 60, typical 1% low 40, worst frame 92 ms · quality 0, res 100% · 1 matches · 2 s throttled/hidden (excluded)
-- **Mac**: fps median 60, typical 1% low 53, worst frame 983 ms · quality 0, res 100% · 475 matches · 8385 s throttled/hidden (excluded)
+- **Mac**: fps median 60, typical 1% low 53, worst frame 983 ms · quality 0, res 100% · 514 matches · 8435 s throttled/hidden (excluded)
 - **iPhone**: fps median 58, typical 1% low 47, worst frame 348 ms · quality 0, res 100% · 2 matches · 5 s throttled/hidden (excluded)
-- **other**: fps median 60, typical 1% low 20, worst frame 984 ms · quality 7, res 50% · 321 matches · 2928 s throttled/hidden (excluded)
+- **other**: fps median 60, typical 1% low 20, worst frame 984 ms · quality 7, res 50% · 329 matches · 2928 s throttled/hidden (excluded)
 ### Release to release
 
 | device | build | matches | game-min | fps med | p5 | 1% low | worst ms | res | slow s/h | stuck/h | phys catches/h | throttled s | inside/h |
@@ -70,7 +71,8 @@
 | Mac | 93 | 18 | 54 | 60 | 56 | 53 | 733 | 100% | 11.3 | 51 | 312 | 0 | – |
 | Mac | 94 | 103 | 321 | 60 | 53 | 31 | 983 | 92% | 65.4 | 122 | 342 | 7357 | 7.9 |
 | Mac | 104 | 48 | 143 | 60 | 53 | 53 | 217 | 100% | 101.5 | 139 | 268 | 12 | 0.0 |
-| Mac | 105 | 9 | 21 | 60 | 58 | 56 | 117 | 100% | 0.0 | 180 | 197 | 8 | 0.0 |
+| Mac | 105 | 44 | 128 | 60 | 56 | 53 | 700 | 100% | 0.2 | 151 | 267 | 58 | 0.0 |
+| Mac | 106 | 4 | 9 | 60 | 55 | 53 | 117 | 100% | 4.5 | 141 | 173 | 0 | 0.0 |
 | iPhone | 100 | 1 | 3 | 58 | 55 | 47 | 319 | 100% | 0.0 | 46 | 46 | 3 | 0.0 |
 | iPhone | 102 | 1 | 6 | 58 | 55 | 47 | 348 | 100% | 0.0 | 60 | 70 | 2 | 0.0 |
 | other | 70 | 41 | 123 | 60 | 30 | 20 | 517 | 50% | 185.3 | 54 | 700 | 302 | – |
@@ -82,16 +84,16 @@
 | other | 90 | 48 | 144 | 60 | 30 | 15 | 717 | 50% | 349.9 | 75 | 476 | 486 | – |
 | other | 91 | 17 | 51 | 60 | 30 | 20 | 984 | 50% | 286.4 | 59 | 376 | 145 | – |
 | other | 99 | 25 | 74 | 20 | 20 | 15 | 300 | 50% | 2688.9 | 58 | 384 | 3 | 0.0 |
-| other | 105 | 17 | 49 | 30 | 20 | 15 | 284 | 50% | 2257.7 | 48 | 371 | 11 | 0.0 |
+| other | 105 | 25 | 72 | 20 | 15 | 15 | 284 | 50% | 3029.1 | 43 | 299 | 11 | 0.0 |
 
 ### Regression check (newest build vs previous, per device)
 
-- Mac: build 105 has only 21.4 game-min (need 30) — not judged yet
+- Mac: build 106 has only 9.3 game-min (need 30) — not judged yet
 - iPhone: build 102 has only 6.0 game-min (need 30) — not judged yet
-- OK other: build 99 -> 105 (fps low 15->15, stuck/h 57.5->48.2, phys/h 384.2->370.6)
+- OK other: build 99 -> 105 (fps low 15->15, stuck/h 57.5->43.4, phys/h 384.2->299.4)
 
-- slow moments by cause (seconds): preparing the drawing (draw calls) is the slow part: 7012.8; the game step (physics/AI) is the slow part: 2797.3; waiting on the graphics chip (fewer pixels/effects would help): 482.8; smooth: 1
-- slow incidents by cause × quality × match phase (seconds): preparing the drawing (draw calls) is the slow part · q7 · 0-5 min: 6826.6; the game step (physics/AI) is the slow part · q7 · 0-5 min: 2682.9; waiting on the graphics chip (fewer pixels/effects would help) · q0 · 5-15 min: 241.6; waiting on the graphics chip (fewer pixels/effects would help) · q7 · 0-5 min: 94.8; waiting on the graphics chip (fewer pixels/effects would help) · q0 · 0-5 min: 73.0; preparing the drawing (draw calls) is the slow part · q4 · 0-5 min: 52.4; preparing the drawing (draw calls) is the slow part · q5 · 0-5 min: 51.4; the game step (physics/AI) is the slow part · q6 · 0-5 min: 33.5; the game step (physics/AI) is the slow part · q0 · 0-5 min: 29.4; waiting on the graphics chip (fewer pixels/effects would help) · q4 · 0-5 min: 23.0; preparing the drawing (draw calls) is the slow part · q6 · 0-5 min: 22.8; waiting on the graphics chip (fewer pixels/effects would help) · q6 · 0-5 min: 18.3; preparing the drawing (draw calls) is the slow part · q3 · 0-5 min: 16.1; waiting on the graphics chip (fewer pixels/effects would help) · q2 · 0-5 min: 15.5; preparing the drawing (draw calls) is the slow part · q1 · 0-5 min: 15.4; preparing the drawing (draw calls) is the slow part · q0 · 0-5 min: 14.0; the game step (physics/AI) is the slow part · q3 · 0-5 min: 14.0; the game step (physics/AI) is the slow part · q2 · 0-5 min: 13.5; preparing the drawing (draw calls) is the slow part · q2 · 0-5 min: 10.1; the game step (physics/AI) is the slow part · q5 · 0-5 min: 6.8; the game step (physics/AI) is the slow part · q4 · 0-5 min: 6.4; the game step (physics/AI) is the slow part · q7 · 5-15 min: 6.1; waiting on the graphics chip (fewer pixels/effects would help) · q5 · 0-5 min: 5.4; the game step (physics/AI) is the slow part · q1 · 0-5 min: 4.7; waiting on the graphics chip (fewer pixels/effects would help) · q0 · 15+ min: 4.1; waiting on the graphics chip (fewer pixels/effects would help) · q1 · 0-5 min: 3.8; waiting on the graphics chip (fewer pixels/effects would help) · q3 · 0-5 min: 3.3; preparing the drawing (draw calls) is the slow part · q3 · 15+ min: 2.2; preparing the drawing (draw calls) is the slow part · q0 · 5-15 min: 1.8; smooth · q4 · 0-5 min: 1
+- slow moments by cause (seconds): preparing the drawing (draw calls) is the slow part: 8816.8; the game step (physics/AI) is the slow part: 2797.3; waiting on the graphics chip (fewer pixels/effects would help): 484.0; smooth: 1
+- slow incidents by cause × quality × match phase (seconds): preparing the drawing (draw calls) is the slow part · q7 · 0-5 min: 8630.6; the game step (physics/AI) is the slow part · q7 · 0-5 min: 2682.9; waiting on the graphics chip (fewer pixels/effects would help) · q0 · 5-15 min: 241.6; waiting on the graphics chip (fewer pixels/effects would help) · q7 · 0-5 min: 94.8; waiting on the graphics chip (fewer pixels/effects would help) · q0 · 0-5 min: 74.2; preparing the drawing (draw calls) is the slow part · q4 · 0-5 min: 52.4; preparing the drawing (draw calls) is the slow part · q5 · 0-5 min: 51.4; the game step (physics/AI) is the slow part · q6 · 0-5 min: 33.5; the game step (physics/AI) is the slow part · q0 · 0-5 min: 29.4; waiting on the graphics chip (fewer pixels/effects would help) · q4 · 0-5 min: 23.0; preparing the drawing (draw calls) is the slow part · q6 · 0-5 min: 22.8; waiting on the graphics chip (fewer pixels/effects would help) · q6 · 0-5 min: 18.3; preparing the drawing (draw calls) is the slow part · q3 · 0-5 min: 16.1; waiting on the graphics chip (fewer pixels/effects would help) · q2 · 0-5 min: 15.5; preparing the drawing (draw calls) is the slow part · q1 · 0-5 min: 15.4; preparing the drawing (draw calls) is the slow part · q0 · 0-5 min: 14.0; the game step (physics/AI) is the slow part · q3 · 0-5 min: 14.0; the game step (physics/AI) is the slow part · q2 · 0-5 min: 13.5; preparing the drawing (draw calls) is the slow part · q2 · 0-5 min: 10.1; the game step (physics/AI) is the slow part · q5 · 0-5 min: 6.8; the game step (physics/AI) is the slow part · q4 · 0-5 min: 6.4; the game step (physics/AI) is the slow part · q7 · 5-15 min: 6.1; waiting on the graphics chip (fewer pixels/effects would help) · q5 · 0-5 min: 5.4; the game step (physics/AI) is the slow part · q1 · 0-5 min: 4.7; waiting on the graphics chip (fewer pixels/effects would help) · q0 · 15+ min: 4.1; waiting on the graphics chip (fewer pixels/effects would help) · q1 · 0-5 min: 3.8; waiting on the graphics chip (fewer pixels/effects would help) · q3 · 0-5 min: 3.3; preparing the drawing (draw calls) is the slow part · q3 · 15+ min: 2.2; preparing the drawing (draw calls) is the slow part · q0 · 5-15 min: 1.8; smooth · q4 · 0-5 min: 1
 - worst slow incidents: t90s: 25.6s at 8 fps (worst 432 ms) q7 · 143 particles, 0 fires, 0 blasts · worst frame 432 ms: hud 334, render 255, effects 67, physics 50, arena 34, lod 20, ai 17, cars 13; t32s: 15s at 6 fps (worst 333 ms) q6 · 61 particles, 0 fires, 0 blasts · worst frame 333 ms: render 58, physics 47, lod 9, cars 5, hud 4, arena 1, ai 1 · 209 ms outside the game code (graphics chip, garbage collection, shader compile or the browser); t106s: 12.3s at 15 fps (worst 350 ms) q6 · 206 particles, 0 fires, 0 blasts · worst frame 350 ms: physics 9, render 6, hud 1, effects 1 · 334 ms outside the game code (graphics chip, garbage collection, shader compile or the browser); t123s: 11.9s at 23 fps (worst 83 ms) q7 · 534 particles, 9 fires, 1 blasts · worst frame 83 ms: physics 18, render 15, ai 1, hud 1, lod 1, cars 1 · 46 ms outside the game code (graphics chip, garbage collection, shader compile or the browser); t18s: 11.7s at 13 fps (worst 117 ms) q0 · 121 particles, 0 fires, 0 blasts · worst frame 117 ms: render 81, physics 20, cars 10
 
 ## Startup (page open -> first frame drawn)
@@ -101,7 +103,8 @@ Portal players leave if the page sits frozen. scriptMs = building the yard, comp
 | device | build | loads | first frame ms (median) | worst | script ms | compile ms | parallel |
 |---|---|---|---|---|---|---|---|
 | Mac | 104 | 5 | 2284 | 3652 | 469 | 202 | 5/5 |
-| Mac | 105 | 5 | 1194 | 1274 | 264 | 162 | 5/5 |
+| Mac | 105 | 6 | 1260 | 1676 | 303 | 172 | 6/6 |
+| Mac | 106 | 1 | 1132 | 1132 | 279 | 169 | 1/1 |
 | iPhone | 100 | 1 | 1418 | 1418 | 289 | 147 | 1/1 |
 | iPhone | 102 | 2 | 1580 | 1580 | 347 | 422 | 2/2 |
 | iPhone | 104 | 1 | 1422 | 1422 | 347 | 198 | 1/1 |
@@ -124,7 +127,7 @@ Build 102+ reloads an autoplaying page whose memory runs away and logs what was 
 | device | build | sessions (6+ matches) | geometries added per match (median) |
 |---|---|---|---|
 | Mac | 104 | 2 | 22.3 |
-| Mac | 105 | 1 | 2.5 |
+| Mac | 105 | 2 | 20.7 |
 | Mac | 65 | 1 | 241.0 |
 | Mac | 66 | 2 | 160.3 |
 | Mac | 67 | 2 | 196.7 |
@@ -139,7 +142,7 @@ Build 102+ reloads an autoplaying page whose memory runs away and logs what was 
 | Mac | 92 | 1 | 170.5 |
 | Mac | 93 | 1 | 170.7 |
 | Mac | 94 | 1 | 162.8 |
-| other | 105 | 1 | 28.4 |
+| other | 105 | 1 | 28.0 |
 | other | 70 | 1 | 145.7 |
 | other | 71 | 1 | 142.8 |
 | other | 75 | 1 | 148.4 |
@@ -151,34 +154,36 @@ Build 102+ reloads an autoplaying page whose memory runs away and logs what was 
 | other | 99 | 1 | 112.4 |
 
 - **leak** Mac build 104 after 27 matches (autoplay, reloaded): geometries 283 -> 1452, textures 85 -> 171; 597 orphaned: Line · BufferGeometry (2 verts) ×188; never in the scene · BufferGeometry (2 verts) ×125; never in the scene · CylinderGeometry 0.22×0.22×0.7 (64 verts) ×71; Group · texture 128x128 canvas ×60; Mesh · CylinderGeometry 0.22×0.22×0.7 (64 verts) ×32
+- **leak** Mac build 105 after 33 matches (autoplay, reloaded): geometries 284 -> 1442, textures 84 -> 160; 544 orphaned: Line · BufferGeometry (2 verts) ×184; never in the scene · BufferGeometry (2 verts) ×137; never in the scene · CylinderGeometry 0.22×0.22×0.7 (64 verts) ×71; Group · texture 128x128 canvas ×45; Mesh · CylinderGeometry 0.22×0.22×0.7 (64 verts) ×13
 
 ## Stuck hotspots
 
-- (38, -96): 148× · 842.5 s · combine 34, bertha 32, firetruck 22, tanker 19, tiger 11 · touching: wall, debris, ground
-- (38, -107): 88× · 511.5 s · combine 37, firetruck 10, bertha 9, mixer 7, tanker 7 · touching: wall, ground, debris
-- (-107, -95): 74× · 460.0 s · bertha 15, forklift 14, mixer 13, tanker 9, combine 5 · touching: wall, ground, debris
-- (0, 37): 65× · 343.0 s · bertha 12, firetruck 10, combine 9, tanker 9, dozer 7 · touching: wall, mixer, ground
-- (24, -14): 55× · 288.0 s · combine 14, firetruck 12, mixer 9, tanker 7, bertha 4 · touching: wall, ground, debris
-- (36, -87): 48× · 279.5 s · combine 16, bertha 10, towtruck 5, forklift 3, firetruck 3 · touching: ground, debris, bertha
-- (-11, 27): 39× · 212.0 s · combine 13, mixer 8, firetruck 7, tanker 4, viper 2 · touching: ground, wall, debris
-- (96, -71): 38× · 206.0 s · firetruck 9, bertha 4, dozer 3, forklift 3, sandflea 3 · touching: wall, ground
-- (-118, -94): 30× · 194.5 s · combine 8, mixer 6, tanker 4, firetruck 4, bertha 3 · touching: wall, debris, combine
+- (38, -96): 159× · 900.0 s · combine 37, bertha 33, firetruck 24, tanker 19, tiger 13 · touching: wall, debris, ground
+- (37, -107): 105× · 626.0 s · combine 42, mixer 13, bertha 11, firetruck 11, tanker 9 · touching: wall, ground, debris
+- (-107, -95): 84× · 513.5 s · forklift 17, mixer 16, bertha 15, tanker 9, firetruck 5 · touching: wall, ground, debris
+- (0, 36): 69× · 363.0 s · bertha 15, firetruck 10, combine 10, tanker 9, dozer 7 · touching: wall, mixer, ground
+- (24, -14): 57× · 297.5 s · combine 14, firetruck 13, mixer 9, tanker 7, bertha 4 · touching: wall, ground, debris
+- (36, -87): 49× · 283.5 s · combine 16, bertha 10, towtruck 5, firetruck 4, forklift 3 · touching: ground, debris, bertha
+- (-11, 27): 41× · 224.5 s · combine 14, mixer 8, firetruck 7, tanker 5, viper 2 · touching: ground, wall, debris
+- (98, -61): 37× · 221.0 s · bertha 12, firetruck 5, combine 5, camper 3, tiger 3 · touching: wall, ground, debris
+- (96, -71): 39× · 212.0 s · firetruck 9, bertha 4, hellbender 4, dozer 3, forklift 3 · touching: wall, ground
+- (-118, -94): 32× · 210.5 s · combine 9, mixer 6, tanker 4, firetruck 4, forklift 3 · touching: wall, debris, combine
+- (35, -25): 37× · 195.5 s · firetruck 6, bertha 6, combine 4, cruiser 4, mixer 3 · touching: ground, firetruck, debris
 - (99, -144): 24× · 192.0 s · mixer 6, bertha 4, cruiser 4, tanker 4, firetruck 3 · touching: mixer, wall, bertha
-- (35, -25): 36× · 190.5 s · firetruck 6, bertha 5, combine 4, cruiser 4, mixer 3 · touching: ground, firetruck, debris
-- (-10, 33): 34× · 181.5 s · mixer 10, combine 7, firetruck 6, tanker 4, towtruck 2 · touching: wall, ground, debris
-- total 2915 stuck events, 16333.0 s, over 2441.1 game-minutes (71.6 per hour)
+- total 3195 stuck events, 17958.0 s, over 2581.0 game-minutes (74.3 per hour)
 
 ## Cars inside objects
 
-- total 42 cars caught inside an object over 616.8 game-minutes (4.1 per hour) · listed 42 (the game lists at most 12 per match)
+- total 42 cars caught inside an object over 756.6 game-minutes (3.3 per hour) · listed 42 (the game lists at most 12 per match)
 - Mac · build 94: 42 over 320.8 game-min (7.9/h, 23 of 103 matches)
 - Mac · build 104: 0 over 143.2 game-min (0.0/h, 0 of 49 matches)
-- Mac · build 105: 0 over 21.6 game-min (0.0/h, 0 of 11 matches)
+- Mac · build 105: 0 over 128.7 game-min (0.0/h, 0 of 47 matches)
+- Mac · build 106: 0 over 9.3 game-min (0.0/h, 0 of 4 matches)
 - iPhone · build 100: 0 over 2.6 game-min (0.0/h, 0 of 1 matches)
 - iPhone · build 102: 0 over 6.0 game-min (0.0/h, 0 of 1 matches)
 - other · build 95: 0 over 0.1 game-min (0.0/h, 0 of 1 matches)
 - other · build 99: 0 over 74.0 game-min (0.0/h, 0 of 26 matches)
-- other · build 105: 0 over 48.6 game-min (0.0/h, 0 of 17 matches)
+- other · build 105: 0 over 71.9 game-min (0.0/h, 0 of 25 matches)
 - hotspots (same 12 m grid as stuck): (11, -94): 11× · in ramp 11 · combine 4, cruiser 2, outrider 2; (10, -87): 6× · in ramp 6 · forklift 2, towtruck 2, mixer 1; (14, 11): 5× · in mesa 5 · cruiser 2, sandflea 1, towtruck 1; (5, -85): 5× · in ramp 5 · sandflea 2, camper 1, cruiser 1; (13, -12): 4× · in mesa 4 · outrider 1, cruiser 1, tanker 1; (9, 88): 2× · in ramp 2 · towtruck 2; (6, -100): 2× · in ramp 2 · sandflea 1, firetruck 1; (15, 18): 1× · in mesa 1 · camper 1; (3, -12): 1× · in mesa 1 · sandflea 1; (8, 93): 1× · in ramp 1 · forklift 1
 - vehicles: sandflea 7, cruiser 7, outrider 5, towtruck 5, camper 4, combine 4, forklift 3, viper 2, mixer 1, firetruck 1, dozer 1, tanker 1, hellbender 1
 - inside what: ramp 29, mesa 12, car stack 1
@@ -186,68 +191,67 @@ Build 102+ reloads an autoplaying page whose memory runs away and logs what was 
 
 ## Physics safety-net catches
 
-- totals (full census): blowups 15596, fixes 3820473, clamps 130711, undos 14025, escapes 39, launches 79, rescues 11, below 27, nan 0 · safety-net work: fixes 3820473 (93904/h), clamps 130711 (3213/h) · kinds (census): solver kick undone 14025, blow-up clamped 1571, escaped the arena, put back 39, fell through floor, lifted back 11
-- by vehicle (listed catches only — the game lists at most 40 per match, so this is a capped sample): Outrider 2542, Sandflea 1446, Viper 1070, Tow Truck 1052, bull 997, Cruiser 961, Forklift 961, Hellbender 839 · listed kinds: solver kick undone 10344, blow-up clamped 1396, escaped the arena, put back 37, fell through floor, lifted back 10
+- totals (full census): blowups 16183, fixes 4085180, clamps 134617, undos 14547, escapes 39, launches 82, rescues 13, below 27, nan 0 · safety-net work: fixes 4085180 (94967/h), clamps 134617 (3129/h) · kinds (census): solver kick undone 14547, blow-up clamped 1636, escaped the arena, put back 39, fell through floor, lifted back 13
+- by vehicle (listed catches only — the game lists at most 40 per match, so this is a capped sample): Outrider 2641, Sandflea 1508, Tow Truck 1120, Viper 1105, bull 1065, Forklift 1020, Cruiser 991, Hellbender 877 · listed kinds: solver kick undone 10828, blow-up clamped 1461, escaped the arena, put back 37, fell through floor, lifted back 12
 
-- catch locations (listed catches with a position, same 12 m grid as stuck — do the two maps agree?): (97, 92): 386× · solver kick undone 385, fell through floor, lifted back 1; (98, 88): 363× · solver kick undone 363; (108, -60): 318× · solver kick undone 318; (116, -71): 224× · solver kick undone 224; (0, 37): 208× · solver kick undone 208; (108, -84): 190× · solver kick undone 190; (84, -60): 181× · solver kick undone 180, fell through floor, lifted back 1; (95, -58): 171× · solver kick undone 171
+- catch locations (listed catches with a position, same 12 m grid as stuck — do the two maps agree?): (97, 92): 414× · solver kick undone 413, fell through floor, lifted back 1; (97, 87): 387× · solver kick undone 385, fell through floor, lifted back 2; (108, -60): 320× · solver kick undone 320; (116, -71): 224× · solver kick undone 224; (0, 37): 214× · solver kick undone 214; (108, -84): 196× · solver kick undone 196; (84, -60): 193× · solver kick undone 192, fell through floor, lifted back 1; (95, -58): 175× · solver kick undone 175
 ## Balance (all real matches)
 
 | vehicle | lives | kills | deaths | K/D | dmg/life | taken/life | avg life s | fires |
 |---|---|---|---|---|---|---|---|---|
-| bertha | 1464 | 2449 | 948 | 2.58 | 292 | 85 | 56 | 5737 |
-| dozer | 1639 | 2887 | 1194 | 2.42 | 133 | 90 | 47 | 8976 |
-| combine | 1640 | 1800 | 1142 | 1.58 | 88 | 84 | 49 | 3202 |
-| tanker | 1753 | 1276 | 1363 | 0.94 | 41 | 91 | 37 | 1912 |
-| mixer | 1770 | 1177 | 1305 | 0.9 | 48 | 87 | 43 | 2942 |
-| hellbender | 1907 | 1236 | 1612 | 0.77 | 112 | 97 | 33 | 91086 |
-| towtruck | 1879 | 1046 | 1514 | 0.69 | 31 | 93 | 35 | 3602 |
-| forklift | 1844 | 995 | 1469 | 0.68 | 30 | 92 | 35 | 2305 |
-| firetruck | 1798 | 888 | 1351 | 0.66 | 40 | 89 | 44 | 5985 |
-| cruiser | 1958 | 955 | 1689 | 0.57 | 58 | 95 | 27 | 11768 |
-| outrider | 2175 | 672 | 1924 | 0.35 | 39 | 96 | 22 | 8519 |
-| camper | 2080 | 574 | 1835 | 0.31 | 24 | 96 | 22 | 3453 |
-| spider | 54 | 11 | 43 | 0.26 | 22 | 71 | 23 | 134 |
-| viper | 2226 | 485 | 1991 | 0.24 | 37 | 98 | 24 | 5785 |
-| sandflea | 2215 | 463 | 2032 | 0.23 | 41 | 98 | 17 | 2468 |
-| tiger | 1013 | 193 | 911 | 0.21 | 214 | 92 | 33 | 7066 |
+| bertha | 1547 | 2591 | 1004 | 2.58 | 291 | 85 | 56 | 6027 |
+| dozer | 1724 | 3009 | 1257 | 2.39 | 132 | 90 | 47 | 9362 |
+| combine | 1736 | 1896 | 1207 | 1.57 | 87 | 84 | 49 | 3383 |
+| tanker | 1847 | 1341 | 1440 | 0.93 | 41 | 91 | 37 | 2001 |
+| mixer | 1851 | 1223 | 1366 | 0.9 | 48 | 87 | 43 | 3070 |
+| hellbender | 2006 | 1307 | 1691 | 0.77 | 112 | 96 | 32 | 95819 |
+| forklift | 1947 | 1066 | 1550 | 0.69 | 30 | 92 | 36 | 2463 |
+| towtruck | 1972 | 1092 | 1588 | 0.69 | 31 | 93 | 35 | 3845 |
+| firetruck | 1894 | 936 | 1420 | 0.66 | 40 | 89 | 44 | 6342 |
+| cruiser | 2053 | 999 | 1770 | 0.56 | 58 | 95 | 27 | 12368 |
+| spider | 164 | 64 | 137 | 0.47 | 21 | 79 | 26 | 401 |
+| outrider | 2286 | 708 | 2024 | 0.35 | 39 | 96 | 22 | 8976 |
+| camper | 2171 | 602 | 1910 | 0.32 | 25 | 96 | 22 | 3610 |
+| viper | 2330 | 506 | 2084 | 0.24 | 37 | 98 | 24 | 6018 |
+| sandflea | 2323 | 496 | 2132 | 0.23 | 41 | 98 | 17 | 2613 |
+| tiger | 1070 | 211 | 961 | 0.22 | 215 | 92 | 32 | 7493 |
 
-## Matchups (build 105): who wrecks whom
+## Matchups (build 106): who wrecks whom
 
-- dozer wrecked viper: 10× · 830 damage
-- bertha wrecked camper: 9× · 917 damage
-- dozer wrecked hellbender: 9× · 555 damage
-- dozer wrecked spider: 7× · 244 damage
-- hellbender wrecked cruiser: 7× · 649 damage
-- dozer wrecked outrider: 7× · 523 damage
-- bertha wrecked spider: 7× · 622 damage
-- tanker wrecked cruiser: 7× · 255 damage
-- bertha wrecked outrider: 7× · 982 damage
-- dozer wrecked forklift: 6× · 517 damage
-- dozer wrecked mixer: 6× · 271 damage
-- combine wrecked viper: 6× · 288 damage
-- bertha wrecked sandflea: 6× · 537 damage
-- dozer wrecked tanker: 6× · 281 damage
-- dozer wrecked cruiser: 5× · 218 damage
+- dozer wrecked viper: 3× · 246 damage
+- spider wrecked hellbender: 2× · 25 damage
+- outrider wrecked towtruck: 2× · 86 damage
+- combine wrecked outrider: 2× · 72 damage
+- combine wrecked tanker: 2× · 33 damage
+- dozer wrecked forklift: 2× · 190 damage
+- tanker wrecked sandflea: 2× · 62 damage
+- dozer wrecked spider: 2× · 34 damage
+- sandflea wrecked tanker: 2× · 87 damage
+- spider wrecked sandflea: 2× · 25 damage
+- towtruck wrecked camper: 2× · 106 damage
+- hellbender wrecked tanker: 1× · 151 damage
+- towtruck wrecked outrider: 1× (1 dragged into a hazard) · 93 damage
+- tanker wrecked bertha: 1× · 8 damage
+- dozer wrecked outrider: 1× · 49 damage
 
-## Voice variety (build 105, 28 matches)
+## Voice variety (build 106, 4 matches)
 
-- 463 lines heard; 2% were repeats within the same match, 20% repeats of a line already heard this session
-- per character (lines heard / distinct): Tony Cement 41/32, Ragnar Rustbeard 40/40, Captain McCaffrey 40/40, Cletus 37/37, Papa Jacques 36/36, Bulldozer Bob 32/32, Maxine MacTavish 30/30, Uncle Bogdan 28/28, Dom 27/27, King Arthur 24/24, Big Bertha 22/22, Emeka Danfo 21/21, Sheriff Buck 19/19, Kwaku Anansi 17/17, Jesse 15/15, Mr. White 15/15
-- most repeated lines: Tony Cement: MacTavish, you got a mouth like a foghorn. My ma would lo ×10
+- 58 lines heard; 0% were repeats within the same match, 5% repeats of a line already heard this session
+- per character (lines heard / distinct): Big Bertha 8/8, Ragnar Rustbeard 5/5, Maxine MacTavish 5/5, Tony Cement 5/5, Captain McCaffrey 4/4, Dom 4/4, Uncle Bogdan 4/4, Papa Jacques 3/3, Jesse 3/3, Sheriff Buck 3/3, Cletus 2/2, Bulldozer Bob 2/2, Oberst Klaus 2/2, Kwaku Anansi 2/2, Emeka Danfo 2/2, Crash Cam Kev 1/1
 
 ## Voices, errors, network
 
 - Android: voice failures 0 over 1 matches · lines sent 26, started 19, errors 7
-- Mac: voice failures 371 over 480 matches · lines sent 28, started 12, errors 7
+- Mac: voice failures 371 over 520 matches · lines sent 28, started 12, errors 7
 - iPhone: voice failures 0 over 2 matches · lines sent 10, started 10, errors 0
-- other: voice failures 22 over 325 matches · lines sent 1, started 0, errors 1 (engine never started)
-- errors & incidents (in and out of matches): 12× voice: voices: # recorded clips loaded (# voices); 7× voice: voices: stuck - # lines asked for, engine busy # s and none started (last voice default, # voices, spea; 2× voice: voices: stuck - still busy # s after the tab came back from # s in the background (last voice default, ; 1× voice: voices: stuck - # lines asked for and not one reported back, engine idle (last voice default, # voices,
+- other: voice failures 22 over 333 matches · lines sent 1, started 0, errors 1 (engine never started)
+- errors & incidents (in and out of matches): 13× voice: voices: # recorded clips loaded (# voices); 7× voice: voices: stuck - # lines asked for, engine busy # s and none started (last voice default, # voices, spea; 2× voice: voices: stuck - still busy # s after the tab came back from # s in the background (last voice default, ; 1× voice: voices: stuck - # lines asked for and not one reported back, engine idle (last voice default, # voices,
 - network incidents: 54
 
 ## Autoplay
 
-- 792 matches, 2285.3 game-minutes · endings: autoplay round done 738, autoplay stopped 34, checkpoint: every # min 8, page closed mid-match 6, lost mid-match (crash, or the tab was ki 3, checkpoint: voice failure 2, checkpoint: physics: solver kick undone 1
-- 7 autoplay matches spent time hidden (stats from those stretches are excluded from build 67)
+- 840 matches, 2425.1 game-minutes · endings: autoplay round done 784, autoplay stopped 34, page closed mid-match 8, checkpoint: every # min 8, checkpoint: voice failure 2, lost mid-match (crash, or the tab was ki 2, checkpoint: slow moment 1, checkpoint: physics: solver kick undone 1
+- 8 autoplay matches spent time hidden (stats from those stretches are excluded from build 67)
 
 ## Bug reports
 
@@ -262,14 +266,19 @@ Build 102+ reloads an autoplaying page whose memory runs away and logs what was 
 
 ## Changes since the previous report
 
-- new stuck hotspot at (24,-14) ×55
-- new stuck hotspot at (96,-71) ×38
-- physics catches up for bull: 967 → 997
-- physics catches up for Tow Truck: 1028 → 1052
-- physics catches up for Outrider: 2467 → 2542
-- physics catches up for Cruiser: 949 → 961
-- physics catches up for Hellbender: 801 → 839
-- physics catches up for Forklift: 906 → 961
-- physics catches up for Viper: 1061 → 1070
-- physics catches up for Sandflea: 1426 → 1446
-- physics catches up for Spider-Walker: 8 → 17
+- new stuck hotspot at (37,-107) ×105
+- new stuck hotspot at (0,36) ×69
+- new stuck hotspot at (98,-61) ×37
+- physics catches up for Camper: 615 → 632
+- physics catches up for bull: 997 → 1065
+- physics catches up for Tow Truck: 1052 → 1120
+- physics catches up for Outrider: 2542 → 2641
+- physics catches up for Cruiser: 961 → 991
+- physics catches up for Hellbender: 839 → 877
+- physics catches up for Forklift: 961 → 1020
+- physics catches up for Viper: 1070 → 1105
+- physics catches up for Sandflea: 1446 → 1508
+- physics catches up for Tanker: 500 → 507
+- physics catches up for Fire Truck: 384 → 395
+- physics catches up for Spider-Walker: 17 → 70
+- first data from build 106
