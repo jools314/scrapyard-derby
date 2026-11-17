@@ -27,7 +27,7 @@ const H = require('./harness');
   const progs = {};
   for (const [name, init, want] of [['no parallel compile', null, 'direct'], ['parallel compile', fake, 'async']]) {
     const { browser, page, errors } = await H.open({ viewport: { width: 640, height: 400 } }, init);
-    await page.waitForFunction(() => __derby.BOOT.frame, null, { timeout: 60000 });
+    await page.waitForFunction(() => __derby.BOOT.yard, null, { timeout: 90000 }); // (the boot record is written once the whole yard is on screen)
     const b = await page.evaluate(() => { const B = __derby.BOOT; let rec = null; for (let i = 0; i < localStorage.length; i++) { const v = localStorage.getItem(localStorage.key(i)) || ''; if (v.includes('"kind":"boot"')) { try { rec = JSON.parse(v); } catch (e) {} } } return { loop: B.loop, parallel: B.parallel, rec }; });
     ok(b.loop === want, `${name}: frame loop started '${b.loop}' (want '${want}')`);
     ok(b.rec && b.rec.build && b.rec.firstFrameMs > 0 && b.rec.scriptMs > 0 && b.rec.compileMs >= 0, `${name}: boot record in the play log ${JSON.stringify(b.rec && { s: b.rec.scriptMs, c: b.rec.compileMs, f: b.rec.firstFrameMs, p: b.rec.parallel })}`);

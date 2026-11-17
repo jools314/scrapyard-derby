@@ -1,7 +1,7 @@
 const { chromium } = require('playwright');
 const fs = require('fs'); const path = require('path');
 const NM = path.join(__dirname, 'node_modules');
-async function open(ctxOpts, init) { // init: optional function run in the page before the game loads (page.addInitScript)
+async function open(ctxOpts, init, before) { // init: optional function run in the page before the game loads (page.addInitScript); before: optional async (page) => {} run just before the page opens (e.g. a CDP CPU throttle)
   const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   const page = await browser.newPage(ctxOpts || { viewport: { width: 1280, height: 760 } });
   const errors = [];
@@ -16,6 +16,7 @@ async function open(ctxOpts, init) { // init: optional function run in the page 
     if (u.startsWith('http://game.local/')) return route.fulfill({ contentType: 'text/html', body: '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body>' + fs.readFileSync((process.env.GAME || require('path').join(__dirname, '..', 'index.html')), 'utf8') + '</body></html>' });
     return route.abort();
   });
+  if (before) await before(page);
   await page.goto('http://game.local/');
   await page.waitForFunction(() => window.__derby, null, { timeout: 90000 });
   return { browser, page, errors };
