@@ -1325,24 +1325,27 @@ function addStaticBox(hx, hy, hz, pos, quat, mat, opts = {}) {
   return { body, mesh };
 }
 // Solid convex shape from vertices + faces (faces are re-wound to point outward automatically)
+// opts.extra: more convex parts [[verts, faces], ...] in the same frame, added to the same static body and mesh (one body keeps the broadphase cheap)
 function addConvex(verts, faces, pos, yaw, mat, opts = {}) {
   const c = verts.reduce((a, v) => [a[0] + v[0] / verts.length, a[1] + v[1] / verts.length, a[2] + v[2] / verts.length], [0, 0, 0]);
-  const V = verts.map((v) => new THREE.Vector3(v[0], v[1], v[2]));
-  const F = faces.map((f) => {
-    const n = new THREE.Vector3().subVectors(V[f[1]], V[f[0]]).cross(new THREE.Vector3().subVectors(V[f[2]], V[f[0]]));
-    const fc = f.reduce((a, i) => a.add(V[i]), new THREE.Vector3()).divideScalar(f.length);
-    return n.dot(fc.sub(new THREE.Vector3(c[0], c[1], c[2]))) < 0 ? f.slice().reverse() : f;
-  });
-  const shape = new CANNON.ConvexPolyhedron({ vertices: verts.map((v) => new CANNON.Vec3(v[0] - c[0], v[1] - c[1], v[2] - c[2])), faces: F });
   const body = new CANNON.Body({ type: CANNON.Body.STATIC, material: sceneryMat });
-  body.addShape(shape);
+  const p = [];
+  for (const [pv, pf] of [[verts, faces], ...(opts.extra || [])]) {
+    const pc = pv.reduce((a, v) => [a[0] + v[0] / pv.length, a[1] + v[1] / pv.length, a[2] + v[2] / pv.length], [0, 0, 0]);
+    const V = pv.map((v) => new THREE.Vector3(v[0], v[1], v[2]));
+    const F = pf.map((f) => {
+      const n = new THREE.Vector3().subVectors(V[f[1]], V[f[0]]).cross(new THREE.Vector3().subVectors(V[f[2]], V[f[0]]));
+      const fc = f.reduce((a, i) => a.add(V[i]), new THREE.Vector3()).divideScalar(f.length);
+      return n.dot(fc.sub(new THREE.Vector3(pc[0], pc[1], pc[2]))) < 0 ? f.slice().reverse() : f;
+    });
+    body.addShape(new CANNON.ConvexPolyhedron({ vertices: pv.map((v) => new CANNON.Vec3(v[0] - pc[0], v[1] - pc[1], v[2] - pc[2])), faces: F }), new CANNON.Vec3(pc[0] - c[0], pc[1] - c[1], pc[2] - c[2])); // (each part centred on its own middle: cannon's convex tests assume the shape's origin is inside it)
+    for (const f of F) for (let k = 1; k < f.length - 1; k++) for (const i of [f[0], f[k], f[k + 1]]) p.push(V[i].x - c[0], V[i].y - c[1], V[i].z - c[2]);
+  }
   const cy = Math.cos(yaw), sy = Math.sin(yaw); // rotate the centroid offset by the yaw
   body.position.set(pos.x + c[0] * cy + c[2] * sy, pos.y + c[1], pos.z - c[0] * sy + c[2] * cy);
   body.quaternion.setFromAxisAngle(AX_Y, yaw);
   body.isObstacle = !!opts.obstacle; body.what = opts.what || 'mound';
   world.addBody(body);
-  const p = [];
-  for (const f of F) for (let k = 1; k < f.length - 1; k++) for (const i of [f[0], f[k], f[k + 1]]) p.push(V[i].x - c[0], V[i].y - c[1], V[i].z - c[2]);
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(p, 3));
   geo.computeVertexNormals();
@@ -1382,47 +1385,64 @@ function addRamp(cx, cz, dx, dz, L, W, angleDeg, backDeg = 30, sideDeg = 28) {
   const yaw = Math.atan2(-dz, dx);
   // driving surface is W wide; the sides flare out at a gentle angle so clipping one rolls you off instead of stopping you dead
   const t = 0.6, back = h / Math.tan(backDeg * D2R), flare = h / Math.tan(sideDeg * D2R), hw = W / 2, bw = hw + flare;
-  { // bevelled crest and back
-    const c = Math.min(1.2, run * 0.15), cb = Math.min(1.0, back * 0.25), bt = Math.tan(backDeg * D2R);
-    const prof = [[-run / 2, 0], [run / 2 - c, h - c * Math.tan(a)], [run / 2 + c * 0.6, h], [run / 2 + t, h], [run / 2 + t + cb, h - cb * bt * 0.6], [run / 2 + t + back, 0]];
-    addProfile(prof, cx, cz, yaw, hw, bw, h, M.ramp, 'ramp', run + t + back, W + flare);
-    return { low: { x: cx - dx * run / 2, z: cz - dz * run / 2 }, high: { x: cx + dx * run / 2, z: cz + dz * run / 2 }, top: h };
-  }
-  const v = [[-run / 2, 0, -hw], [-run / 2, 0, hw], [run / 2, h, -hw], [run / 2, h, hw],
-             [run / 2 + t, h, -hw], [run / 2 + t, h, hw], [run / 2 + t + back, 0, -bw], [run / 2 + t + back, 0, bw]];
-  v[0][2] = -bw; v[1][2] = bw; // zero-height lip spans the full base, so each side is a single flat plane
-  const f = [[0, 6, 7, 1], [0, 1, 3, 2], [2, 3, 5, 4], [4, 5, 7, 6], [0, 2, 4, 6], [1, 7, 5, 3]];
-  addConvex(v, f, { x: cx, y: 0, z: cz }, yaw, M.ramp);
-  const mid = (run + t + back) / 2 - run / 2;
-  mapShapes.push({ kind: 'ramp', x: cx + dx * mid, z: cz + dz * mid, yaw, l: run + t + back, w: W + flare });
+  // crest: slope, flat top, back; roundProfile turns each corner into a curve so a slow car rolls over instead of balancing on its belly
+  // (the old bevel put its top point 0.12 m past the flat's far end, so the crest folded back on itself and stayed a sharp ridge)
+  const prof = roundProfile([[-run / 2, 0], [run / 2, h], [run / 2 + t, h], [run / 2 + t + back, 0]], 3.5);
+  addProfile(prof, cx, cz, yaw, hw, bw, h, M.ramp, 'ramp', run + t + back, W + flare, { toe: Math.min(1.6, run * 0.12) });
   return { low: { x: cx - dx * run / 2, z: cz - dz * run / 2 }, high: { x: cx + dx * run / 2, z: cz + dz * run / 2 }, top: h };
 }
-// Tabletop jump: ramp up, flat table, ramp down, as one solid shape with flared sides (no pit to fall into)
-// A prism from a side profile [[x, y], ...] (convex, ground points first and last); sides lean in with height
-function addProfile(profile, cx, cz, yaw, hw, bw, hMax, mat, kind, mapL, mapW) {
+// Round the crest corners of a hill profile [[x, y], ...] (ground points first and last, convex): each corner between two
+// slopes becomes a curve of about radius R (a quadratic Bezier between its tangent points), so a car's belly rolls over it instead of
+// resting on a ridge. Two corners joined by a short flat (a ramp's crest) become one curve over both. The ground points, the
+// footprint stay where they were, and the crest loses only a few centimetres of height.
+function roundProfile(prof, R, n = 6) {
+  const m = prof.length, dir = (i, j) => { const l = Math.hypot(prof[j][0] - prof[i][0], prof[j][1] - prof[i][1]); return [(prof[j][0] - prof[i][0]) / l, (prof[j][1] - prof[i][1]) / l, l]; };
+  const tan = (i) => { const a = dir(i, i - 1), b = dir(i, i + 1); return R * Math.tan((Math.PI - Math.acos(clamp(a[0] * b[0] + a[1] * b[1], -1, 1))) / 2); };
+  const out = [prof[0]];
+  for (let i = 1; i < m - 1; i++) {
+    const a = dir(i, i - 1), joined = i + 2 < m && dir(i, i + 1)[2] < 1.5; // a short flat to the next corner: round both as one
+    const j = joined ? i + 1 : i, b = dir(j, j + 1);
+    const da = Math.min(tan(i), a[2] * (i === 1 ? 0.48 : 0.45)), db = Math.min(tan(j), b[2] * (j === m - 2 ? 0.48 : 0.45));
+    const T1 = [prof[i][0] + a[0] * da, prof[i][1] + a[1] * da], T2 = [prof[j][0] + b[0] * db, prof[j][1] + b[1] * db];
+    // control point: the corner, or for two joined corners where their outer slopes meet (one even curve with no flat on top
+    // for a long truck to balance its belly on)
+    let X = prof[i];
+    if (joined) { const det = a[0] * b[1] - a[1] * b[0], u = ((prof[j][0] - prof[i][0]) * b[1] - (prof[j][1] - prof[i][1]) * b[0]) / det; X = [prof[i][0] + a[0] * u, prof[i][1] + a[1] * u]; }
+    for (let k = 0; k <= n; k++) { const q = k / n, r = 1 - q;
+      out.push([r * r * T1[0] + 2 * r * q * X[0] + q * q * T2[0], r * r * T1[1] + 2 * r * q * X[1] + q * q * T2[1]]); }
+    i = j;
+  }
+  out.push(prof[m - 1]);
+  return out;
+}
+// A prism from a side profile [[x, y], ...] (convex, ground points first and last); sides lean in with height.
+// opts.toe: length of a fillet wedge laid over the foot of the first and last slopes, at half their angle (the same body and mesh),
+// so a long nose or a low splitter meets a gentle lip instead of the full slope at ground level
+function addProfile(profile, cx, cz, yaw, hw, bw, hMax, mat, kind, mapL, mapW, opts = {}) {
   const width = (y) => bw - (bw - hw) * (y / hMax);
-  const n = profile.length, v = [];
-  for (const [x, y] of profile) v.push([x, y, -width(y)]);
-  for (const [x, y] of profile) v.push([x, y, width(y)]);
-  const f = [[0, n - 1, 2 * n - 1, n]];                       // bottom
-  for (let i = 0; i < n - 1; i++) f.push([i, i + 1, n + i + 1, n + i]); // top surfaces
-  f.push([...Array(n).keys()]); f.push([...Array(n).keys()].map((i) => n + i)); // the two sides
-  addConvex(v, f, { x: cx, y: 0, z: cz }, yaw, mat, { what: kind || 'ramp' });
+  const prism = (prof) => { const n = prof.length, v = [];
+    for (const [x, y] of prof) v.push([x, y, -width(y)]);
+    for (const [x, y] of prof) v.push([x, y, width(y)]);
+    const f = [[0, n - 1, 2 * n - 1, n]];                       // bottom
+    for (let i = 0; i < n - 1; i++) f.push([i, i + 1, n + i + 1, n + i]); // top surfaces
+    f.push([...Array(n).keys()]); f.push([...Array(n).keys()].map((i) => n + i)); // the two sides
+    return [v, f]; };
+  const [v, f] = prism(profile), extra = [];
+  const e = opts.toe || 0, n = profile.length;
+  for (const [g, s] of e > 0 ? [[profile[0], profile[1]], [profile[n - 1], profile[n - 2]]] : []) {
+    const dir = Math.sign(s[0] - g[0]), slope = (s[1] - g[1]) / Math.abs(s[0] - g[0]);
+    if (slope > 0.7) continue; // a steep back (the fire pit's) stays a wall: a lip there would only shrink the pit
+    const len = Math.min(e, Math.abs(s[0] - g[0]) * 0.5); // the wedge rises from e before the toe to meet the slope e past it
+    extra.push(prism(dir > 0 ? [[g[0] - len, 0], [g[0] + len, slope * len], [g[0] + len, 0]] : [[g[0] - len, 0], [g[0] - len, slope * len], [g[0] + len, 0]]));
+  }
+  addConvex(v, f, { x: cx, y: 0, z: cz }, yaw, mat, { what: kind || 'ramp', extra });
   mapShapes.push({ kind: kind || 'ramp', x: cx, z: cz, yaw, l: mapL, w: mapW });
 }
+// Tabletop jump: ramp up, flat table, ramp down, as one solid shape with flared sides (no pit to fall into)
 function addTabletop(cx, cz, dx, dz, h, angleDeg, topLen, W, sideDeg = 28) {
-  { // bevelled crests: the slope rolls over into the table instead of a sharp corner
-    const a = angleDeg * D2R, run = h / Math.tan(a), flare = h / Math.tan(sideDeg * D2R), tl = topLen / 2, c = Math.min(1.6, run * 0.3);
-    const prof = [[-tl - run, 0], [-tl - c, h - c * Math.tan(a)], [-tl + c * 0.8, h], [tl - c * 0.8, h], [tl + c, h - c * Math.tan(a)], [tl + run, 0]];
-    addProfile(prof, cx, cz, Math.atan2(-dz, dx), W / 2, W / 2 + flare, h, M.ramp, 'ramp', topLen + run * 2, W + flare);
-    return;
-  }
-  const run = h / Math.tan(angleDeg * D2R), flare = h / Math.tan(sideDeg * D2R), hw = W / 2, bw = hw + flare, tl = topLen / 2;
-  const yaw = Math.atan2(-dz, dx);
-  const v = [[-tl - run, 0, -bw], [-tl - run, 0, bw], [-tl, h, -hw], [-tl, h, hw], [tl, h, -hw], [tl, h, hw], [tl + run, 0, -bw], [tl + run, 0, bw]];
-  const f = [[0, 6, 7, 1], [0, 1, 3, 2], [2, 3, 5, 4], [4, 5, 7, 6], [0, 2, 4, 6], [1, 7, 5, 3]];
-  addConvex(v, f, { x: cx, y: 0, z: cz }, yaw, M.ramp);
-  mapShapes.push({ kind: 'ramp', x: cx, z: cz, yaw, l: topLen + run * 2, w: W + flare });
+  const a = angleDeg * D2R, run = h / Math.tan(a), flare = h / Math.tan(sideDeg * D2R), tl = topLen / 2;
+  const prof = roundProfile([[-tl - run, 0], [-tl, h], [tl, h], [tl + run, 0]], 9); // rounded crests: the slope rolls over into the table
+  addProfile(prof, cx, cz, Math.atan2(-dz, dx), W / 2, W / 2 + flare, h, M.ramp, 'ramp', topLen + run * 2, W + flare, { toe: Math.min(1.6, run * 0.12) });
 }
 function rampForRise(rise, angleDeg) { return rise / Math.sin(angleDeg * D2R); }
 
@@ -1514,7 +1534,18 @@ function buildArena() {
       const phi = phi0 + (k + 0.5) / n * Math.PI / 2;
       const yaw = Math.atan2(Math.cos(phi), Math.sin(phi));
       const q = yawPitchQuat(yaw, -bank, true);
-      addStaticBox(seg / 2, th, half, { x: cx + Math.cos(phi) * rc, y: half * Math.sin(bank) - th * Math.cos(bank) + 0.02, z: cz + Math.sin(phi) * rc }, q, M.bank, { map: 'bank' });
+      const pos = { x: cx + Math.cos(phi) * rc, y: half * Math.sin(bank) - th * Math.cos(bank) + 0.02, z: cz + Math.sin(phi) * rc };
+      addStaticBox(seg / 2, th, half, pos, q, M.bank, { map: 'bank' });
+      if (k === 0 || k === n - 1) { // Lead-in at each end of the bend: a solid wedge from the ground up to the bank's end edge. Without it the slab's
+        // end was a 6 m-tall open mouth along the wall: cars driving beside the wall went in under the bank and stuck in the narrowing tunnel.
+        const s = k === 0 ? 1 : -1, P = new CANNON.Vec3(pos.x, pos.y, pos.z), at = (lx, lz) => P.vadd(q.vmult(new CANNON.Vec3(lx, th, lz)));
+        let cIn = at(s * seg / 2, -half), cOut = at(s * seg / 2, half); const tv = q.vmult(new CANNON.Vec3(s, 0, 0)), tl = Math.hypot(tv.x, tv.z), Lt = 17;
+        if (cIn.y > cOut.y) { const t = cIn; cIn = cOut; cOut = t; } // (the high edge is the one against the wall)
+        const ux = tv.x / tl * Lt, uz = tv.z / tl * Lt;
+        addConvex([[cIn.x, 0, cIn.z], [cOut.x, cOut.y, cOut.z], [cOut.x, 0, cOut.z], [cIn.x + ux, 0, cIn.z + uz], [cOut.x + ux, 0, cOut.z + uz]],
+          [[0, 2, 4, 3], [2, 1, 4], [3, 4, 1], [3, 1, 0], [0, 1, 2]], { x: 0, y: 0, z: 0 }, 0, M.bank, { what: 'bank' });
+        mapShapes.push({ kind: 'bank', x: (cIn.x + cOut.x) / 2 + ux / 2, z: (cIn.z + cOut.z) / 2 + uz / 2, yaw: Math.atan2(-uz, ux), l: Lt, w: Math.hypot(cOut.x - cIn.x, cOut.z - cIn.z) });
+      }
     }
     // Fill everything behind the bend, flush with its top edge, so a car that slides off the top lands on a
     // shelf it can drive straight back off, never in a trench between the bank and the walls

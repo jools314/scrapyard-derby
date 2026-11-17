@@ -67,6 +67,7 @@ quick() {
   t aim 900 "AIM PASS"
   t heaps 300 "HEAPS PASS"
   t inside 600 "INSIDE PASS"
+  t softhills 1200 "SOFTHILLS PASS"
   t voicelines 300 "VOICELINES PASS"
   t broadphase 600 "BROADPHASE PASS"
   t updatecheck 300 "UPDATECHECK PASS"
