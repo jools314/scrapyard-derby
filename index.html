@@ -814,7 +814,7 @@ const CAR_TYPES = {
   mixer: { iconic: true, heavy: true, handling: { steer: 0.7, rate: 0.6, spring: 1.2, damp: 1.3, rear: 1.15, drag: 3.2, roll: 0.7 }, name: 'Mixer', blurb: 'Concrete mixer: 9.5 tonnes. F or FIRE pours wet concrete that bogs down anyone who drives into it.', style: 'mixer', pour: true, mass: 9500, L: 8.2, W: 2.5, H: 0.8, wheelR: 0.55, wheelW: 0.44, wb: 5.0, axles: [2.9, -1.4, -2.8], track: 2.05, power: 1.45, grip: 0.95, armor: 0.5, cabin: { l: 1.8, h: 1.3, w: 2.3, x: 2.85 }, color: 0xeeeae2, redline: 2800, idle: 600, cyl: 3 },
   firetruck: { iconic: true, heavy: true, special: 'water', handling: { steer: 0.8, rate: 0.75, spring: 1.1, damp: 1.2, rear: 1.15, drag: 1.3, roll: 0.75 }, name: 'Fire Truck', blurb: 'Long ladder, flashing lights, and automatic rear steering for tight turns. G toggles the siren.', style: 'fire', siren: true, rearSteer: true, mass: 8000, L: 9.6, W: 2.5, H: 0.95, wheelR: 0.52, wheelW: 0.42, wb: 6.0, track: 2.05, power: 1.8, grip: 0.95, armor: 0.6, cabin: { l: 2.4, h: 1.15, w: 2.3, x: 3.0 }, color: 0xb81e14, redline: 3200, idle: 650, cyl: 3 },
   hellbender: { special: 'minigun', handling: { steer: 0.95, rate: 1.0, spring: 0.8, damp: 0.85, rear: 1.05, drag: 1.1, roll: 1.1 }, frontDrive: 0.4, name: 'Hellbender', blurb: 'Super truck: 700 hp, giant tires, long-travel suspension. Hold V (or nitro from low speed) to wheelie.', style: 'pickup', superTruck: true, wheelie: true, mass: 2900, L: 5.9, W: 2.2, H: 0.85, wheelR: 0.56, wheelW: 0.42, wb: 3.7, track: 1.95, power: 1.65, grip: 1.1, armor: 0.8, extraTravel: 0.15, cabin: { l: 1.7, h: 0.66, w: 1.95, x: 0.3 }, color: 0x4a4e52, redline: 6200, idle: 750, cyl: 4 },
-  cruiser: { iconic: true, special: 'spikes', handling: { steer: 1.05, rate: 1.1, spring: 1.1, damp: 1.1, rear: 1.0, drag: 0.95, roll: 0.9 }, frontDrive: 0.15, name: 'Cruiser', blurb: 'Police cruiser: F fires the pump shotgun out the window, the stop-stick drops itself behind you when someone tails you (or Z). G toggles the siren.', style: 'sedan', police: true, mass: 1650, L: 4.9, W: 1.9, H: 0.62, wheelR: 0.38, wheelW: 0.32, wb: 2.9, track: 1.62, power: 1.05, grip: 1.0, armor: 0.9, cabin: { l: 2.3, h: 0.58, w: 1.62, x: -0.15 }, color: 0x16191e, redline: 6200, idle: 750, cyl: 4 },
+  cruiser: { iconic: true, special: 'spikes', handling: { steer: 1.05, rate: 1.1, spring: 1.1, damp: 1.1, rear: 1.0, drag: 0.95, roll: 0.9 }, frontDrive: 0.15, name: 'Cruiser', blurb: 'Police cruiser: F fires the pump shotgun out the window, the stop-stick drops itself behind you when someone tails you (or Z). G toggles the siren.', style: 'sedan', police: true, mass: 1750, L: 4.9, W: 1.9, H: 0.62, wheelR: 0.38, wheelW: 0.32, wb: 2.9, track: 1.62, power: 1.3, traction: 14.5, grip: 1.0, armor: 0.9, cabin: { l: 2.3, h: 0.58, w: 1.62, x: -0.15 }, color: 0x16191e, redline: 6200, idle: 750, cyl: 4 },
   tiger: { iconic: true, noPlant: true, handling: { steer: 0.65, rate: 0.85, spring: 2.2, damp: 2.0, rear: 1.0, drag: 45, roll: 0.02 }, frontDrive: 0.5, name: 'Tiger', blurb: 'Battle tank with an autocannon: each trigger pull fires a 3-round burst. F, click or FIRE to shoot.', style: 'tank', mass: 11000, L: 6.4, W: 3.4, H: 1.0, hullW: 0.62, wheelR: 0.5, wheelW: 0.5, wb: 4.4, axles: [2.2, 0.75, -0.75, -2.2], track: 2.7, power: 1.3, grip: 1.6, armor: 0.3, traction: 11, cabin: { l: 3.0, h: 0.85, w: 2.6, x: -0.3 }, color: 0x8f7d52, redline: 3000, idle: 600, cyl: 6, skid: true, gun: true, noWheelLoss: true },
   dozer: { iconic: true, noPlant: true, antiWheelie: true, maxSpeed: 8.5, handling: { steer: 0.7, rate: 0.8, spring: 2.2, damp: 2.0, rear: 1.0, drag: 45, roll: 0.02 }, frontDrive: 0.5, name: 'Bulldozer', blurb: 'Bulldozer Bob: 14 t crawler dozer, slow and unstoppable. Blade down it shoves anything; F raises the blade (flipping what is in front) so you can climb over cars, F again slams it down and crushes them.', style: 'tank', dozer: true, special: 'blade', mass: 14000, L: 5.6, W: 3.2, H: 1.0, hullW: 0.66, wheelR: 0.5, wheelW: 0.5, wb: 3.8, axles: [1.9, 0.65, -0.65, -1.9], track: 2.5, power: 1.7, grip: 1.7, armor: 0.45, traction: 18, cabin: { l: 1.7, h: 1.35, w: 1.8, x: -1.0 }, color: 0xe8b010, redline: 2600, idle: 550, cyl: 6, skid: true, noWheelLoss: true },
   combine: { iconic: true, heavy: true, special: 'reel', maxSpeed: 10, rearSteer: true, handling: { steer: 0.75, rate: 0.7, spring: 1.2, damp: 1.3, rear: 1.15, drag: 1.5, roll: 0.6 }, name: 'Combine', blurb: 'Papa Jacques\'s combine harvester. F starts the 6-metre reel: crates and drums come out the back as straw bales, and any car caught in it gets chewed up and dragged in. Steers with its back wheels.', style: 'combine', mass: 15000, L: 8.6, W: 3.6, H: 1.3, hullW: 0.86, wheelR: 0.95, wheelW: 0.7, wb: 4.6, axles: [2.0, -2.6], track: 3.0, power: 2.2, grip: 1.0, armor: 0.45, cabin: { l: 1.8, h: 1.5, w: 1.9, x: 2.3 }, color: 0x367c2b, redline: 2400, idle: 600, cyl: 6 },
@@ -2745,6 +2745,7 @@ const WEAPONS = {
         if (c.leakT > 0 || c.onFire || c.wrecked || c.health < 15) { if (!(c.douse > 0) && car.isPlayer && game.state === 'playing') toast(`FIRE OUT · ${c.name}`, 'cool'); }
         c.douse = c.wrecked ? 25 : 8; c.leakT = 0; if (c.burnT > 0) { c.burnT = 0; if (car.isPlayer) toast(`💧 PUT OUT ${c.name.toUpperCase()}`, 'cool'); } } }
       for (const pr of props) if (pr.fireT > 0) { const l = b.pointToLocalFrame(pr.body.position); if (l.x > 0 && l.x < 30 && Math.abs(l.z) < 2 + l.x * 0.15) { pr.fireT = 0; for (let k = 0; k < 6; k++) emit('steam', pr.body.position.x, pr.body.position.y + 0.6, pr.body.position.z, rand(-1, 1), rand(2, 3), rand(-1, 1), rand(0.6, 1), rand(0.4, 0.7)); if (car.isPlayer) toast('💧 FIRE OUT', 'cool'); } }
+      for (const o of BOULDERS) if (o.fireT > 0) { const l = b.pointToLocalFrame(o.body.position); if (l.x > 0 && l.x < 30 && Math.abs(l.z) < 2 + l.x * 0.15) o.fireT = 0.001; } // a flaming boulder: hissed out (burnBoulder steams it next frame)
       for (const bl of BULLS) hoseBull(car, bl, p, f, dt); // a cold shower: no more cooking, and it gets shoved back (and see hoseBull: once is enough for some bulls)
       if (car.douse === undefined || car.douse < 1) car.douse = 1; // spray yourself a bit too
       car.puddleT = (car.puddleT || 0) - dt;
@@ -3072,10 +3073,12 @@ function updatePropFires(dt) {
 // ---------- Cars on fire: the bonnet burns (flames + smoke you can see), it hurts, it spreads to whoever you rub against; water puts it out ----------
 function setCarAlight(c, by) {
   if (c.wrecked || MP.role === 'guest' || c.douse > 0 || c.burnT > 1) return;
-  const was = c.burnT > 0; c.burnT = 7; c.ignite = 0; c.burnBy = by || null; if (!was) ptag(c.name + ' on fire');
+  const dumpster = c.T.special === 'dump'; // Big Bertha alight: the whole load in the bed goes up. A real dumpster fire (owner's idea): longer, bigger, and the commentators call it
+  const was = c.burnT > 0; c.burnT = dumpster ? 10 : 7; c.ignite = 0; c.burnBy = by || null; if (!was) ptag(c.name + (dumpster ? ' dumpster fire' : ' on fire'));
   if (was || game.state !== 'playing') return;
-  if (c.isPlayer) toast("🔥 YOU'RE ON FIRE! FIND WATER", 'bad');
-  else if (by && by.isPlayer) toast(`🔥 ${c.name.toUpperCase()} IS ON FIRE!`, 'cool');
+  if (c.isPlayer) toast(dumpster ? '🔥 DUMPSTER FIRE! FIND WATER' : "🔥 YOU'RE ON FIRE! FIND WATER", 'bad');
+  else if (by && by.isPlayer) toast(dumpster ? `🔥 DUMPSTER FIRE! ${c.name.toUpperCase()} IS ALIGHT` : `🔥 ${c.name.toUpperCase()} IS ON FIRE!`, 'cool');
+  if (dumpster) { c.dumpsterN = (c.dumpsterN || 0) + 1; barks.announce('dumpsterFire', { v: c.isPlayer ? 'our hero' : c.name }, true); return; }
   if (!c.isPlayer && !c.remote && Math.random() < 0.7) barks.say(c, 'onFire', true); else barks.announce('carFire', { v: c.isPlayer ? 'our hero' : c.name, a: by ? (by.isPlayer ? 'our hero' : by.name) : 'somebody' }, true);
 }
 function burnCar(c, dt) { // every frame on every machine: the flames; the host also does the damage and the spreading
@@ -3083,6 +3086,10 @@ function burnCar(c, dt) { // every frame on every machine: the flames; the host 
   const b = c.body, T = c.T, hood = b.pointToWorldFrame(new CANNON.Vec3(T.L / 2 - T.L * 0.18 - c.comShift, HULL_Y0 + T.H + 0.1, 0));
   for (let i = 0; i < (QUALITY.lite ? 2 : 4); i++) emit('fire', hood.x + rand(-0.5, 0.5), hood.y + rand(0, 0.3), hood.z + rand(-0.5, 0.5), b.velocity.x * 0.6 + rand(-0.4, 0.4), rand(2, 4), b.velocity.z * 0.6 + rand(-0.4, 0.4), rand(0.35, 0.7), rand(0.5, 0.9));
   if (Math.random() < 0.35) emit('smoke', hood.x, hood.y + 1, hood.z, b.velocity.x * 0.5 + rand(-0.5, 0.5), rand(2, 3.5), b.velocity.z * 0.5 + rand(-0.5, 0.5), rand(1.5, 2.6), rand(0.6, 1));
+  if (T.special === 'dump') { // dumpster fire: the load in the bed burns too, flames along the whole bed and a fat black smoke column (pooled sprites, no new objects)
+    for (let i = 0; i < (QUALITY.lite ? 1 : 3); i++) { _bedP.set(rand(-4.6, 1.8) - c.comShift, HULL_Y0 + T.H + 1.7 + rand(0, 0.5), rand(-2, 2)); b.pointToWorldFrame(_bedP, _bedP); emit('fire', _bedP.x, _bedP.y, _bedP.z, b.velocity.x * 0.6 + rand(-0.5, 0.5), rand(2.5, 5), b.velocity.z * 0.6 + rand(-0.5, 0.5), rand(0.4, 0.8), rand(0.7, 1.2)); }
+    if (Math.random() < (QUALITY.lite ? 0.2 : 0.45)) { _bedP.set(rand(-3.5, 0.5) - c.comShift, HULL_Y0 + T.H + 3, rand(-1, 1)); b.pointToWorldFrame(_bedP, _bedP); emit('smoke', _bedP.x, _bedP.y, _bedP.z, b.velocity.x * 0.4 + rand(-0.6, 0.6), rand(3, 5), b.velocity.z * 0.4 + rand(-0.6, 0.6), rand(2, 3.2), rand(1, 1.6)); }
+  }
   c.charK = Math.min(0.55, (c.charK || 0) + dt * 0.08); c.paint.color.copy(c.baseColor).lerp(_charCol, c.charK); // the paint blisters and darkens
   if (MP.role === 'guest') { c.burnT -= dt; return; }
   c.burnT -= dt;
@@ -3091,7 +3098,7 @@ function burnCar(c, dt) { // every frame on every machine: the flames; the host 
   if (Math.random() < dt * 1.5) for (const o of cars) if (o !== c && !o.wrecked && !(o.burnT > 0) && o.body.position.distanceTo(b.position) < (o.T.L + T.L) * 0.5 + 0.6) { setCarAlight(o, c.burnBy); break; } // rub against someone and they catch too
   if (c.isPlayer && player && Math.random() < dt * 0.3) toast('🔥 STILL BURNING · FIND WATER', 'bad');
 }
-const _charCol = new THREE.Color(0x1a120c);
+const _charCol = new THREE.Color(0x1a120c), _bedP = new CANNON.Vec3();
 function igniteFuelNear(x, z, R) { for (const c of CONCRETE.list) if (c.kind === 'fuel' && !c.burning && !puddleAt(c.x, c.z, 'water', c.r * 0.5) && (c.x - x) ** 2 + (c.z - z) ** 2 < (R + c.r) ** 2) c.burning = rand(8, 12); }
 
 /* ---------------- Tank shells ---------------- */
@@ -3382,6 +3389,7 @@ function updateCrawlerCrush(dt) { // a tank or dozer sitting on a car squashes i
 }
 const BOULDERS = [], boulderGeo = new THREE.DodecahedronGeometry(1.0); boulderGeo.userData.shared = true;
 const boulderMat = new THREE.MeshStandardMaterial({ color: 0x8a7764, roughness: 0.95, flatShading: true });
+const boulderHotMat = new THREE.MeshStandardMaterial({ color: 0x4a3426, roughness: 0.95, flatShading: true, emissive: 0xff5a10, emissiveIntensity: 0.55 }); // a rock out of a dumpster fire: glowing embers (same shader as boulderMat, only the colours differ)
 function dropBoulder(car, ev) { // a 900 kg rock rolls off the back of the bed
   const b = car.body, p = ev ? new CANNON.Vec3(ev[0], ev[1], ev[2]) : b.pointToWorldFrame(new CANNON.Vec3(-car.T.L / 2 - 1.2 - car.comShift, car.T.H + 1.4, rand(-1.4, 1.4)));
   let v; if (ev) v = new CANNON.Vec3(ev[3], ev[4], ev[5]); else { // roll them at whoever is tailing her (or straight back if nobody is)
@@ -3390,13 +3398,14 @@ function dropBoulder(car, ev) { // a 900 kg rock rolls off the back of the bed
     const sp = tail ? clamp(d * 0.9, 5, 11) : rand(3, 6); v = new CANNON.Vec3(b.velocity.x * 0.5 + aim.x * sp + rand(-0.6, 0.6), rand(0, 1.5), b.velocity.z * 0.5 + aim.z * sp + rand(-0.6, 0.6)); }
   const r = ev ? ev[6] : rand(0.75, 1.0), body = new CANNON.Body({ mass: 900 * r * r * r, material: sceneryMat, linearDamping: 0.05, angularDamping: 0.1 }); body.addShape(new CANNON.Sphere(r));
   body.position.copy(p); body.velocity.copy(v); body.angularVelocity.set(rand(-3, 3), rand(-3, 3), rand(-3, 3)); body.boulder = true; world.addBody(body);
-  const hit = new Set(); body.addEventListener('collide', (e) => { const c = e.body && e.body.car; if (!c || c === car || hit.has(c) || MP.role === 'guest') return; const rel = body.velocity.vsub(c.body.velocity).length(); if (rel < 2.5) return; hit.add(c); // a rolling rock is a lot of mass to stop
+  const ent = { body, mesh: null, t: 40, by: car, fireT: (ev ? ev[7] : car.burnT > 0) ? 10 : 0, scanT: 0 }; // dumped out of a dumpster fire: it comes out burning
+  const hit = new Set(); body.addEventListener('collide', (e) => { const c = e.body && e.body.car; if (!c || c === car || MP.role === 'guest') return; if (ent.fireT > 0) setCarAlight(c, car); if (hit.has(c)) return; const rel = body.velocity.vsub(c.body.velocity).length(); if (rel < 2.5) return; hit.add(c); // a rolling rock is a lot of mass to stop; a burning one sets you alight
     const lp = c.body.pointToLocalFrame(body.position), zn = Math.abs(lp.x) > Math.abs(lp.z) ? (lp.x > 0 ? 'front' : 'rear') : (lp.z > 0 ? 'right' : 'left'); c.applyDamage((5 + rel * 1.8) * S.damage * c.T.armor, car, zn, new THREE.Vector3(lp.x, lp.y, lp.z), rel); c.dent(new THREE.Vector3(lp.x, lp.y, lp.z), { x: Math.sign(lp.x) * (zn === 'front' || zn === 'rear' ? 1 : 0), y: 0, z: Math.sign(lp.z) * (zn === 'left' || zn === 'right' ? 1 : 0) }, 8 + rel);
     if (game.state === 'playing') { if (c.isPlayer) toast('🪨 ROCKED!', 'bad'); else if (car.isPlayer) toast(`🪨 ROCKED ${c.name}!`, 'cool'); } });
-  const m = new THREE.Mesh(boulderGeo, boulderMat); m.scale.setScalar(r); m.castShadow = true; m.receiveShadow = true; m.userData.shared = true; scene.add(m);
-  BOULDERS.push({ body, mesh: m, t: 40, by: car }); while (BOULDERS.length > 15) { const o = BOULDERS.shift(); world.removeBody(o.body); scene.remove(o.mesh); }
+  const m = new THREE.Mesh(boulderGeo, ent.fireT > 0 ? boulderHotMat : boulderMat); m.scale.setScalar(r); m.castShadow = true; m.receiveShadow = true; m.userData.shared = true; scene.add(m);
+  ent.mesh = m; BOULDERS.push(ent); while (BOULDERS.length > 15) { const o = BOULDERS.shift(); world.removeBody(o.body); scene.remove(o.mesh); }
   sfx.at(p).crash(wv(car) * 0.6, 8); for (let i = 0; i < 6; i++) emit('dust', p.x, p.y, p.z, rand(-2, 2), rand(0, 2), rand(-2, 2), rand(1, 1.6), rand(0.5, 0.9));
-  if (!ev && MP.role === 'host') MP.event({ k: 'bd', p: [p.x, p.y, p.z, v.x, v.y, v.z, r].map((x) => Math.round(x * 100) / 100) });
+  if (!ev && MP.role === 'host') MP.event({ k: 'bd', p: [p.x, p.y, p.z, v.x, v.y, v.z, r, ent.fireT > 0 ? 1 : 0].map((x) => Math.round(x * 100) / 100) });
 }
 const LOBS = [], lobGeo = new THREE.IcosahedronGeometry(0.9, 1); lobGeo.userData.shared = true;
 const crateGeo = new THREE.BoxGeometry(0.75, 0.75, 0.75); crateGeo.userData.shared = true; let crateMat = null;
@@ -3426,7 +3435,19 @@ function updateLobs(dt) {
 function updateBoulders(dt) {
   for (let i = BOULDERS.length - 1; i >= 0; i--) { const o = BOULDERS[i]; o.t -= dt; o.mesh.position.copy(o.body.position); o.mesh.quaternion.copy(o.body.quaternion);
     if (o.t < 2) o.mesh.position.y -= (2 - o.t) * 0.8; // sinks into the dirt before it goes
+    if (o.fireT > 0) burnBoulder(o, dt);
     if (o.t <= 0 || o.body.position.y < -5) { world.removeBody(o.body); scene.remove(o.mesh); BOULDERS.splice(i, 1); } }
+}
+function burnBoulder(o, dt) { // a flaming rock from Bertha's dumpster fire: flickers, smokes, lights up crates, fuel, bulls (and cars, see dropBoulder) it rolls into; water puts it out
+  const q = o.body.position; o.fireT -= dt;
+  if (Math.random() < (QUALITY.lite ? 0.4 : 0.9)) emit('fire', q.x + rand(-0.4, 0.4), q.y + 0.4, q.z + rand(-0.4, 0.4), o.body.velocity.x * 0.5 + rand(-0.3, 0.3), rand(1.5, 3), o.body.velocity.z * 0.5 + rand(-0.3, 0.3), rand(0.3, 0.6), rand(0.4, 0.8));
+  if (Math.random() < 0.1) emit('smoke', q.x, q.y + 1, q.z, rand(-0.4, 0.4), rand(1.5, 2.5), rand(-0.4, 0.4), rand(1.2, 2), rand(0.6, 1));
+  if (puddleAt(q.x, q.z, 'water', 0.6)) o.fireT = 0;
+  else if (MP.role !== 'guest' && (o.scanT -= dt) <= 0) { o.scanT = 0.4;
+    for (const pr of props) if (pr.body.position.distanceTo(q) < 2.2) igniteProp(pr);
+    igniteFuelNear(q.x, q.z, 1.2);
+    for (const bl of BULLS) if (bl.body.position.distanceTo(q) < 2.4) cookBull(bl, o.by, 0.25); }
+  if (o.fireT <= 0) { o.fireT = 0; o.mesh.material = boulderMat; for (let k = 0; k < 6; k++) emit('steam', q.x, q.y + 0.5, q.z, rand(-1, 1), rand(1.5, 3), rand(-1, 1), rand(0.6, 1), rand(0.4, 0.6)); }
 }
 const BALE_MAT = new THREE.MeshStandardMaterial({ color: 0xd8b85a, roughness: 0.95 }), baleGeo = new THREE.BoxGeometry(1.0, 0.5, 0.55); baleGeo.userData.shared = true;
 // READ THE BALES: occasionally a bale comes out with a message printed on it. Zero new systems — just a printed skin on the odd bale.
@@ -7321,6 +7342,7 @@ const ANN_LINES = {
   crushed: ['{a} just PANCAKED {v}! Flat as a tack!', 'Oh, {v} has been squashed like a bug on a windscreen!', '{a} parks fourteen tonnes on {v}. Rude!', 'That\'s not a car anymore, that\'s a sandwich press special!'],
   followUp: ['And ANOTHER one, just for good measure!', 'Oh, they\'ve gone back for seconds! Cheeky!', 'Hit \'em again! A little top-up for {v}!', 'Double tap! {v} did not need that, but {a} gave it anyway!', 'One for the road! Absolutely unnecessary, absolutely beautiful!'],
   aiHit: ['OHHH! {a} has absolutely cleaned up {v}!', 'Bang! {a} into {v} at {kmh} k\'s! Lovely!', '{v} never saw {a} coming. Classic!', 'And {a} sends {v} for a little spin! Round and round she goes!', 'Crunch! {a} and {v}, the worst first date in history!'],
+  dumpsterFire: ['{v} is ON FIRE! Twenty-six tonnes of DUMPSTER FIRE, folks!', 'Aiyaa! A real dumpster fire! Kev, the whole truck is a barbecue pit!', 'Now THAT, kids, is what we call a dumpster fire. Literally!', 'Wah! Dumpster fire! Somebody bring the biggest hose in the yard!'], // Big Bertha alight (even lines Kev, odd lines Lulu)
   carFire: ['{v} is ON FIRE! Somebody get the hose!', '{a} just set {v} alight!', 'Is it hot in here, or is it just {v}?', 'Flame-grilled {v}, coming right up!'],
   delivery: ['{a} has {v} and is heading for {w}!', 'Uh oh, {v}! {a} is taking you to {w}!', 'Special delivery for {w}, courtesy of {a}!'],
   intoCrusher: ['{a} just fed {v} to the crusher! Pancake time!', 'Into the press with {v}! Thank you, {a}!', 'Squish! {v} is going to be a lot flatter!'],
@@ -12196,7 +12218,7 @@ try { BOOT.parallel = !!renderer.getContext().getExtension('KHR_parallel_shader_
   else { bootLite(); renderer.compile(sky, camera, scene); startLoop('async'); } // (the yard's compile starts once this first frame is up: bootFrame)
 } catch (e) { bootYard('error'); startLoop('error'); }
 window.__derby.BOOT = BOOT; window.__derby.HITLOG = HITLOG; Object.defineProperty(window.__derby, 'camMode', { get: () => camMode }); window.__derby.MEMGUARD = MEMGUARD; window.__derby.GPULIVE = GPULIVE;
-window.__derby.IDLE = IDLE; window.__derby.TALK = TALK; window.__derby.DROP = DROP; window.__derby.SCORE = SCORE; window.__derby.UPDATE = UPDATE; window.__derby.TABENV = TABENV; window.__derby.PERFREP = PERFREP; // (test hooks)
+window.__derby.setCarAlight = (c, by) => setCarAlight(c, by); window.__derby.dropBoulder = (c) => dropBoulder(c); window.__derby.sprites = sprites; window.__derby.IDLE = IDLE; window.__derby.TALK = TALK; window.__derby.DROP = DROP; window.__derby.SCORE = SCORE; window.__derby.UPDATE = UPDATE; window.__derby.TABENV = TABENV; window.__derby.PERFREP = PERFREP; // (test hooks)
 window.__derby.VR = VR; window.__derby.XRS = XRS; window.__derby.composer = composer;
 window.__derby.VCLIP = VCLIP; window.__derby.ROAST_BY = ROAST_BY; window.__derby.ROAST_PAIR = ROAST_PAIR; window.__derby.SHAZZA = SHAZZA; window.__derby.CAR_CAST = CAR_CAST; window.__derby.ANNOUNCER = ANNOUNCER; window.__derby.COP = COP; window.__derby.megaphone = megaphone; window.__derby.hornLine = hornLine;
 </script>
