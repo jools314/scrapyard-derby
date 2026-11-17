@@ -67,6 +67,7 @@ quick() {
   t broadphase 600 "BROADPHASE PASS"
   t updatecheck 300 "UPDATECHECK PASS"
   t spider 1200 "SPIDER PASS"
+  t spidertricks 600 "SPIDERTRICKS PASS"
 }
 release() {
   quick
