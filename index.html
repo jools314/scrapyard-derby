@@ -789,7 +789,7 @@ const CAR_TYPES = {
   forklift: { noPlant: true, special: 'lift', forkSteer: true, comBias: 0.02, frontDrive: 1, antiWheelie: true, handling: { steer: 1.3, rate: 1.5, spring: 1.4, damp: 1.4, rear: 1.0, drag: 110, roll: 0.6 }, name: 'Forklift', blurb: 'Warehouse forklift with a 2.5 t counterweight. Drive the forks under a car, press F to hoist it, F again to toss it.', style: 'fork', mass: 2900, L: 3.3, W: 1.35, H: 0.75, wheelR: 0.34, wheelW: 0.3, wb: 1.85, track: 1.12, power: 0.6, grip: 1.15, armor: 0.75, cabin: { l: 1.0, h: 0.42, w: 1.05, x: -0.35 }, color: 0xe0a812, redline: 3600, idle: 800, cyl: 3, noWheelLoss: true },
   sandflea: { special: 'flame', handling: { steer: 1.15, rate: 1.35, spring: 0.7, damp: 0.75, rear: 0.95, drag: 1.25, roll: 1.1 }, frontDrive: 0.35, name: 'Sandflea', blurb: 'Light buggy on long-travel springs. Flies far.', style: 'buggy', mass: 850, L: 3.7, W: 1.9, H: 0.45, wheelR: 0.5, wheelW: 0.4, wb: 2.55, track: 1.8, power: 0.75, grip: 1.1, armor: 1.3, cabin: { l: 1.6, h: 0.75, w: 1.4, x: -0.15 }, color: 0x3a8fb0, hullW: 0.72, extraTravel: 0.12, redline: 8500, idle: 1100, cyl: 2 },
   camper: { special: 'bomb', handling: { steer: 0.55, rate: 0.65, spring: 0.85, damp: 0.9, rear: 1.4, drag: 1.5, roll: 1.0 }, name: 'Camper', blurb: 'Rusty old RV. Top-heavy, slow to turn, and a rolling wrecking ball.', style: 'van', flimsy: true, mass: 3600, L: 6.6, W: 2.3, H: 0.9, wheelR: 0.47, wheelW: 0.38, wb: 4.0, track: 2.0, power: 1.3, grip: 0.92, armor: 1.0, cabin: { l: 1.3, h: 0.6, w: 2.15, x: 2.5 }, color: 0xe3d6bc, redline: 5000, idle: 700, cyl: 3 },
-  mixer: { heavy: true, handling: { steer: 0.7, rate: 0.6, spring: 1.2, damp: 1.3, rear: 1.15, drag: 3.2, roll: 0.7 }, name: 'Mixer', blurb: 'Concrete mixer: 9.5 tonnes. F or FIRE pours wet concrete that bogs down anyone who drives into it.', style: 'mixer', pour: true, mass: 9500, L: 8.2, W: 2.5, H: 0.8, wheelR: 0.55, wheelW: 0.44, wb: 5.0, axles: [2.9, -1.4, -2.8], track: 2.05, power: 1.45, grip: 0.95, armor: 0.5, cabin: { l: 1.8, h: 1.3, w: 2.3, x: 2.85 }, color: 0xd8a020, redline: 2800, idle: 600, cyl: 3 },
+  mixer: { heavy: true, handling: { steer: 0.7, rate: 0.6, spring: 1.2, damp: 1.3, rear: 1.15, drag: 3.2, roll: 0.7 }, name: 'Mixer', blurb: 'Concrete mixer: 9.5 tonnes. F or FIRE pours wet concrete that bogs down anyone who drives into it; with a car right behind or beside, it dumps the load ON them.', style: 'mixer', pour: true, mass: 9500, L: 8.2, W: 2.5, H: 0.8, wheelR: 0.55, wheelW: 0.44, wb: 5.0, axles: [2.9, -1.4, -2.8], track: 2.05, power: 1.45, grip: 0.95, armor: 0.5, cabin: { l: 1.8, h: 1.3, w: 2.3, x: 2.85 }, color: 0xd8a020, redline: 2800, idle: 600, cyl: 3 },
   firetruck: { heavy: true, special: 'water', handling: { steer: 0.8, rate: 0.75, spring: 1.1, damp: 1.2, rear: 1.15, drag: 1.3, roll: 0.75 }, name: 'Fire Truck', blurb: 'Long ladder, flashing lights, and automatic rear steering for tight turns. G toggles the siren.', style: 'fire', siren: true, rearSteer: true, mass: 8000, L: 9.6, W: 2.5, H: 0.95, wheelR: 0.52, wheelW: 0.42, wb: 6.0, track: 2.05, power: 1.8, grip: 0.95, armor: 0.6, cabin: { l: 2.4, h: 1.15, w: 2.3, x: 3.0 }, color: 0xb81e14, redline: 3200, idle: 650, cyl: 3 },
   hellbender: { special: 'minigun', handling: { steer: 0.95, rate: 1.0, spring: 0.8, damp: 0.85, rear: 1.05, drag: 1.1, roll: 1.1 }, frontDrive: 0.4, name: 'Hellbender', blurb: 'Super truck: 700 hp, giant tires, long-travel suspension. Hold V (or nitro from low speed) to wheelie.', style: 'pickup', superTruck: true, wheelie: true, mass: 2900, L: 5.9, W: 2.2, H: 0.85, wheelR: 0.56, wheelW: 0.42, wb: 3.7, track: 1.95, power: 1.65, grip: 1.1, armor: 0.8, extraTravel: 0.15, cabin: { l: 1.7, h: 0.66, w: 1.95, x: 0.3 }, color: 0x4a4e52, redline: 6200, idle: 750, cyl: 4 },
   cruiser: { special: 'spikes', handling: { steer: 1.05, rate: 1.1, spring: 1.1, damp: 1.1, rear: 1.0, drag: 0.95, roll: 0.9 }, frontDrive: 0.15, name: 'Cruiser', blurb: 'Police cruiser: F fires the pump shotgun out the window, the stop-stick drops itself behind you when someone tails you (or Z). G toggles the siren.', style: 'sedan', police: true, mass: 1650, L: 4.9, W: 1.9, H: 0.62, wheelR: 0.38, wheelW: 0.32, wb: 2.9, track: 1.62, power: 1.05, grip: 1.0, armor: 0.9, cabin: { l: 2.3, h: 0.58, w: 1.62, x: -0.15 }, color: 0x16191e, redline: 6200, idle: 750, cyl: 4 },
@@ -3390,8 +3390,8 @@ function lobConcrete(car, tg) { // a dollop of wet concrete arcs over the cab an
 }
 function updateLobs(dt) {
   for (let i = LOBS.length - 1; i >= 0; i--) { const L = LOBS[i]; L.t += dt; const k = Math.min(1, L.t / L.T);
-    L.m.position.set(L.from.x + (L.to.x - L.from.x) * k, L.from.y + (L.to.y - L.from.y) * k + Math.sin(k * Math.PI) * 7, L.from.z + (L.to.z - L.from.z) * k); L.m.rotation.x += dt * 5;
-    if (k >= 1) { scene.remove(L.m); L.m.material.dispose(); LOBS.splice(i, 1); if (MP.role === 'guest') continue;
+    L.m.position.set(L.from.x + (L.to.x - L.from.x) * k, L.from.y + (L.to.y - L.from.y) * k + Math.sin(k * Math.PI) * (L.arc || 7), L.from.z + (L.to.z - L.from.z) * k); L.m.rotation.x += dt * 5;
+    if (k >= 1) { scene.remove(L.m); if (!L.dump) L.m.material.dispose(); LOBS.splice(i, 1); if (MP.role === 'guest') continue; if (L.dump) { landDump(L); continue; }
       addConcrete(L.to.x, L.to.z, 4.2, 'concrete'); CONCRETE.list[CONCRETE.list.length - 1].owner = L.car; CONCRETE.list[CONCRETE.list.length - 1].t = 22;
       for (let j = 0; j < 14; j++) emit('debris', L.to.x, 0.6, L.to.z, rand(-5, 5), rand(2, 6), rand(-5, 5), rand(1, 2), rand(0.1, 0.25), M.concrete || M.steel);
       if (player) sfx.at(L.to).crash(clamp(1 - player.body.position.distanceTo(L.to) / 70, 0, 1) * 0.6, 6);
@@ -3402,6 +3402,92 @@ function updateBoulders(dt) {
   for (let i = BOULDERS.length - 1; i >= 0; i--) { const o = BOULDERS[i]; o.t -= dt; o.mesh.position.copy(o.body.position); o.mesh.quaternion.copy(o.body.quaternion);
     if (o.t < 2) o.mesh.position.y -= (2 - o.t) * 0.8; // sinks into the dirt before it goes
     if (o.t <= 0 || o.body.position.y < -5) { world.removeBody(o.body); scene.remove(o.mesh); BOULDERS.splice(i, 1); } }
+}
+// MIXER DUMP (owner idea, 2026-11-17): F with a car close behind or beside the drum swings the chute up and dumps a load ON it. The car is
+// encased (held where it was, wheels spinning, grey crust on the body) for ~3 s, and the heap left behind sets hard after ~8 s into a solid
+// lump that cars bump into, until a heavy truck rams it (or the wrecking ball swings through) and it bursts. At most 6 lumps; all shared GPU objects.
+const HEAPS = [], HEAP = { max: 6, setT: 8, life: 45, encase: 3, range: 8, id: 0 }, _dl = new CANNON.Vec3(), _dh = new CANNON.Vec3();
+HEAP.geo = (() => { const g = new THREE.IcosahedronGeometry(1, 1), a = g.attributes.position; for (let i = 0; i < a.count; i++) { const x = a.getX(i), y = a.getY(i), z = a.getZ(i), k = 1 + 0.13 * Math.sin(x * 5.1 + z * 3.7 + y * 2.9); a.setXYZ(i, x * k, Math.max(-0.2, y) * k, z * k); } /* (a lumpy dollop, flat underneath; the jitter follows position so shared corners stay shut) */ g.computeVertexNormals(); g.userData.shared = true; return g; })();
+HEAP.wet = new THREE.MeshStandardMaterial({ color: 0x97938b, roughness: 0.22, metalness: 0.05, map: CONCRETE.tex });
+HEAP.dry = new THREE.MeshStandardMaterial({ color: 0xc8c3b8, roughness: 0.95, map: CONCRETE.tex });
+function dumpTarget(car) { // the nearest car behind or beside the truck (not ahead of the cab: that's the lob's job), within ~8 m of the bodywork, on the ground
+  const b = car.body, hl = car.T.L / 2, hw = car.T.W / 2; let best = null, bd = HEAP.range;
+  for (const c of cars) { if (c === car || c.wrecked || c.encasedT > 0 || c.carriedBy || c.craned) continue; const q = c.body.position; if (q.y > 3.5) continue;
+    b.pointToLocalFrame(q, _dl); const lx = _dl.x + car.comShift; if (lx > hl - 1.5) continue;
+    const d = Math.hypot(Math.max(0, -hl - lx), Math.max(0, Math.abs(_dl.z) - hw)); if (d < bd) { bd = d; best = c; } }
+  return best;
+}
+function dumpConcrete(car, tg) { // the chute swings up and a big dollop flies the few metres onto them
+  const b = car.body, from = b.pointToWorldFrame(new CANNON.Vec3(-car.T.L / 2 - 0.2 - car.comShift, car.T.H + 1.6, 0)), tp = tg.body.position, tv = tg.body.velocity, T = 0.45;
+  const to = new CANNON.Vec3(tp.x + tv.x * T * 0.7, 0.8, tp.z + tv.z * T * 0.7);
+  const m = new THREE.Mesh(lobGeo, HEAP.wet); m.userData.shared = true; m.scale.setScalar(1.6); m.position.set(from.x, from.y, from.z); scene.add(m);
+  LOBS.push({ m, from, to, t: 0, T, car, dump: tg, arc: 2.5 }); car.chuteT = 0.9;
+  sfx.at(from).noiseHit('lowpass', 300, 1.2, 0.45 * wv(car), 0.4); sfx.at(from).glug(wv(car));
+}
+function landDump(L) { // host: a direct hit encases the car; either way a heap is left on the ground
+  const tg = L.dump, q = tg.body.position, hit = cars.includes(tg) && !tg.wrecked && q.y < 3.5 && Math.hypot(q.x - L.to.x, q.z - L.to.z) < 3.8;
+  const x = hit ? q.x : L.to.x, z = hit ? q.z : L.to.z;
+  if (hit) encase(tg, L.car);
+  addHeap(x, z);
+  for (let j = 0; j < 12; j++) emit('debris', x, 1.4, z, rand(-4, 4), rand(1, 5), rand(-4, 4), rand(1, 2), rand(0.12, 0.3), CONCRETE.wetMat);
+  if (player) sfx.at(L.to).crash(clamp(1 - player.body.position.distanceTo(L.to) / 70, 0, 1) * 0.5, 5);
+}
+function encase(c, by) {
+  c.encasedT = HEAP.encase; c.encaseAt = { x: c.body.position.x, z: c.body.position.z }; c.body.wakeUp(); setCrust(c, true);
+  c.lastAttacker = by; c.lastAttackTime = simTime; c.applyDamage(5 * S.damage, by, 'top', null, 4);
+  if (PLAYLOG.m) { const V = PLAYLOG.V(by.type); V.dumps = (V.dumps || 0) + 1; }
+  if (game.state === 'playing') { if (by.isPlayer) toast(`🪣 ENCASED ${c.name}!`, 'cool'); else if (c.isPlayer) toast('ENCASED IN CONCRETE!', 'bad'); else if (Math.random() < 0.5) barks.say(by, 'hitYou', true); }
+}
+function setCrust(c, on) { // a lumpy grey shell over the body while it's encased (one shared shape and material; the mesh is made once per car)
+  if (!c.crust) { if (!on || !c.root) return; const m = c.crust = new THREE.Mesh(HEAP.geo, HEAP.wet); m.userData.shared = true; m.castShadow = true;
+    m.scale.set(c.T.L * 0.5, c.T.H * 0.6 + 0.6, c.T.W * 0.62); m.position.set(0, HULL_Y0 + c.T.H * 0.55, 0); c.root.add(m); }
+  if (c.crust.visible !== on) c.crust.visible = on;
+}
+function addHeap(x, z, id) {
+  const yaw = Math.random() * Math.PI * 2, m = new THREE.Mesh(HEAP.geo, HEAP.wet); m.userData.shared = true; m.castShadow = true; m.receiveShadow = true;
+  m.scale.set(1.75, 1.15, 1.55); m.position.set(x, 0.05, z); m.rotation.y = yaw; scene.add(m);
+  const h = { id: id ?? ++HEAP.id, x, z, yaw, t: 0, mesh: m, body: null, set: false, breakBy: null, rv: null, broke: false };
+  HEAPS.push(h); while (HEAPS.length > HEAP.max) removeHeap(HEAPS[0], false);
+  if (MP.role === 'host') MP.event({ k: 'hp', i: h.id, p: [Math.round(x * 10) / 10, Math.round(z * 10) / 10] });
+  return h;
+}
+function setHeap(h) { // the wet heap goes hard: a static lump (cheap: a static box never moves, sleeps or costs a step)
+  h.set = true; h.mesh.material = HEAP.dry; h.mesh.scale.set(1.75, 1.3, 1.55);
+  if (MP.role !== 'guest') { const b = h.body = new CANNON.Body({ type: CANNON.Body.STATIC, material: sceneryMat }); b.addShape(new CANNON.Box(new CANNON.Vec3(1.55, 0.7, 1.35)));
+    b.position.set(h.x, 0.7, h.z); b.quaternion.setFromAxisAngle(AX_Y, h.yaw); b.isObstacle = true; b.what = 'concrete lump'; b.heap = h;
+    b.addEventListener('collide', (e) => heapHit(h, e)); world.addBody(b); }
+  for (let j = 0; j < 4; j++) emit('dust', h.x + rand(-1, 1), 0.8, h.z + rand(-1, 1), rand(-0.5, 0.5), rand(0.3, 1), rand(-0.5, 0.5), rand(0.8, 1.2), rand(0.3, 0.5));
+}
+function heapHit(h, e) { // a heavy truck (3 t and up) at a good lick, or a rocket ram, bursts it; anything lighter just bounces off
+  const c = e.body && e.body.car; if (!c || h.breakBy || MP.role === 'guest') return; const v = c.body.velocity, sp = Math.hypot(v.x, v.z);
+  if ((c.body.mass >= 3000 && sp >= 7) || (c.ramT > 0 && sp >= 9)) { h.breakBy = c; h.rv = new CANNON.Vec3(v.x * 0.7, v.y, v.z * 0.7); } // (its speed before the hit: given back once the lump is gone)
+}
+function breakHeap(h, by) {
+  if (by && h.rv) { const v = by.body.velocity; if (Math.hypot(v.x, v.z) < Math.hypot(h.rv.x, h.rv.z)) { v.x = h.rv.x; v.z = h.rv.z; } }
+  for (let j = 0; j < 16; j++) emit('debris', h.x + rand(-1, 1), rand(0.4, 1.4), h.z + rand(-1, 1), rand(-6, 6), rand(2, 7), rand(-6, 6), rand(1.5, 3), rand(0.15, 0.35), CONCRETE.wetMat);
+  for (let j = 0; j < 6; j++) emit('dust', h.x + rand(-1.5, 1.5), 0.6, h.z + rand(-1.5, 1.5), rand(-2, 2), rand(0.5, 2), rand(-2, 2), rand(1.2, 2), rand(0.5, 0.8));
+  if (player) sfx.at(h.mesh.position).crash(clamp(1 - player.body.position.distanceTo(h.mesh.position) / 80, 0, 1) * 0.8, 14);
+  if (by && by.isPlayer && game.state === 'playing') game.shake = Math.min(1.6, game.shake + 0.6);
+  h.broke = true; removeHeap(h, true);
+}
+function removeHeap(h, broke) {
+  const i = HEAPS.indexOf(h); if (i < 0) return; HEAPS.splice(i, 1);
+  if (h.body) { world.removeBody(h.body); h.body = null; } scene.remove(h.mesh); /* (shape and material are shared: nothing to free) */
+  if (MP.role === 'host') MP.event({ k: 'hx', i: h.id, b: broke ? 1 : 0 });
+}
+function updateHeaps(dt) {
+  for (let i = HEAPS.length - 1; i >= 0; i--) { const h = HEAPS[i]; h.t += dt;
+    if (h.breakBy) { breakHeap(h, h.breakBy); continue; }
+    if (!h.set && h.t >= HEAP.setT) { let clear = true; /* never set hard around a car still sitting in it (it would pop out of the ground) */
+      if (MP.role !== 'guest') for (const c of cars) { const q = c.body.position; if (q.y > 4) continue; _dh.set(h.x, 0.7, h.z); c.body.pointToLocalFrame(_dh, _dl); if (Math.abs(_dl.x) < c.T.L / 2 + 1.7 && Math.abs(_dl.z) < c.T.W / 2 + 1.7) { clear = false; break; } }
+      if (clear) setHeap(h); }
+    if (h.body && MP.role !== 'guest') { let ram = null; /* a heavy truck (big wheels can climb it without the hull touching) running into it at speed bursts it too */
+      for (const c of cars) { if (c.body.mass < 3000 || c.wrecked) continue; const q = c.body.position, v = c.body.velocity, R = c.T.L / 2 + 1.8; if ((q.x - h.x) ** 2 + (q.z - h.z) ** 2 > R * R || v.x * v.x + v.z * v.z < 36) continue;
+        _dh.set(h.x, 0.7, h.z); c.body.pointToLocalFrame(_dh, _dl); if (Math.abs(_dl.x) < c.T.L / 2 + 1.4 && Math.abs(_dl.z) < c.T.W / 2 + 1.2) { ram = c; break; } }
+      if (ram) { breakHeap(h, ram); continue; } }
+    if (h.body) { const bp = BALL.body.position; if ((bp.x - h.x) ** 2 + (bp.z - h.z) ** 2 < (BALL.r + 1.6) ** 2 && bp.y < 1.4 + BALL.r) { breakHeap(h, null); continue; } }
+    if (h.t > HEAP.life) { if (h.body) { world.removeBody(h.body); h.body = null; } h.mesh.position.y -= dt * 0.8; if (h.mesh.position.y < -1.6) removeHeap(h, false); } // (crumbles back into the dirt)
+  }
 }
 const BALE_MAT = new THREE.MeshStandardMaterial({ color: 0xd8b85a, roughness: 0.95 }), baleGeo = new THREE.BoxGeometry(1.0, 0.5, 0.55); baleGeo.userData.shared = true;
 // READ THE BALES: occasionally a bale comes out with a message printed on it. Zero new systems — just a printed skin on the odd bale.
@@ -4357,7 +4443,7 @@ class Car {
       const drumTex = canvasTex(128, (g, w, h) => { g.fillStyle = '#e8e2d6'; g.fillRect(0, 0, w, h); g.strokeStyle = '#d8a020'; g.lineWidth = 14; for (let i = -2; i < 6; i++) { g.beginPath(); g.moveTo(i * 40, 0); g.lineTo(i * 40 + 60, h); g.stroke(); } }, 2, 1); drumTex.userData.own = true; /* freed with the car, like the number plates */
       const dm = new THREE.Mesh(dg, new THREE.MeshStandardMaterial({ map: drumTex, roughness: 0.5, metalness: 0.4 })); dm.castShadow = true; drum.add(dm);
       this.deform.push({ mesh: dm, orig: dg.attributes.position.array.slice(), inGroup: true });
-      part(add(new THREE.BoxGeometry(1.3, 0.12, 0.5), M.steel, -L / 2 - 0.2, top + 0.7, 0), 'rear', 40).rotation.z = 0.5; // chute
+      this.chute = part(add(new THREE.BoxGeometry(1.3, 0.12, 0.5), M.steel, -L / 2 - 0.2, top + 0.7, 0), 'rear', 40); this.chute.rotation.z = 0.5; this.chuteI = this.parts.length - 1; // chute (swings up to dump a load on a car)
       part(add(new THREE.CylinderGeometry(0.35, 0.35, 1.1, 12), M.chrome, 1.3, top + 0.6, 0.85), 'right', 45).rotation.x = Math.PI / 2; // water tank
       add(new THREE.BoxGeometry(0.04, H * 0.62, hullW * 0.7), M.chrome, L / 2 + 0.005, HULL_Y0 + H * 0.5, 0);
     }
@@ -4987,6 +5073,7 @@ class Car {
   physicsStep(dt) {
     if (this.ghost) return; // a guest's copy of someone else's simulation: the host drives it
     if (this.webbedT > 0) this.webHold(dt); // pinned by Anansi's web: it can spin its wheels all it likes
+    if (this.encasedT > 0) this.encaseHold(dt); // encased in the Mixer's concrete: same, for ~3 s
     if (this.poisonT > 0) this.poisonStep(dt); // Anansi's bite
     if (this.T.walker) return this.walkStep(dt);
     const b = this.body, v = this.vehicle, T = this.T;
@@ -5329,7 +5416,8 @@ class Car {
     v.setSteeringValue(this.wheelLost[1] ? 0 : this.steerVal, 1);
     if (T.skid) for (let i = 0; i < this.nW; i++) v.setSteeringValue(this.steerVal * (this.wheelBase[i][0] - this.axleMid) / (T.wb / 2), i); // tracks: front axles one way, rear the other
     if (this.trackTex) this.trackTex.offset.x -= this.speed * dt * 0.3;
-    if (this.drum && !this.wrecked) this.drum.children[0].rotation.x += dt * 1.6;
+    if (this.drum && !this.wrecked) this.drum.children[0].rotation.x += dt * (this.chuteT > 0 ? 9 : 1.6);
+    if (this.chuteT > 0) { this.chuteT -= dt; if (this.chute && !this.parts[this.chuteI].detached) this.chute.rotation.z = 0.5 - 1.2 * Math.sin(Math.PI * clamp(1 - this.chuteT / 0.9, 0, 1)); } // the dump: chute up and back down
     if (T.forkSteer) { v.setSteeringValue(0, 0); v.setSteeringValue(0, 1); v.setSteeringValue(-this.steerVal * 1.25, 2); v.setSteeringValue(-this.steerVal * 1.25, 3); } // forklifts steer with the back wheels
     if (T.rearSteer) { const k = lerp(-0.7, 0.15, clamp(Math.abs(this.speed) / 20, 0, 1)); v.setSteeringValue(this.steerVal * k, 2); v.setSteeringValue(this.steerVal * k, 3); } // tiller: counter-steer slow, crab fast
     if (T.gun) this.updateGun(dt);
@@ -5676,6 +5764,16 @@ class Car {
     this.body.angularVelocity.y += Math.sin(simTime * 4.5 + (this.number || 0)) * 2.2 * dt;
     if (Math.random() < dt * 6) { const p = this.body.position; emit('debris', p.x + rand(-0.8, 0.8), p.y + 0.8, p.z + rand(-0.8, 0.8), 0, rand(0.5, 1.5), 0, rand(0.4, 0.7), rand(0.06, 0.1), PMAT.poison); }
   }
+  encaseHold(dt, post) { // set in a dollop of concrete: held where it was hit, whatever its wheels do (before the step and after it, like the web)
+    const b = this.body, a = this.encaseAt; if (!post) this.encasedT -= dt;
+    if (!a || this.wrecked || this.encasedT <= 0) { this.crackFree(false); return; }
+    const k = 1 - Math.exp(-dt * 30); b.velocity.x += ((a.x - b.position.x) * 3 - b.velocity.x) * k; b.velocity.z += ((a.z - b.position.z) * 3 - b.velocity.z) * k; b.angularVelocity.y *= 0.85;
+    if (!post && Math.abs(this.ctrl.throttle) > 0.3 && Math.random() < dt * 8) { const wm = this.wheelMeshes && this.wheelMeshes[(Math.random() * this.wheelMeshes.length) | 0]; if (wm) { wm.getWorldPosition(tmpW); emit('debris', tmpW.x, 0.3, tmpW.z, rand(-1.5, 1.5), rand(1, 3), rand(-1.5, 1.5), 0.7, rand(0.08, 0.16), CONCRETE.wetMat); } } // wheels spinning in it
+  }
+  crackFree(rammed) { // out of the concrete: the crust falls off in chunks
+    this.encasedT = 0; this.encaseAt = null; setCrust(this, false);
+    const p = this.body.position; for (let j = 0; j < (rammed ? 12 : 6); j++) emit('debris', p.x + rand(-1, 1), p.y + rand(0, 1), p.z + rand(-1, 1), rand(-3, 3), rand(1, 4), rand(-3, 3), rand(1, 2), rand(0.1, 0.25), HEAP.dry);
+  }
   webHold(dt, post) { // pinned by the web: whatever its wheels do, it stays where it was caught (before the step, and again after it: the engine's push that step is undone too)
     const b = this.body, a = this.webAt; if (!post) this.webbedT -= dt;
     if (!a || this.wrecked) { this.webbedT = 0; this.webAt = null; return; }
@@ -5851,6 +5949,8 @@ class Car {
         const p0 = this.body.position; trail.sort((a, b) => ((a.x - p0.x) ** 2 + (a.z - p0.z) ** 2) - ((b.x - p0.x) ** 2 + (b.z - p0.z) ** 2));
         trail.forEach((c, i) => setTimeout(() => { if (CONCRETE.list.includes(c)) { c.burning = rand(7, 10); emit('fire', c.x, 0.5, c.z, 0, 3, 0, 0.6, 1.2); } }, 120 * i));
         sfx.at(p0).noiseHit('bandpass', 2200, 2, 0.3 * wv(this), 0.12); if (this.isPlayer) toast('🔥 LIT THE TRAIL!', 'cool'); else barks.say(this, 'fire', true); ptag('fuel trail lit');
+      } else if (this.T.pour === true && this.load > 0.4 && !this.wrecked && game.state === 'playing' && game.countdown <= 0 && MP.role !== 'guest' && dumpTarget(this)) { // someone right behind or beside: dump the load ON them
+        this.load -= 0.4; dumpConcrete(this, dumpTarget(this)); if (!this.isPlayer) barks.say(this, 'fire', true);
       } else if (this.T.pour === true && this.load > 0.35 && !this.wrecked && game.state === 'playing' && game.countdown <= 0 && frontTarget(this, 26, 0.5)) { // someone ahead: lob a load of wet concrete on them
         this.load -= 0.35; lobConcrete(this, frontTarget(this, 26, 0.5)); if (this.isPlayer) toast('🪣 CONCRETE BOMB!', 'cool'); else barks.say(this, 'fire', true);
       } else if (this.load > 0.2 && !this.wrecked && game.state === 'playing' && game.countdown <= 0) { this.pourT = 2.6; if (!this.isPlayer) barks.say(this, 'taunt'); } }
@@ -6047,6 +6147,7 @@ class Car {
 
     // Which face took the hit
     const zone = zoneOf(nl);
+    if (this.encasedT > 0 && otherCar && vImp > 8 && MP.role !== 'guest') this.crackFree(true); // a hard ram knocks it out of the concrete early
     if (this.T.walker && otherCar && !this.wrecked && MP.role !== 'guest' && zone !== 'bottom' && simTime - (this.legSnapT ?? -9) > 0.35) { // the weak spot: a heavy ram (or a very fast one) snaps a leg off
       const hard = dv * (Mo >= 3000 ? 1.5 : 0.85);
       if (hard > 10.5) { this.legSnapT = simTime; this.snapNearestLeg(model, otherCar); if (hard > 18 && !this.wrecked) this.snapNearestLeg(model, otherCar); }
@@ -6645,6 +6746,7 @@ class Car {
       if ((sp === 'harpoon' && ((ahead && dist > 10 && dist < 40) || !!frontTarget(this, 40, 0.4))) || (sp === 'flame' && ahead && dist < 10) || (sp === 'reel' && !this.reelOn && ahead && dist < 18) || (sp === 'dump' && behind) || (sp === 'blade' && ahead && dist < 7.5) || (sp === 'water' && ahead && dist < 22) || (sp === 'ram' && ahead && dist > 8 && dist < 28) || ((sp === 'oil' || sp === 'bomb') && behind && sp !== 'bomb') || (sp === 'spikes' && ahead && dist < 28) || (sp === 'bomb' && ahead && dist > 12 && dist < 50) || (sp === 'lift' && (this.carry ? this.carry.t > 2.4 && (!this.delivery || this.delivery.gaveUp) : forkReady(this))) || (sp === 'tow' && (this.tow ? this.tow.t > 3.5 && Math.abs(this.speed) > 6 && (!this.delivery || this.delivery.gaveUp) : towable(this))) || (sp === 'minigun' && this.mgTarget && dist < 55) || (sp === 'rockets' && !!frontTarget(this, 90, 0.45) && dist > 10) || (sp === 'web' && spiderWebShot(this))) ctrl.fire = true;
     }
     if (this.T.pour && !this.pourT && this.load > 0.4) { // mixer: pour when someone is right behind
+      if (this.T.pour === true && Math.random() < 0.15 && dumpTarget(this)) ctrl.fire = true; // close behind or beside: F dumps the load on them
       for (const c of cars) { if (c === this || c.wrecked) continue; const l = b.pointToLocalFrame(c.body.position); if (l.x < -this.T.L / 2 && l.x > -38 && Math.abs(l.z) < 9 && Math.random() < 0.08) { ctrl.fire = true; break; } }
       if (!ctrl.fire && (this.mode === 'flee' || this.health < 40) && Math.random() < 0.02) ctrl.fire = true; // leave a trail when running
       if (!ctrl.fire && Math.random() < 0.01 && cars.some((c) => c !== this && !c.wrecked && c.body.position.distanceTo(b.position) < 22 && b.pointToLocalFrame(c.body.position).x < 0)) ctrl.fire = true; // someone close on our tail
@@ -6720,7 +6822,7 @@ function platformOf(p) {
 }
 
 world.addEventListener('preStep', () => { for (const c of cars) c.physicsStep(FIXED); });
-world.addEventListener('postStep', () => { for (const c of cars) if (c.webbedT > 0 && !c.ghost) c.webHold(FIXED, true); if (TIES.length && MP.role !== 'guest') updateTies(FIXED); }); // (Anansi's web)
+world.addEventListener('postStep', () => { for (const c of cars) { if (c.webbedT > 0 && !c.ghost) c.webHold(FIXED, true); if (c.encasedT > 0 && !c.ghost) c.encaseHold(FIXED, true); } if (TIES.length && MP.role !== 'guest') updateTies(FIXED); }); // (Anansi's web)
 // Weight matters: a light car can't lever up one more than 2.5x its weight. Its sloped nose can wedge under a heavy car's side and
 // the contact then points upward; for those side contacts the push is made horizontal (before the solver runs), so the tank
 // gets shoved, not lifted. Landing on a roof, and driving over a wreck, are left alone.
@@ -6892,6 +6994,7 @@ function updateHUD(dt) {
     else if ((!player.T.walker && player.wheelLost.filter(Boolean).length >= 2) || player.engineDmg > 0.9) hint = isTouchUI() ? 'Car disabled · tap Restart for a fresh one' : 'Car disabled · press N to restart';
     else if (player.flipTimer > 0.8) hint = 'Stuck on your roof? Press R to flip upright';
     else if (player.onOil) hint = 'OIL SLICK! Ease off and steer gently';
+    else if (player.encasedT > 0) hint = 'ENCASED IN CONCRETE! Hang on, it cracks in a moment';
     else if (player.stuckConcrete) hint = 'STUCK IN CONCRETE! Keep the power on to claw out';
     else if (game.stuckT > 2.2) hint = isTouchUI() ? 'Stuck? Tap Pause, then Reset car' : 'Stuck? Press R to reset your car';
     else if (AIMHINT.until > game.time && !player.pickT && canAim(player.T) && game.countdown <= 0 && game.time - (AIMHINT.go ?? (AIMHINT.go = game.time)) > 1.2) hint = isTouchUI() ? 'Tap 🎯 to pick a target' : 'TAB: pick a target';
@@ -8821,6 +8924,7 @@ function resetMatch() {
   for (const sh of shells) { scene.remove(sh.mesh); freeObject(sh.mesh, []); } shells.length = 0;
   for (const c of craters) { scene.remove(c); freeObject(c, []); } craters.length = 0;
   for (const c of CONCRETE.list) { scene.remove(c.mesh); freeObject(c.mesh, []); } CONCRETE.list.length = 0;
+  while (HEAPS.length) removeHeap(HEAPS[0], false);
   for (const c of cars) if (c.cable) WEAPONS.harpoon.end(c);
   for (const e of threatEls.values()) e.remove();
   barks.safeCancel(); VCLIP.stopAll();
@@ -10085,7 +10189,7 @@ const MP = {
     const r = (v, k = 100) => Math.round(v * k);
     const cs = cars.map((c) => { const b = c.body, p = b.position, q = b.quaternion, v = b.velocity, z = c.zones;
       return [r(p.x), r(p.y), r(p.z), r(q.x, 1e4), r(q.y, 1e4), r(q.z, 1e4), r(q.w, 1e4), r(v.x, 10), r(v.y, 10), r(v.z, 10), Math.round(c.health),
-        (c.wrecked ? 1 : 0) | (c.boosting ? 2 : 0) | (c.braking ? 4 : 0) | (c.sirenOn ? 8 : 0) | (c.turretGone ? 16 : 0) | (c.burnT > 0 ? 32 : 0) | (c.webbedT > 0 ? 64 : 0),
+        (c.wrecked ? 1 : 0) | (c.boosting ? 2 : 0) | (c.braking ? 4 : 0) | (c.sirenOn ? 8 : 0) | (c.turretGone ? 16 : 0) | (c.burnT > 0 ? 32 : 0) | (c.webbedT > 0 ? 64 : 0) | (c.encasedT > 0 ? 128 : 0),
         [z.front, z.rear, z.left, z.right, z.top].map((x) => Math.round(x)).join('.'),
         c.parts.reduce((a, pt, i) => (pt.detached ? a.concat(i) : a), []), c.wheelLost.reduce((a, l, i) => a | (l ? 1 << i : 0), 0),
         r(c.rpm || 0, 0.01), r(c.steerVal || 0), r(c.turretYaw || 0), r(c.forkH || 0), c.kills || 0]; });
@@ -10257,6 +10361,7 @@ const MP = {
       for (const pi of B[13] || []) if (c.parts[pi] && !c.parts[pi].detached) c.detach(c.parts[pi], null);
       for (let w = 0; w < c.nW; w++) if ((B[14] >> w) & 1 && !c.wheelLost[w]) c.loseWheel(w, null); else if (c.T.walker && !((B[14] >> w) & 1) && c.wheelLost[w] && !c.wrecked) c.refitWheel(w); // (a repaired spider grows its leg back here too)
       c.netWebbed = !!(B[11] & 64); // caught in a web: the spider draws the cable
+      setCrust(c, !!(B[11] & 128)); // encased in the Mixer's concrete
       c.health = B[10];
       if ((B[11] & 1) && !c.wrecked) c.wreck();
       if ((B[11] & 16) && c.T.gun && !c.turretGone) c.blowBarrel();
@@ -10270,6 +10375,8 @@ const MP = {
       else if (e.k === 'h') { const p = new CANNON.Vec3(e.p[0], e.p[1], e.p[2]); sparks(p, Math.min(50, e.v * 2.5 | 0)); if (player) sfx.at(p).crash(Math.min(1, e.v / 18) * clamp(1 - player.body.position.distanceTo(p) / 110, 0, 1), e.v); }
       else if (e.k === 'bd') { const host = cars.find((c) => c.T.special === 'dump') || { body: { velocity: new CANNON.Vec3(), pointToWorldFrame: () => new CANNON.Vec3() }, T: { L: 0, H: 0 }, fwd: new CANNON.Vec3(1, 0, 0), comShift: 0 }; dropBoulder(host, e.p); }
       else if (e.k === 'ss') { addSpikeStrip(e.p[0], e.p[1], e.p[2], null); }
+      else if (e.k === 'hp') { if (!HEAPS.some((h) => h.id === e.i)) addHeap(e.p[0], e.p[1], e.i); }
+      else if (e.k === 'hx') { const h = HEAPS.find((o) => o.id === e.i); if (h) { if (e.b) breakHeap(h, null); else removeHeap(h, false); } }
       else if (e.k === 'x') { explodeShell(new CANNON.Vec3(e.p[0], e.p[1], e.p[2]), null, this.dummy, e.s || 1); }
     }
     // my stick and buttons go back to the host
@@ -11034,7 +11141,7 @@ function simBody(now) {
     } else if (game.state === 'playing') game.grace -= dt;
     SEC.run('cars', () => { for (const c of cars) c.frameUpdate(dt); });
     if (MP.role !== 'guest') unwedge(dt);
-    SEC.run('arena', () => { updateCrane(dt); updateBulls(dt); updateBumps(dt); updateCrawlerCrush(dt); updateBoulders(dt); updateLobs(dt); });
+    SEC.run('arena', () => { updateCrane(dt); updateBulls(dt); updateBumps(dt); updateCrawlerCrush(dt); updateBoulders(dt); updateLobs(dt); updateHeaps(dt); });
     SEC.run('lod', () => updatePropActivity(dt));
     updateRespawns(dt);
     SEC.run('arena', () => updateArena(dt));
@@ -12078,7 +12185,7 @@ const IDLE = { ms: 3 * 60 * 1000, last: performance.now(), on: !/[?&]noidle=1\b/
   } };
 for (const ev of ['keydown', 'pointerdown', 'pointermove', 'wheel', 'touchstart', 'touchmove']) addEventListener(ev, (e) => { if (e.isTrusted || window.__idleTest) IDLE.poke(); }, { capture: true, passive: true });
 setInterval(() => IDLE.check(), 5000);
-window.__derby = { GP, PICK, cyclePick: (d) => cyclePick(d), setPick: (c) => setPick(c, false), canAim, frontTarget: (c, r, k) => frontTarget(c, r, k), AUTO, PLAYLOG, INSIDE, BOULDERS, get mapShapes() { return mapShapes; }, respawnCar: (o, t) => respawnCar(o, t), PHYS, cockpitEye: (c) => cockpitEye(c), wakeProp: (pr) => wakeProp(pr), addConcrete: (x, z, r, k) => addConcrete(x, z, r, k), igniteProp: (pr, t) => igniteProp(pr, t), cookBull: (bl, by, dt) => cookBull(bl, by, dt), hoseBull: (car, bl, p, f, dt) => hoseBull(car, bl, p, f, dt), DUCKS, goldConeReveal: (pr) => goldConeReveal(pr), sadTromboneKind: (t) => sadTromboneKind(t), honkBack: (car) => honkBack(car), smashBurger: (bl, how) => smashBurger(bl, how), bladeSlam: (car) => bladeSlam(car), wearBunHat: (bl) => wearBunHat(bl), bunHatRoll: (bl) => bunHatRoll(bl), shakeOff: (bl) => shakeOff(bl), harvestProp: (car, pr) => harvestProp(car, pr), baleMsgRoll: () => baleMsgRoll(), BALE_MSGS, updateSigns: (dt) => updateSigns(dt), SIGN_PROPS, tankerBoom: (p, c) => tankerBoom(p, c), CAR_TYPES, sfx, CANNON, barks, PERF, shells, NETLOG, nearHostAdd: () => nearHostAdd(), nearJoin: () => nearJoin(), JUMBO, BALL, BOLLARDS, GASQ, updateArenaPub: (dt) => updateArena(dt), CRUSHER, crushNow: () => crushNow(), applyNight: () => applyNight(), FIREWORKS, ARENA, CROWD, MP, QUALITY, applyQuality: (i) => applyQuality(i), MERGED, camera, updatePropActivity: (dt) => updatePropActivity(dt), renderer, scene, spawnFree: (x, z, r) => spawnFree(x, z, r), BULLS, updateBulls: (dt) => updateBulls(dt), updateShells, tilt, setTilt, get CRANE() { return CRANE; }, updateCrane: (dt) => updateCrane(dt), CONCRETE, THREE, craters, shells, pickups, barks, PERSONAS, TUNE, game, cars, S, world, CAR_TYPES, sfx, touch, drawGauge, get player() { return player; }, keys, startMatch, selectCar, setValue, debris, props, platformOf, get simTime() { return simTime; }, set simTime(v) { simTime = v; } }; // console tinkering + tests
+window.__derby = { GP, PICK, cyclePick: (d) => cyclePick(d), setPick: (c) => setPick(c, false), canAim, frontTarget: (c, r, k) => frontTarget(c, r, k), AUTO, PLAYLOG, INSIDE, BOULDERS, get mapShapes() { return mapShapes; }, respawnCar: (o, t) => respawnCar(o, t), PHYS, cockpitEye: (c) => cockpitEye(c), wakeProp: (pr) => wakeProp(pr), addConcrete: (x, z, r, k) => addConcrete(x, z, r, k), igniteProp: (pr, t) => igniteProp(pr, t), cookBull: (bl, by, dt) => cookBull(bl, by, dt), hoseBull: (car, bl, p, f, dt) => hoseBull(car, bl, p, f, dt), DUCKS, goldConeReveal: (pr) => goldConeReveal(pr), sadTromboneKind: (t) => sadTromboneKind(t), honkBack: (car) => honkBack(car), smashBurger: (bl, how) => smashBurger(bl, how), bladeSlam: (car) => bladeSlam(car), wearBunHat: (bl) => wearBunHat(bl), bunHatRoll: (bl) => bunHatRoll(bl), shakeOff: (bl) => shakeOff(bl), harvestProp: (car, pr) => harvestProp(car, pr), baleMsgRoll: () => baleMsgRoll(), BALE_MSGS, updateSigns: (dt) => updateSigns(dt), SIGN_PROPS, tankerBoom: (p, c) => tankerBoom(p, c), CAR_TYPES, sfx, CANNON, barks, PERF, shells, NETLOG, nearHostAdd: () => nearHostAdd(), nearJoin: () => nearJoin(), JUMBO, BALL, BOLLARDS, GASQ, updateArenaPub: (dt) => updateArena(dt), CRUSHER, crushNow: () => crushNow(), applyNight: () => applyNight(), FIREWORKS, ARENA, CROWD, MP, QUALITY, applyQuality: (i) => applyQuality(i), MERGED, camera, updatePropActivity: (dt) => updatePropActivity(dt), renderer, scene, spawnFree: (x, z, r) => spawnFree(x, z, r), BULLS, updateBulls: (dt) => updateBulls(dt), updateShells, tilt, setTilt, get CRANE() { return CRANE; }, updateCrane: (dt) => updateCrane(dt), CONCRETE, HEAPS, HEAP, dumpTarget: (c) => dumpTarget(c), THREE, craters, shells, pickups, barks, PERSONAS, TUNE, game, cars, S, world, CAR_TYPES, sfx, touch, drawGauge, get player() { return player; }, keys, startMatch, selectCar, setValue, debris, props, platformOf, get simTime() { return simTime; }, set simTime(v) { simTime = v; } }; // console tinkering + tests
 // Startup: compile every shader the menu scene needs off the main thread first (KHR_parallel_shader_compile), then start drawing.
 // Before Build 100 the first frame compiled them all in one blocking step: several seconds of a frozen page on a slow laptop
 // before the menu would even react to a click. Where the browser can't compile in parallel this costs the same as before.
