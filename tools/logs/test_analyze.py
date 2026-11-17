@@ -71,6 +71,16 @@ def main():
     ok('solver kick undone 88' in md, 'A1 kinds come from the census (88), not the listed sample (1)')
     ok('capped sample' in md and 'at most 40 per match' in md, 'A1 per-vehicle catch list labelled as the capped sample')
 
+
+    # A7: physics catch kinds split per vehicle — the listed sample grouped by who x kind,
+    # so a regression like Build 107's spider (77 of 96 listed catches 'solver kick undone')
+    # reads straight off the report instead of a hand count of the archive.
+    ok('by vehicle × kind' in md, 'A7 report has a by-vehicle x kind catch section')
+    ok('Outrider: solver kick undone 1' in md, 'A7 Outrider kinds: its one listed catch is a solver kick')
+    ok('Viper: blow-up clamped 1' in md, 'A7 Viper kinds: its one listed catch is a blow-up clamp')
+    rj = json.load(open(os.path.join(out, 'report-latest.json'))) if r.returncode == 0 else {}
+    ok(rj.get('physKinds') == {'Outrider': {'solver kick undone': 1}, 'Viper': {'blow-up clamped': 1}}, 'A7 report-latest.json carries physKinds per vehicle — got: ' + str(rj.get('physKinds')))
+
     # A2: slow-incident breakdown — the recorded per-incident list is bucketed by
     # cause x quality x match phase, and the worst incidents keep their detail.
     ok('waiting on the graphics chip (fewer pixels/effects would help) · q1 · 0-5 min: 2.5' in md, 'A2 GPU-wait incident bucketed q1 / first 5 min with its seconds')

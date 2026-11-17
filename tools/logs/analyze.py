@@ -195,15 +195,18 @@ else:
 L.append('')
 # --- physics safety nets per vehicle per hour of that vehicle's driving
 L.append('## Physics safety-net catches\n')
-ph = collections.Counter(); phk = collections.Counter()
+ph = collections.Counter(); phk = collections.Counter(); phvk = collections.defaultdict(collections.Counter)
 for m in real:
-    for e in ((m.get('phys') or {}).get('list') or []): ph[e.get('who')] += 1; phk[e.get('kind')] += 1
+    for e in ((m.get('phys') or {}).get('list') or []): ph[e.get('who')] += 1; phk[e.get('kind')] += 1; phvk[e.get('who')][e.get('kind')] += 1
 tot = {k: sum((m.get('phys') or {}).get(k, 0) or 0 for m in real) for k in ('blowups', 'fixes', 'clamps', 'undos', 'escapes', 'launches', 'rescues', 'below', 'nan')}
 cen = collections.Counter()
 for m in real: cen.update((m.get('phys') or {}).get('kinds') or {})
 gm = max(0.1, mins(real)); perh = lambda v: round(v / gm * 60)
 L.append('- totals (full census): ' + ', '.join(f'{k} {v}' for k, v in tot.items()) + f" · safety-net work: fixes {tot['fixes']} ({perh(tot['fixes'])}/h), clamps {tot['clamps']} ({perh(tot['clamps'])}/h)" + (' · kinds (census): ' + ', '.join(f'{k} {v}' for k, v in cen.most_common()) if cen else ''))
 L.append('- by vehicle (listed catches only — the game lists at most 40 per match, so this is a capped sample): ' + ', '.join(f'{k} {v}' for k, v in ph.most_common(8)) + ' · listed kinds: ' + ', '.join(f'{k} {v}' for k, v in phk.most_common()) + '\n')
+if phvk:
+    L.append('- by vehicle × kind (listed catches only): ' + '; '.join(f'{who}: ' + ', '.join(f'{k} {n}' for k, n in kinds.most_common()) for who, kinds in sorted(phvk.items(), key=lambda kv: -sum(kv[1].values()))[:8]))
+    J['physKinds'] = {who: dict(kinds) for who, kinds in phvk.items()}
 J['phys'] = dict(ph); J['physCensus'] = dict(cen)
 pc = collections.defaultdict(list)
 for m in real:
