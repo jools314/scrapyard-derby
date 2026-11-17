@@ -1,5 +1,1 @@
-<<<<<<< HEAD
-104
-=======
-103
->>>>>>> ed5f158 ([claude] spider: Build 100 number, RELEASES line, manifest cleaned after rebase)
+105
