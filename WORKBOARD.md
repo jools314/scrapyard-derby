@@ -23,6 +23,7 @@ Format: `- [agent] topic — branch — claimed YYYY-MM-DD HH:MM UTC — notes`
 - [claude] Spider/crusher-north (19:30) was a TEST bug, resolved 20:30: the north lane starts on the crusher's feed ramp (~1.1 m up) and the test spawned every car at y 1.2, inside the ramp; a walker's tall hull jammed there. Spawned above the ground, the spider gets in from the north in 0.63 s like every side. crusheropen fixed on main; the spider branch gets a TYPE=spider lane.
 
 ## Done
+- [claude] Build 107: spider tricks (web ties two cars / sticks one to a wall, poison bite, high leap on J, legs up over small cars; AI uses them) — build 107. Next: iconic looks (claude/looks) once 107 has 30 game-min with a clean Regression check; harpoon + concrete dump being built.
 - [claude] Build 106: the rest of the GPU leak (harpoon cable line, tow line, a propane bottle shape per RV shot, Mixer drum texture), named by MEMGUARD's first leak record — build 106. Next: spider tricks (claude/spider2) when Build 105 has 30 game-min, then iconic looks (claude/looks), then harpoon + concrete dump (owner picks in BACKLOG).
 - [claude] Build 105: Anansi the Spider-Walker (eight legs, climbs containers, drops on cars, steel web, legs snap off) + Kwaku Anansi's voice — build 105. Next: elephant needs the walker-integration pass (see below), then ai-stuck, weak-spots.
 - [claude] Build 104: 'Hits on your car' in bug reports (what hit you, damage, impact speed) — build 104.
