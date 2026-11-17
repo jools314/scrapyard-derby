@@ -24,6 +24,7 @@ quick() {
   t hudlite 600 "HUDLITE PASS"
   t memleak 600 "MEMLEAK PASS"
   t heapguard 600 "HEAPGUARD PASS"
+  t heapleak 1200 "HEAPLEAK PASS"
   t uiaudit 500 "UIAUDIT PASS"
   t looks 400 "LOOKS PASS"
   t memguard 900 "MEMGUARD PASS"
