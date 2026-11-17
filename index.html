@@ -2475,7 +2475,7 @@ function wv(car, r = 120) { return player ? clamp(1 - car.body.position.distance
 function behindPoint(car, back) { return car.body.pointToWorldFrame(new CANNON.Vec3(-car.T.L / 2 - back - car.comShift, 0, 0)); }
 const cables = [];
 const brassMat = new THREE.MeshStandardMaterial({ color: 0xc8a040, metalness: 0.9, roughness: 0.3, emissive: 0x302008 });
-const rocketGeo = new THREE.CylinderGeometry(0.06, 0.06, 0.7, 8).rotateX(Math.PI / 2), rocketMat = new THREE.MeshStandardMaterial({ color: 0xd8d4c8, roughness: 0.5, metalness: 0.4 });
+const rocketGeo = new THREE.CylinderGeometry(0.06, 0.06, 0.7, 8).rotateX(Math.PI / 2); rocketGeo.userData.shared = true; const rocketMat = new THREE.MeshStandardMaterial({ color: 0xd8d4c8, roughness: 0.5, metalness: 0.4 });
 function fireBullet(car) {
   const mz = car.mgMuzzle; mz.updateWorldMatrix(true, false);
   const pos = new THREE.Vector3().setFromMatrixPosition(mz.matrixWorld), dir = new THREE.Vector3(1, 0, 0).transformDirection(mz.matrixWorld);
@@ -2915,7 +2915,7 @@ const BLOBS = (() => { const out = [], rnd = mulberry(4242);
     for (let i = 0; i <= N; i++) { const th = i / N * Math.PI * 2; let r = 1 + 0.16 * Math.sin(3 * th + a[0]) + 0.1 * Math.sin(5 * th + a[1]) + 0.05 * Math.sin(9 * th + a[2]);
       r += 0.35 * Math.exp(-(((th - lobe + 9.42) % 6.28 - 3.14) ** 2) * 6) + 0.2 * Math.exp(-(((th - lobe2 + 9.42) % 6.28 - 3.14) ** 2) * 9); // splash lobes
       const x = Math.cos(th) * r, y = Math.sin(th) * r; if (i === 0) sh.moveTo(x, y); else sh.lineTo(x, y); }
-    out.push(new THREE.ShapeGeometry(sh, 2)); }
+    const bg = new THREE.ShapeGeometry(sh, 2); bg.userData.shared = true; out.push(bg); }
   return out; })();
 const CONCRETE = { list: [], geo: new THREE.CircleGeometry(1, 28), wetMat: new THREE.MeshStandardMaterial({ color: 0x8d8a84, roughness: 0.25, metalness: 0.1 }) };
 CONCRETE.tex = canvasTex(128, (g, w) => { g.fillStyle = '#9a968e'; g.fillRect(0, 0, w, w); for (let i = 0; i < 900; i++) { const v = 120 + Math.random() * 50 | 0; g.fillStyle = `rgba(${v},${v},${v - 6},.5)`; g.fillRect(Math.random() * w, Math.random() * w, 2, 2); } });

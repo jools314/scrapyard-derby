@@ -18,7 +18,7 @@ const { open } = require('./harness');
     const types = Object.keys(D.CAR_TYPES), restart = async () => { D.startMatch(); await new Promise((r) => setTimeout(r, 300)); await fr(15); };
     // warm-up: a restart and every car type once, so first-time shared allocations are in the baseline
     await restart(); for (let k = 0; k < types.length; k++) { D.respawnCar(D.cars.filter((c) => !c.isPlayer)[k % 4], types[k]); await fr(3); } await fr(15);
-    const base = new Set(live), orphans = () => { const sc = inScene(); const o = [...live].filter((x) => !base.has(x) && !sc.has(x)); return { g: o.filter((x) => !x.isTexture).length, t: o.filter((x) => x.isTexture).length }; };
+    const base = new Set(live), orphans = () => { const sc = inScene(); const o = [...live].filter((x) => !base.has(x) && !sc.has(x) && !(x.userData && x.userData.shared)); /* (shared shapes - puddle outlines, the rocket and propane bottle - are uploaded once and kept on purpose) */ return { g: o.filter((x) => !x.isTexture).length, t: o.filter((x) => x.isTexture).length }; };
     for (let k = 0; k < 5; k++) await restart(); const afterRestarts = orphans();
     for (let k = 0; k < 15; k++) { D.respawnCar(D.cars.filter((c) => !c.isPlayer)[k % 4], types[(k * 7) % types.length]); await fr(3); } await fr(15);
     const afterRespawns = orphans(), CA = D.CANNON, wait = async (sec) => { const t0 = D.simTime, w0 = performance.now(); while (D.simTime - t0 < sec && performance.now() - w0 < sec * 4000 + 2000) await fr(1); }; /* (wall-clock cap: game time stops if the match ends) */
@@ -36,7 +36,7 @@ const { open } = require('./harness');
   ok(r.afterRestarts.g <= 15, `5 match restarts leave at most 15 orphaned geometries (${r.afterRestarts.g})`);
   ok(r.afterRestarts.t <= 12, `5 match restarts leave at most 12 orphaned textures (${r.afterRestarts.t})`);
   ok(r.afterRespawns.g - r.afterRestarts.g <= 10 && r.afterRespawns.t - r.afterRestarts.t <= 4, `15 respawns add at most 10 geometries / 4 textures (${r.afterRespawns.g - r.afterRestarts.g} / ${r.afterRespawns.t - r.afterRestarts.t})`);
-  ok(r.afterWeapons.g <= 2 && r.afterWeapons.t <= 1, `6 harpoon shots, 6 propane shots and 4 Mixer respawns leave at most 2 orphaned geometries / 1 texture (${r.afterWeapons.g} / ${r.afterWeapons.t})`);
+  ok(r.afterWeapons.g <= 1 && r.afterWeapons.t <= 1, `6 harpoon shots, 6 propane shots and 4 Mixer respawns leave at most 1 orphaned geometry / 1 texture (${r.afterWeapons.g} / ${r.afterWeapons.t})`);
   const pe = errors.filter((e) => e.startsWith('pageerror')); ok(!pe.length, 'no page errors ' + pe.slice(0, 2).join(' | '));
   console.log(fails.length ? 'MEMLEAK FAIL' : 'MEMLEAK PASS'); await browser.close(); process.exit(fails.length ? 1 : 0);
 })();
