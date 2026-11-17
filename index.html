@@ -6729,7 +6729,7 @@ const HITLOG = []; // every hit on your car: [time, damage, health left, what hi
 // Solver blow-ups: when bodies are forced deep into each other the solver can shoot them out at rocket speed (this is how you end up in the sky).
 // A crash can stop a car dead, but it can't make anything faster than the fastest thing that went into it: if a car or bull leaves a physics step
 // faster than that (or suddenly spinning far faster), it gets the velocity it had before the step back.
-const _pv = new Map(); let _vmax = 0;
+const _pv = new WeakMap(); let _vmax = 0; // (weak: a Map here, since Build 46, kept every car and bull that ever lived reachable, meshes, geometry arrays and all: the long-autoplay heap leak, ~15 MB a match in tests/heapleak.js)
 { const _is = world.internalStep.bind(world); world.internalStep = (dt) => { _snapV(); _is(dt); }; } // (cannon's 'preStep' event fires after the contact solver, too late to see the kick)
 function _snapV() { _vmax = 0; const rec = (b) => { const s = _pv.get(b) || { v: new CANNON.Vec3(), w: new CANNON.Vec3() }; s.v.copy(b.velocity); s.w.copy(b.angularVelocity); _pv.set(b, s); _vmax = Math.max(_vmax, b.velocity.length()); };
   for (const c of cars) if (!c.ghost) rec(c.body); for (const bl of BULLS) rec(bl.body); }
@@ -8826,6 +8826,7 @@ function resetMatch() {
   barks.safeCancel(); VCLIP.stopAll();
   barks.used.clear();
   threatEls.clear();
+  JUMBO.rec.length = 0; JUMBO.replay = null; JUMBO.tag.visible = false; // (the replay buffer held the old cars, meshes and all, and a replay can't show cars that are gone)
   clearSkids();
   buildProps(); batchProps();
   buildPickups();
@@ -9718,6 +9719,7 @@ function honkBack(car) { // HONK BACK: honk at a bull and it answers with a moo 
 function resetBulls() {
   for (const bl of BULLS) { scene.remove(bl.g); freeObject(bl.g, []); world.removeBody(bl.body); } BULLS.length = 0; // (freed: new bulls every match)
   for (const d of DUCKS) { scene.remove(d.g); freeObject(d.g, []); } DUCKS.length = 0;
+  lodGroups = null; // (a new yard: rebuild the far-away list, or it kept last match's bulls (and never thinned the new ones) whenever the scene had as many children as before)
   const spots = [[-60, -80], [60, -40], [-100, 20], [100, 80], [-40, 80]];
   for (let i = 0; i < 3; i++) { const [x, z] = spots[(i * 2 + (Math.random() * spots.length | 0)) % spots.length]; const sp = findSpawn(x + rand(-8, 8), z + rand(-8, 8)); makeBull(sp.x, sp.z); }
 }
