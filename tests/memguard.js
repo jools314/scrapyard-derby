@@ -19,7 +19,7 @@ const { open } = require('./harness');
       // the fake leak: drawn once (so it is on the GPU), then dropped from the scene without dispose()
       const grp = new T.Group(); grp.name = 'test-leaker'; const mat = new T.MeshBasicMaterial();
       for (let i = 0; i < 2500; i++) { const m = new T.Mesh(new T.BoxGeometry(0.3, 0.3, 0.3), mat); m.position.set(D.camera.position.x + (i % 40) * 0.01, D.camera.position.y - 2, D.camera.position.z - 6); m.frustumCulled = false; grp.add(m); }
-      D.scene.add(grp); await fr(3); await new Promise((r) => setTimeout(r, 6000)); await fr(2); D.scene.remove(grp); // (in the scene long enough for the 5 s owner walk)
+      D.scene.add(grp); D.renderer.render(D.scene, D.camera); /* one forced draw: on a busy machine the game had not drawn a frame with the boxes yet, so they never reached the GPU and there was nothing to find */ await fr(3); await new Promise((r) => setTimeout(r, 6000)); await fr(2); D.scene.remove(grp); // (in the scene long enough for the 5 s owner walk)
       D.AUTO.on = auto; const started = auto ? (D.AUTO.nextMatch(), reloads.length || G.tripped) : (G.check('test match end'), G.tripped);
       await new Promise((r) => setTimeout(r, 500));
       const rec = G.last || null; return { falseTrip, tripped: G.tripped, reloads, top: rec && rec.top.slice(0, 3), orphans: rec && rec.orphans, base: rec && rec.base, now: rec && rec.now }; }, auto);
