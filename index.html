@@ -4,7 +4,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'"><!-- (not render-blocking: the page paints with system fonts and swaps when these arrive) -->
-<meta name="derby-build" content="105"><!-- must equal BUILD in the script and version.txt (tests/syntax.js checks) -->
+<meta name="derby-build" content="106"><!-- must equal BUILD in the script and version.txt (tests/syntax.js checks) -->
 <script>
 // Updater of last resort (Build 100). Runs on its own, outside the game script, so a build whose game code breaks, a CDN
 // that fails, or a bug in the in-game update check (Build 94's Mac sat stuck for hours) can't strand a computer on an old build.
@@ -2583,6 +2583,7 @@ function roundHit(car, res, dir, k) { // what a bullet or pellet does to whateve
     emit('dust', hp.x, hp.y + 0.1, hp.z, rand(-1, 1), rand(1.5, 3), rand(-1, 1), rand(0.4, 0.7), rand(0.2, 0.35));
   }
 }
+const PROPANE_GEO = new THREE.CylinderGeometry(0.22, 0.22, 0.7, 10); PROPANE_GEO.userData.shared = true; // the RV's propane bottle: one shape for every shot
 function fireRocket(car, k) {
   const tb = car.rkTubes[k % car.rkTubes.length]; tb.updateWorldMatrix(true, false);
   const pos = new THREE.Vector3().setFromMatrixPosition(tb.matrixWorld), f = car.fwd, bv = car.body.velocity;
@@ -2644,7 +2645,7 @@ const WEAPONS = {
     },
     tick(car, dt) { const c = car.cable; if (!c) return; c.age += dt; if (c.rip && c.age >= c.rip) harpoonRip(car, c);
       if (c.t && c.t.parts && !c.t.wrecked) { c.t.applyDamage(5 * dt * S.damage * c.t.T.armor, car, c.zn || 'front', null, 0); if (!c.rip2 && c.age > 1.2 && Math.random() < 0.4) { c.rip2 = true; harpoonRip(car, c); } } /* the barb grinds as it reels in, and may tear off a second panel */ c.con.distance = Math.max(2, c.con.distance - dt * 14); car.ratT = (car.ratT || 0) - dt; if (car.ratT <= 0 && c.con.distance > 2) { car.ratT = 0.09; sfx.at(car.body.position).ratchet(wv(car)); } const p = c.line.geometry.attributes.position; p.setXYZ(0, car.body.position.x, car.body.position.y + 0.8, car.body.position.z); p.setXYZ(1, c.t.body.position.x, c.t.body.position.y + 0.8, c.t.body.position.z); p.needsUpdate = true; c.line.geometry.computeBoundingSphere(); },
-    end(car) { const c = car.cable; if (!c) return; world.removeConstraint(c.con); scene.remove(c.line); car.cable = null; },
+    end(car) { const c = car.cable; if (!c) return; world.removeConstraint(c.con); scene.remove(c.line); c.line.geometry.dispose(); c.line.material.dispose(); car.cable = null; }, // (the line was never freed: 2-vertex lines were the top item in the first MEMGUARD leak record)
   },
   oil: { label: 'OIL SLICK', cd: 7, dur: 1.2,
     start(car) {}, tick(car, dt) { car.oilT = (car.oilT || 0) - dt; if (car.oilT <= 0) { car.oilT = 0.3; const p = behindPoint(car, 1.5); addConcrete(p.x, p.z, rand(2.2, 3), 'oil'); sfx.at(p).glug(wv(car)); } },
@@ -2687,7 +2688,7 @@ const WEAPONS = {
         const ax = q.x + tv.x * lead - p.x, az = q.z + tv.z * lead - p.z; d = clamp(Math.hypot(ax, az), 10, 50); fx = ax / (Math.hypot(ax, az) || 1); fz = az / (Math.hypot(ax, az) || 1); }
       const vy = 11, g = S.gravity, t = (vy + Math.sqrt(vy * vy + 2 * g * p.y)) / g, vh = d / t; // land d metres out
       const fwdV = bv.x * fx + bv.z * fz; // the RV's own speed carries it too
-      const mesh = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.7, 10), M.barrelRed); mesh.position.set(p.x, p.y, p.z); scene.add(mesh);
+      const mesh = new THREE.Mesh(PROPANE_GEO, M.barrelRed); /* one shared shape: each shot used to upload a new one that was never freed */ mesh.position.set(p.x, p.y, p.z); scene.add(mesh);
       shells.push({ pos: new THREE.Vector3(p.x, p.y, p.z), vel: new THREE.Vector3(fx * Math.max(4, vh - Math.max(0, fwdV) * 0.6) + bv.x * 0.6, vy, fz * Math.max(4, vh - Math.max(0, fwdV) * 0.6) + bv.z * 0.6), owner: car, life: 5, mesh, bomb: true, spin: rand(6, 10) });
       if (car.isPlayer || (player && car.body.position.distanceTo(player.body.position) < 60)) sfx.noiseHit('highpass', 2500, 2, 0.5, 0.25); // the valve hisses
     },
@@ -4303,7 +4304,7 @@ class Car {
     if (st === 'mixer') { // rotating drum, chute, water tank
       const drum = new THREE.Group(); drum.position.set(-1.1, top + 1.25, 0); drum.rotation.z = 0.18; root.add(drum); this.drum = drum;
       const dg = new THREE.CylinderGeometry(0.8, 1.25, 4.2, 20, 6); dg.rotateZ(Math.PI / 2);
-      const drumTex = canvasTex(128, (g, w, h) => { g.fillStyle = '#e8e2d6'; g.fillRect(0, 0, w, h); g.strokeStyle = '#d8a020'; g.lineWidth = 14; for (let i = -2; i < 6; i++) { g.beginPath(); g.moveTo(i * 40, 0); g.lineTo(i * 40 + 60, h); g.stroke(); } }, 2, 1);
+      const drumTex = canvasTex(128, (g, w, h) => { g.fillStyle = '#e8e2d6'; g.fillRect(0, 0, w, h); g.strokeStyle = '#d8a020'; g.lineWidth = 14; for (let i = -2; i < 6; i++) { g.beginPath(); g.moveTo(i * 40, 0); g.lineTo(i * 40 + 60, h); g.stroke(); } }, 2, 1); drumTex.userData.own = true; /* freed with the car, like the number plates */
       const dm = new THREE.Mesh(dg, new THREE.MeshStandardMaterial({ map: drumTex, roughness: 0.5, metalness: 0.4 })); dm.castShadow = true; drum.add(dm);
       this.deform.push({ mesh: dm, orig: dg.attributes.position.array.slice(), inGroup: true });
       part(add(new THREE.BoxGeometry(1.3, 0.12, 0.5), M.steel, -L / 2 - 0.2, top + 0.7, 0), 'rear', 40).rotation.z = 0.5; // chute
@@ -4882,7 +4883,8 @@ class Car {
   dispose() {
     if (this.blob) scene.remove(this.blob);
     for (const k of world.constraints.slice()) if (k.bodyA === this.body || k.bodyB === this.body) world.removeConstraint(k); // tow hooks, forks, magnets, harpoons
-    if (this.towLine) scene.remove(this.towLine);
+    if (this.towLine) { scene.remove(this.towLine); this.towLine.geometry.dispose(); this.towLine.material.dispose(); }
+    if (this.cable) { scene.remove(this.cable.line); this.cable.line.geometry.dispose(); this.cable.line.material.dispose(); this.cable = null; } // a harpoon still out when its car goes
     if (this.webLine) { scene.remove(this.webLine); this.webLine.geometry.dispose(); } if (this.web && this.web.t && this.web.t.webBy === this) { this.web.t.webbedT = 0; this.web.t.webAt = null; }
     this.vehicle.removeFromWorld(world);
     scene.remove(this.group);
@@ -10300,7 +10302,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '105'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '106'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
