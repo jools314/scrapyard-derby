@@ -23,6 +23,7 @@ quick() {
   TAG=-q7 t drive 900 "" ONLY=tiger,dozer,bertha,tanker,mixer,camper Q7=1
   t hudlite 600 "HUDLITE PASS"
   t memleak 600 "MEMLEAK PASS"
+  t heapguard 600 "HEAPGUARD PASS"
   t uiaudit 500 "UIAUDIT PASS"
   t memguard 900 "MEMGUARD PASS"
   TAG=-spider t drive 900 "" ONLY=spider

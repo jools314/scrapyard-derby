@@ -9044,7 +9044,7 @@ const MEMGUARD = { owner: new WeakMap(), base: null, n: 0, tripped: false, log: 
     return { orphans: n, top: [...groups].sort((a, b) => b[1] - a[1]).slice(0, 15) }; },
   check(where) { // returns true when it has started a reload
     try { this.n++; this.walk(); const s = this.stats(); if (!this.base) { if (this.n >= 1) this.base = s; return false; }
-      const b = this.base, run = s.g > b.g + 1500 || s.t > b.t + 400 || s.live > b.live + 2000 || (s.heapMB && b.heapMB && s.heapMB > Math.max(1500, b.heapMB * 4));
+      const b = this.base, run = s.g > b.g + 1500 || s.t > b.t + 400 || s.live > b.live + 2000 || (s.heapMB && b.heapMB && s.heapMB > Math.max(700, b.heapMB * 3)) /* (Build 110) was 1500 MB: the owner's Chromebook tab crashes at ~1.2-1.3 GB (heap +~150 MB a match), so the guard never got to reload it and autoplay sat dead for hours */;
       if (!run || this.tripped) return false; this.tripped = true;
       const c = this.census(), rec = { v: 2, kind: 'leak', test: navigator.webdriver ? true : undefined, sid: PLAYLOG.sid, dev: PLAYLOG.devId, build: BUILD, at: new Date().toISOString(), device: PERFREP.device(), where, matches: this.n, base: b, now: s, orphans: c.orphans, top: c.top, auto: AUTO.on || undefined };
       this.last = rec; PLAYLOG.add(rec); NETLOG.incident('me', `memory running away after ${this.n} matches: ${b.g} -> ${s.g} geometries, ${b.t} -> ${s.t} textures; top leak: ${c.top[0] ? c.top[0][0] + ' ×' + c.top[0][1] : '?'}`);
