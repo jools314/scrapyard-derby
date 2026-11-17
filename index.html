@@ -4,7 +4,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'"><!-- (not render-blocking: the page paints with system fonts and swaps when these arrive) -->
-<meta name="derby-build" content="112"><!-- must equal BUILD in the script and version.txt (tests/syntax.js checks) -->
+<meta name="derby-build" content="113"><!-- must equal BUILD in the script and version.txt (tests/syntax.js checks) -->
 <script>
 // Updater of last resort (Build 100). Runs on its own, outside the game script, so a build whose game code breaks, a CDN
 // that fails, or a bug in the in-game update check (Build 94's Mac sat stuck for hours) can't strand a computer on an old build.
@@ -434,7 +434,25 @@
   body:not(.touch) .stats { transform: scale(0.82); transform-origin: top left; } /* a smaller corner panel */
   body:not(.touch) #opponents { transform: scale(0.85); transform-origin: top left; }
 
-  /* Phones: one slim row of three up top (settings, pause, respawn); map, bug report, camera and tilt live in the settings menu.
+  /* Phones: a compact score card. Hull and weapon are one line each (label, bar, percent); score and wrecks fold away under ▾
+     (owner: "it doesn't take so much of the vertical space"; the scores also show on the opponents' rows). */
+  #statsMore, .stats .pct { display: none; }
+  body.touch .stats { position: absolute; }
+  body.touch .stats .bars { grid-template-columns: auto 1fr auto; grid-auto-flow: dense; gap: 4px 5px; align-items: center; }
+  body.touch .stats .row:not([hidden]), body.touch.has-gun .stats .row.gun-only:not([hidden]) { display: contents !important; }
+  body.touch .stats .row > :first-child { grid-column: 1; } body.touch .stats .row > :last-child { grid-column: 3; text-align: right; }
+  body.touch .stats .bar, body.touch.has-gun .stats .bar.gun-only { grid-column: 2; min-width: 24px; }
+  body.touch .stats #gunState { display: none; } body.touch .stats .pct { display: inline; }
+  body.touch .stats:not(.open) .row.more { display: none !important; }
+  body.touch #statsMore { display: block; position: absolute; left: 50%; bottom: -17px; transform: translateX(-50%); width: 40px; height: 18px; padding: 0; border-radius: 0 0 8px 8px; border: 1px solid var(--line); border-top: 0; background: var(--panel); color: var(--fg); font-size: 12px; line-height: 1; pointer-events: auto; cursor: pointer; }
+  body.touch .stats.open #statsMore { transform: translateX(-50%) rotate(180deg); border-radius: 8px 8px 0 0; border: 1px solid var(--line); border-bottom: 0; }
+  body.touch #dmgSvg { width: 16px; height: 26px; }
+  /* No Pause button: opening the settings menu pauses a solo game (owner: "if you open settings, it just pauses naturally"); P still pauses. */
+  #btnPause { display: none !important; }
+  /* Portrait phones: the small buttons line up on the right edge, above the big FIRE button, not on its left edge. */
+  @media (max-width: 500px) { body.touch .rightpad .small { align-items: flex-end; } }
+  /* Phones: one slim row up top (settings, tilt, respawn); map, bug report and camera live in the settings menu.
+     Tilt sits in the top row, not the menu (owner: "it should be there so you can toggle it and find it"); lit up and labelled while on.
      Tapping the speedometer also flips the camera. Nothing on the right edge for the action buttons to run into. */
   .tonly { display: none; }
   body.touch #gearMenu kbd { display: none; }
@@ -442,7 +460,9 @@
   #btnVR[hidden], #codeRow[hidden], #mpCodeShow[hidden] { display: none !important; }
   #mpCode { width: 9em; text-transform: lowercase; }
   body.touch #gearMenu .tonly { display: flex; }
-  body.touch #btnMap, body.touch #btnCam, body.touch #btnTilt { display: none !important; }
+  body.touch #btnMap, body.touch #btnCam { display: none !important; }
+  body:not(.touch) #btnTilt { display: none !important; } /* (no motion sensor to steer with on a desktop) */
+  .rail #btnTilt.on { background: rgba(242, 162, 12, 0.85); border-color: #f2a20c; color: #1a1510; } .rail #btnTilt.on small { color: #1a1510; font-weight: 700; }
   /* phones and tablets: the speedometer IS the camera button (no room for a View button in the top row); the badge says so (owner couldn't find it, Build 103) */
   body.touch .speedo { cursor: pointer; } body.touch .speedo::after { content: '🎥'; position: absolute; right: -4px; bottom: -4px; font-size: 15px; line-height: 1; padding: 3px 4px; border-radius: 9px; background: rgba(20, 17, 14, 0.78); border: 1px solid rgba(242, 162, 12, 0.7); pointer-events: none; }
   body.touch .rail { display: flex !important; flex-direction: row !important; gap: 6px; }
@@ -455,6 +475,7 @@
     body.touch #toasts { top: calc(150px + env(safe-area-inset-top, 0px)); }
     body.touch .speedo { left: calc(158px + env(safe-area-inset-left, 0px)); }
   }
+  @media (max-width: 380px) { body.touch .stats { width: 124px; } body.touch .speedo { left: calc(132px + env(safe-area-inset-left, 0px)); } body.touch #gauge { width: 70px; height: 70px; } } /* narrow phones: room for settings, tilt and respawn up top */
   /* ---- scoreboard: scores live on the opponents' name/health rows (DESIGN-PRINCIPLES 9: show everything once); the full table opens on L / the settings menu ---- */
   #sboard { position: fixed; inset: 0; z-index: 46; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(0, 0, 0, 0.3); }
   #sboard[hidden] { display: none; }
@@ -488,11 +509,12 @@
         <div class="bar"><i id="hpFill"></i></div>
         <div class="row nitro-row" hidden><span class="label">Nitro</span><span class="label">Shift</span></div>
         <div class="bar nitro-row" hidden><i id="nosFill"></i></div>
-        <div class="row gun-only"><span class="label">Cannon</span><span class="label" id="gunState">READY</span></div>
+        <div class="row gun-only"><span class="label">Cannon</span><span class="label" id="gunState">READY</span><span class="label pct" id="gunPct">100%</span></div>
         <div class="bar gun-only"><i id="gunFill"></i></div>
-        <div class="row"><span class="label">Score</span><span id="score" class="num">0</span></div>
-        <div class="row"><span class="label">Wrecked</span><span id="wrecks" class="num">0 / 6</span></div>
+        <div class="row more"><span class="label">Score</span><span id="score" class="num">0</span></div>
+        <div class="row more"><span class="label">Wrecked</span><span id="wrecks" class="num">0 / 6</span></div>
       </div>
+      <button id="statsMore" type="button" aria-expanded="false" aria-label="Show score">▾</button>
       <svg id="dmgSvg" viewBox="0 0 52 86" aria-label="Damage by zone">
         <rect id="z-front" x="10" y="2" width="32" height="14" rx="3"></rect>
         <rect id="z-left" x="4" y="18" width="9" height="50" rx="2"></rect>
@@ -510,6 +532,7 @@
       <canvas id="minimap" width="320" height="320" aria-label="Arena map"></canvas>
       <div class="rail"><!-- a slim column on the right edge: nothing over the middle of the screen -->
         <button id="btnGear" class="ic gear" type="button" title="Settings and debugging" aria-label="Settings" aria-expanded="false">⚙️<span id="netDot" hidden></span></button>
+        <button id="btnTilt" class="ic" type="button" title="Tilt steering: turn the phone like a wheel" aria-pressed="false">📱<small>Tilt</small></button>
         <button id="btnMap" class="ic" type="button" title="Map (Y)" aria-pressed="false">🗺️<small>Map</small></button>
         <button id="btnCam" class="ic" type="button" title="Camera: chase / far / inside (C)">🎥<small>View</small></button>
         <button id="btnPause" class="ic" type="button" title="Pause (P)">⏸️<small>Pause</small></button>
@@ -551,7 +574,6 @@
     <div id="stickZone" class="stick-zone"><div id="stick" class="stick"><div id="knob" class="knob"></div></div><span class="tlabel">◀ Steer ▶</span></div>
     <div class="rightpad">
       <div class="small">
-        <button class="tb sm" id="btnTilt" type="button" aria-pressed="false"><span class="ico">📱</span><small>Tilt</small></button>
         <button class="tb sm" data-k="hb" type="button"><span class="ico">🌀</span><small>Drift</small></button>
         <button class="tb sm" data-k="nitro" type="button"><span class="ico">⚡</span><small>Nitro</small></button>
         <button class="tb sm" data-k="jump" type="button"><span class="ico">⤴️</span><small>Jump</small></button>
@@ -6860,7 +6882,7 @@ function buildOpponentList() {
 let hudT = 0;
 const _hudW = new WeakMap(); // last value written per element, so a frame that changes nothing touches nothing
 function hudTxt(e, v) { if (_hudW.get(e) !== v) { _hudW.set(e, v); e.textContent = v; } }
-function hudWidth(e, v) { const k = 'w' + v; if (_hudW.get(e.style) !== k) { _hudW.set(e.style, k); e.style.width = v; } }
+function hudWidth(e, v) { const k = 'w' + v; if (_hudW.get(e.style) !== k) { _hudW.set(e.style, k); e.style.width = v; if (e.id === 'gunFill') hudTxt($('gunPct'), Math.round(parseFloat(v) || 0) + '%'); } }
 const HUDLITE = { t: 0 };
 function updateHUD(dt) {
   if (!player) return;
@@ -9053,7 +9075,12 @@ function toggleMusic() {
   btnMusic.firstChild.textContent = sfx.musicOn ? '🎵 Music on' : '🎵 Music off';
 }
 btnMusic.addEventListener('click', (e) => { toggleMusic(); e.currentTarget.blur(); });
-function gearOpen(open) { $('gearMenu').hidden = !open; $('btnGear').setAttribute('aria-expanded', String(open)); }
+function gearOpen(open) { $('gearMenu').hidden = !open; $('btnGear').setAttribute('aria-expanded', String(open));
+  // the settings menu pauses a solo match while it is open, and resumes it on close if it was the menu that paused it (no Pause button)
+  if (open && game.state === 'playing' && !game.paused && MP.role === 'solo' && !AUTO.on) { game.paused = true; gearOpen.paused = true; }
+  else if (!open && gearOpen.paused) { gearOpen.paused = false; if (game.state === 'playing') game.paused = false; } }
+$('statsMore').addEventListener('pointerdown', (e) => e.stopPropagation());
+$('statsMore').addEventListener('click', (e) => { e.stopPropagation(); const st = document.querySelector('.stats'), o = !st.classList.contains('open'); st.classList.toggle('open', o); e.currentTarget.setAttribute('aria-expanded', String(o)); e.currentTarget.blur(); });
 $('btnGear').addEventListener('click', (e) => { e.stopPropagation(); e.currentTarget.blur(); gearOpen($('gearMenu').hidden); });
 for (const id of ['btnTune', 'btnNew', 'btnPerf', 'btnNetLog']) $(id).addEventListener('click', () => gearOpen(false));
 document.addEventListener('pointerdown', (e) => { if (!$('gearMenu').hidden && !e.target.closest('#gearMenu, #btnGear')) gearOpen(false); });
@@ -9209,7 +9236,7 @@ async function setTilt(on) {
   }
   if (on && typeof DeviceMotionEvent === 'undefined') { toast('NO MOTION SENSORS IN THIS BROWSER', 'bad'); return; }
   tilt.on = on; tilt.zero = null; tilt.got = false; tilt.steer = 0; tilt.roll = 0;
-  document.body.classList.toggle('tilt', on); $('btnTilt').classList.toggle('on', on); $('btnTilt').setAttribute('aria-pressed', String(on)); $('gmTilt').textContent = '📱 Tilt steering: ' + (on ? 'on' : 'off');
+  document.body.classList.toggle('tilt', on); $('btnTilt').classList.toggle('on', on); $('btnTilt').setAttribute('aria-pressed', String(on)); $('btnTilt').querySelector('small').textContent = on ? 'Tilt on' : 'Tilt'; $('gmTilt').textContent = '📱 Tilt steering: ' + (on ? 'on' : 'off');
   if (on) {
     window.addEventListener('devicemotion', tiltRead);
     toast('TILT STEERING · hold it level now', 'cool');
@@ -10417,7 +10444,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '112'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '113'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
