@@ -43,10 +43,10 @@ L.append('')
 # --- performance (foreground only from build 67: frames while throttled are already excluded by the game)
 L.append('## Performance (foreground)\n')
 for d in sorted({dev_name(m) for m in real}):
-    xs = [m for m in real if dev_name(m) == d and m.get('fps', {}).get('frames', 0) > 300]
+    xs = [m for m in real if dev_name(m) == d and (m.get('fps') or {}).get('frames', 0) > 300]
     if not xs: continue
     med = sorted(m['fps']['med'] for m in xs)[len(xs) // 2]; low = sorted(m['fps']['low1'] for m in xs)[len(xs) // 2]; worst = max(m['fps']['worstMs'] for m in xs)
-    q = collections.Counter(m.get('q', {}).get('end') for m in xs).most_common(1)[0][0]; res = collections.Counter(m.get('q', {}).get('res') for m in xs).most_common(1)[0][0]
+    q = collections.Counter((m.get('q') or {}).get('end') for m in xs).most_common(1)[0][0]; res = collections.Counter((m.get('q') or {}).get('res') for m in xs).most_common(1)[0][0]
     env = [m.get('env') for m in xs if m.get('env')]
     thr = sum(e.get('throttledS', 0) + e.get('hiddenS', 0) for e in env)
     L.append(f'- **{d}**: fps median {med}, typical 1% low {low}, worst frame {worst} ms · quality {q}, res {res}% · {len(xs)} matches' + (f' · {thr} s throttled/hidden (excluded)' if env else ' · (pre-67: throttling not tracked)'))
@@ -63,7 +63,7 @@ def inside_rate(xs): # cars inside objects per game-hour, over the matches that 
     return round(sum(m['inside'].get('n', 0) for m in ys) / max(0.01, sum(m.get('game', 0) for m in ys) / 60) * 60, 1)
 for d in sorted({dev_name(m) for m in real}):
     for b in sorted({m.get('build') for m in real if dev_name(m) == d}, key=lambda x: int(x or 0)):
-        xs = [m for m in real if dev_name(m) == d and m.get('build') == b and m.get('fps', {}).get('frames', 0) > 300]
+        xs = [m for m in real if dev_name(m) == d and m.get('build') == b and (m.get('fps') or {}).get('frames', 0) > 300]
         if not xs: continue
         mn = sum(m.get('game', 0) for m in xs) / 60 or 0.01; md = lambda k: sorted(m['fps'][k] for m in xs)[len(xs) // 2]
         slow = sum((m.get('slow') or {}).get('secs', 0) for m in xs); stk = sum((m.get('stuck') or {}).get('n', 0) for m in xs); ph = sum((m.get('phys') or {}).get('blowups', 0) for m in xs)
@@ -97,9 +97,9 @@ L.extend(rc_lines or ['- not enough data yet'])
 L.append('')
 causes = collections.Counter()
 for m in real:
-    for k, v in (m.get('slow', {}).get('causes') or {}).items(): causes[k] += v
+    for k, v in ((m.get('slow') or {}).get('causes') or {}).items(): causes[k] += v
 if causes: L.append('- slow moments by cause (seconds): ' + '; '.join(f'{k}: {round(v, 1)}' for k, v in causes.most_common()))
-inc = [x for m in real for x in (m.get('slow', {}).get('list') or [])]
+inc = [x for m in real for x in ((m.get('slow') or {}).get('list') or [])]
 if inc:
     def phase(t): return '0-5 min' if (t or 0) < 300 else '5-15 min' if (t or 0) < 900 else '15+ min'
     bk = collections.Counter()
@@ -156,11 +156,11 @@ if grow:
 leaks = [r for r in recs if r.get('kind') == 'leak' and not is_test(r)]
 for r in leaks[-5:]:
     top = '; '.join(f'{k} ×{n}' for k, n in (r.get('top') or [])[:5])
-    L.append(f"- **leak** {dev_name(r)} build {r.get('build')} after {r.get('matches')} matches ({'autoplay, reloaded' if r.get('auto') else 'person playing'}): geometries {r.get('base', {}).get('g')} -> {r.get('now', {}).get('g')}, textures {r.get('base', {}).get('t')} -> {r.get('now', {}).get('t')}; {r.get('orphans')} orphaned: {top}")
+    L.append(f"- **leak** {dev_name(r)} build {r.get('build')} after {r.get('matches')} matches ({'autoplay, reloaded' if r.get('auto') else 'person playing'}): geometries {(r.get('base') or {}).get('g')} -> {(r.get('now') or {}).get('g')}, textures {(r.get('base') or {}).get('t')} -> {(r.get('now') or {}).get('t')}; {r.get('orphans')} orphaned: {top}")
 if not leaks: L.append('- no leak reports from the memory guard')
 L.append('')
 L.append('## Stuck hotspots\n')
-st = [s for m in real for s in (m.get('stuck', {}).get('list') or [])]
+st = [s for m in real for s in ((m.get('stuck') or {}).get('list') or [])]
 cl = collections.defaultdict(list)
 for s in st: cl[(round(s.get('x', 0) / 12), round(s.get('z', 0) / 12))].append(s)
 hot = sorted(cl.items(), key=lambda kv: -sum(s.get('secs', 0) for s in kv[1]))
@@ -197,7 +197,7 @@ L.append('')
 L.append('## Physics safety-net catches\n')
 ph = collections.Counter(); phk = collections.Counter()
 for m in real:
-    for e in (m.get('phys', {}).get('list') or []): ph[e.get('who')] += 1; phk[e.get('kind')] += 1
+    for e in ((m.get('phys') or {}).get('list') or []): ph[e.get('who')] += 1; phk[e.get('kind')] += 1
 tot = {k: sum((m.get('phys') or {}).get(k, 0) or 0 for m in real) for k in ('blowups', 'fixes', 'clamps', 'undos', 'escapes', 'launches', 'rescues', 'below', 'nan')}
 cen = collections.Counter()
 for m in real: cen.update((m.get('phys') or {}).get('kinds') or {})
@@ -207,7 +207,7 @@ L.append('- by vehicle (listed catches only — the game lists at most 40 per ma
 J['phys'] = dict(ph); J['physCensus'] = dict(cen)
 pc = collections.defaultdict(list)
 for m in real:
-    for e in (m.get('phys', {}).get('list') or []):
+    for e in ((m.get('phys') or {}).get('list') or []):
         if e.get('x') is not None and e.get('z') is not None: pc[(round(e['x'] / 12), round(e['z'] / 12))].append(e)
 if pc:
     cells = sorted(pc.items(), key=lambda kv: -len(kv[1]))[:8]
@@ -293,11 +293,11 @@ if os.path.exists(pj):
     except Exception: prev = {}
 L.append('## Changes since the previous report\n')
 ch = []
-for k, n in J.get('stuck', {}).items():
+for k, n in (J.get('stuck') or {}).items():
     if k not in (prev.get('stuck') or {}): ch.append(f'new stuck hotspot at ({k}) ×{n}')
-for k, n in J.get('inside', {}).items():
+for k, n in (J.get('inside') or {}).items():
     if k not in (prev.get('inside') or {}): ch.append(f'new inside-an-object hotspot at ({k}) ×{n}')
-for v, n in J.get('phys', {}).items():
+for v, n in (J.get('phys') or {}).items():
     if n > (prev.get('phys') or {}).get(v, 0) + 5: ch.append(f'physics catches up for {v}: {(prev.get("phys") or {}).get(v, 0)} → {n}')
 for d, p in (J.get('perf') or {}).items():
     q = (prev.get('perf') or {}).get(d)
