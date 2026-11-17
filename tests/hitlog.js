@@ -9,7 +9,7 @@ const { open } = require('./harness');
   await page.evaluate(() => { window.__noRender = true; __derby.S.aiCount = 1; document.getElementById('btnStart').click(); });
   await page.waitForFunction(() => __derby.game.state === 'playing' && __derby.game.countdown <= 0, null, { timeout: 90000 });
   const r = await page.evaluate(async () => { const D = __derby, sleep = (ms) => new Promise((r) => setTimeout(r, ms)), CA = D.CANNON;
-    const ai = D.cars.find((c) => !c.isPlayer); ai.ai = false; const tb = ai.body; tb.position.set(40, 1.2, 40); tb.velocity.set(0, 0, 0); tb.quaternion.setFromAxisAngle(new CA.Vec3(0, 1, 0), Math.PI / 2);
+    const ai = D.cars.find((c) => !c.isPlayer); ai.think = () => {}; Object.assign(ai.ctrl, { throttle: 0, steer: 0, fire: false, jump: false, nitro: false }); const tb = ai.body; tb.position.set(40, 1.2, 40); tb.velocity.set(0, 0, 0); tb.quaternion.setFromAxisAngle(new CA.Vec3(0, 1, 0), Math.PI / 2); // (ai.ai was not a flag the game reads: the brain is stubbed so the target car stays parked and never fires back)
     const pb = D.player.body; pb.position.set(20, 1.2, 40); pb.quaternion.setFromAxisAngle(new CA.Vec3(0, 1, 0), 0); pb.angularVelocity.set(0, 0, 0);
     const h0 = D.player.health, s0 = D.simTime; while (D.simTime - s0 < 2.5) { if (pb.position.x < 37) pb.velocity.set(18, pb.velocity.y, 0); await sleep(16); }
     localStorage.removeItem('derby-bug-last'); document.getElementById('btnBug').click(); await sleep(300);

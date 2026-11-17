@@ -10,7 +10,7 @@ const { open } = require('./harness');
     D.S.aiCount = 7; document.getElementById('btnStart').click();
     while (!(D.game.state === 'playing' && D.game.countdown <= 0)) await sleep(100);
     // two cars driving head-on through the middle of the yard (x near 0), plus the rest of the match going on
-    const [a, b] = D.cars.filter((c) => !c.isPlayer); a.ai = b.ai = false;
+    const [a, b] = D.cars.filter((c) => !c.isPlayer); for (const c of [a, b]) { c.think = () => {}; Object.assign(c.ctrl, { throttle: 0, steer: 0, fire: false, jump: false, nitro: false }); } // (c.ai is not a flag the game reads: stub the brain so the two test cars only go where this test throws them)
     a.body.position.set(-8, 3.6, 0); b.body.position.set(8, 3.6, 0); // on the central mesa
     a.body.velocity.set(10, 0, 0); b.body.velocity.set(-10, 0, 0); a.body.quaternion.set(0, 0, 0, 1); b.body.quaternion.setFromAxisAngle(new D.CANNON.Vec3(0, 1, 0), Math.PI);
     const orig = bp.collisionPairs; let steps = 0, missed = 0, total = 0; const ex = [];

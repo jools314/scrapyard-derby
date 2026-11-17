@@ -9,12 +9,12 @@ const { open } = require('./harness');
     // a fixed, ordinary car: the AI's type is random, and a walker's legs brace against a shove (2.4 s instead of 0.6 s on the spider branch)
     const C = D.CRUSHER, c0 = D.cars.find((x) => !x.isPlayer) || D.player, c = (window.__TYPE !== null && D.respawnCar(c0, window.__TYPE || 'outrider')) || D.cars.find((x) => !x.isPlayer) || D.player, out = {};
     // the other car (the player) out of every lane: once it sat north of the crusher and blocked that lane (spider branch, 17:30)
-    if (c !== D.player) { const pb = D.player.body; pb.position.set(C.x + 60, 1.2, C.z - 60); pb.velocity.set(0, 0, 0); pb.angularVelocity.set(0, 0, 0); D.player.ai = false; }
+    if (c !== D.player) { const pb = D.player.body; pb.position.set(C.x + 60, 1.2, C.z - 60); pb.velocity.set(0, 0, 0); pb.angularVelocity.set(0, 0, 0); D.player.think = () => {}; Object.assign(D.player.ctrl, { throttle: 0, steer: 0, fire: false, jump: false, nitro: false }); } // (player.ai is not a flag the game reads: stub the brain so the parked player never drives into a lane)
     for (const [name, dx, dz] of [['east', 1, 0], ['west', -1, 0], ['north', 0, 1], ['south', 0, -1]]) {
       C.state = 'idle'; C.t = 999;
       const b = c.body, gx = C.x + dx * 9, gz = C.z + dz * 8, rr = new D.CANNON.RaycastResult(); D.world.raycastClosest(new D.CANNON.Vec3(gx, 12, gz), new D.CANNON.Vec3(gx, -1, gz), {}, rr); // (the north lane starts on the feed ramp, ~1.1 m up: a fixed y of 1.2 put a tall body inside it)
       b.position.set(gx, (rr.hasHit ? rr.hitPointWorld.y : 0) + 1.6, gz); b.velocity.set(-dx * 9, 0, -dz * 9); b.angularVelocity.set(0, 0, 0);
-      b.quaternion.setFromAxisAngle(new D.CANNON.Vec3(0, 1, 0), Math.atan2(dz, -dx)); c.ai = false;
+      b.quaternion.setFromAxisAngle(new D.CANNON.Vec3(0, 1, 0), Math.atan2(dz, -dx)); c.think = () => {}; Object.assign(c.ctrl, { throttle: 0, steer: 0, fire: false, jump: false, nitro: false }); // (c.ai is not a flag the game reads: stub the brain so the shoved car never drives itself out of the lane)
       const s0 = D.simTime, w0 = performance.now(); for (; D.simTime - s0 < 2.5 && performance.now() - w0 < 60000;) { /* game time only: on a busy machine 400 x 25 ms of wall time once ran out after 0.2 s of game time */ b.velocity.x = -dx * 9; b.velocity.z = -dz * 9; await sleep(25); if (Math.abs(b.position.x - C.x) < C.hx && Math.abs(b.position.z - C.z) < C.hz) break; }
       out[name + '_pos'] = [c.type, +b.position.x.toFixed(1), +b.position.z.toFixed(1), D.touching ? D.touching(c) : '', 'game s ' + (D.simTime - s0).toFixed(2)];
       out[name] = Math.abs(b.position.x - C.x) < C.hx + 0.5 && Math.abs(b.position.z - C.z) < C.hz + 0.5; }
