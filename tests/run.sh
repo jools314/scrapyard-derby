@@ -34,6 +34,7 @@ quick() {
   t twothumb 600 "TWO-THUMB PASS"
   t touchcam 600 "TOUCHCAM PASS"
   t gearmenu 600 "GEARMENU PASS"
+  t hitlog 600 "HITLOG PASS"
   t zoom 600 '"twoFingerBlocked":true,"oneFingerAllowed":true,"gestureBlocked":true'
   t phone2 900 '"overlaps":\[\]'
   TAG=-landscape t phone2 900 '"overlaps":\[\]' W=874 H=402 P=p2l

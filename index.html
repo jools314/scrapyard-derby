@@ -4,7 +4,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'"><!-- (not render-blocking: the page paints with system fonts and swaps when these arrive) -->
-<meta name="derby-build" content="103"><!-- must equal BUILD in the script and version.txt (tests/syntax.js checks) -->
+<meta name="derby-build" content="104"><!-- must equal BUILD in the script and version.txt (tests/syntax.js checks) -->
 <script>
 // Updater of last resort (Build 100). Runs on its own, outside the game script, so a build whose game code breaks, a CDN
 // that fails, or a bug in the in-game update check (Build 94's Mac sat stuck for hours) can't strand a computer on an old build.
@@ -5699,7 +5699,7 @@ class Car {
       if (this.isPlayer) toast('SANDWICHED!', 'bad'); else if (otherCar && otherCar.isPlayer) toast(`SANDWICH! ${this.name}`);
       barks.announce('sandwich', { v: this.isPlayer ? 'our hero' : this.name });
     }
-    if (dmg > 0.3) this.applyDamage(Mo === 0 ? Math.min(dmg, Math.max(0, this.health - 1)) : dmg, otherCar, zone, model, dv); // terrain alone never wrecks you
+    if (dmg > 0.3) { this._hitWhat = otherCar ? otherCar.T.name + ' ' + otherCar.name : other.what || (BULLS.find((bl) => bl.body === other) ? (BULLS.find((bl) => bl.body === other).state === 'burger' ? 'burger' : 'bull') : other.prop ? 'prop' : Mo === 0 ? 'scenery' : 'object') + (Mo ? ' (' + Math.round(Mo) + ' kg)' : ''); this.applyDamage(Mo === 0 ? Math.min(dmg, Math.max(0, this.health - 1)) : dmg, otherCar, zone, model, dv); this._hitWhat = null; } // terrain alone never wrecks you
     if (dv > 2.5) { // the impactor shapes the damage: flat walls crush a plane, poles make a narrow V, cars a medium dent
       const pole = other.mass === 0 && other.shapes[0] && other.shapes[0].type === CANNON.Shape.types.CYLINDER && other !== groundBody;
       if (other.mass === 0 && !pole && (zone === 'top' || (zone !== 'bottom' && Math.abs(nl.y) < 0.6))) this.planeCrush(model, nl, dv, zone === 'top'); // roof landings flatten the roof
@@ -5791,6 +5791,7 @@ class Car {
     if (this.T.gun && dmg >= 10 && !this.wrecked && simTime - (this.smokeScrT ?? -99) > 18 && MP.role !== 'guest') { this.smokeScrT = simTime; smokeScreen(this); } // a big hit: the Tiger pops smoke
     if (this.T.flimsy && (zone === 'left' || zone === 'right' || zone === 'rear')) { dmg *= 1.6; if (dmg >= 1.5) this.shedJunk(zone, dmg); } // RV walls are plywood and staples: they cave in and spill the contents
     dmg = Math.min(dmg, this.health);
+    if (this === player && dmg >= 0.5) { HITLOG.push([+simTime.toFixed(2), +dmg.toFixed(1), Math.round(this.health), this._hitWhat || (by ? by.T.name + ' ' + by.name : this.onFire ? 'fire / blast' : 'blast'), zone || '', +(dv || 0).toFixed(1), Math.round(this.body.velocity.length())]); if (HITLOG.length > 40) HITLOG.shift(); } // (bug report: what hit you)
     this.health -= dmg; if (PLAYLOG.m) PLAYLOG.dmg(this, dmg, by);
     if (zone && this.zones[zone] !== undefined) {
       const before = this.zones[zone];
@@ -6343,6 +6344,7 @@ world.addEventListener('preStep', () => { for (const c of cars) c.physicsStep(FI
 // the contact then points upward; for those side contacts the push is made horizontal (before the solver runs), so the tank
 // gets shoved, not lifted. Landing on a roof, and driving over a wreck, are left alone.
 const PHYS = { log: [], fixes: 0, clamps: 0, blowups: 0 };
+const HITLOG = []; // every hit on your car: [time, damage, health left, what hit you, zone, impact m/s, your speed] (Build 104: the owner's Sandflea went 28 -> 0 in a tenth of a second and nothing said what hit it)
 // Solver blow-ups: when bodies are forced deep into each other the solver can shoot them out at rocket speed (this is how you end up in the sky).
 // A crash can stop a car dead, but it can't make anything faster than the fastest thing that went into it: if a car or bull leaves a physics step
 // faster than that (or suddenly spinning far faster), it gets the velocity it had before the step back.
@@ -9930,7 +9932,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '103'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '104'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
@@ -10505,6 +10507,7 @@ function bugReport() {
   L.push(`Game: ${game.state}${game.paused ? ' (paused)' : ''} · round time ${r1(game.time || 0)} s · sim ${r1(simTime)} · mode ${GAME_MODE} · ${MP.role}${MP.code ? ' ' + MP.code : ''} · camera ${['chase', 'far', 'inside'][camMode]} · quality ${QUALITY.level} · voices ${VOICES_OFF ? 'off' : 'on'} · tilt ${tilt.on ? 'on' : 'off'}`);
   if (player) { const b = player.body; L.push(`You: ${player.T.name} "${player.name}" · pos ${r1(b.position.x)},${r1(b.position.y)},${r1(b.position.z)} · vel ${r1(b.velocity.x)},${r1(b.velocity.y)},${r1(b.velocity.z)} · speed ${Math.round(Math.abs(player.speed) * 3.6)} km/h · spin ${r1(b.angularVelocity.length())} · up ${r1(player.up.y)} · hp ${Math.round(player.health)} · zones ${JSON.stringify(player.zones)} · wheels lost ${player.wheelLost.filter(Boolean).length} · ammo ${player.mgAmmo ?? '-'}`); }
   L.push('', 'Flight recorder (your car, last 15 s, newest last):', ...FLIGHT.buf.slice(-150));
+  L.push('', 'Hits on your car (last 15 s, newest last): time · damage · health left · what hit you · where · impact m/s · your speed m/s', ...(HITLOG.filter((h) => simTime - h[0] < 15).map((h) => `  ${h[0]} · −${h[1]} · ${h[2]} · ${h[3]} · ${h[4] || '-'} · ${h[5]} · ${h[6]}`)), ...(HITLOG.some((h) => simTime - h[0] < 15) ? [] : ['  (none)']));
   L.push('', 'All cars:'); for (const c of cars) { const b = c.body; L.push(`  ${c.isPlayer ? '*' : ' '} ${c.T.name.padEnd(11)} ${String(c.name).padEnd(16)} pos ${r1(b.position.x)},${r1(b.position.y)},${r1(b.position.z)} speed ${Math.round(b.velocity.length())} m/s spin ${r1(b.angularVelocity.length())} hp ${Math.round(c.health)}${c.wrecked ? ' WRECKED' : ''}${c.ghost ? ' ghost' : ''}${c.carry ? ' carrying' : ''}${c.tow ? ' towing' : ''}${c.mode ? ' ai:' + c.mode : ''}`); }
   L.push('', 'Bulls: ' + BULLS.map((bl) => `${bl.state}@${Math.round(bl.body.position.x)},${r1(bl.body.position.y)},${Math.round(bl.body.position.z)} v${Math.round(bl.body.velocity.length())}`).join(' · '));
   L.push('', 'Game events (last 40): ' + (PERFREP.tags || []).map((t) => t.what).join(' · '));

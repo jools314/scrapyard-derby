@@ -21,9 +21,10 @@ Format: `- [agent] topic — branch — claimed YYYY-MM-DD HH:MM UTC — notes`
 ## Ready to land (needs the test gate)
 - [claude] `claude/elephant` needs a walker-integration pass before it can follow the spider (found 18:15): both branches added walkers independently. The spider has `T.walker` + `car.walkStep()` + `webbedT`; the elephant has a `WALK` module (`WALK.physics`, `WALK.dispose`) + `stallT`. Both use network flag bit 64 (spider: webbed, elephant: stalled). Plan: after the spider lands, rebase the elephant on main, keep ONE walker path (the spider's `walkStep`, with the elephant's gait/trunk as per-type hooks), move the elephant flags to bits 128/256/512, then run spider.js, elephant tests and mp-elephant together.
 - [claude] Spider/crusher-north (19:30) was a TEST bug, resolved 20:30: the north lane starts on the crusher's feed ramp (~1.1 m up) and the test spawned every car at y 1.2, inside the ramp; a walker's tall hull jammed there. Spawned above the ground, the spider gets in from the north in 0.63 s like every side. crusheropen fixed on main; the spider branch gets a TYPE=spider lane.
-- [claude] `claude/spider` → Build 104 (renumber on rebase: 103 is now the camera badge + menu) (rebased on 102 at 17:30, worktree /home/user/wt-spider): quick suite all passed except crusheropen once (north lane; passed 2/2 alone and on main). Lands when Build 101 has 30+ game-min with a clean Regression check.
+- [claude] `claude/spider` → Build 105 (renumber on rebase: 103 camera badge + menu, 104 hit log) (rebased on 102 at 17:30, worktree /home/user/wt-spider): quick suite all passed except crusheropen once (north lane; passed 2/2 alone and on main). Lands when Build 101 has 30+ game-min with a clean Regression check.
 
 ## Done
+- [claude] Build 104: 'Hits on your car' in bug reports (what hit you, damage, impact speed) — build 104.
 - [claude] Build 103: 🎥 badge on the speedometer (camera on phones), gear menu: one Performance & logs item — build 103.
 - [claude] Build 102: memory guard (leak census in the play log, autoplay reload when memory runs away; Memory section in the report) — build 102.
 - [claude] Build 101: GPU memory leak fixed (the Chromebook/Mac regressions), HUD 20 Hz + solver 8 on weak laptops — build 101. Next: Build 102 memory guard (claude/memguard), then spider/elephant renumbered 103+.
