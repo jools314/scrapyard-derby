@@ -32,9 +32,12 @@ const H = require('./harness');
     ok(b.loop === want, `${name}: frame loop started '${b.loop}' (want '${want}')`);
     ok(b.rec && b.rec.build && b.rec.firstFrameMs > 0 && b.rec.scriptMs > 0 && b.rec.compileMs >= 0, `${name}: boot record in the play log ${JSON.stringify(b.rec && { s: b.rec.scriptMs, c: b.rec.compileMs, f: b.rec.firstFrameMs, p: b.rec.parallel })}`);
     if (want === 'async') await page.waitForFunction(() => __derby.BOOT.warmMs >= 0, null, { timeout: 60000 }); // (the menu-time warm-up has finished)
-    const p0 = await page.evaluate(() => (__derby.renderer.info.programs || []).length);
+    if (want === 'async') { /* the quality governor stepping across the post-chain line (3 -> 4) changes every shader: Build 112's first suite run had the governor do it at Start (32 programs compiled in one blocking frame). Force it here, so it is checked every run */
+      const qv = await page.evaluate(() => { const a = __derby.QUALITY.level < 4 ? 4 : 0; __derby.applyQuality(a); return { a, n: __derby.BOOT.rewarm || 0 }; });
+      ok(qv.n >= 10, `${name}: a quality step across the post-chain line (to ${qv.a}) recompiles the shaders in the background (${qv.n} programs)`); }
+    const p0 = await page.evaluate(() => [Math.max(0, ...(__derby.renderer.info.programs || []).map((p) => p.id)), __derby.BOOT.rewarm || 0]); /* (by id: three.js also frees programs nothing uses any more, so a plain count can go down) */
     await page.click('#btnStart'); await page.waitForFunction(() => __derby.game.state === 'playing' && __derby.game.countdown <= 0, null, { timeout: 120000 });
-    const np = await page.evaluate((p0) => (__derby.renderer.info.programs || []).length - p0, p0); progs[want] = np; console.log(`  ${name}: ${np} shader programs compiled between Start and driving`);
+    const np = await page.evaluate((p0) => (__derby.renderer.info.programs || []).filter((p) => p.id > p0[0]).length - ((__derby.BOOT.rewarm || 0) - p0[1]), p0); progs[want] = np; console.log(`  ${name}: ${np} shader programs compiled by drawing between Start and driving (background recompiles not counted)`);
     const f0 = await page.evaluate(() => __derby.game.time); // (wait on the game, not the clock: a busy machine draws slowly)
     await page.waitForFunction((f0) => __derby.game.time > f0 + 0.2, f0, { timeout: 90000 }).catch(() => {}); const f1 = await page.evaluate(() => __derby.game.time);
     await page.waitForFunction(() => __derby.BOOT.drive, null, { timeout: 30000 }).catch(() => {});

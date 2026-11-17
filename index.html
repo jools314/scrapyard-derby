@@ -10606,6 +10606,7 @@ const QSTEPS = [
 const govern = { acc: 0, n: 0, t: 0, good: 0, lastDown: -99 };
 function applyQuality(i) {
   if (QUALITY.level !== i) ptag('quality ' + QUALITY.level + '→' + i);
+  const pv = shaderVariant();
   QUALITY.level = i; const q = QSTEPS[i];
   for (const m of SCATTER.meshes) m.visible = i < 6; // ground clutter goes first on weak devices
   world.solver.iterations = i >= 7 ? 8 : i >= 6 ? 11 : 12; QUALITY.subSteps = i >= 6 ? 3 : i >= 5 ? 5 : 8; // weak devices: a cheaper solver, and never pile up catch-up steps (that spiral is what makes slow devices choke)
@@ -10615,6 +10616,17 @@ function applyQuality(i) {
   const sh = q.shadow > 0; if (sun.castShadow !== sh) { sun.castShadow = sh; renderer.shadowMap.needsUpdate = true; }
   QUALITY.lite = !!q.lite;
   resize(); QUALITY.log.push(i);
+  if (shaderVariant() !== pv) rewarm();
+}
+// The post chain (quality 0-3 vs 4+) and shadows (0-5 vs 6+) each change every shader program three.js builds. When the governor
+// steps across one of those lines, the next frame used to compile ~30 programs in one blocking step (a weak laptop froze right when
+// it asked for speed, often at Start). Where the browser compiles in parallel, compile the new set off the main thread at once.
+function shaderVariant() { try { return (postOn() ? 1 : 0) + (sun.castShadow ? 2 : 0); } catch (e) { return -1; } }
+function rewarm() {
+  if (window.__noRender || !BOOT.parallel || !renderer.compileAsync || !BOOT.frame || BOOT.lite) return; // (before the yard is up, the boot compile does it)
+  const p0 = (renderer.info.programs || []).length;
+  try { compileFor(scene, null, true).catch(() => {}); if (WARM_WS) compileFor(WARM_WS, scene, true).catch(() => {}); } catch (e) {}
+  BOOT.rewarm = (BOOT.rewarm || 0) + (renderer.info.programs || []).length - p0; BOOT.rewarms = (BOOT.rewarms || 0) + 1;
 }
 const PERF = { fps: 60, t: 0 };
 function updatePerfHud(realDt) {
@@ -10920,7 +10932,7 @@ try { const w = new Worker(URL.createObjectURL(new Blob(['let iv=setInterval(()=
 } catch (e) { TICK.worker = null; }
 setTimeout(hostTick, 100);
 let lastDrawT = performance.now();
-let WARMED = false;
+let WARMED = false, WARM_WS = null;
 function warmShaders() { // compile every shader the round will need during the countdown, so the first blast or fire doesn't stall mid-fight
   WARMED = true; if (window.__noRender) return;
   const t0 = performance.now(), tmp = warmGroup();
@@ -10934,7 +10946,7 @@ function warmShaders() { // compile every shader the round will need during the 
 // compiled them all in one blocking step (seconds on a slow laptop between Start and driving).
 function prewarmAsync() {
   if (WARMED || window.__noRender || !BOOT.parallel || !renderer.compileAsync) return; WARMED = true;
-  const t0 = performance.now(), ws = new THREE.Scene(); ws.add(warmGroup());
+  const t0 = performance.now(), ws = new THREE.Scene(); ws.add(warmGroup()); WARM_WS = ws; // (kept: a quality step that changes the shaders compiles these again)
   try { compileFor(ws, scene, true).then(() => { BOOT.warmMs = Math.round(performance.now() - t0); }, () => {}); } catch (e) {}
 }
 // Compile shaders for the way they will really be drawn. With the post chain on (quality 0-3) the scene is drawn into the
