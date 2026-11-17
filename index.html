@@ -4,7 +4,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'"><!-- (not render-blocking: the page paints with system fonts and swaps when these arrive) -->
-<meta name="derby-build" content="113"><!-- must equal BUILD in the script and version.txt (tests/syntax.js checks) -->
+<meta name="derby-build" content="114"><!-- must equal BUILD in the script and version.txt (tests/syntax.js checks) -->
 <script>
 // Updater of last resort (Build 100). Runs on its own, outside the game script, so a build whose game code breaks, a CDN
 // that fails, or a bug in the in-game update check (Build 94's Mac sat stuck for hours) can't strand a computer on an old build.
@@ -1729,13 +1729,21 @@ function buildArena() {
     }, 7, 4);
     const heapMat = new THREE.MeshStandardMaterial({ map: junkTex, bumpMap: junkTex, bumpScale: 2, vertexColors: true, roughness: 0.92, metalness: 0.12, flatShading: true, envMapIntensity: 0.3 });
     const per = [[], [], []];
-    for (let i = 0; i < 110; i++) { const a = rand(0, Math.PI * 2), r = rand(A + 34, A + 170), s = rand(6, 24) * (r > A + 100 ? 1.4 : 1); let x = Math.cos(a) * r, z = Math.sin(a) * r;
-      const edge = Math.max(Math.abs(x), Math.abs(z)), need = A + 4 + s * 2.35; // the yard is square, not round: a heap placed on a circle cut into the corners (a heap reaches up to s*1.6 (scale) * 1.44 (lumps) = 2.3 s sideways)
-      if (edge < need) { const k = need / edge; x *= k; z *= k; } // push it straight out until all of it is beyond the fence
-      per[i % 3].push([x, z, s]); }
-    const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler();
-    shapes.forEach((g, k) => { const im = new THREE.InstancedMesh(g, heapMat, per[k].length);
-      per[k].forEach(([x, z, s], i) => { e.set(rand(-0.08, 0.08), rand(0, 6.3), rand(-0.08, 0.08)); q.setFromEuler(e); m4.compose(tmpV.set(x, -s * 0.05, z), q, new THREE.Vector3(s * rand(1, 1.6), s * rand(0.45, 0.8), s * rand(1, 1.5))); im.setMatrixAt(i, m4); });
+    for (let i = 0; i < 110; i++) { const a = rand(0, Math.PI * 2), r = rand(A + 34, A + 170), s = rand(6, 24) * (r > A + 100 ? 1.4 : 1);
+      per[i % 3].push([Math.cos(a) * r, Math.sin(a) * r, s]); }
+    const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), sc = new THREE.Vector3(), hbox = new THREE.Box3();
+    shapes.forEach((g, k) => { const im = new THREE.InstancedMesh(g, heapMat, per[k].length); if (!g.boundingBox) g.computeBoundingBox();
+      per[k].forEach((h, i) => { let [x, z, s] = h; e.set(rand(-0.08, 0.08), rand(0, 6.3), rand(-0.08, 0.08)); q.setFromEuler(e); sc.set(s * rand(1, 1.6), s * rand(0.45, 0.8), s * rand(1, 1.5));
+        // The yard is square, not round: a heap placed on a circle can reach into the corners, and how far it
+        // reaches depends on its real shape, scale and spin — the old rule guessed the reach from the scale
+        // alone (2.35 x scale, along the centre's longest axis) and still let about a quarter of loads put one
+        // heap's box past the fence (tests/heaps.js seed 6: box centre (144, -204)). So measure this heap's own
+        // box and push it out along its longest axis until the whole box clears the fence by 4 m.
+        for (let t = 0; t < 4; t++) { m4.compose(tmpV.set(x, -s * 0.05, z), q, sc); hbox.copy(g.boundingBox).applyMatrix4(m4);
+          if (!(hbox.max.x > -A - 4 && hbox.min.x < A + 4 && hbox.max.z > -A - 4 && hbox.min.z < A + 4)) break;
+          if (Math.abs(x) >= Math.abs(z)) x += x >= 0 ? (A + 4 - hbox.min.x) : (-A - 4 - hbox.max.x);
+          else z += z >= 0 ? (A + 4 - hbox.min.z) : (-A - 4 - hbox.max.z); }
+        h[0] = x; h[1] = z; im.setMatrixAt(i, m4); });
       im.userData.shared = true; im.userData.heaps = per[k]; scene.add(im); });
   }
   // Floodlight towers
@@ -10444,7 +10452,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '113'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '114'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
