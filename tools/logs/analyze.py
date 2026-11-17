@@ -113,14 +113,14 @@ L.append('')
 boots = [r for r in recs if r.get('kind') == 'boot' and not is_test(r)]
 if boots:
     L.append('## Startup (page open -> first frame drawn)\n')
-    L.append('Portal players leave if the page sits frozen. scriptMs = building the yard, compileMs = shaders (parallel = compiled off the main thread), first frame = all of it.\n')
+    L.append('Portal players leave if the page sits frozen. scriptMs = building the yard, compileMs = shaders (parallel = compiled off the main thread), first frame = all of it. Since the fast boot the first frame is the sky behind the menu, and yard = page open to the whole yard drawn (its shaders compiled while the menu was up).\n')
     bb = collections.defaultdict(list)
     for r in boots: bb[(dev_name(r), str(r.get('build')))].append(r)
     def med(xs): xs = sorted(x for x in xs if isinstance(x, (int, float))); return xs[len(xs) // 2] if xs else '–'
-    L.append('| device | build | loads | first frame ms (median) | worst | script ms | compile ms | parallel |')
-    L.append('|---|---|---|---|---|---|---|---|')
+    L.append('| device | build | loads | first frame ms (median) | worst | script ms | compile ms | yard ms | parallel |')
+    L.append('|---|---|---|---|---|---|---|---|---|')
     for (d, b), xs in sorted(bb.items(), key=lambda kv: (kv[0][0], int(kv[0][1]) if kv[0][1].isdigit() else 0)):
-        L.append(f"| {d} | {b} | {len(xs)} | {med([x.get('firstFrameMs') for x in xs])} | {max((x.get('firstFrameMs') or 0) for x in xs)} | {med([x.get('scriptMs') for x in xs])} | {med([x.get('compileMs') for x in xs])} | {sum(1 for x in xs if x.get('parallel'))}/{len(xs)} |")
+        L.append(f"| {d} | {b} | {len(xs)} | {med([x.get('firstFrameMs') for x in xs])} | {max((x.get('firstFrameMs') or 0) for x in xs)} | {med([x.get('scriptMs') for x in xs])} | {med([x.get('compileMs') for x in xs])} | {med([x.get('yardMs') for x in xs])} | {sum(1 for x in xs if x.get('parallel'))}/{len(xs)} |")
     L.append('')
 starts = [r for r in recs if r.get('kind') == 'start' and not is_test(r) and not r.get('auto')]
 if starts:

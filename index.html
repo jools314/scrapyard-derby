@@ -10925,7 +10925,7 @@ function warmShaders() { // compile every shader the round will need during the 
   WARMED = true; if (window.__noRender) return;
   const t0 = performance.now(), tmp = warmGroup();
   scene.add(tmp);
-  try { renderer.compile(scene, camera); } catch (e) {}
+  try { compileFor(scene); } catch (e) {}
   scene.remove(tmp); // (materials kept alive: disposing them would throw the compiled shaders away again)
   ptag('shader warm-up', performance.now() - t0);
 }
@@ -10935,8 +10935,15 @@ function warmShaders() { // compile every shader the round will need during the 
 function prewarmAsync() {
   if (WARMED || window.__noRender || !BOOT.parallel || !renderer.compileAsync) return; WARMED = true;
   const t0 = performance.now(), ws = new THREE.Scene(); ws.add(warmGroup());
-  try { renderer.compileAsync(ws, camera, scene).then(() => { BOOT.warmMs = Math.round(performance.now() - t0); }, () => {}); } catch (e) {}
+  try { compileFor(ws, scene, true).then(() => { BOOT.warmMs = Math.round(performance.now() - t0); }, () => {}); } catch (e) {}
 }
+// Compile shaders for the way they will really be drawn. With the post chain on (quality 0-3) the scene is drawn into the
+// composer's buffer, and three.js builds a different program for that (no tone mapping, linear colour) than for the screen. Compiling
+// with no target bound (as Builds 100-108 did) built 50 screen programs nothing used, and the first frame then compiled the other 50:
+// the Chromebook's 8 s of 'compile' plus 7 s more of frozen first frame.
+function postOn() { return !XRS.on && Math.min(S.gfx, S.autoGfx ? (QUALITY.gfxCap ?? 2) : 2) > 0; }
+function compileFor(sc, target, async) { const rt = renderer.getRenderTarget(); renderer.setRenderTarget(postOn() ? composer.readBuffer : null);
+  try { return async ? renderer.compileAsync(sc, camera, target || null) : renderer.compile(sc, camera, target || null); } finally { renderer.setRenderTarget(rt); } }
 function warmGroup() {
   const tmp = new THREE.Group(), g = new THREE.SphereGeometry(1, 8, 6);
   const mats = [new THREE.MeshBasicMaterial({ color: 0xffb040, transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending }),
@@ -11032,7 +11039,8 @@ function openBugReport() { // one tap: the full report goes straight to the clip
 function frameBody(now) {
   if (now - (MEMGUARD.walkT || 0) > 5000) { MEMGUARD.walkT = now; try { MEMGUARD.walk(); } catch (e) {} } // (who holds each GPU object, every 5 s: so a leak can be named later)
   if (!BOOT.drive && BOOT.frame && game.state === 'playing' && game.countdown <= 0 && player) bootDrive();
-  if (!BOOT.frame) { if (BOOT.f1) bootFrame(); else BOOT.f1 = performance.now(); } // (logged when the second frame starts: the first one, with any shader compiles it needed, is on screen)
+  if (!BOOT.frame) { if (BOOT.f1) bootFrame(); else BOOT.f1 = performance.now(); } // (timed when the second frame starts: the first one, with any shader compiles it needed, is on screen)
+  if (BOOT.frame && !BOOT.yard && !BOOT.lite) { if (BOOT.y1) bootYardShown(); else BOOT.y1 = performance.now(); } // (and the same for the first frame of the whole yard: the boot record is logged then)
   const rawDt = (now - lastDrawT) / 1000; lastDrawT = now;
   TABENV.frame(rawDt); PLAYLOG.frame(rawDt); // the play log: every match, whoever is driving (and autoplay's match loop)
   governQuality(rawDt); NETLOG.frame(rawDt); FLIGHT.rec();
@@ -11185,7 +11193,8 @@ function drawBody(dt) {
   PERF.n = (PERF.n || 0) + 1; PERF.hostSkip = MP.role === 'host' && QUALITY.level === QSTEPS.length - 1 && PERF.fps < 34 && MP.guests().length > 0;
   if (PERF.hostSkip && PERF.n % 2 && !XRS.on) return; // (never skip a headset frame)
   PERFREP.r0 = performance.now();
-  if (!window.__noRender) { const gq = Math.min(S.gfx, S.autoGfx ? (QUALITY.gfxCap ?? 2) : 2); if (XRS.on) renderer.render(scene, VR.cam); /* VR: straight into the headset, no post chain */ else if (gq > 0) { grade.uniforms.uTime.value = clock % 10; sunGlare(); grade.enabled = gq > 1; outPass.enabled = !grade.enabled; bloom.strength = gq > 1 ? 0.42 : 0.34; composer.render(); } else renderer.render(scene, camera); PERFREP.render = performance.now() - PERFREP.r0; SEC.add('render', PERFREP.render); } // tests can skip drawing to run physics faster
+  if (BOOT.lite && (game.state !== 'menu' || XRS.on)) bootYard('start'); /* (Start pressed before the yard's shaders were ready: draw it all now) */
+  if (!window.__noRender) { const gq = Math.min(S.gfx, S.autoGfx ? (QUALITY.gfxCap ?? 2) : 2); if (BOOT.lite) renderer.render(scene, camera); /* boot preview: the sky only (camera on the boot layer), no post chain */ else if (XRS.on) renderer.render(scene, VR.cam); /* VR: straight into the headset, no post chain */ else if (gq > 0) { grade.uniforms.uTime.value = clock % 10; sunGlare(); grade.enabled = gq > 1; outPass.enabled = !grade.enabled; bloom.strength = gq > 1 ? 0.42 : 0.34; composer.render(); } else renderer.render(scene, camera); PERFREP.render = performance.now() - PERFREP.r0; SEC.add('render', PERFREP.render); } // tests can skip drawing to run physics faster
 }
 /* =====================================================================
    VR MODE (WebXR: Meta Quest 2 / 3 / 3S in the Quest Browser)
@@ -11874,6 +11883,7 @@ Object.assign(PLAYLOG, {
     this.m = null; this.closed = true; this.clearCur();
     const o = this.meta(); this.dropCk(o, m.id); this.saveMeta(o);
     if (r && (r.game >= 3 || r.errs.n || r.phys.list.length)) { this.add(r); this.upload('match end'); } // (a round thrown away in its first seconds says nothing)
+    if (r && r.game >= 30 && S.autoGfx && !XRS.on) try { localStorage.setItem('derby-qlevel', String(QUALITY.level)); } catch (e) {} // (where the governor settled: the next page load starts there if it is a lite level, see BOOT)
     if (r && AUTO.on) AUTO.logged(r);
     if (!AUTO.on) MEMGUARD.check('match end');
     return r;
@@ -12113,22 +12123,35 @@ const IDLE = { ms: 3 * 60 * 1000, last: performance.now(), on: !/[?&]noidle=1\b/
 for (const ev of ['keydown', 'pointerdown', 'pointermove', 'wheel', 'touchstart', 'touchmove']) addEventListener(ev, (e) => { if (e.isTrusted || window.__idleTest) IDLE.poke(); }, { capture: true, passive: true });
 setInterval(() => IDLE.check(), 5000);
 window.__derby = { GP, PICK, cyclePick: (d) => cyclePick(d), setPick: (c) => setPick(c, false), canAim, frontTarget: (c, r, k) => frontTarget(c, r, k), AUTO, PLAYLOG, INSIDE, BOULDERS, get mapShapes() { return mapShapes; }, respawnCar: (o, t) => respawnCar(o, t), PHYS, cockpitEye: (c) => cockpitEye(c), wakeProp: (pr) => wakeProp(pr), addConcrete: (x, z, r, k) => addConcrete(x, z, r, k), igniteProp: (pr, t) => igniteProp(pr, t), cookBull: (bl, by, dt) => cookBull(bl, by, dt), hoseBull: (car, bl, p, f, dt) => hoseBull(car, bl, p, f, dt), DUCKS, goldConeReveal: (pr) => goldConeReveal(pr), sadTromboneKind: (t) => sadTromboneKind(t), honkBack: (car) => honkBack(car), smashBurger: (bl, how) => smashBurger(bl, how), bladeSlam: (car) => bladeSlam(car), wearBunHat: (bl) => wearBunHat(bl), bunHatRoll: (bl) => bunHatRoll(bl), shakeOff: (bl) => shakeOff(bl), harvestProp: (car, pr) => harvestProp(car, pr), baleMsgRoll: () => baleMsgRoll(), BALE_MSGS, updateSigns: (dt) => updateSigns(dt), SIGN_PROPS, tankerBoom: (p, c) => tankerBoom(p, c), CAR_TYPES, sfx, CANNON, barks, PERF, shells, NETLOG, nearHostAdd: () => nearHostAdd(), nearJoin: () => nearJoin(), JUMBO, BALL, BOLLARDS, GASQ, updateArenaPub: (dt) => updateArena(dt), CRUSHER, crushNow: () => crushNow(), applyNight: () => applyNight(), FIREWORKS, ARENA, CROWD, MP, QUALITY, applyQuality: (i) => applyQuality(i), MERGED, camera, updatePropActivity: (dt) => updatePropActivity(dt), renderer, scene, spawnFree: (x, z, r) => spawnFree(x, z, r), BULLS, updateBulls: (dt) => updateBulls(dt), updateShells, tilt, setTilt, get CRANE() { return CRANE; }, updateCrane: (dt) => updateCrane(dt), CONCRETE, THREE, craters, shells, pickups, barks, PERSONAS, TUNE, game, cars, S, world, CAR_TYPES, sfx, touch, drawGauge, get player() { return player; }, keys, startMatch, selectCar, setValue, debris, props, platformOf, get simTime() { return simTime; }, set simTime(v) { simTime = v; } }; // console tinkering + tests
-// Startup: compile every shader the menu scene needs off the main thread first (KHR_parallel_shader_compile), then start drawing.
-// Before Build 100 the first frame compiled them all in one blocking step: several seconds of a frozen page on a slow laptop
-// before the menu would even react to a click. Where the browser can't compile in parallel this costs the same as before.
-function startLoop(why) { if (BOOT.loop) return; BOOT.loop = why; BOOT.compiled = performance.now(); requestAnimationFrame(frame); }
-function bootFrame() { BOOT.frame = performance.now(); try { PLAYLOG.add({ v: 2, kind: 'boot', test: navigator.webdriver ? true : undefined, sid: PLAYLOG.sid, dev: PLAYLOG.devId, build: BUILD, at: new Date().toISOString(), device: PERFREP.device(),
-  scriptMs: Math.round(BOOT.ready - BOOT.t0), compileMs: Math.round(BOOT.compiled - BOOT.ready), firstFrameMs: Math.round(BOOT.frame), parallel: BOOT.parallel, how: BOOT.loop }); } catch (e) {}
+// Startup. Before Build 100 the first frame compiled every shader in one blocking step; Builds 100-108 compiled the menu scene off the
+// main thread first (KHR_parallel_shader_compile) but drew nothing until all of it was done, or 8 s had passed: a Chromebook's cold
+// start sat 16 s before its first frame. Now the first frame draws the sky behind the menu straight away (one small program), the
+// yard's shaders compile in parallel after it, and the yard appears when they are all ready, so the page never freezes for them.
+// Without parallel compile the yard is drawn in the second frame (a blocking compile, as before). Start pressed sooner draws it at once.
+function startLoop(why) { if (BOOT.loop) return; BOOT.loop = why; requestAnimationFrame(frame); }
+const BOOT_LAYER = 31; // the boot preview's camera sees only this layer: the sky dome (and the lights, so its program is the one the yard uses)
+function bootLite() { BOOT.lite = true; BOOT.mask = camera.layers.mask; sky.layers.enable(BOOT_LAYER); scene.traverse((o) => { if (o.isLight) o.layers.enable(BOOT_LAYER); }); camera.layers.set(BOOT_LAYER); }
+function bootYard(how) { if (!BOOT.lite) return; BOOT.lite = false; BOOT.yardHow = how; camera.layers.mask = BOOT.mask; if (!BOOT.compiled) BOOT.compiled = performance.now(); }
+function bootFrame() { BOOT.frame = performance.now(); if (BOOT.loop === 'direct') return bootYard('direct');
+  if (!BOOT.lite) return; BOOT.c0 = performance.now(); BOOT.p1 = (renderer.info.programs || []).length; // the yard with all its lights, compiled in parallel while the menu and sky are up
+  try { camera.layers.mask = BOOT.mask; const p = compileFor(scene, null, true); camera.layers.set(BOOT_LAYER);
+    p.then(() => bootYard('async'), () => bootYard('async-failed')); setTimeout(() => bootYard('timeout'), 30000); } catch (e) { bootYard('error'); } }
+function bootYardShown() { BOOT.yard = performance.now(); try { PLAYLOG.add({ v: 2, kind: 'boot', test: navigator.webdriver ? true : undefined, sid: PLAYLOG.sid, dev: PLAYLOG.devId, build: BUILD, at: new Date().toISOString(), device: PERFREP.device(),
+  scriptMs: Math.round(BOOT.ready - BOOT.t0), compileMs: Math.round(BOOT.compiled - (BOOT.c0 || BOOT.ready)), firstFrameMs: Math.round(BOOT.frame), yardMs: Math.round(BOOT.yard), firstProgs: BOOT.p1, parallel: BOOT.parallel, how: BOOT.loop, yardHow: BOOT.yardHow, q: QUALITY.level }); } catch (e) {}
   setTimeout(prewarmAsync, 300); }
 function bootDrive() { BOOT.drive = performance.now(); // time to start: page open -> your car is yours to drive (first match's countdown over)
   try { PLAYLOG.add({ v: 2, kind: 'start', test: navigator.webdriver ? true : undefined, sid: PLAYLOG.sid, dev: PLAYLOG.devId, build: BUILD, at: new Date().toISOString(), device: PERFREP.device(),
     driveMs: Math.round(BOOT.drive), loadMs: Math.round(BOOT.frame), menuMs: BOOT.click ? Math.round(BOOT.click - BOOT.frame) : null, startMs: BOOT.click ? Math.round(BOOT.drive - BOOT.click) : null,
     auto: AUTO.on || undefined, role: MP.role || undefined, warmMs: BOOT.warmMs }); } catch (e) {} }
 BOOT.ready = performance.now();
+// A device whose last match settled at the lightest levels (no shadows: a weak laptop) starts there, instead of compiling the shadowed,
+// post-processed yard first and dropping to it a minute into the match. Fewer and cheaper programs; the governor still steps up.
+try { const q = +(localStorage.getItem('derby-qlevel') || 0); if (S.autoGfx && q >= 6 && q < QSTEPS.length && q > QUALITY.level) { applyQuality(q); BOOT.q = q; } } catch (e) {}
 try { BOOT.parallel = !!renderer.getContext().getExtension('KHR_parallel_shader_compile');
-  if (window.__noRender || !BOOT.parallel || !renderer.compileAsync) startLoop('direct');
-  else { renderer.compileAsync(scene, camera).then(() => startLoop('async'), () => startLoop('async-failed')); setTimeout(() => startLoop('timeout'), 8000); }
-} catch (e) { startLoop('error'); }
+  if (window.__noRender) { BOOT.compiled = BOOT.ready; startLoop('direct'); }
+  else if (!BOOT.parallel || !renderer.compileAsync) { bootLite(); BOOT.compiled = BOOT.ready; startLoop('direct'); }
+  else { bootLite(); renderer.compile(sky, camera, scene); startLoop('async'); } // (the yard's compile starts once this first frame is up: bootFrame)
+} catch (e) { bootYard('error'); startLoop('error'); }
 window.__derby.BOOT = BOOT; window.__derby.HITLOG = HITLOG; Object.defineProperty(window.__derby, 'camMode', { get: () => camMode }); window.__derby.MEMGUARD = MEMGUARD; window.__derby.GPULIVE = GPULIVE;
 window.__derby.IDLE = IDLE; window.__derby.TALK = TALK; window.__derby.DROP = DROP; window.__derby.SCORE = SCORE; window.__derby.UPDATE = UPDATE; window.__derby.TABENV = TABENV; window.__derby.PERFREP = PERFREP; // (test hooks)
 window.__derby.VR = VR; window.__derby.XRS = XRS; window.__derby.composer = composer;
