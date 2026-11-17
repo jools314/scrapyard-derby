@@ -1,5 +1,6 @@
 // Multiplayer Steam Elephant: the host runs an elephant; the guest's copy (no physics, only snapshots) must walk its legs,
-// show the boiler gauge at the host's pressure, see the steam and the stall when the boiler blows. Real WebRTC, mild network chaos.
+// show the boiler gauge at the host's pressure, see the steam and the stall when the boiler blows. A spider in the same match webs the
+// elephant: the guest must see it webbed and not stalled (the two walkers' network flags must not share a bit). Real WebRTC, mild network chaos.
 // Prints MP-ELEPHANT PASS / MP-ELEPHANT FAIL.
 const { chromium, devices } = require('playwright'); const fs = require('fs'), path = require('path'); const NM = path.join(__dirname, 'node_modules');
 const INIT = () => {
@@ -40,6 +41,8 @@ const INIT = () => {
   const fails = [], R = {};
   // the host turns one AI car into an elephant and walks it in a slow circle
   const ei = await H.evaluate(() => { const D = __derby, i = D.cars.findIndex((c) => !c.isPlayer && !c.remote); D.respawnCar(D.cars[i], 'elephant'); return i; });
+  // and a spider in the same match: both walkers on the one walker path, their network flags must not collide (spider web = bit 64; elephant stall/whistle/steam = 128/256/512)
+  const si = await H.evaluate((ei) => { const D = __derby, i = D.cars.findIndex((c, k) => k !== ei && !c.isPlayer && !c.remote); D.respawnCar(D.cars[i], 'spider'); return i; }, ei);
   await H.waitForTimeout(500);
   await H.evaluate((i) => { const e = __derby.cars[i]; e.think = () => { e.ctrl.throttle = 0.8; e.ctrl.steer = 0.25; }; e.pressure = 0.6; window.__E = e; }, ei);
   await G.waitForFunction((i) => __derby.cars[i] && __derby.cars[i].type === 'elephant', ei, { timeout: 30000 });
@@ -53,11 +56,18 @@ const INIT = () => {
   await H.evaluate(() => { const e = window.__E; e.think = () => { e.ctrl.throttle = 0; e.ctrl.steer = 0; }; e.specialCd = 0; e.ctrl.fire = true; });
   R.steam = await G.evaluate(async (i) => { const e = __derby.cars[i]; let seen = false; for (let k = 0; k < 40 && !seen; k++) { await new Promise((r) => setTimeout(r, 50)); seen = !!e.steamFlag; } return seen; }, ei);
   if (!R.steam) fails.push('remote steam not seen');
+  // the spider's web pins the elephant on the host: the guest sees it webbed (bit 64) and NOT stalled, whistling or steaming
+  await H.waitForTimeout(1500); await H.evaluate(() => { const e = window.__E, p = e.body.position; e.specialCd = 9; e.ctrl.fire = false; e.webbedT = 2.5; e.webAt = { x: p.x, z: p.z }; });
+  R.web = await G.evaluate(async ([i, si]) => { const e = __derby.cars[i], sp = __derby.cars[si]; let seen = false, wrong = 0; const s = performance.now();
+    while (performance.now() - s < 2500) { await new Promise((r) => setTimeout(r, 50)); if (e.netWebbed) { seen = true; if (e.stallT > 0 || e.whistleT > 0 || e.steamFlag) wrong++; } }
+    return { seen, wrong, spiderType: sp && sp.type, spiderGhost: !!(sp && sp.ghost), spiderPressure: sp ? sp.pressure : null }; }, [ei, si]);
+  if (!R.web.seen) fails.push('remote web on the elephant not seen'); if (R.web.wrong) fails.push('webbed elephant read as stalled/whistling/steaming (flag clash)');
+  if (R.web.spiderType !== 'spider' || !R.web.spiderGhost) fails.push('remote spider missing'); if (R.web.spiderPressure) fails.push('spider got a boiler pressure');
   // the boiler blows on the host: the guest sees the stall (and plays the blow-off cloud)
   await H.waitForTimeout(2000); await H.evaluate(() => { window.__E.pressure = 0.95; });
   R.stall = await G.evaluate(async (i) => { const e = __derby.cars[i]; let t0 = -1, t1 = -1; const s = performance.now();
     while (performance.now() - s < 12000) { await new Promise((r) => setTimeout(r, 50)); const t = (performance.now() - s) / 1000; if (e.stallT > 0 && t0 < 0) t0 = t; if (t0 >= 0 && !(e.stallT > 0) && t1 < 0) { t1 = t; break; } }
-    return { start: +t0.toFixed(1), len: +(t1 - t0).toFixed(1), lidPopped: e.lidPop !== undefined }; }, ei);
+    return { start: +t0.toFixed(1), len: +(t1 - t0).toFixed(1), lidPopped: e.lidPop !== undefined, webbedWhileStalled: !!e.netWebbed }; }, ei);
   if (R.stall.start < 0) fails.push('remote stall not seen'); else if (Math.abs(R.stall.len - 4) > 1) fails.push('remote stall length wrong');
   R.errs = errs; if (errs.length) fails.push('page errors');
   console.log(JSON.stringify(R, null, 1)); console.log(fails.length ? 'MP-ELEPHANT FAIL: ' + fails.join(', ') : 'MP-ELEPHANT PASS'); await browser.close(); process.exit(fails.length ? 1 : 0);

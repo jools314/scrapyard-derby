@@ -798,11 +798,13 @@ const CAR_TYPES = {
   combine: { heavy: true, special: 'reel', maxSpeed: 10, rearSteer: true, handling: { steer: 0.75, rate: 0.7, spring: 1.2, damp: 1.3, rear: 1.15, drag: 1.5, roll: 0.6 }, name: 'Combine', blurb: 'Papa Jacques\'s combine harvester. F starts the 6-metre reel: crates and drums come out the back as straw bales, and any car caught in it gets chewed up and dragged in. Steers with its back wheels.', style: 'combine', mass: 15000, L: 8.6, W: 3.6, H: 1.3, hullW: 0.86, wheelR: 0.95, wheelW: 0.7, wb: 4.6, axles: [2.0, -2.6], track: 3.0, power: 2.2, grip: 1.0, armor: 0.45, cabin: { l: 1.8, h: 1.5, w: 1.9, x: 2.3 }, color: 0x2f8a3c, redline: 2400, idle: 600, cyl: 6 },
   bertha: { heavy: true, special: 'dump', maxSpeed: 12, handling: { steer: 0.55, rate: 0.5, spring: 1.3, damp: 1.4, rear: 1.2, drag: 1.6, roll: 0.5 }, name: 'Big Bertha', blurb: 'Big Bertha: a 26-tonne mining dump truck with 2.7 m tyres. Rolls over anything; F tips the bed and drops a load of boulders on whoever is following.', style: 'dump', mass: 26000, L: 11, W: 5.2, H: 1.2, hullW: 0.82, wheelR: 1.35, wheelW: 0.9, wb: 6.2, axles: [3.3, -2.7], track: 4.1, power: 3.4, grip: 1.05, armor: 0.35, cabin: { l: 1.8, h: 1.4, w: 1.9, x: 3.7 }, color: 0xe0607a, redline: 2100, idle: 520, cyl: 6, noWheelLoss: true },
   tanker: { heavy: true, pour: 'fuel', handling: { steer: 0.7, rate: 0.6, spring: 1.2, damp: 1.3, rear: 1.15, drag: 1.4, roll: 0.55 }, name: 'Tanker', blurb: 'Fuel truck, 7.5 t on six wheels. F spills gasoline; once the tank is ruptured the trail catches fire. Explodes spectacularly.', style: 'tanker', mass: 7500, L: 9.2, W: 2.5, H: 0.75, wheelR: 0.56, wheelW: 0.46, wb: 5.65, axles: [3.3, -1.6, -3.05], track: 2.1, frontDrive: 0, power: 2.3, grip: 0.95, armor: 0.55, cabin: { l: 2.0, h: 1.35, w: 2.3, x: 3.05 }, color: 0x8c3a22, blast: 22, redline: 3000, idle: 600, cyl: 3 },
-  elephant: { walker: true, noPlant: true, noWheelLoss: true, special: 'trunk', handling: { steer: 1, rate: 1, spring: 2.2, damp: 1, rear: 1, drag: 1, roll: 1 }, name: 'Steam Elephant', blurb: 'Mama Wanjiru\'s brass steam elephant: 12 t on four stomping legs, slow and unstoppable. F grabs a light car with the trunk and flings it; with nothing in reach it blasts steam that puts out fires and shoves cars back. Keep the boiler on its back away from hits and flames: at the red line it blows its top and stalls.', style: 'elephant', mass: 12000, L: 5.0, W: 2.5, H: 2.0, wheelR: 0.45, wheelW: 0.8, wb: 3.3, track: 1.7, power: 1.6, grip: 1.1, armor: 0.45, cabin: { l: 1.6, h: 1.1, w: 1.7, x: 0.5 }, color: 0xc8963a, redline: 900, idle: 240, cyl: 2 },
+  elephant: { walker: true, walk: { n: 4, y0: 2.52, ride: 2.42, rideStall: 2.12, feel: [1.65, 0.85], up: 0, noCars: true, vMax: 6, vRev: 3, acc: 3.2, brk: [4, 12], rev: 6, coast: [4, 5], side: [5, 10], yaw: [0.85, 0.85], yawK: 5, stepUp: true, shove: true }, noPlant: true, noWheelLoss: true, special: 'trunk', handling: { steer: 1, rate: 1, spring: 2.2, damp: 1, rear: 1, drag: 1, roll: 1 }, name: 'Steam Elephant', blurb: 'Mama Wanjiru\'s brass steam elephant: 12 t on four stomping legs, slow and unstoppable. F grabs a light car with the trunk and flings it; with nothing in reach it blasts steam that puts out fires and shoves cars back. Keep the boiler on its back away from hits and flames: at the red line it blows its top and stalls.', style: 'elephant', mass: 12000, L: 5.0, W: 2.5, H: 2.0, wheelR: 0.45, wheelW: 0.8, wb: 3.3, track: 1.7, power: 1.6, grip: 1.1, armor: 0.45, cabin: { l: 1.6, h: 1.1, w: 1.7, x: 0.5 }, color: 0xc8963a, redline: 900, idle: 240, cyl: 2 },
 };
 // Anansi the Spider-Walker: eight scrap-pipe legs instead of wheels (no RaycastVehicle: hover springs + drive forces, legs animated on top, see walkStep/updateLegs).
 // Its "wheels" are its legs: wheelBase = the 8 hips (front pair first, even = left), wheelLost = a leg snapped off. Fewer legs: slower, limps; under 6 it can't climb; under 4 it's a wreck.
-CAR_TYPES.spider = { walker: true, special: 'web', noPlant: true, handling: { steer: 1.2, rate: 1.4, spring: 1, damp: 1, rear: 1, drag: 1.1, roll: 0.5 }, name: 'Spider-Walker', blurb: 'Anansi\'s eight-legged scrap spider. Scuttles fast, climbs onto containers and walls, drops onto cars. F fires a steel web that pins the car in front for 3 s. Up close F bites instead (poison); a web hit near another car ties the two together, near a wall it sticks the car to it; J leaps high. Heavy rams snap its legs: every leg lost makes it slower.', style: 'spider', mass: 1600, L: 2.4, W: 1.7, H: 0.6, wheelR: 0.3, wheelW: 0.2, wb: 1.5, axles: [0.75, 0.25, -0.25, -0.75], track: 1.44, power: 1.0, grip: 1.1, armor: 1.0, cabin: { l: 0.9, h: 0.45, w: 0.95, x: 0.7 }, color: 0x7a5232, redline: 5200, idle: 900, cyl: 2 };
+// T.walk, every walker's numbers for the one walker path (Car.walkStep): n legs, y0 spawn height, ride (fixed standing height; else the spider's by legs), feel [x, z] feeler spots and up (how far above
+// the body they start), noCars (feet never stand on cars), vMax/vRev m/s, acc/rev/brk/coast drive accelerations, side [gain, max] sideways grip, yaw [still, at speed] rad/s and yawK, and the spider's tricks: climb, leap, sense, legSnap.
+CAR_TYPES.spider = { walker: true, walk: { n: 8, y0: 2.2, feel: [1.75, 1.15], up: 0.9, vMax: 15, vRev: 7, acc: 16, brk: [8, 22], rev: 20, coast: [3, 12], side: [9, 24], yaw: [2.4, 1.3], yawK: 9, climb: true, leap: true, sense: true, legSnap: true }, special: 'web', noPlant: true, handling: { steer: 1.2, rate: 1.4, spring: 1, damp: 1, rear: 1, drag: 1.1, roll: 0.5 }, name: 'Spider-Walker', blurb: 'Anansi\'s eight-legged scrap spider. Scuttles fast, climbs onto containers and walls, drops onto cars. F fires a steel web that pins the car in front for 3 s. Up close F bites instead (poison); a web hit near another car ties the two together, near a wall it sticks the car to it; J leaps high. Heavy rams snap its legs: every leg lost makes it slower.', style: 'spider', mass: 1600, L: 2.4, W: 1.7, H: 0.6, wheelR: 0.3, wheelW: 0.2, wb: 1.5, axles: [0.75, 0.25, -0.25, -0.75], track: 1.44, power: 1.0, grip: 1.1, armor: 1.0, cabin: { l: 0.9, h: 0.45, w: 0.95, x: 0.7 }, color: 0x7a5232, redline: 5200, idle: 900, cyl: 2 };
 
 const S = {};
 const STORE_KEY = 'scrapyard-derby-settings-v9';
@@ -2806,10 +2808,10 @@ const WEAPONS = {
       p.needsUpdate = true;
     },
   },
-  trunk: { label: 'TRUNK', cd: 1.2, dur: 1.5, // the steam elephant: grab a light car and fling it sideways; nothing in reach, a cone of steam (see WALK)
-    start(car) { WALK.trunkStart(car); },
-    update(car, dt) { WALK.trunkUpdate(car, dt); },
-    tick(car, dt) { if (car.steamOn) WALK.steamTick(car, dt); },
+  trunk: { label: 'TRUNK', cd: 1.2, dur: 1.5, // the steam elephant: grab a light car and fling it sideways; nothing in reach, a cone of steam (see ELEPHANT)
+    start(car) { ELEPHANT.trunkStart(car); },
+    update(car, dt) { ELEPHANT.trunkUpdate(car, dt); },
+    tick(car, dt) { if (car.steamOn) ELEPHANT.steamTick(car, dt); },
   },
   lift: { label: 'FORKS', cd: 0.5, dur: 0, // slide the forks under a car, hoist it, carry it, toss it
     start(car) {
@@ -3975,6 +3977,7 @@ function SPIDER() { // shared by every spider, made once: one pipe material, two
 const _wf = new CANNON.Vec3(), _wt = new CANNON.Vec3(), _wr = new CANNON.RaycastResult(), _wF = new CANNON.Vec3(), _wR = new CANNON.Vec3(), _wQ = new CANNON.Quaternion(), _wA = new CANNON.Vec3(), _wL = new CANNON.Vec3(), _wP = new CANNON.Vec3();
 const _nz = (x, top) => (Number.isNaN(x) ? top : x); // (a feeler that found nothing counts as the highest one)
 const _walkRay = { skipBackfaces: true, collisionFilterMask: ~LIGHT }; // feet stand on the ground, scenery, heavy props and cars (not on debris or crates)
+const _walkRayNC = { skipBackfaces: true, collisionFilterMask: ~(LIGHT | CARG) }; // (T.walk.noCars: the elephant's feet never stand on a car)
 const _lq = new THREE.Quaternion(), _lqi = new THREE.Quaternion(), _lh = new THREE.Vector3(), _lk = new THREE.Vector3(), _lf = new THREE.Vector3(), _ld = new THREE.Vector3(), _lp = new THREE.Vector3(), _lo = new THREE.Vector3(), _lm = new THREE.Matrix4(), _lY = new THREE.Vector3(0, 1, 0), _lS = new THREE.Vector3(1, 1, 1), _lqq = new THREE.Quaternion();
 function webLine(car) { // the steel web: one cable from the spinneret to the victim's roof, three more from the roof to the ground (one draw)
   const w = car.web; let L = car.webLine; if (!w) { if (L) L.visible = false; return; }
@@ -4052,56 +4055,46 @@ function foldMat(m, local) {
   return f;
 }
 /* ---------------- Walkers: the Brass Steam Elephant ----------------
-   No RaycastVehicle: one body held up on four hover springs (a ray straight down from each hip), pushed along by drive forces.
+   It walks on the one walker path every walker shares (Car.walkStep: feelers, a standing spring and drive forces, tuned by T.walk);
+   these are its per-type hooks (WALK_HOOKS): shapes, model, boiler step, legs/trunk/gauge per frame, trunk and steam, boiler hits, AI.
    The legs are drawn procedurally: each foot is planted on the ground and stays put while the body walks over it, then swings to
    its next spot (an elephant's walk: left hind, left fore, right hind, right fore), with a two-bone IK knee. All four legs and the
    trunk are two skinned meshes (two draw calls). Remote copies animate from the snapshot's velocity, pressure and flags. */
-const WALK = {
-  REST: 2.42, VMAX: 6, VREV: 3, YAW: 0.85, CYC: 3.4, DUTY: 0.6, HIP_Y: 0.35, UP: 1.3, LO: 1.25, ANK: 0.22,
+const ELEPHANT = {
+  REST: 2.42, CYC: 3.4, DUTY: 0.6, HIP_Y: 0.35, UP: 1.3, LO: 1.25, ANK: 0.22,
   OFF: [0.25, 0.75, 0, 0.5], // FL, FR, RL, RR (lateral-sequence walk: RL, FL, RR, FR)
   TR: [0.8, 0.7, 0.6], TROOT: [3.5, 0.8], // trunk segment lengths, root (body frame x, y)
   REDLINE: 0.85, BLEED: 0.012,
   rayOpt: { skipBackfaces: true, collisionFilterMask: ~(LIGHT | CARG) },
-  v1: new CANNON.Vec3(), v2: new CANNON.Vec3(), vp: new CANNON.Vec3(), F: new CANNON.Vec3(), R: new CANNON.Vec3(), qi: new CANNON.Quaternion(), wl: new CANNON.Vec3(), rr: new CANNON.RaycastResult(),
+  v1: new CANNON.Vec3(), v2: new CANNON.Vec3(), rr: new CANNON.RaycastResult(), hl: new CANNON.Vec3(),
   m4: new THREE.Matrix4(), t3: new THREE.Vector3(), one: new THREE.Vector3(1, 1, 1), ang: [0, 0, 0],
   mats() {
-    if (WALK.M) return WALK.M;
+    if (ELEPHANT.M) return ELEPHANT.M;
     const S0 = (c, r, m) => new THREE.MeshStandardMaterial({ color: c, roughness: r, metalness: m });
     const dialTex = canvasTex(128, (g, s) => { // the boiler's pressure gauge: green, amber, then the red line
       const r = s / 2, A0 = -Math.PI / 2 - 3 * Math.PI / 4, span = 3 * Math.PI / 2;
       g.fillStyle = '#f2ead2'; g.fillRect(0, 0, s, s); g.lineWidth = s * 0.12;
-      for (const [a, b, col] of [[0, 0.55, '#2f9a3a'], [0.55, WALK.REDLINE, '#e8b020'], [WALK.REDLINE, 1, '#d81e10']]) { g.strokeStyle = col; g.beginPath(); g.arc(r, r, r * 0.7, A0 + span * a, A0 + span * b); g.stroke(); }
+      for (const [a, b, col] of [[0, 0.55, '#2f9a3a'], [0.55, ELEPHANT.REDLINE, '#e8b020'], [ELEPHANT.REDLINE, 1, '#d81e10']]) { g.strokeStyle = col; g.beginPath(); g.arc(r, r, r * 0.7, A0 + span * a, A0 + span * b); g.stroke(); }
       g.strokeStyle = '#1a1410'; g.lineWidth = s * 0.025;
       for (let k = 0; k <= 10; k++) { const a = A0 + span * k / 10; g.beginPath(); g.moveTo(r + Math.cos(a) * r * 0.5, r + Math.sin(a) * r * 0.5); g.lineTo(r + Math.cos(a) * r * 0.86, r + Math.sin(a) * r * 0.86); g.stroke(); }
       g.lineWidth = s * 0.05; g.beginPath(); g.arc(r, r, r * 0.95, 0, Math.PI * 2); g.stroke();
     });
-    return (WALK.M = { iron: S0(0x2a2420, 0.55, 0.8), wood: S0(0x6b4424, 0.8, 0), cloth: S0(0xa8221c, 0.85, 0), gold: S0(0xe8b84a, 0.3, 0.9), khaki: S0(0xb59a64, 0.9, 0), skin: S0(0x4a2c1c, 0.65, 0), hat: S0(0x6f6a3c, 0.9, 0), scarf: S0(0xd23a1e, 0.8, 0), ivory: S0(0xeee4c8, 0.45, 0),
+    return (ELEPHANT.M = { iron: S0(0x2a2420, 0.55, 0.8), wood: S0(0x6b4424, 0.8, 0), cloth: S0(0xa8221c, 0.85, 0), gold: S0(0xe8b84a, 0.3, 0.9), khaki: S0(0xb59a64, 0.9, 0), skin: S0(0x4a2c1c, 0.65, 0), hat: S0(0x6f6a3c, 0.9, 0), scarf: S0(0xd23a1e, 0.8, 0), ivory: S0(0xeee4c8, 0.45, 0),
       dial: new THREE.MeshStandardMaterial({ map: dialTex, roughness: 0.4, emissive: 0xffffff, emissiveMap: dialTex, emissiveIntensity: 0.35 }), needle: S0(0x101010, 0.5, 0.3) });
   },
-  init(c, b, x, z, yaw) { // the Car constructor hands over here for a walker
+  shapes(c, b) { // per-type hook from the Car constructor: the elephant's collision shapes and boiler state (it walks on the shared walker path, Car.walkStep)
     const T = c.T;
     c.baseColor.setHex(T.color); // always brass: the colour is the character
     b.angularDamping = 0.5;
     b.addShape(new CANNON.Box(new CANNON.Vec3(2.5, 1.45, 1.22)), new CANNON.Vec3(0, 0.35, 0)); // the barrel body, down to 1.2 m off the ground (no driving under its belly)
     b.addShape(new CANNON.Box(new CANNON.Vec3(0.6, 0.7, 0.7)), new CANNON.Vec3(2.95, 1.0, 0)); // head
-    for (const sx of [-1, 1]) for (const sz of [-1, 1]) b.addShape(new CANNON.Box(new CANNON.Vec3(0.38, 0.4, 0.38)), new CANNON.Vec3(sx * T.wb / 2, -1.45, sz * T.track / 2)); // legs (0.45 m clear of the ground: the springs carry it)
-    c.baseOffsets = b.shapeOffsets.map((o) => o.clone());
-    b.position.set(x, WALK.REST + 0.1, z); b.quaternion.setFromAxisAngle(AX_Y, yaw); b.car = c;
-    c.axles = [T.wb / 2, -T.wb / 2]; c.axleMid = 0; c.nW = 4; c.axlePairs = [[0, 1], [2, 3]];
-    c.wheelBase = [[T.wb / 2, -T.track / 2], [T.wb / 2, T.track / 2], [-T.wb / 2, -T.track / 2], [-T.wb / 2, T.track / 2]]; // FL, FR, RL, RR (as wheels: even = left)
-    c.wheelDmg = [0, 0, 0, 0]; c.wheelLost = [false, false, false, false]; c.lastSkid = [null, null, null, null];
-    c.gear = 1; c.rpm = T.idle; c.shiftT = 0; c.jumpBuf = 0; c.vTop = WALK.VMAX; c.connY = 0; c.comShift = 0;
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) b.addShape(new CANNON.Box(new CANNON.Vec3(0.38, 0.4, 0.38)), new CANNON.Vec3(sx * T.wb / 2, -1.45, sz * T.track / 2)); // legs (0.45 m clear of the ground: the walker spring carries it)
     c.pressure = 0; c.stallT = 0; c.whistleT = 0; c.forkH = 0; c.trunkSwing = 0; c.steamK = 0;
-    // the rest of the game reads wheelInfos (contact, ground point): the hover springs fill these in
-    const wi = c.wheelBase.map(([wx, wz]) => ({ isInContact: false, raycastResult: new CANNON.RaycastResult(), suspensionLength: WALK.REST, suspensionRestLength: WALK.REST, chassisConnectionPointLocal: new CANNON.Vec3(wx, 0, wz), chassisConnectionPointWorld: new CANNON.Vec3(), worldTransform: { position: new CANNON.Vec3(), quaternion: new CANNON.Quaternion() }, frictionSlip: 1, engineForce: 0, sliding: false, skidInfo: 1, radius: T.wheelR, maxSuspensionTravel: 0.5, suspensionStiffness: 30, dampingRelaxation: 2, dampingCompression: 3, rollInfluence: 0, steering: 0 }));
-    c.vehicle = { walker: true, wheelInfos: wi, setSteeringValue() {}, applyEngineForce(f, i) { wi[i].engineForce = f; }, setBrake() {}, updateWheelTransform() {}, addToWorld(w) { w.addBody(b); }, removeFromWorld(w) { w.removeBody(b); } };
-    world.addBody(b);
-    b.addEventListener('collide', (e) => c.onCollide(e));
-    WALK.build(c); c.mergeStaticParts(); c.setInertia();
   },
+  step(c, dt) { ELEPHANT.boiler(c, dt); }, // per-type hook, every physics sub-step from Car.walkStep (host and solo)
   build(c) {
     const T = c.T, g = c.group = new THREE.Group(), root = c.root = new THREE.Group(); g.add(root); scene.add(g);
-    const D = WALK.mats();
+    const D = ELEPHANT.mats();
     c.paint = (QUALITY.level ?? 0) <= 2 ? new THREE.MeshPhysicalMaterial({ color: c.baseColor.clone(), map: grimeTex, roughness: 0.32, metalness: 0.85, envMapIntensity: 1.4, clearcoat: 0.3, clearcoatRoughness: 0.3 })
       : new THREE.MeshStandardMaterial({ color: c.baseColor.clone(), map: grimeTex, roughness: 0.32, metalness: 0.85, envMapIntensity: 1.3 });
     c.boilerMat = new THREE.MeshStandardMaterial({ color: 0xb8612e, roughness: 0.3, metalness: 0.9, emissive: 0xff3a10, emissiveIntensity: 0 }); // copper: glows red as the pressure climbs
@@ -4159,7 +4152,7 @@ const WALK = {
       add(new THREE.SphereGeometry(0.17, 12, 10), D.skin, dx + 0.02, dy + 0.82, 0); add(cyl(0.33, 0.33, 0.03, 16), D.hat, dx, dy + 0.94, 0); add(cyl(0.15, 0.17, 0.15, 12), D.hat, dx, dy + 1.02, 0);
       for (const s of [-1, 1]) { const arm = add(new THREE.BoxGeometry(0.12, 0.42, 0.12), D.khaki, dx + 0.18, dy + 0.42, s * 0.3); arm.rotation.z = -0.9; add(new THREE.SphereGeometry(0.06, 6, 4), D.skin, dx + 0.38, dy + 0.3, s * 0.3); } }
     // legs and trunk: bones, and two skinned meshes (brass and iron) that draw all of them in two calls
-    const bones = [], brass = [], iron = [], { HIP_Y, UP, LO } = WALK;
+    const bones = [], brass = [], iron = [], { HIP_Y, UP, LO } = ELEPHANT;
     c.legs = c.wheelBase.map(([hx, hz], i) => {
       const hip = new THREE.Group(); hip.position.set(hx, HIP_Y, hz); root.add(hip);
       const knee = new THREE.Group(); knee.position.set(0, -UP, 0); hip.add(knee);
@@ -4172,7 +4165,7 @@ const WALK = {
       for (let k = -1; k <= 1; k++) iron.push([new THREE.BoxGeometry(0.14, 0.12, 0.14).translate(hx + 0.5, ya - 0.14, hz + k * 0.22), bi + 2]); // toenails
       return { hip, knee, foot, hx, hz };
     });
-    { const [rx, ry] = WALK.TROOT, TR = WALK.TR, tb = [], rad = [0.3, 0.24, 0.18, 0.13]; let par = root, y = ry;
+    { const [rx, ry] = ELEPHANT.TROOT, TR = ELEPHANT.TR, tb = [], rad = [0.3, 0.24, 0.18, 0.13]; let par = root, y = ry;
       for (let k = 0; k < 3; k++) { const bn = new THREE.Group(); bn.position.set(k ? 0 : rx, k ? -TR[k - 1] : ry, 0); par.add(bn); par = bn; tb.push(bn); bones.push(bn); const bi = bones.length - 1;
         brass.push([cyl(rad[k], rad[k + 1], TR[k]).translate(rx, y - TR[k] / 2, 0), bi]); iron.push([cyl(rad[k] + 0.03, rad[k] + 0.03, 0.07).translate(rx, y - 0.05, 0), bi]); y -= TR[k]; }
       iron.push([cyl(0.13, 0.2, 0.16).translate(rx, y - 0.06, 0), bones.length - 1]); // the steam nozzle
@@ -4185,55 +4178,8 @@ const WALK = {
     root.updateMatrixWorld(true); c.legSkel = new THREE.Skeleton(bones); for (const m of c.legSkin) m.bind(c.legSkel);
     c.gait = { ph: 0, n: 0, acc: 0, feet: c.legs.map(() => ({ p: new THREE.Vector3(), from: new THREE.Vector3(), gy: 0, sw: false, init: false })) };
   },
-  dispose(c) { if (c.legSkel) c.legSkel.dispose(); if (c.hold) WALK.release(c, false); },
-  ground(x, z, y) { const r = WALK.rr; r.reset(); WALK.v1.set(x, y + 1.5, z); WALK.v2.set(x, y - 6, z); world.raycastClosest(WALK.v1, WALK.v2, WALK.rayOpt, r); return r.hasHit ? r.hitPointWorld.y : 0; },
-  /* ---- physics, every sub-step (host and solo) ---- */
-  physics(c, dt) {
-    const b = c.body, T = c.T, wi = c.vehicle.wheelInfos, g0 = S.gravity;
-    b.quaternion.vmult(AX_X, c.fwd); b.quaternion.vmult(AX_Y, c.up);
-    const fl = Math.hypot(c.fwd.x, c.fwd.z) || 1, fx = c.fwd.x / fl, fz = c.fwd.z / fl, vF = b.velocity.x * fx + b.velocity.z * fz, vL = b.velocity.x * -fz + b.velocity.z * fx;
-    c.speed = vF;
-    WALK.boiler(c, dt);
-    const dead = c.wrecked || c.stallT > 0;
-    const rest = c.wrecked ? 1.2 : c.stallT > 0 ? 2.12 : WALK.REST; // stalled: it sags on its knees; wrecked: it sits down
-    const K = b.mass * g0 / 4 / 0.12, C = 2 * 0.8 * Math.sqrt(K * b.mass / 4);
-    let contacts = 0;
-    for (let i = 0; i < 4; i++) { // hover springs: a ray straight down from each hip
-      const w = wi[i], from = w.chassisConnectionPointWorld; b.pointToWorldFrame(w.chassisConnectionPointLocal, from);
-      const r = w.raycastResult; r.reset(); WALK.v2.set(from.x, from.y - rest - 0.9, from.z); world.raycastClosest(from, WALK.v2, WALK.rayOpt, r);
-      const d = r.hasHit ? r.distance : rest + 0.9; w.suspensionLength = d; w.isInContact = r.hasHit && d < rest + 0.3; if (w.isInContact) contacts++;
-      if (!r.hasHit || d >= rest) continue;
-      from.vsub(b.position, WALK.R); b.getVelocityAtWorldPoint(from, WALK.vp);
-      const f = clamp(K * (rest - d) - C * WALK.vp.y, 0, b.mass * g0 * 1.6); WALK.F.set(0, f, 0); b.applyForce(WALK.F, WALK.R);
-    }
-    c.contacts = contacts;
-    b.quaternion.conjugate(WALK.qi); WALK.qi.vmult(b.angularVelocity, WALK.wl); const wl = WALK.wl;
-    if (contacts >= 2) { const k = Math.exp(-dt * 3); wl.x *= k; wl.z *= k; } // a walking machine keeps its balance
-    const thr = dead ? 0 : c.ctrl.throttle, steer = dead ? 0 : c.ctrl.steer, brake = !dead && (c.ctrl.brake || c.ctrl.handbrake);
-    c.boosting = !dead && c.ctrl.nitro && c.nitro > 0.01 && thr > 0; if (c.boosting) c.nitro = Math.max(0, c.nitro - dt * 0.3);
-    const slow = (c.stuckConcrete ? 0.35 : 1) * (c.inMud ? 0.6 : 1) * (1 - c.engineDmg * 0.3), vmax = WALK.VMAX * (c.boosting ? 1.3 : 1) * slow;
-    const want = brake ? 0 : thr > 0 ? thr * vmax : thr * WALK.VREV * slow, gnd = contacts / 4;
-    if (gnd > 0 && !c.craned) {
-      const acc = brake || c.stallT > 0 ? 12 : thr !== 0 && Math.sign(thr) !== Math.sign(vF) && Math.abs(vF) > 0.5 ? 6 : thr === 0 ? 5 : 3.2;
-      const aF = clamp((want - vF) * 4, -acc, acc) * gnd, shoved = simTime - (c.blastT ?? -9) < 0.5, aL = shoved ? 0 : clamp(-vL * 5, -10, 10) * gnd; // feet don't slide sideways
-      WALK.F.set((fx * aF - fz * aL) * b.mass, 0, (fz * aF + fx * aL) * b.mass); b.applyForce(WALK.F);
-      const yawW = steer * WALK.YAW * (vF < -0.5 && thr < 0 ? -1 : 1) * (brake ? 0.5 : 1); // turns on the spot too; backing up steers like a car
-      wl.y = lerp(wl.y, yawW, clamp(dt * 5 * gnd, 0, 1));
-      // pushing into something low it can't walk through: it steps up and over
-      c.slowT = thr !== 0 && Math.abs(vF) < 0.5 ? (c.slowT || 0) + dt : 0;
-      if (c.slowT > 1.2) { c.slowT = 0; b.velocity.y += 2.8; b.velocity.x += fx * 1.5 * Math.sign(thr); b.velocity.z += fz * 1.5 * Math.sign(thr); }
-    }
-    b.quaternion.vmult(wl, b.angularVelocity);
-    c.braking = brake && Math.abs(vF) > 0.5;
-    c.rpm = lerp(c.rpm, T.idle + (T.redline - T.idle) * clamp(Math.abs(vF) / WALK.VMAX + Math.abs(thr) * 0.15, 0, 1.1), clamp(dt * 6, 0, 1));
-    // the ground it stands in
-    const p = b.position; c.stuckConcrete = false;
-    if (contacts > 0) for (const pd of CONCRETE.list) if (pd.kind === 'concrete' && pd.t > 2 && (p.x - pd.x) ** 2 + (p.z - pd.z) ** 2 < (pd.r + 0.8) ** 2) { c.stuckConcrete = true; break; }
-    c.onFire = false; if (!c.wrecked && !(c.douse > 0)) { for (const pd of CONCRETE.list) if (pd.kind === 'fuel' && pd.burning > 0 && (p.x - pd.x) ** 2 + (p.z - pd.z) ** 2 < (pd.r + 1) ** 2) { c.onFire = true; break; } if (!c.onFire && ARENA.firePit && inFirePit({ x: p.x, y: 0.5, z: p.z })) c.onFire = true; }
-    if (c.douse > 0) c.douse -= dt; if (c.wet > 0) c.wet = Math.max(0, c.wet - dt * 0.45);
-    c.inWater = contacts > 0 && !!puddleAt(p.x, p.z, 'water', 0.3); c.onOil = false;
-    c.inMud = false; if (contacts > 0) for (const m of ARENA.mud) if ((p.x - m.x) ** 2 + (p.z - m.z) ** 2 < m.r * m.r) { c.inMud = true; break; }
-  },
+  dispose(c) { if (c.legSkel) c.legSkel.dispose(); if (c.hold) ELEPHANT.release(c, false); },
+  ground(x, z, y) { const r = ELEPHANT.rr; r.reset(); ELEPHANT.v1.set(x, y + 1.5, z); ELEPHANT.v2.set(x, y - 6, z); world.raycastClosest(ELEPHANT.v1, ELEPHANT.v2, ELEPHANT.rayOpt, r); return r.hasHit ? r.hitPointWorld.y : 0; },
   /* ---- the boiler: hits and heat raise the pressure; at the red line it whistles, then blows its top and stalls ---- */
   hit(c, dmg, by, zone, model, dv) { // from applyDamage (host and solo)
     if (c.wrecked || !(dmg > 0) || MP.role === 'guest' || zone === 'bottom') return;
@@ -4256,15 +4202,15 @@ const WALK = {
   boiler(c, dt) {
     if (c.wrecked) { c.stallT = 0; c.whistleT = 0; return; }
     if (c.stallT > 0) { c.stallT -= dt; if (c.stallT <= 0) { c.stallT = 0; if (c.isPlayer && game.state === 'playing') toast('BOILER BACK UP · TWENDE!', 'cool'); } return; }
-    c.heatT = (c.heatT || 0) - dt; if (c.heatT <= 0) { c.heatT = 0.3; c.heatNear = WALK.heat(c); }
+    c.heatT = (c.heatT || 0) - dt; if (c.heatT <= 0) { c.heatT = 0.3; c.heatNear = ELEPHANT.heat(c); }
     const heat = (c.burnT > 0 ? 0.09 : 0) + (c.onFire ? 0.09 : 0) + (c.heatNear ? 0.06 : 0);
-    c.pressure = clamp((c.pressure || 0) + (heat - WALK.BLEED) * dt, 0, 1);
-    if (c.whistleT > 0) { c.whistleT -= dt; if (c.pressure < WALK.REDLINE - 0.07) c.whistleT = 0; else if (c.whistleT <= 0) WALK.blow(c); } // vent steam in time and it calms down
-    else if (c.pressure >= WALK.REDLINE) { c.whistleT = 1.3; if (c.isPlayer && game.state === 'playing') toast('BOILER AT THE RED LINE! VENT STEAM (F)', 'bad'); }
+    c.pressure = clamp((c.pressure || 0) + (heat - ELEPHANT.BLEED) * dt, 0, 1);
+    if (c.whistleT > 0) { c.whistleT -= dt; if (c.pressure < ELEPHANT.REDLINE - 0.07) c.whistleT = 0; else if (c.whistleT <= 0) ELEPHANT.blow(c); } // vent steam in time and it calms down
+    else if (c.pressure >= ELEPHANT.REDLINE) { c.whistleT = 1.3; if (c.isPlayer && game.state === 'playing') toast('BOILER AT THE RED LINE! VENT STEAM (F)', 'bad'); }
   },
   blow(c) { // the safety valve goes: a huge cloud of steam, and the elephant stalls for ~4 s
     c.whistleT = 0; c.stallT = 4; c.pressure = 0.15; c.blownN = (c.blownN || 0) + 1;
-    if (c.hold) WALK.release(c, false);
+    if (c.hold) ELEPHANT.release(c, false);
     const by = c.lastAttacker && simTime - c.lastAttackTime < 5 ? c.lastAttacker : null;
     c.applyDamage(5 * S.damage, by, null, null, 0);
     if (PLAYLOG.m) PLAYLOG.V(c.type).blows = (PLAYLOG.V(c.type).blows || 0) + 1;
@@ -4274,9 +4220,9 @@ const WALK = {
     }
   },
   blowFx(c) { // host and guests alike: when the stall starts
-    const b = c.body, p = b.pointToWorldFrame(WALK.v1.set(-1.2, 3.1, 0)), n = QUALITY.lite ? 18 : 40;
+    const b = c.body, p = b.pointToWorldFrame(ELEPHANT.v1.set(-1.2, 3.1, 0)), n = QUALITY.lite ? 18 : 40;
     for (let i = 0; i < n; i++) emit('steam', p.x + rand(-0.6, 0.6), p.y + rand(0, 0.5), p.z + rand(-0.6, 0.6), rand(-4, 4), rand(4, 11), rand(-4, 4), rand(1.4, 2.6), rand(0.6, 1.3));
-    for (let i = 0; i < 8; i++) emit('debris', p.x, p.y, p.z, rand(-4, 4), rand(5, 9), rand(-4, 4), rand(1.5, 2.5), rand(0.06, 0.14), WALK.mats().gold);
+    for (let i = 0; i < 8; i++) emit('debris', p.x, p.y, p.z, rand(-4, 4), rand(5, 9), rand(-4, 4), rand(1.5, 2.5), rand(0.06, 0.14), ELEPHANT.mats().gold);
     c.lidPop = 1;
     if (player) { const d = player.body.position.distanceTo(b.position), v = clamp(1 - d / 110, 0, 1); sfx.at(p).explosion(v * 0.45, false); sfx.at(p).noiseHit('highpass', 1800, 0.6, v * 0.5, 2.4); sfx.at(p).noiseHit('bandpass', 500, 0.7, v * 0.25, 1.6); if (d < 30) game.shake = Math.min(1.2, game.shake + 0.5 * (1 - d / 30)); }
   },
@@ -4289,8 +4235,8 @@ const WALK = {
     return out;
   },
   trunkTip(lift, steam, out) { // the trunk tip in the body frame (the same chain the bones draw)
-    const a = WALK.trunkAngles(lift, steam, 0, WALK.ang); let x = WALK.TROOT[0], y = WALK.TROOT[1], s = 0;
-    for (let k = 0; k < 3; k++) { s += a[k]; x += WALK.TR[k] * Math.sin(s); y -= WALK.TR[k] * Math.cos(s); }
+    const a = ELEPHANT.trunkAngles(lift, steam, 0, ELEPHANT.ang); let x = ELEPHANT.TROOT[0], y = ELEPHANT.TROOT[1], s = 0;
+    for (let k = 0; k < 3; k++) { s += a[k]; x += ELEPHANT.TR[k] * Math.sin(s); y -= ELEPHANT.TR[k] * Math.cos(s); }
     return out.set(x, y, 0);
   },
   grabbable(c) {
@@ -4306,11 +4252,11 @@ const WALK = {
   trunkStart(c) {
     if (c.stallT > 0) { c.specialT = 0; c.specialCd = 0.4; if (c.isPlayer) toast('BOILER STALLED!', 'bad'); return; }
     if (c.hold) { c.specialT = 0; return; }
-    const t = WALK.grabbable(c), b = c.body; c.trunkUses = (c.trunkUses || 0) + 1;
+    const t = ELEPHANT.grabbable(c), b = c.body; c.trunkUses = (c.trunkUses || 0) + 1;
     if (t) {
       c.specialT = 0; c.specialCd = 2.6; c.steamOn = false;
       const vb = t.body; t.massSave = vb.mass; vb.mass = 300; vb.updateMassProperties(); vb.wakeUp();
-      const piv = WALK.trunkTip(0, 0, new CANNON.Vec3()), con = new CANNON.PointToPointConstraint(b, piv, vb, new CANNON.Vec3(0, 0.2, 0), 2.5e5); con.collideConnected = false; world.addConstraint(con);
+      const piv = ELEPHANT.trunkTip(0, 0, new CANNON.Vec3()), con = new CANNON.PointToPointConstraint(b, piv, vb, new CANNON.Vec3(0, 0.2, 0), 2.5e5); con.collideConnected = false; world.addConstraint(con);
       // which way to throw it: toward the crusher, the fire pit or the wrecking ball if one is on that side, else away from the walls
       const fl = Math.hypot(c.fwd.x, c.fwd.z) || 1, rx = -c.fwd.z / fl, rz = c.fwd.x / fl, P0 = b.position; let side = b.pointToLocalFrame(vb.position).z >= 0 ? 1 : -1, bestD = 1e9;
       const F = ARENA.firePit, spots = [[CRUSHER.x, CRUSHER.z], [BALL.px, BALL.pz]].concat(F ? [[(F.x0 + F.x1) / 2, F.z]] : []);
@@ -4341,17 +4287,17 @@ const WALK = {
     const k = c.hold;
     if (k && !c.ghost) {
       k.t += dt; const lift = Math.min(1, k.t / 0.8); c.forkH = lift;
-      WALK.trunkTip(lift, 0, k.con.pivotA); k.con.pivotA.x += 0.25; k.con.pivotA.y -= 0.45; // the car dangles under the curled trunk
-      if (!cars.includes(k.c) || c.wrecked || c.stallT > 0) WALK.release(c, false);
-      else if (k.t > 1.05) WALK.release(c, true);
+      ELEPHANT.trunkTip(lift, 0, k.con.pivotA); k.con.pivotA.x += 0.25; k.con.pivotA.y -= 0.45; // the car dangles under the curled trunk
+      if (!cars.includes(k.c) || c.wrecked || c.stallT > 0) ELEPHANT.release(c, false);
+      else if (k.t > 1.05) ELEPHANT.release(c, true);
     } else if (!c.ghost) c.forkH = Math.max(0, (c.forkH || 0) - dt * 2.5);
     if (c.steamOn && !(c.specialT > 0)) c.steamOn = false;
     c.steamK = lerp(c.steamK || 0, c.steamOn || c.steamFlag ? 1 : 0, clamp(dt * 8, 0, 1));
     c.trunkSwing = (c.trunkSwing || 0) * Math.exp(-dt * 3);
   },
   steamTick(c, dt) { // host and solo: the cone of steam does its work
-    const b = c.body, tip = b.pointToWorldFrame(WALK.trunkTip(0, 1, WALK.v1), WALK.v2), fl = Math.hypot(c.fwd.x, c.fwd.z) || 1, fx = c.fwd.x / fl, fz = c.fwd.z / fl;
-    WALK.steamFx(c, tip, fx, fz);
+    const b = c.body, tip = b.pointToWorldFrame(ELEPHANT.trunkTip(0, 1, ELEPHANT.v1), ELEPHANT.v2), fl = Math.hypot(c.fwd.x, c.fwd.z) || 1, fx = c.fwd.x / fl, fz = c.fwd.z / fl;
+    ELEPHANT.steamFx(c, tip, fx, fz);
     c.pressure = Math.max(0, (c.pressure || 0) - dt * 0.1); // venting lets the pressure off
     if (c.burnT > 0) c.burnT = 0; c.douse = Math.max(c.douse || 0, 1);
     const inCone = (q, r) => { const vx = q.x - tip.x, vz = q.z - tip.z, al = vx * fx + vz * fz; return al > -1 && al < r && Math.abs(vx * fz - vz * fx) < 1.4 + Math.max(0, al) * 0.35 ? Math.max(0, al) : -1; };
@@ -4368,47 +4314,47 @@ const WALK = {
   steamFx(c, tip, fx, fz) { for (let i = 0; i < (QUALITY.lite ? 3 : 6); i++) emit('steam', tip.x, tip.y, tip.z, fx * rand(12, 18) + rand(-2, 2), rand(-1, 2), fz * rand(12, 18) + rand(-2, 2), rand(0.6, 1.0), rand(0.3, 0.6)); },
   /* ---- per rendered frame (every machine): legs, trunk, gauge, smoke ---- */
   frame(c, dt) {
-    const b = c.body, G = c.gait, pr = clamp(c.pressure || 0, 0, 1), red = pr >= WALK.REDLINE || c.whistleT > 0;
+    const b = c.body, G = c.gait, pr = clamp(c.pressure || 0, 0, 1), red = pr >= ELEPHANT.REDLINE || c.whistleT > 0;
     c.gaugeNeedle.rotation.z = 2.356 - pr * 4.712 + (red ? Math.sin(clock * 47) * 0.07 : 0); // the gauge on the back of the boiler: you can read the danger off the elephant
     c.boilerMat.emissiveIntensity = Math.max(0, pr - 0.45) * 2 * (red ? 0.7 + 0.3 * Math.sin(clock * 18) : 1);
     c.lidPop = Math.max(0, (c.lidPop || 0) - dt * 0.8); c.boilerLid.position.y = c.lidY0 + Math.sin(Math.min(1, (1 - c.lidPop) * 1.6) * Math.PI) * c.lidPop * 1.6; c.boilerLid.rotation.x = c.lidPop * 6;
-    const stalled = c.stallT > 0; if (stalled && !c._wasStall) WALK.blowFx(c); c._wasStall = stalled;
-    const wh = c.whistleT > 0; if (wh && !c._wasWh) WALK.whistle(c); c._wasWh = wh;
+    const stalled = c.stallT > 0; if (stalled && !c._wasStall) ELEPHANT.blowFx(c); c._wasStall = stalled;
+    const wh = c.whistleT > 0; if (wh && !c._wasWh) ELEPHANT.whistle(c); c._wasWh = wh;
     const cd = camera.position.distanceTo(b.position), near = cd < 80;
-    if (near && (pr > 0.7 || wh) && Math.random() < (wh ? 0.8 : 0.25)) { const q = b.pointToWorldFrame(WALK.v1.set(-0.9, 3.3, 0)); emit('steam', q.x, q.y, q.z, rand(-0.5, 0.5), rand(3, 5), rand(-0.5, 0.5), rand(0.5, 0.9), rand(0.2, 0.4)); } // the safety valve hisses
-    if (near && stalled && Math.random() < 0.4) { const lg = c.legs[Math.random() * 4 | 0], q = b.pointToWorldFrame(WALK.v1.set(lg.hx, 0.2, lg.hz)); emit('steam', q.x, q.y, q.z, rand(-1, 1), rand(0.5, 2), rand(-1, 1), rand(0.6, 1.2), rand(0.3, 0.6)); }
-    if (c.ghost && c.steamFlag) { const tip = b.pointToWorldFrame(WALK.trunkTip(0, 1, WALK.v1), WALK.v2), fl = Math.hypot(c.fwd.x, c.fwd.z) || 1; WALK.steamFx(c, tip, c.fwd.x / fl, c.fwd.z / fl); }
-    c.chuffT = (c.chuffT || 0) - dt; if (near && !stalled && !c.wrecked && c.chuffT <= 0) { c.chuffT = 0.9; WALK.chuff(c, 0.5); }
+    if (near && (pr > 0.7 || wh) && Math.random() < (wh ? 0.8 : 0.25)) { const q = b.pointToWorldFrame(ELEPHANT.v1.set(-0.9, 3.3, 0)); emit('steam', q.x, q.y, q.z, rand(-0.5, 0.5), rand(3, 5), rand(-0.5, 0.5), rand(0.5, 0.9), rand(0.2, 0.4)); } // the safety valve hisses
+    if (near && stalled && Math.random() < 0.4) { const lg = c.legs[Math.random() * 4 | 0], q = b.pointToWorldFrame(ELEPHANT.v1.set(lg.hx, 0.2, lg.hz)); emit('steam', q.x, q.y, q.z, rand(-1, 1), rand(0.5, 2), rand(-1, 1), rand(0.6, 1.2), rand(0.3, 0.6)); }
+    if (c.ghost && c.steamFlag) { const tip = b.pointToWorldFrame(ELEPHANT.trunkTip(0, 1, ELEPHANT.v1), ELEPHANT.v2), fl = Math.hypot(c.fwd.x, c.fwd.z) || 1; ELEPHANT.steamFx(c, tip, c.fwd.x / fl, c.fwd.z / fl); }
+    c.chuffT = (c.chuffT || 0) - dt; if (near && !stalled && !c.wrecked && c.chuffT <= 0) { c.chuffT = 0.9; ELEPHANT.chuff(c, 0.5); }
     // trunk
-    const a = WALK.trunkAngles(c.forkH || 0, c.steamK || 0, clock, WALK.ang); for (let k = 0; k < 3; k++) c.trunkBones[k].rotation.z = a[k] * (stalled ? 0.3 : 1);
+    const a = ELEPHANT.trunkAngles(c.forkH || 0, c.steamK || 0, clock, ELEPHANT.ang); for (let k = 0; k < 3; k++) c.trunkBones[k].rotation.z = a[k] * (stalled ? 0.3 : 1);
     c.trunkBones[0].rotation.y = c.trunkSwing || 0;
     // legs (far away: a third as often)
     G.acc += dt; if (cd > 70 && (G.n = (G.n + 1) % 3)) return; const ldt = Math.min(0.1, G.acc); G.acc = 0;
-    const v = b.velocity, hv = Math.hypot(v.x, v.z), yr = Math.abs(b.angularVelocity.y), { DUTY, CYC, HIP_Y, UP, LO, ANK } = WALK;
-    WALK.m4.compose(c.group.position, c.group.quaternion, WALK.one); c.root.updateMatrix(); WALK.m4.multiply(c.root.matrix).invert(); const inv = WALK.m4;
-    const off = (f, i) => { const h = b.pointToWorldFrame(c.vehicle.wheelInfos[i].chassisConnectionPointLocal, WALK.v1); return Math.hypot(f.p.x - h.x, f.p.z - h.z); };
+    const v = b.velocity, hv = Math.hypot(v.x, v.z), yr = Math.abs(b.angularVelocity.y), { DUTY, CYC, HIP_Y, UP, LO, ANK } = ELEPHANT;
+    ELEPHANT.m4.compose(c.group.position, c.group.quaternion, ELEPHANT.one); c.root.updateMatrix(); ELEPHANT.m4.multiply(c.root.matrix).invert(); const inv = ELEPHANT.m4;
+    const hip = (i) => b.pointToWorldFrame(ELEPHANT.hl.set(c.legs[i].hx, 0, c.legs[i].hz), ELEPHANT.v1), off = (f, i) => { const h = hip(i); return Math.hypot(f.p.x - h.x, f.p.z - h.z); };
     let cad = c.wrecked ? 0 : hv / CYC + yr * 0.3; if (cad < 0.1) cad = 0;
     const settle = !cad && !c.wrecked && G.feet.some((f, i) => f.sw || off(f, i) > 0.45); if (settle) cad = 1.4; // stopping: finish the step and stand square (only feet that are out of place lift)
     G.ph = (G.ph + cad * ldt) % 1;
     const lead = cad ? DUTY / Math.max(cad, 0.5) * 0.5 : 0;
     for (let i = 0; i < 4; i++) {
-      const f = G.feet[i], L = c.legs[i], h = b.pointToWorldFrame(c.vehicle.wheelInfos[i].chassisConnectionPointLocal, WALK.v1), nx = h.x + v.x * lead, nz = h.z + v.z * lead;
-      if (!f.init || Math.hypot(f.p.x - h.x, f.p.z - h.z) > 2.4 || Math.abs(f.p.y - (b.position.y - WALK.REST)) > 2.5) { f.p.set(nx, WALK.ground(nx, nz, b.position.y), nz); f.init = true; f.sw = false; }
-      const lp = (G.ph + WALK.OFF[i]) % 1, sw = cad > 0 && lp >= DUTY && (!settle || f.sw || off(f, i) > 0.3);
-      if (sw) { const s = (lp - DUTY) / (1 - DUTY); if (!f.sw) { f.sw = true; f.from.copy(f.p); f.gy = WALK.ground(nx, nz, b.position.y); }
+      const f = G.feet[i], L = c.legs[i], h = hip(i), nx = h.x + v.x * lead, nz = h.z + v.z * lead;
+      if (!f.init || Math.hypot(f.p.x - h.x, f.p.z - h.z) > 2.4 || Math.abs(f.p.y - (b.position.y - ELEPHANT.REST)) > 2.5) { f.p.set(nx, ELEPHANT.ground(nx, nz, b.position.y), nz); f.init = true; f.sw = false; }
+      const lp = (G.ph + ELEPHANT.OFF[i]) % 1, sw = cad > 0 && lp >= DUTY && (!settle || f.sw || off(f, i) > 0.3);
+      if (sw) { const s = (lp - DUTY) / (1 - DUTY); if (!f.sw) { f.sw = true; f.from.copy(f.p); f.gy = ELEPHANT.ground(nx, nz, b.position.y); }
         const e = s * s * (3 - 2 * s); f.p.set(lerp(f.from.x, nx, e), lerp(f.from.y, f.gy, e) + Math.sin(Math.PI * s) * (0.3 + Math.min(0.3, hv * 0.05)), lerp(f.from.z, nz, e)); }
-      else if (f.sw) { f.sw = false; f.p.set(nx, f.gy, nz); WALK.stomp(c, i, f.p, cd); }
+      else if (f.sw) { f.sw = false; f.p.set(nx, f.gy, nz); ELEPHANT.stomp(c, i, f.p, cd); }
       // two-bone IK in the leg's plane: front knees bend back, hind knees forward, like a real elephant
-      const t = WALK.t3.set(f.p.x, f.p.y + ANK, f.p.z).applyMatrix4(inv), dx = t.x - L.hx, dy = t.y - HIP_Y, d = clamp(Math.hypot(dx, dy), 0.4, UP + LO - 0.001);
+      const t = ELEPHANT.t3.set(f.p.x, f.p.y + ANK, f.p.z).applyMatrix4(inv), dx = t.x - L.hx, dy = t.y - HIP_Y, d = clamp(Math.hypot(dx, dy), 0.4, UP + LO - 0.001);
       const th = Math.atan2(dy, dx), al = Math.acos(clamp((UP * UP + d * d - LO * LO) / (2 * UP * d), -1, 1)), p1 = th + (i < 2 ? -al : al);
       const kx = L.hx + UP * Math.cos(p1), ky = HIP_Y + UP * Math.sin(p1), p2 = Math.atan2(t.y - ky, t.x - kx);
       L.hip.rotation.z = p1 + Math.PI / 2; L.knee.rotation.z = p2 - p1; L.foot.rotation.z = -(p2 + Math.PI / 2);
     }
   },
-  chuff(c, k) { const q = c.body.pointToWorldFrame(WALK.v1.set(2.6, c.funnelY, 0)); emit('smoke', q.x, q.y, q.z, rand(-0.3, 0.3) - c.fwd.x * 1.5, rand(2, 3.5), rand(-0.3, 0.3) - c.fwd.z * 1.5, rand(0.9, 1.5), rand(0.2, 0.35) * (0.6 + k)); },
+  chuff(c, k) { const q = c.body.pointToWorldFrame(ELEPHANT.v1.set(2.6, c.funnelY, 0)); emit('smoke', q.x, q.y, q.z, rand(-0.3, 0.3) - c.fwd.x * 1.5, rand(2, 3.5), rand(-0.3, 0.3) - c.fwd.z * 1.5, rand(0.9, 1.5), rand(0.2, 0.35) * (0.6 + k)); },
   stomp(c, i, p, cd) { // a foot comes down: dust, a thump you feel, a chuff from the funnel, and crates under it go flat
     c.stompN = (c.stompN || 0) + 1;
-    if (i < 2 && cd < 80) WALK.chuff(c, 1);
+    if (i < 2 && cd < 80) ELEPHANT.chuff(c, 1);
     if (cd < 60) for (let n = 0; n < (QUALITY.lite ? 2 : 4); n++) { const a = rand(0, 6.28); emit('dust', p.x + Math.cos(a) * 0.5, p.y + 0.15, p.z + Math.sin(a) * 0.5, Math.cos(a) * rand(1.5, 3), rand(0.3, 0.9), Math.sin(a) * rand(1.5, 3), rand(0.5, 0.9), rand(0.4, 0.7)); }
     if (player) { const pd = player.body.position.distanceTo(c.body.position);
       if (pd < 70 && simTime - (c.stompSndT ?? -9) > 0.12) { c.stompSndT = simTime; sfx.at(p).thump(clamp(1 - pd / 70, 0, 1) * (player === c ? 0.35 : 0.6), 12000); }
@@ -4430,15 +4376,16 @@ const WALK = {
       c.aiGoal = threat ? { x: threat.body.position.x, z: threat.body.position.z, face: true } : prey ? { x: prey.body.position.x, z: prey.body.position.z } : gx !== null ? { x: gx, z: gz } : null;
     }
     const G = c.aiGoal;
-    if (G && !c.rampGoal && !(c.reverseTimer > 0) && c.mode !== 'flee') { const l = b.pointToLocalFrame(WALK.v1.set(G.x, b.position.y, G.z)), ang = Math.atan2(-l.z, l.x), d = Math.hypot(l.x, l.z);
+    if (G && !c.rampGoal && !(c.reverseTimer > 0) && c.mode !== 'flee') { const l = b.pointToLocalFrame(ELEPHANT.v1.set(G.x, b.position.y, G.z)), ang = Math.atan2(-l.z, l.x), d = Math.hypot(l.x, l.z);
       ctrl.steer = clamp(ang * 1.6, -1, 1); ctrl.throttle = Math.abs(ang) > 1.2 ? 0.2 : G.face && d < 9 ? 0.3 : 1; ctrl.nitro = !G.face && d > 40 && Math.abs(ang) < 0.3; } // swing round to face whoever goes for the boiler
     ctrl.handbrake = false; ctrl.brake = false; ctrl.jump = false;
     if (!c.specialCd && !c.hold && game.state === 'playing') {
-      if (WALK.grabbable(c)) ctrl.fire = true;
+      if (ELEPHANT.grabbable(c)) ctrl.fire = true;
       else { const f = frontTarget(c, 12, 0.5); if ((f && (f.burnT > 0 || Math.random() < dt * 0.6)) || c.burnT > 0 || c.onFire || c.pressure > 0.72 || c.whistleT > 0) ctrl.fire = true; } // steam: a car in its face, fire, or the boiler needs venting
     }
   },
 };
+const WALK_HOOKS = { elephant: ELEPHANT }; // walkers with their own model, gait, special and AI on the shared walker path (Car.walkStep); the spider's live on Car itself
 class Car {
   constructor({ type, name, color, isPlayer, x, z, yaw, number }) {
     const T = this.T = CAR_TYPES[type];
@@ -4464,7 +4411,8 @@ class Car {
     const mass = T.mass * (isPlayer ? S.playerMassScale : S.aiMassScale);
     const b = this.body = new CANNON.Body({ mass, angularDamping: 0.2, allowSleep: false, material: carMat });
     b.collisionFilterGroup = CARG;
-    if (T.walker) { WALK.init(this, b, x, z, yaw); return; } // legs, not wheels: hover springs and drive forces (WALK)
+    const wk = this.wk = WALK_HOOKS[type] || null; // a walker with its own hooks (the elephant): shapes, model, boiler, legs, AI
+    if (wk) wk.shapes(this, b); else {
     const hullW = T.W * (T.hullW || 1);
     b.addShape(chamferBox(T.L / 2, T.H / 2, hullW / 2, Math.min(0.45, hullW * 0.22), 0.06, Math.min(0.7, T.H * 0.85)), new CANNON.Vec3(0, HULL_Y0 + T.H / 2, 0)); // nose rides up onto ramps
     const C = T.cabin;
@@ -4478,12 +4426,13 @@ class Car {
     if (T.style === 'tank') for (const sd of [-1, 1]) b.addShape(chamferBox(T.L * 0.48, 0.42, 0.3, 0.12, 0.02, 0.5), new CANNON.Vec3(0, -0.36, sd * T.track / 2)); // tracks
     if (T.dozer) b.addShape(this.bladeShape = new CANNON.Box(new CANNON.Vec3(0.2, 0.68, T.W * 0.56)), new CANNON.Vec3(T.L / 2 + 0.55, HULL_Y0 + 0.83, 0)); // the blade is solid steel: it pushes, it doesn't sink into what it hits
     if (T.walker) b.addShape(new CANNON.Box(new CANNON.Vec3(1.25, 0.35, 1.2)), new CANNON.Vec3(0, -0.85, 0)); // the leg cage: low cars hit the legs, not thin air under the body
+    }
     this.baseOffsets = b.shapeOffsets.map((o) => o.clone());
-    b.position.set(x, T.walker ? 2.2 : 1.6, z);
+    b.position.set(x, T.walker ? T.walk.y0 : 1.6, z);
     b.quaternion.setFromAxisAngle(AX_Y, yaw);
     b.car = this;
 
-    const v = this.vehicle = T.walker ? walkerRig(8, b) : new CANNON.RaycastVehicle({ chassisBody: b, indexRightAxis: 2, indexForwardAxis: 0, indexUpAxis: 1 });
+    const v = this.vehicle = T.walker ? walkerRig(T.walk.n, b) : new CANNON.RaycastVehicle({ chassisBody: b, indexRightAxis: 2, indexForwardAxis: 0, indexUpAxis: 1 });
     // Wheels come in pairs per axle, front axle first: even index = left (-z), odd = right (+z)
     this.axles = T.axles || [T.wb / 2, -T.wb / 2];
     const rearAvg = this.axles.slice(1).reduce((a, x) => a + x, 0) / (this.axles.length - 1);
@@ -4494,7 +4443,7 @@ class Car {
     this.axlePairs = this.axles.map((_, k) => [2 * k, 2 * k + 1]);
     this.wheelDmg = new Array(this.nW).fill(0); this.wheelLost = new Array(this.nW).fill(false); this.lastSkid = new Array(this.nW).fill(null);
     this.gear = 1; this.rpm = T.idle; this.shiftT = 0; this.jumpBuf = 0;
-    this.vTop = Math.cbrt(S.enginePower * 1000 * T.power / Math.max(0.3, S.airDrag));
+    this.vTop = Math.cbrt(S.enginePower * 1000 * T.power / Math.max(0.3, S.airDrag)); if (wk) this.vTop = T.walk.vMax; // (the elephant's top walking speed)
     this.connY = HULL_Y0 + 0.25;
     for (const [wx, wz] of this.wheelBase) {
       v.addWheel({
@@ -4531,7 +4480,7 @@ class Car {
 
   /* ---------- visual model ---------- */
   buildModel() {
-    if (this.T.walker) return this.buildSpider();
+    if (this.T.walker) return this.wk ? this.wk.build(this) : this.buildSpider();
     const T = this.T, C = T.cabin, L = T.L, W = T.W, H = T.H, st = T.style;
     const g = this.group = new THREE.Group();
     const root = this.root = new THREE.Group();
@@ -5335,7 +5284,7 @@ class Car {
     if (this.towLine) { scene.remove(this.towLine); this.towLine.geometry.dispose(); this.towLine.material.dispose(); }
     if (this.cable) { scene.remove(this.cable.line); this.cable.line.geometry.dispose(); this.cable.line.material.dispose(); this.cable = null; } // a harpoon still out when its car goes
     if (this.webLine) { scene.remove(this.webLine); this.webLine.geometry.dispose(); } if (this.web && this.web.t && this.web.t.webBy === this) { this.web.t.webbedT = 0; this.web.t.webAt = null; }
-    this.vehicle.removeFromWorld(world); if (this.T.walker) WALK.dispose(this);
+    this.vehicle.removeFromWorld(world); if (this.wk) this.wk.dispose(this);
     scene.remove(this.group);
     for (const w of this.wheelMeshes) if (w) scene.remove(w);
     if (this.wheelSkin) { for (const m of this.wheelSkin) { scene.remove(m); m.geometry.dispose(); } this.wheelSkel.dispose(); }
@@ -5890,7 +5839,7 @@ class Car {
     if (!this.blob) { this.blob = new THREE.Mesh(blobGeo, blobMat.clone()); this.blob.rotation.x = -Math.PI / 2; this.blob.renderOrder = 1; scene.add(this.blob); }
     { const hgt = Math.max(0, b.position.y - 0.9), k = clamp(1 - hgt / 6, 0, 1), yaw = Math.atan2(-this.fwd.z, this.fwd.x); // soft contact shadow: grounds the car, fades as it flies
       this.blob.position.set(b.position.x, 0.03, b.position.z); this.blob.rotation.z = yaw; this.blob.scale.set(T.L * (1.15 + (1 - k) * 0.4), T.W * (1.35 + (1 - k) * 0.4), 1); this.blob.material.opacity = 0.62 * k; this.blob.visible = k > 0.02; }
-    if (T.walker) { WALK.frame(this, dt); if (this.bakedParts && this.bakedParts.length) this.checkBaked(); return; } // legs instead of wheels
+    if (this.wk) { this.wk.frame(this, dt); if (this.bakedParts && this.bakedParts.length) this.checkBaked(); return; } // the elephant's own legs, trunk and gauge instead of wheels (the spider's legs: updateLegs below)
     // Wheels, springs, skid marks, dust
     let skid = 0;
     if (T.walker) this.updateLegs(dt);
@@ -5989,37 +5938,40 @@ class Car {
     return _wr.hasHit && _wr.body !== this.body ? _wr.hitPointWorld.y : p.y - (this.ride || 1.45);
   }
   walkStep(dt) { // no wheels: four feelers find the ground (container tops included), a spring holds the body at standing height over the highest, and the legs push it along
-    const b = this.body, T = this.T, m = b.mass, g = S.gravity, v = b.velocity;
+    // (one path for every walker: T.walk holds the per-type numbers, this.wk the elephant's hooks: boiler here, gait/trunk/steam in its frame)
+    const b = this.body, T = this.T, W = T.walk, m = b.mass, g = S.gravity, v = b.velocity;
+    if (this.wk) this.wk.step(this, dt); // the elephant's boiler (pressure, whistle, blow-off, stall)
+    const out = this.wrecked || this.stallT > 0; // (stalled: the legs stand, nothing drives or steers)
     b.quaternion.vmult(AX_X, this.fwd); b.quaternion.vmult(AX_Y, this.up);
     let lostL = 0, lostR = 0; for (let i = 0; i < this.nW; i++) if (this.wheelLost[i]) { if (i % 2) lostR++; else lostL++; }
     const legs = this.legsLeft = this.nW - lostL - lostR;
-    const legK = clamp(0.5 + (legs - 4) * 0.125, 0.3, 1); // 8 legs: full speed; 6: three quarters; 4: half
-    const canClimb = this.canClimb = legs >= 6 && !this.wrecked;
+    const legK = clamp(1 - (this.nW - legs) * 0.125, 0.3, 1); // 8 legs: full speed; 6: three quarters; 4: half
+    const canClimb = this.canClimb = !!W.climb && legs >= 6 && !this.wrecked;
     this.stretchT = (this.stretchT || 0) - dt; this.leapCd = (this.leapCd || 0) - dt;
-    if (!this.wrecked && legs >= 6 && MP.role !== 'guest') this.spiderSense(); // a small car charging at it runs underneath; the AI leaps away from big ones
-    const ride = this.ride = this.wrecked ? 0.5 : 1.2 + 0.25 * clamp((legs - 4) / 4, 0, 1) + (this.stretchT > 0 ? 1.8 : 0); // (stretched: up on the tips of its legs)
+    if (W.sense && !this.wrecked && legs >= 6 && MP.role !== 'guest') this.spiderSense(); // a small car charging at it runs underneath; the AI leaps away from big ones
+    const ride = this.ride = W.ride ? (this.wrecked ? 1.2 : this.stallT > 0 ? W.rideStall : W.ride) : this.wrecked ? 0.5 : 1.2 + 0.25 * clamp((legs - 4) / 4, 0, 1) + (this.stretchT > 0 ? 1.8 : 0); // (stretched: up on the tips of its legs)
     const fh = Math.hypot(this.fwd.x, this.fwd.z) || 1, fx = this.fwd.x / fh, fz = this.fwd.z / fh, rx = -fz, rz = fx;
     const speed = this.speed = v.x * fx + v.z * fz, vr = v.x * rx + v.z * rz;
-    const thr = this.wrecked ? 0 : this.ctrl.throttle;
-    this.boosting = !this.wrecked && this.ctrl.nitro && this.nitro > 0.01 && thr > 0;
+    const thr = out ? 0 : this.ctrl.throttle;
+    this.boosting = !out && this.ctrl.nitro && this.nitro > 0.01 && thr > 0;
     if (this.boosting) this.nitro = Math.max(0, this.nitro - dt * 0.3);
-    this.rpm = lerp(this.rpm, lerp(T.idle, T.redline, clamp(Math.abs(speed) / 15 + Math.abs(thr) * 0.25, 0, 1)), clamp(dt * 8, 0, 1)); this.gear = 1;
+    this.rpm = lerp(this.rpm, lerp(T.idle, T.redline, clamp(Math.abs(speed) / W.vMax + Math.abs(thr) * 0.25, 0, 1)), clamp(dt * 8, 0, 1)); this.gear = 1;
     // the feelers: the front pair reach high (that is how it walks up a container's side), the rear pair just follow
     const H = this.feel || (this.feel = [0, 0, 0, 0]); let top = -Infinity, hits = 0, under = null;
     for (let k = 0; k < 4; k++) {
-      const lx = k < 2 ? 1.75 : -1.75, lz = k % 2 ? 1.15 : -1.15, wx = b.position.x + fx * lx + rx * lz, wz = b.position.z + fz * lx + rz * lz;
-      _wf.set(wx, b.position.y + (k < 2 && canClimb && thr >= 0 ? 2.4 : 0.9), wz); _wt.set(wx, b.position.y - ride - 1.6, wz); _wr.reset();
-      world.raycastClosest(_wf, _wt, _walkRay, _wr);
+      const lx = k < 2 ? W.feel[0] : -W.feel[0], lz = k % 2 ? W.feel[1] : -W.feel[1], wx = b.position.x + fx * lx + rx * lz, wz = b.position.z + fz * lx + rz * lz;
+      _wf.set(wx, b.position.y + (k < 2 && canClimb && thr >= 0 ? 2.4 : W.up), wz); _wt.set(wx, b.position.y - ride - 1.6, wz); _wr.reset();
+      world.raycastClosest(_wf, _wt, W.noCars ? _walkRayNC : _walkRay, _wr);
       if (_wr.hasHit && _wr.body !== b && !(this.stretchT > 0 && _wr.body.car)) { H[k] = _wr.hitPointWorld.y; hits++; if (H[k] > top) { top = H[k]; under = _wr.body; } } else H[k] = NaN; // (legs up to let a car pass under: its roof is not ground to stand on)
     }
-    this.gait = (this.gait || 0) + Math.abs(speed) * dt / 2.2;
-    const want = top + ride + (legs < 8 && Math.abs(speed) > 1 ? Math.sin(this.gait * 6.283) * 0.05 * (8 - legs) : 0); // fewer legs: it bobs and limps
+    this.limpPh = (this.limpPh || 0) + Math.abs(speed) * dt / 2.2;
+    const want = top + ride + (legs < this.nW && Math.abs(speed) > 1 ? Math.sin(this.limpPh * 6.283) * 0.05 * (this.nW - legs) : 0); // fewer legs: it bobs and limps
     this.leapT = (this.leapT || 0) - dt; // (after a leap the legs let go while it is still rising, and catch it on the way down)
     const grounded = hits > 0 && !(this.jumpCd > 0.65) && !(this.leapT > 0 && v.y > -1) && b.position.y < want + 0.6 && !this.craned && !this.carriedBy && !this.wrecked;
     this.contacts = grounded ? 4 : 0;
     // J: a high leap - forward and up ~3.5 m, over a charging car or onto its roof (a landing on a car is a pounce); 2.5 s between leaps
     if (this.ctrl.jump) { this.jumpBuf = 0.35; this.ctrl.jump = false; } this.jumpBuf = (this.jumpBuf || 0) - dt;
-    if (this.jumpBuf > 0 && this.leapCd <= 0 && hits > 0 && !this.wrecked && legs >= 4 && !this.craned && !this.carriedBy) {
+    if (W.leap && this.jumpBuf > 0 && this.leapCd <= 0 && hits > 0 && !this.wrecked && legs >= 4 && !this.craned && !this.carriedBy) {
       this.jumpBuf = 0; this.leapCd = 2.5; this.leapT = 1.5; this.jumpCd = 0.9; const kL = legs >= 6 ? 1 : 0.7;
       v.x += fx * 7 * kL; v.z += fz * 7 * kL; v.y = Math.max(v.y, 0) + 11.5 * kL; this.airT = 0.01; { const s0 = _pv.get(b); if (s0) s0.v.copy(v); _vmax = Math.max(_vmax, v.length()); } // (a leap inside the physics step is meant: the solver-kick net must not undo it)
       if (this.isPlayer) sfx.jump(); for (let i = 0; i < 8; i++) emit('dust', b.position.x + rand(-1.5, 1.5), 0.2, b.position.z + rand(-1.5, 1.5), rand(-2, 2), 0.6, rand(-2, 2), 0.8, 0.8);
@@ -6039,21 +5991,22 @@ class Car {
       wl.z = lerp(wl.z, (pitchT - Math.asin(clamp(this.fwd.y, -1, 1))) * 7, k);
       wl.x = lerp(wl.x, -(rollT - right.y) * 7, k);
       // steering: it turns on the spot, or like a car on the move (reversing turns the other way); missing legs drag it to that side
-      const yawMax = lerp(2.4, 1.3, clamp(Math.abs(speed) / 15, 0, 1)) * T.handling.steer;
-      const yawT = this.ctrl.steer * yawMax * (speed < -0.8 ? -1 : 1) - (lostR - lostL) * 0.09 * clamp(Math.abs(speed) / 5, 0, 1);
-      wl.y = lerp(wl.y, yawT, clamp(dt * 9, 0, 1));
+      const yawMax = lerp(W.yaw[0], W.yaw[1], clamp(Math.abs(speed) / 15, 0, 1)) * T.handling.steer;
+      const yawT = (out ? 0 : this.ctrl.steer) * yawMax * (speed < -0.8 ? -1 : 1) - (lostR - lostL) * 0.09 * clamp(Math.abs(speed) / 5, 0, 1);
+      wl.y = lerp(wl.y, yawT, clamp(dt * W.yawK, 0, 1));
       // drive: the legs push it to the speed you ask for, and grip sideways (oil, water and the fire hose knock them loose)
-      const vMax = 15 * legK * (this.boosting ? 1.35 : 1) * (this.inMud ? 0.55 : 1) * (this.stuckConcrete ? 0.3 : 1) * (climbing ? 0.45 : 1) * (1 - this.engineDmg * 0.3);
+      const vMax = W.vMax * legK * (this.boosting ? 1.35 : 1) * (this.inMud ? 0.55 : 1) * (this.stuckConcrete ? 0.3 : 1) * (climbing ? 0.45 : 1) * (1 - this.engineDmg * 0.3);
       const grip = (this.onOil ? 0.25 : this.inWater ? 0.8 : 1) * (1 - Math.min(0.85, (this.wet || 0) * 0.9));
-      const hb = (this.ctrl.handbrake || this.ctrl.brake) && !this.wrecked;
+      const hb = (this.ctrl.handbrake || this.ctrl.brake || this.stallT > 0) && !this.wrecked;
       let aF;
-      if (hb) aF = -clamp(speed * 8, -22, 22);
-      else if (thr !== 0 && Math.abs(speed) > 0.6 && Math.sign(thr) !== Math.sign(speed)) aF = -Math.sign(speed) * 20 * Math.abs(thr);
-      else if (thr !== 0) aF = clamp((thr * (thr > 0 ? vMax : 7 * legK) - speed) * 4, -16, 16);
-      else aF = clamp(-speed * 3, -12, 12);
-      const aR = clamp(-vr * 9, -24, 24);
+      if (hb) aF = -clamp(speed * W.brk[0], -W.brk[1], W.brk[1]);
+      else if (thr !== 0 && Math.abs(speed) > 0.6 && Math.sign(thr) !== Math.sign(speed)) aF = -Math.sign(speed) * W.rev * Math.abs(thr);
+      else if (thr !== 0) aF = clamp((thr * (thr > 0 ? vMax : W.vRev * legK) - speed) * 4, -W.acc, W.acc);
+      else aF = clamp(-speed * W.coast[0], -W.coast[1], W.coast[1]);
+      const aR = W.shove && simTime - (this.blastT ?? -9) < 0.5 ? 0 : clamp(-vr * W.side[0], -W.side[1], W.side[1]); // (a blast shoves the elephant sideways: its feet let go for half a second)
       _wF.set((fx * aF + rx * aR) * m * grip, 0, (fz * aF + rz * aR) * m * grip); b.applyForce(_wF);
       this.braking = (hb || (thr !== 0 && Math.sign(thr) !== Math.sign(speed))) && Math.abs(speed) > 0.5;
+      if (W.stepUp) { this.slowT = thr !== 0 && Math.abs(speed) < 0.5 ? (this.slowT || 0) + dt : 0; if (this.slowT > 1.2) { this.slowT = 0; v.y += 2.8; v.x += fx * 1.5 * Math.sign(thr); v.z += fz * 1.5 * Math.sign(thr); } } // pushing into something low it can't walk through: it steps up and over
     } else {
       this.airT = (this.airT || 0) + dt; this.braking = false;
       if (!this.wrecked) { const upL = qi.vmult(AX_Y, _wR), k = clamp(dt * 3, 0, 1); wl.z = lerp(wl.z, clamp(-upL.x, -0.9, 0.9) * 3, k); wl.x = lerp(wl.x, clamp(upL.z, -0.9, 0.9) * 3, k); } // in the air: legs out, land on its feet
@@ -6447,7 +6400,7 @@ class Car {
 
     // Which face took the hit
     const zone = zoneOf(nl);
-    if (this.T.walker && otherCar && !this.wrecked && MP.role !== 'guest' && zone !== 'bottom' && simTime - (this.legSnapT ?? -9) > 0.35) { // the weak spot: a heavy ram (or a very fast one) snaps a leg off
+    if (this.T.walker && this.T.walk.legSnap && otherCar && !this.wrecked && MP.role !== 'guest' && zone !== 'bottom' && simTime - (this.legSnapT ?? -9) > 0.35) { // the weak spot: a heavy ram (or a very fast one) snaps a leg off
       const hard = dv * (Mo >= 3000 ? 1.5 : 0.85);
       if (hard > 10.5) { this.legSnapT = simTime; this.snapNearestLeg(model, otherCar); if (hard > 18 && !this.wrecked) this.snapNearestLeg(model, otherCar); }
     }
@@ -6563,7 +6516,7 @@ class Car {
   applyDamage(dmg, by, zone, model, dv = 0) {
     if (this.wrecked) return;
     if (by && !by.body) by = null; // blasts from scenery (gas cylinders, crane drops) have no driver to credit
-    if (this.T.walker) WALK.hit(this, dmg, by, zone, model, dv); // the elephant's boiler: hits from behind and fire raise the pressure
+    if (this.wk) this.wk.hit(this, dmg, by, zone, model, dv); // the elephant's boiler: hits from behind and fire raise the pressure
     if (this.trackHp && (zone === 'left' || zone === 'right') && dmg > 3 && !by) this.hurtTrack(zone === 'left' ? 0 : 1, dmg * 2, by); // blasts beside the tank
     if (this.T.gun && dmg >= 10 && !this.wrecked && simTime - (this.smokeScrT ?? -99) > 18 && MP.role !== 'guest') { this.smokeScrT = simTime; smokeScreen(this); } // a big hit: the Tiger pops smoke
     if (this.T.flimsy && (zone === 'left' || zone === 'right' || zone === 'rear')) { dmg *= 1.6; if (dmg >= 1.5) this.shedJunk(zone, dmg); } // RV walls are plywood and staples: they cave in and spill the contents
@@ -6682,8 +6635,8 @@ class Car {
   }
 
   loseWheel(i, by) {
+    if (this.T.noWheelLoss) return; // (the elephant's legs don't come off)
     if (this.T.walker) return this.snapLeg(i, by);
-    if (this.T.noWheelLoss) return;
     this.wheelLost[i] = true;
     // no wheels left to drive on (all but one gone): it's a wreck, not a car stuck on its belly forever (bug report: Tanker with 6 of 6 wheels gone, 20 hp, stranded)
     if (MP.role !== 'guest' && !this.cripT && this.wheelLost.filter(Boolean).length >= this.nW - 1) {
@@ -6898,7 +6851,7 @@ class Car {
         if (st === 'chaos') s *= rand(0.3, 1.7);
         if (st === 'coward' && c.isPlayer) s *= 2.5;                        // prefers easier prey
         if (c.T.gun && !this.T.gun) s *= st === 'brawler' ? 1.6 : 3;        // nobody sane picks a fight with a tank
-        if (this.T.walker) s *= c.body.mass >= 5000 ? 2.2 : c.body.mass < 2600 ? 0.6 : 1; // the spider hunts light, fast cars and leaves the heavies alone
+        if (this.T.walker && !this.wk) s *= c.body.mass >= 5000 ? 2.2 : c.body.mass < 2600 ? 0.6 : 1; // the spider hunts light, fast cars and leaves the heavies alone
         if (s < bestScore) { bestScore = s; best = c; }
       }
       this.target = best; this.retarget = this.persona && this.persona.style === 'chaos' ? rand(1, 2.5) : rand(2, 4);
@@ -7065,7 +7018,7 @@ class Car {
       const lr = b.pointToLocalFrame(new CANNON.Vec3(this.reverseTo.x, b.position.y, this.reverseTo.z)), ang = Math.atan2(-lr.z, -lr.x);
       throttle = -0.65; steer = clamp(-ang * 1.6, -1, 1);
     }
-    if (this.T.walker && !this.delivery) ({ throttle, steer } = this.spiderTactics(dt, t, dist, throttle, steer));
+    if (this.T.walker && !this.wk && !this.delivery) ({ throttle, steer } = this.spiderTactics(dt, t, dist, throttle, steer));
     ctrl.throttle = throttle; ctrl.steer = steer; ctrl.pitch = 0;
     ctrl.handbrake = Math.abs(angle) > 1.2 && this.speed > 14 && S.aiSkill > 0.4;
     ctrl.nitro = (this.mode === 'charge' && Math.abs(angle) < 0.35) || this.mode === 'flee' || (Math.abs(angle) < 0.2 && dist > 35 && this.nitro > 0.35 && S.aiSkill > 0.3);
@@ -7074,7 +7027,7 @@ class Car {
     if (t.isPlayer && dist < 60 && Math.random() < 0.004) barks.say(this, 'taunt');
     else if (!t.isPlayer && dist < 25 && Math.random() < 0.002) barks.say(this, 'taunt', false, { target: t.name, insult: undefined, car: t.T.name });
     if (this.contacts === 0 && b.position.y > 4 && Math.random() < 0.02) barks.say(this, 'air');
-    if (this.T.walker) WALK.ai(this, dt); // the elephant's own tactics
+    if (this.wk) this.wk.ai(this, dt); // the elephant's own tactics
     if (t.isPlayer && dist < 35 && Math.abs(angle) < 0.4 && Math.random() < 0.004 && player && game.state === 'playing') sfx.at(b.position).honk(this.type, clamp(1 - b.position.distanceTo(player.body.position) / 60, 0, 1) * 0.6, rand(0.25, 0.6));
   }
 }
@@ -8308,6 +8261,7 @@ Object.assign(ROASTS.cruiser, { spider: "Anansi, sugar, eight legs means eight t
 // Mama Wanjiru roasts everyone, and everyone roasts Mama Wanjiru (kept in their own block so other new drivers merge cleanly)
 ROASTS.elephant = { camper: "Mr. White, your camper smells like a burnt cooking pot. Open a window, my dear!", tiger: "Klaus, a tank with a hat! In Kenya we keep water in tanks. That is all yours is good for!", firetruck: "Captain McCaffrey, put away your little hose. Malkia has a whole trunk full of steam!", tanker: "Bogdan! Bring your goat to my farm. She can mow the grass while I flatten you!", hellbender: "Ragnar, that beard is so big, birds are building nests in it! I can see the eggs!", sandflea: "Little buggy, little driver, little brain! Pole pole, mtoto, Mama will catch you!", outrider: "Maxine, you shout louder than a hippo in the mud. And you smell the same!", viper: "Dom, your car is so low, my Malkia keeps stepping on it and saying sorry!", towtruck: "Cletus, you want to tow an elephant? Come, try! Malkia will tow YOU, by the ear!", forklift: "King Arthur! Your little forks cannot lift Mama's lunch! Malkia will lift YOU!", combine: "Papa Jacques, your farm machine is slower than a tortoise with a sore foot!", bertha: "Bertha, my sister! Big truck, big heart! But Malkia still wins the beauty contest!", dozer: "Bob, you push dirt all day? In my village we call that sweeping. Get a broom!", mixer: "Tony, you make cement shoes? Malkia already has brass shoes. Size forty-five!", cruiser: "Sheriff, you cannot give an elephant a ticket! Where would you even stick it?" };
 for (const [k, line] of Object.entries({ camper: "Mrs. Wanjiru. A Victorian boiler on four legs. I respect the engineering. Not the driving.", tiger: "Frau Wanjiru, your elephant is magnificent. Ze boiler on its back is also a magnificent target.", firetruck: "Wanjiru, ye've a kettle on legs! I'll hose your fire AND your boiler, ye daft article!", tanker: "Mama Wanjiru! Your elephant is beautiful! In my village we have goat. Is smaller. Is not brass.", hellbender: "Wanjiru! A brass beast! Ragnar will melt it down and make a helmet! A VERY big helmet!", sandflea: "Mama Wanjiru! Your elephant is so slow, I can finish a whole song and dance before it turns around!", outrider: "Wanjiru, yer big tin elephant's got a kettle on its back! I'll have it whistlin', hen!", viper: "Mama, your elephant does zero to sixty in a week. ¡Órale! A long week.", towtruck: "Miss Wanjiru, I'd tow that there elephant, but I reckon she'd tow me first. Dagnabbit.", forklift: "Lady Wanjiru! A brass elephant! We shall build a large wooden rabbit and leave it at your feet!", combine: "Madame Wanjiru, your elephant just stepped on my cabbages! All of them! Sacré bleu!", bertha: "Wanjiru, sugar, that elephant's prettier than my Sunday hat. I'm still gonna run her over.", dozer: "Mama Wanjiru, that elephant ain't on my site plan, and she sure ain't up to code.", mixer: "Mama Wanjiru, an elephant? My family says, don't talk about the elephant in the room. Now it's in the yard. Capisce?", cruiser: "Mama Wanjiru, that elephant ain't registered, ain't insured, and it's blowin' steam at an officer!" })) if (ROASTS[k]) ROASTS[k].elephant = line;
+ROASTS.elephant.spider = "Anansi, you little kuku with eight legs! Malkia will step on your story and squash the ending!"; ROASTS.spider.elephant = "Mama Wanjiru! Your elephant is very big, but in every story I know, the elephant loses to the spider! Ha ha ha!"; // (the two walkers roast each other)
 const CAST_ACCENT = { // the recast drivers' own words (captions show them as written)
   tiger: { start: ['Achtung! Achtung! Ze panzer is here. Wunderbar.'], hitYou: ['Jawohl! Direct hit! Wunderbar!', 'Ach, you crumple so beautifully. Danke schön.'], gotHit: ['Was ist das?! You have scratched my beautiful panzer!'], gloat: ['Wunderbar. Simply wunderbar.'], taunt: ['Achtung, little rabbit. I am coming for you. Langsam. Slowly.'], fire: ['Feuer! Feuer frei!'], wrecked: ['Ach du lieber! My panzer!'], air: ['Mein Gott! Panzers do not fly!'] },
   mixer: { hitYou: ['Madonna mia, that was beautiful! Capisce?', 'Basta! You had enough? I think you had enough.'], gotHit: ['Ay, ay, ay! Mannaggia! My truck!'], taunt: ['You and me, we gonna have a little chat. Capisce?'], gloat: ['Bada bing, bada boom. Basta.'], start: ['Eh, buongiorno, everybody. Tony\'s here. Nobody panic.'], wrecked: ['Madonna mia... call my mother.'], fire: ['Cement shoes, extra large! Capisce?'] },
@@ -10521,7 +10475,7 @@ const MP = {
         (c.wrecked ? 1 : 0) | (c.boosting ? 2 : 0) | (c.braking ? 4 : 0) | (c.sirenOn ? 8 : 0) | (c.turretGone ? 16 : 0) | (c.burnT > 0 ? 32 : 0) | (c.webbedT > 0 ? 64 : 0) | (c.stallT > 0 ? 128 : 0) | (c.whistleT > 0 ? 256 : 0) | (c.steamOn ? 512 : 0),
         [z.front, z.rear, z.left, z.right, z.top].map((x) => Math.round(x)).join('.'),
         c.parts.reduce((a, pt, i) => (pt.detached ? a.concat(i) : a), []), c.wheelLost.reduce((a, l, i) => a | (l ? 1 << i : 0), 0),
-        r(c.rpm || 0, 0.01), r(c.steerVal || 0), r(c.T.walker ? c.pressure || 0 : c.turretYaw || 0), r(c.forkH || 0), c.kills || 0]; }); // (a walker sends its boiler pressure in the turret slot)
+        r(c.rpm || 0, 0.01), r(c.steerVal || 0), r(c.wk ? c.pressure || 0 : c.turretYaw || 0), r(c.forkH || 0), c.kills || 0]; }); // (the elephant sends its boiler pressure in the turret slot)
     const snap = { t: Math.round(performance.now()) / 1000, st: game.state === 'playing' ? 1 : game.state === 'over' ? 2 : 0, cd: Math.round(game.countdown * 100) / 100, rk: this.rk, rv: this.rv, c: cs,
       b: BULLS.map((bl) => [r(bl.body.position.x), r(bl.body.position.y), r(bl.body.position.z), r(bl.yaw), ['graze', 'walk', 'paw', 'charge', 'proud', 'down', 'burger'].indexOf(bl.state)]),
       k: [r(CRANE.ang), r(CRANE.r), r(CRANE.h), CRANE.held ? cars.indexOf(CRANE.held) : -1], cr: [r(CRUSHER.y), ['idle', 'warn', 'slam', 'hold'].indexOf(CRUSHER.state)], bp: [r(BALL.ph), BOLLARDS.up ? 1 : 0], e: this.ev, p: this.propState(r), pf: props.filter((pr) => pr.fireT > 0).slice(0, 30).map((pr) => pr.id) };
@@ -10681,7 +10635,7 @@ const MP = {
       c.body.quaternion.set(qa.x, qa.y, qa.z, qa.w);
       c.body.velocity.set(B[7] / 10, B[8] / 10, B[9] / 10);
       c.body.quaternion.vmult(AX_X, c.fwd); c.body.quaternion.vmult(AX_Y, c.up);
-      c.speed = c.body.velocity.dot(c.fwd); c.kills = B[19] | 0; c.rpm = B[15] * 100; c.steerVal = B[16] / 100; if (c.T.walker) { c.pressure = B[17] / 100; c.stallT = B[11] & 128 ? 1 : 0; c.whistleT = B[11] & 256 ? 1 : 0; c.steamFlag = !!(B[11] & 512); } else c.turretYaw = B[17] / 100; c.forkH = B[18] / 100;
+      c.speed = c.body.velocity.dot(c.fwd); c.kills = B[19] | 0; c.rpm = B[15] * 100; c.steerVal = B[16] / 100; if (c.wk) { c.pressure = B[17] / 100; c.stallT = B[11] & 128 ? 1 : 0; c.whistleT = B[11] & 256 ? 1 : 0; c.steamFlag = !!(B[11] & 512); } else c.turretYaw = B[17] / 100; c.forkH = B[18] / 100;
       c.boosting = !!(B[11] & 2); c.braking = !!(B[11] & 4); c.sirenOn = !!(B[11] & 8); if (B[11] & 32) c.burnT = Math.max(c.burnT || 0, 0.3); // burning: the flames are drawn here
       for (let w = 0; w < c.nW; w++) c.vehicle.setSteeringValue(w < 2 ? c.steerVal : 0, w);
       // damage follows the host: crumple stages, panels off, wheels off, the wreck itself
