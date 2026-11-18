@@ -26,6 +26,7 @@ quick() {
   t heapguard 600 "HEAPGUARD PASS"
   t heapleak 1200 "HEAPLEAK PASS"
   t uiaudit 500 "UIAUDIT PASS"
+  t slowhide 600 "SLOWHIDE PASS"
   t phonehud 1200 "PHONEHUD PASS"
   t tiltbtn 1500 "TILTBTN PASS"
   t looks 400 "LOOKS PASS"

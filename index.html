@@ -4,7 +4,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'"><!-- (not render-blocking: the page paints with system fonts and swaps when these arrive) -->
-<meta name="derby-build" content="113"><!-- must equal BUILD in the script and version.txt (tests/syntax.js checks) -->
+<meta name="derby-build" content="114"><!-- must equal BUILD in the script and version.txt (tests/syntax.js checks) -->
 <script>
 // Updater of last resort (Build 100). Runs on its own, outside the game script, so a build whose game code breaks, a CDN
 // that fails, or a bug in the in-game update check (Build 94's Mac sat stuck for hours) can't strand a computer on an old build.
@@ -10444,7 +10444,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '113'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '114'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }
@@ -12113,7 +12113,11 @@ Object.assign(AUTO, {
 // what the rest of the game reports also lands in the play log (each wrapped: the log must never break the game)
 { const push0 = ERRS.push; ERRS.push = function (...a) { try { for (const x of a) PLAYLOG.err(x); } catch (e) {} return push0.apply(this, a); }; }
 PHYS.log.push = function (...a) { try { for (const x of a) PLAYLOG.phys(x); } catch (e) {} const r = Array.prototype.push.apply(this, a); if (this.length > 150) this.splice(0, 50); return r; }; // (the log stopped at 200 entries: keep it rolling)
-PERFREP.incidents.push = function (...a) { for (const x of a) { x.env = TABENV.suspect ? 'browser throttling (hidden/unfocused/covered/battery)' : 'foreground'; } const real = a.filter((x) => x.env === 'foreground'); try { for (const x of real) PLAYLOG.slow(x); } catch (e) {} return Array.prototype.push.apply(this, a); }; // throttled-tab slowdowns are shown, but not logged as game problems
+PERFREP.incidents.push = function (...a) { for (const x of a) { x.env = TABENV.suspect ? 'browser throttling (hidden/unfocused/covered/battery)' : 'foreground'; } const real = a.filter((x) => x.env === 'foreground');
+  // wait 2 s before logging it as a game problem: a Mac dimming its screen to sleep throttles the page to ~10 fps for seconds, and
+  // only then reports focus lost / tab hidden (Build 111's one 'slow moment', 8.1 s at 10 fps, ended the instant the tab hid)
+  for (const x of real) setTimeout(() => { if (TABENV.suspect || document.hidden || !document.hasFocus()) { x.env = 'browser throttling (hidden right after)'; return; } try { PLAYLOG.slow(x); } catch (e) {} }, 2000);
+  return Array.prototype.push.apply(this, a); }; // throttled-tab slowdowns are shown, but not logged as game problems
 { const i0 = NETLOG.incident; NETLOG.incident = function (who, what) { try { PLAYLOG.net(who, what); } catch (e) {} return i0.call(this, who, what); }; }
 try { PLAYLOG.meta(); PLAYLOG.recover(); PLAYLOG.session(); } catch (e) {}
 setTimeout(() => PLAYLOG.upload('page load'), 8000); // anything left over from last time
