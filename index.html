@@ -736,7 +736,7 @@
 
 <script>
 // Start works from the first paint: until the game script has its own handlers up, a tap on Start (or Enter) is noted here
-// and the match starts as soon as what it needs is built (bootBuild in the game script).
+// and the match starts as soon as the yard is ready (bootWant in the game script).
 (function () { var b = document.getElementById('btnStart'); if (!b) return;
   var note = function () { if (window.__startOn || window.__earlyStart) return; window.__earlyStart = performance.now(); b.dataset.label = b.textContent; b.textContent = 'Getting the yard ready…'; b.classList.add('booting'); };
   b.addEventListener('click', note); addEventListener('keydown', function (e) { if (e.code === 'Enter' && !(e.target && e.target.tagName === 'INPUT')) note(); });
@@ -754,7 +754,7 @@ import * as THREE from 'three';
 const BOOT = { t0: performance.now() };
 // Incremental start (weak laptops, phones): the script gives the browser a turn every ~12 ms of work (the menu paints and answers taps
 // while the yard is built), and the props and the showroom cars are built after it, a few at a time (bootBuild). A match waits only for
-// what it needs: Start pressed while the yard is still being built starts the match as soon as the props are in.
+// what it needs: Start pressed while the yard is still being built starts the match the moment it is ready (bootWant).
 const BOOTQ = { t: performance.now(), slices: 0, longest: 0, live: false, fresh: false, want: false, skip: new Set(), phase: '' };
 const bootNow = () => new Promise((r) => { const go = () => { BOOTQ.t = performance.now(); BOOTQ.slices++; r(); }; const dt = performance.now() - BOOTQ.t; if (dt > BOOTQ.longest) BOOTQ.longest = Math.round(dt);
   if (globalThis.scheduler && scheduler.yield) scheduler.yield().then(go); else { const ch = new MessageChannel(); ch.port1.onmessage = go; ch.port2.postMessage(0); } }); // (not a timer: a hidden tab clamps those to 1 s)
@@ -12256,7 +12256,7 @@ const DERBY = { GP, PICK, cyclePick: (d) => cyclePick(d), setPick: (c) => setPic
 function startLoop(why) { if (BOOT.loop) return; BOOT.loop = why; requestAnimationFrame(frame); }
 const BOOT_LAYER = 31; // the boot preview's camera sees only this layer: the sky dome (and the lights, so its program is the one the yard uses)
 function bootLite() { BOOT.lite = true; BOOT.mask = camera.layers.mask; sky.layers.enable(BOOT_LAYER); scene.traverse((o) => { if (o.isLight) o.layers.enable(BOOT_LAYER); }); camera.layers.set(BOOT_LAYER); }
-function bootYard(how) { if (!BOOT.lite) return; BOOT.lite = false; BOOT.yardHow = how; camera.layers.mask = BOOT.mask; if (!BOOT.compiled) BOOT.compiled = performance.now(); if (BOOTQ.want) bootNow().then(bootGo); }
+function bootYard(how) { if (!BOOT.lite) return; BOOT.lite = false; BOOT.yardHow = how; camera.layers.mask = BOOT.mask; if (!BOOT.compiled) BOOT.compiled = performance.now(); bootNow().then(bootGo); }
 function bootFrame() { BOOT.frame = performance.now(); if (BOOT.built) bootCompile(); } // (the yard is compiled once it is all built: bootBuilt)
 async function bootCompile() { if (BOOT.c0 || !BOOT.frame) return; BOOT.c0 = performance.now();
   if (!window.__noRender && renderer.initTexture) { const tx = new Set(); // the yard's textures go up to the GPU one per turn first: else the first frame of the whole yard uploads them all at once
@@ -12274,10 +12274,12 @@ function bootLoop() { if (BOOT.loop) return; // the frame loop starts once your 
   } catch (e) { bootYard('error'); startLoop('error'); } }
 // After the script: the bulls, the menu yard's props (a group at a time), the pickups, your car (then the frame loop starts) and the showroom
 // cars (one at a time), each in a turn of its own. The order is buildProps' and spawnCars' own, so the props and their ids are the same
-// as a build in one go (guests and hosts agree on them). A tap on Start meanwhile starts the match once the props are in.
+// as a build in one go (guests and hosts agree on them). A tap on Start meanwhile: bootWant. window.__derby (what tests and the
+// updater look for) appears when it is done.
 async function bootBuild() {
+  BOOTQ.hold = true; // (the showroom cars wait, AI off, until the yard is on screen: nothing moves unseen, so a match started now reuses it all)
   if (window.__earlyStart) { BOOT.click = BOOT.click || window.__earlyStart; bootWant(); } // (tapped before the game's own handlers were up)
-  const phases = [['bulls', function* () { resetBulls(); }, null], ['props', buildPropsGen, () => { batchProps(); BOOTQ.fresh = true; }], ['pickups', function* () { buildPickups(); }, null], ['cars', spawnCarsGen, () => { SCORE.reset(); SCORE.show(false); BOOTQ.carsFresh = BOOTQ.hold && !BOOTQ.moved; }]];
+  const phases = [['bulls', function* () { resetBulls(); }, null], ['props', buildPropsGen, () => { batchProps(); BOOTQ.fresh = true; }], ['pickups', function* () { buildPickups(); }, null], ['cars', spawnCarsGen, () => { SCORE.reset(); SCORE.show(false); BOOTQ.carsFresh = BOOTQ.hold; }]];
   for (const [name, mk, end] of phases) {
     if (BOOT.built || BOOTQ.skip.has(name)) continue;
     BOOTQ.phase = name; const g = mk(); let done = false;
@@ -12290,10 +12292,11 @@ async function bootBuild() {
 function bootBuilt(how) { if (BOOT.built) return; BOOT.built = performance.now(); BOOT.builtHow = how; BOOTQ.phase = ''; BOOTQ.live = true; if (!BOOTQ.want) bootHint(true);
   window.__derby = DERBY; bootLoop(); bootNow().then(() => { bootCompile(); if (!BOOT.lite) bootGo(); }); } // (the yard's shaders in a turn of their own)
 // Start tapped while the yard is still being built (or its shaders compiled): nothing freezes, the button says it is getting ready, the
-// opponents built so far wait where they are (no AI), and the match starts the moment everything is in, with the props and cars just
-// built (nothing is built twice). Before, a tap that early waited for the script and then built the props and cars again in one go.
-function bootWant() { if (!BOOTQ.want) { BOOTQ.want = true; BOOTQ.hold = true; if (cars.length > 1) BOOTQ.moved = true; } bootHint(); }
-function bootGo() { if (!BOOTQ.want) return; BOOTQ.want = false; bootHint(true); if (game.state === 'menu' && !el.menu.hidden) startMatch(); else { BOOTQ.hold = false; BOOTQ.carsFresh = false; } }
+// match starts the moment the yard is on screen, with the props and cars just built (they wait, AI off, until then: bootBuild), so
+// nothing is built twice. Before, a tap that early waited for the script and then built the props and cars again in one go.
+function bootWant() { BOOTQ.want = true; bootHint(); }
+function bootGo() { const go = BOOTQ.want && game.state === 'menu' && !el.menu.hidden; BOOTQ.want = false; bootHint(true); // the yard is on screen: the match the tap asked for starts, or the showroom cars start their fight
+  if (go) startMatch(); else if (BOOTQ.hold) { BOOTQ.hold = false; BOOTQ.fresh = false; BOOTQ.carsFresh = false; } }
 function bootHint(off) { const b = $('btnStart'); if (!b) return; if (!b.dataset.label) b.dataset.label = b.textContent; b.textContent = off ? b.dataset.label : 'Getting the yard ready…'; b.classList.toggle('booting', !off); }
 function bootYardShown() { BOOT.yard = performance.now(); try { PLAYLOG.add({ v: 2, kind: 'boot', test: navigator.webdriver ? true : undefined, sid: PLAYLOG.sid, dev: PLAYLOG.devId, build: BUILD, at: new Date().toISOString(), device: PERFREP.device(),
   scriptMs: Math.round(BOOT.ready - BOOT.t0), compileMs: Math.round(BOOT.compiled - (BOOT.c0 || BOOT.ready)), firstFrameMs: Math.round(BOOT.frame), yardMs: Math.round(BOOT.yard), firstProgs: BOOT.p1, parallel: BOOT.parallel, how: BOOT.loop, yardHow: BOOT.yardHow, q: QUALITY.level }); } catch (e) {}

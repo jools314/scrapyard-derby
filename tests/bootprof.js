@@ -70,7 +70,7 @@ const init = () => { const P = WebGL2RenderingContext.prototype, gE = P.getExten
         const seen = new Set(); let id = leaf.id; while (id != null) { const f = nodes.get(id).callFrame; if (f.url && f.url.includes('game.local')) { const k = (f.functionName || '(top)') + ':' + (f.lineNumber + 1); if (!seen.has(k)) { seen.add(k); inc.set(k, (inc.get(k) || 0) + dt); } } id = parent.get(id); } }
       return `busy ${ms(n)} | self: ${[...su].sort((x, y) => y[1] - x[1]).slice(0, process.env.FN ? 8 : 4).map(([k, v]) => k + ' ' + ms(v)).join(', ')} | game: ${[...inc].sort((x, y) => y[1] - x[1]).slice(0, 9).map(([k, v]) => k + ' ' + ms(v)).join(', ')}`; };
     if (off != null) { console.log('windows:');
-      for (const [k, a, b] of [['open -> script', 0, B.t0], ['script', B.t0, B.ready], ['script -> first frame', B.ready, B.frame], ['first frame -> yard', B.frame, B.yard], ['Start -> driving', B.click, B.drive]]) if (a != null && b != null) console.log(`  ${k} (${Math.round(b - a)} ms): ${win(a, b)}`);
+      for (const [k, a, b] of [['open -> script', 0, B.t0], ['script', B.t0, B.ready], ['script -> first frame', B.ready, B.frame], ['first frame -> compiled', B.frame, B.compiled], ['compiled -> yard', B.compiled, B.yard], ['Start -> driving', B.click, B.drive]]) if (a != null && b != null) console.log(`  ${k} (${Math.round(b - a)} ms): ${win(a, b)}`);
       console.log('longest tasks:'); for (const [s0, d] of lt.slice(0, 10)) console.log(`  ${d} ms at ${s0}: ${win(s0, s0 + d)}`); } }
   console.log(`CPU profile: ${ms(total)} ms of samples at ${THR}x (shown as throttled ms)`);
   console.log('self time by script:'); for (const [u, v] of [...urls].sort((a, b) => b[1] - a[1]).slice(0, 10)) console.log(`  ${u.padEnd(30)} ${ms(v)}`);
