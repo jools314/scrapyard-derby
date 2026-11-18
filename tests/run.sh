@@ -86,6 +86,7 @@ quick() {
   t dumpsterfire 600 "DUMPSTERFIRE PASS"
   t spiderjump 600 "SPIDERJUMP PASS"
   t spiderroof 600 "SPIDERROOF PASS"
+  t cranejitter 600 "CRANEJITTER PASS"
 }
 release() {
   quick
