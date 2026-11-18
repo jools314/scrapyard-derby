@@ -3,7 +3,8 @@
 // French, German and English voices that records what Web Speech was asked to say and in which voice.
 //  1. audio context suspended (iPhone interruption, a tab coming back, a page that started without a tap): a recorded line asks the context to
 //     resume and waits a moment for it, then plays as the clip - never as Web Speech, never both;
-//  2. a context that will not resume: after the grace the line goes to Web Speech once, and the clip queue is not left stuck;
+//  2. a context that will not resume: after the grace the line goes to Web Speech once, and the clip queue is not left stuck; a resume or fetch that
+//     arrives after that hand-off never starts the clip; an error after the clip started never adds Web Speech; a context that stops mid-clip frees the queue;
 //  3. sfx.init() also wakes an 'interrupted' context (WebKit), and a tap sets navigator.audioSession.type = 'playback' (iPhone silent switch);
 //  4. the tap that takes over from autoplay also wakes the audio (autoplay made the context without a tap);
 //  5. a long respawn session: composed lines (templates with recorded name-free versions, used-up pools) stay recorded clips, Kev and Lulu too,
@@ -75,22 +76,48 @@ const INIT = () => {
     let mu = await rms(4000);
     ok('music is on and sounding after a tap (analyser on the music bus)', mu.on && mu.playing && mu.state === 'running' && mu.rms > 0.002, mu);
 
+    // The AI keeps playing during these steps and the police cruiser's megaphone calls barks.speak itself (Build 116 flake: "two clip starts"
+    // were Tony's line plus Sheriff Buck's "Stop resisting!"), so every clip start is tagged with its line and only Tony's line is counted.
+    await page.evaluate(() => { const L = __derby.VCLIP.log, push = L.push; L.push = function (e) { const s = __vc.starts[__vc.starts.length - 1]; if (s && !s.line) { s.who = e.who; s.line = e.line; } return push.apply(this, arguments); }; });
+    // Each step's fake resume() is dead once the step ends, so a slow promise from one step can't wake the context in the next one.
+    const STEP = `const D = __derby, V = D.VCLIP, c = D.sfx.ctx, r0 = AudioContext.prototype.resume.bind(c); V.stopAll(); delete c.resume; await c.suspend();
+      const s0 = speechSynthesis.spoken.length, v0 = __vc.starts.length, said = () => speechSynthesis.spoken.slice(s0).map((x) => x.text).filter((x) => x === line).length,
+        clips = () => __vc.starts.slice(v0).filter((x) => x.line === line), mine = () => !!(V.cur && V.cur.line === line), wait = (ms) => new Promise((r) => setTimeout(r, ms));
+      let live = true, asked = 0; const end = () => { live = false; delete c.resume; };`;
+    const step = (body) => page.evaluate(new Function('line', `return (async () => { ${STEP} ${body} })();`), tonyLine);
+
     // ---- 1. suspended context that resumes within the grace ----
-    const r1 = await page.evaluate(async (line) => { const D = __derby, c = D.sfx.ctx; D.VCLIP.stopAll(); await c.suspend(); const r0 = c.resume.bind(c); let asked = 0;
-      c.resume = () => { asked++; return new Promise((res) => setTimeout(() => r0().then(res), 500)); }; /* the browser takes a moment */
-      const s0 = speechSynthesis.spoken.length, v0 = __vc.starts.length; D.barks.speak(__tony, line, D.player.body.position);
-      await new Promise((r) => setTimeout(r, 2600)); c.resume = r0;
-      return { asked, state: c.state, spoken: speechSynthesis.spoken.slice(s0).map((x) => x.text), starts: __vc.starts.slice(v0), cur: !!D.VCLIP.cur }; }, tonyLine);
-    ok('suspended context: the recorded line asks it to resume, then plays as the clip once it runs', r1.asked >= 1 && r1.starts.length === 1 && r1.starts[0].state === 'running', r1);
-    ok('  ...and Web Speech was not asked to say it (never both)', !r1.spoken.includes(tonyLine), r1.spoken);
+    const r1 = await step(`c.resume = () => { asked++; return new Promise((res) => setTimeout(() => { if (live) r0().then(res); else res(); }, 300)); }; /* the browser takes a moment */
+      D.barks.speak(__tony, line, D.player.body.position); for (let i = 0; i < 60 && !clips().length; i++) await wait(100); await wait(1200); end();
+      return { asked, state: c.state, said: said(), clips: clips(), busy: mine() };`);
+    ok('suspended context: the recorded line asks it to resume, then plays as the clip once it runs (once)', r1.asked >= 1 && r1.clips.length === 1 && r1.clips[0].state === 'running', r1);
+    ok('  ...and Web Speech was not asked to say it (never both), and the queue is free after the clip', r1.said === 0 && !r1.busy, r1);
 
     // ---- 2. a context that will not resume ----
-    const r2 = await page.evaluate(async (line) => { const D = __derby, c = D.sfx.ctx; D.VCLIP.stopAll(); await c.suspend(); const r0 = c.resume.bind(c); c.resume = () => Promise.resolve(); /* stays suspended (no tap yet) */
-      const s0 = speechSynthesis.spoken.length, v0 = __vc.starts.length; D.barks.speak(__tony, line, D.player.body.position);
-      await new Promise((r) => setTimeout(r, 2600)); const mid = { spoken: speechSynthesis.spoken.slice(s0).map((x) => x.text), starts: __vc.starts.slice(v0).length, cur: !!D.VCLIP.cur };
-      c.resume = r0; await c.resume(); await new Promise((r) => setTimeout(r, 1500)); return { ...mid, startsAfter: __vc.starts.slice(v0).length, curAfter: !!D.VCLIP.cur }; }, tonyLine);
-    ok('a context that stays suspended: after the grace the line is spoken by Web Speech, exactly once', r2.spoken.filter((x) => x === tonyLine).length === 1, r2);
-    ok('  ...the clip is never started into the silent context, nor later on top of the speech, and the clip queue is free again', r2.starts === 0 && r2.startsAfter === 0 && !r2.cur && !r2.curAfter, r2);
+    const r2 = await step(`c.resume = () => Promise.resolve(); /* stays suspended (no tap yet) */
+      D.barks.speak(__tony, line, D.player.body.position); for (let i = 0; i < 80 && !said(); i++) await wait(100); const mid = { said: said(), clips: clips().length, busy: mine() };
+      end(); await r0(); await wait(1500); return { ...mid, saidAfter: said(), clipsAfter: clips().length, busyAfter: mine() };`);
+    ok('a context that stays suspended: after the grace the line is spoken by Web Speech, exactly once', r2.said === 1 && r2.saidAfter === 1, r2);
+    ok('  ...its clip is never started into the silent context, nor later on top of the speech, and the clip queue is free again', r2.clips === 0 && r2.clipsAfter === 0 && !r2.busy && !r2.busyAfter, r2);
+
+    // ---- 2b. the race: the resume (and the clip's fetch) only arrive after the line has gone to Web Speech ----
+    // Ordered by events, not by timing: resume() holds until the line has been handed to speech, so the order is the same on a fast machine and a 20 fps Chromebook.
+    const r2b = await step(`const g0 = V.get; V.get = (id) => new Promise((res, rej) => { const k = () => (said() ? g0.call(V, id).then(res, rej) : setTimeout(k, 20)); k(); });
+      c.resume = () => { asked++; return new Promise((res) => { const k = () => (!live ? res() : said() ? r0().then(res) : setTimeout(k, 20)); k(); }); };
+      D.barks.speak(__tony, line, D.player.body.position); for (let i = 0; i < 80 && !said(); i++) await wait(100); await wait(2500); V.get = g0; end();
+      return { asked, state: c.state, said: said(), clips: clips().length, busy: mine() };`);
+    ok('late resume and late fetch after the hand-off to Web Speech: the line is said once and its clip never starts', r2b.said === 1 && r2b.clips === 0 && !r2b.busy && r2b.state === 'running', r2b);
+
+    // ---- 2c. an error after the clip has started must not send the line to Web Speech as well ----
+    const r2c = await step(`await r0(); const d0 = V.duck; V.duck = () => { V.duck = d0; throw new Error('test: after start'); };
+      D.barks.speak(__tony, line, D.player.body.position); for (let i = 0; i < 40 && !clips().length; i++) await wait(50); const busyNow = mine(); await wait(400); const saidNow = said();
+      await wait(2200); V.duck = d0; end(); return { clips: clips().length, said: saidNow, busyWhilePlaying: busyNow, busyAfter: mine() };`);
+    ok('an error after the clip started: the clip plays, Web Speech does not also say it, and the clip owns the queue until it ends', r2c.clips === 1 && r2c.said === 0 && r2c.busyWhilePlaying && !r2c.busyAfter, r2c);
+
+    // ---- 2d. the context stops in the middle of a clip ('ended' never comes): the queue must still be freed ----
+    const r2d = await step(`await r0(); c.resume = () => Promise.resolve(); D.barks.speak(__tony, line, D.player.body.position); for (let i = 0; i < 40 && !clips().length; i++) await wait(25);
+      await c.suspend(); /* an iPhone call / the app switcher, mid-line */ await wait(2600); const busy = mine(); end(); await r0(); return { clips: clips().length, busy, cur: V.cur ? V.cur.who + ': ' + V.cur.line : null };`);
+    ok('the context stops mid-clip: the clip queue is freed by itself (it used to wait for the next line to notice)', r2d.clips === 1 && !r2d.busy, r2d);
 
     // ---- 8b. music comes back after the context was suspended (tab switch / interruption) ----
     await page.evaluate(async () => { await __derby.sfx.ctx.suspend(); document.dispatchEvent(new Event('visibilitychange')); }); // back from another tab or app, no tap yet

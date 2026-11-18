@@ -8398,7 +8398,7 @@ const VCLIP = {
   running(ms) { // resolves true once the audio context runs (asking it to), false if it still isn't running after ms
     const c = sfx.ctx; if (!c) return Promise.resolve(false); if (c.state === 'running') return Promise.resolve(true);
     sfx.wake(); const t0 = performance.now();
-    return new Promise((res) => { const k = () => { if (sfx.ctx !== c) return res(false); if (c.state === 'running') return res(true); if (performance.now() - t0 >= ms) return res(false); if (performance.now() - t0 > 600) sfx.wake(); setTimeout(k, 80); }; setTimeout(k, 40); });
+    let again = false; return new Promise((res) => { const k = () => { if (sfx.ctx !== c) return res(false); if (c.state === 'running') return res(true); if (performance.now() - t0 >= ms) return res(false); if (!again && performance.now() - t0 > 600) { again = true; sfx.wake(); } setTimeout(k, 80); }; setTimeout(k, 40); }); // (asks twice, not every 80 ms)
   },
   fetchRaw(id) {
     if (this.raw.has(id)) return Promise.resolve(this.raw.get(id));
@@ -8450,16 +8450,21 @@ const VCLIP = {
     if (fx === 'pa') { const hp = link(bq('highpass', 110, 0.7), dest); if (sfx.verbIn) { const s = c.createGain(); s.gain.value = 0.22; hp.connect(s); s.connect(sfx.verbIn); } return hp; }
     return dest;
   },
+  // One owner per line: it.own goes 'wait' -> 'clip' | 'speech' | 'dropped' | 'stopped' exactly once, and only the line that owns the queue (this.cur)
+  // may change it. So a late resume, a late fetch or an error after the clip has started can never start the clip after the line went to Web Speech,
+  // start it twice, or send a playing clip to Web Speech too; and the queue is freed when the clip ends, or by a timer if 'ended' never comes.
   play(it) {
-    this.cur = it;
+    this.cur = it; it.own = 'wait';
     const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('slow')), 2500));
-    const gave = (why) => { // the clip can't be heard: this one line goes to Web Speech (once: the clip is never started after this)
-      if (this.cur !== it) return; this.note(why); if (why === 'failed') this.stats.failed++; else this.stats.speech++;
+    const take = (to) => { if (this.cur !== it || it.own !== 'wait') return false; it.own = to; return true; };
+    const free = () => { clearTimeout(it.endT); if (this.cur === it) this.next(); };
+    const gave = (why) => { // the clip can't be heard: this one line goes to Web Speech, once, and its clip is never started after this
+      if (!take('speech')) return; this.note(why); if (why === 'failed') this.stats.failed++; else this.stats.speech++;
       if (!VOICES_OFF && performance.now() - it.t < 3500) try { barks.speak(it.P0, it.line0, it.pos, { noClip: true }); } catch (e) {}
-      this.next(); };
+      free(); };
     Promise.all([Promise.race([this.get(it.id), timeout]), this.running(this.GRACE)]).then(([buf, up]) => {
-      if (this.cur !== it) return; // stopped meanwhile
-      if (VOICES_OFF || sfx.muted || S.voiceVolume <= 0 || performance.now() - it.t > 4000) { this.next(); return; } // switched off, or the caption is long gone
+      if (this.cur !== it || it.own !== 'wait') return; // stopped, or already handed on, meanwhile
+      if (VOICES_OFF || sfx.muted || S.voiceVolume <= 0 || performance.now() - it.t > 4000) { if (take('dropped')) free(); return; } // switched off, or the caption is long gone
       if (!up || sfx.ctx.state !== 'running') { gave(it.why || 'suspended'); return; } // still no running audio: a clip started now would be silent (and hold the queue)
       if (it.why) this.note('waited');
       const c = sfx.ctx, t0 = c.currentTime + 0.03;
@@ -8468,13 +8473,16 @@ const VCLIP = {
       let out = this.bus();
       if (it.pos && c.createStereoPanner) { const pn = c.createStereoPanner(); pn.pan.value = sfx.panOf(it.pos) * 0.7; pn.connect(out); out = pn; }
       g.connect(this.chain(it.fx, out));
-      const s = c.createBufferSource(); s.buffer = buf; s.connect(g); s.start(t0); const t1 = t0 + buf.duration;
+      const s = c.createBufferSource(); s.buffer = buf; s.connect(g); if (!take('clip')) return; s.start(t0); const t1 = t0 + buf.duration; it.src = s;
+      it.endT = setTimeout(() => { try { s.onended = null; s.stop(); } catch (e) {} free(); }, buf.duration * 1000 + 1500); // ('ended' never comes if the context stops mid-clip: free the queue anyway, and don't let the rest play over a later line)
+      s.onended = free;
+      try { // (nothing after the start may hand the line to Web Speech: it is playing)
       if (it.fx === 'radio') { const n = c.createBufferSource(); n.buffer = sfx.noise; const ng = c.createGain(); ng.gain.setValueAtTime(0.0001, t1); ng.gain.exponentialRampToValueAtTime(0.12 * g.gain.value, t1 + 0.01); ng.gain.exponentialRampToValueAtTime(0.0001, t1 + 0.12); const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 1500; n.connect(hp); hp.connect(ng); ng.connect(out); n.start(t1, Math.random()); n.stop(t1 + 0.14); } // squelch tail
-      it.src = s; this.stats.clips++; this.note('clips'); it.until = performance.now() + buf.duration * 1000 + 1500;
+      this.stats.clips++; this.note('clips'); it.until = performance.now() + buf.duration * 1000 + 1500;
       this.log.push({ who: it.who, line: it.line, fx: it.fx }); if (this.log.length > 30) this.log.shift(); // (shown in tests / console)
       this.duck(t0, t1);
-      s.onended = () => { if (this.cur === it) this.next(); };
-    }).catch(() => gave('failed')); // couldn't fetch or decode
+      } catch (e) {}
+    }).catch(() => gave('failed')); // couldn't fetch or decode (or building the sound failed before it started)
   },
   next() { this.cur = null; const q = this.q; this.q = null; if (q && performance.now() - q.t < 3000) this.play(q); },
   duck(t0, t1) { // music dips under a voice and comes back after
@@ -8482,7 +8490,7 @@ const VCLIP = {
     gn.cancelScheduledValues(t0); gn.setTargetAtTime(full * 0.45, t0, 0.06); gn.setTargetAtTime(full, t1 + 0.1, 0.35);
     clearTimeout(this.duckT); this.duckT = setTimeout(() => { try { gn.cancelScheduledValues(0); gn.value = S.musicVolume * 0.8; } catch (e) {} }, (t1 - t0) * 1000 + 2500); // and never stays ducked
   },
-  stopAll() { const it = this.cur; this.cur = null; this.q = null; if (it && it.src) try { it.src.onended = null; it.src.stop(); } catch (e) {} },
+  stopAll() { const it = this.cur; this.cur = null; this.q = null; if (!it) return; clearTimeout(it.endT); if (it.own === 'wait') it.own = 'stopped'; if (it.src) try { it.src.onended = null; it.src.stop(); } catch (e) {} },
 };
 VCLIP.load();
 // Close-pass roasts: a driver closing in on (or flashing past) a rival they have a roast for says it. Host/solo decides; guests hear it through the bark event.
