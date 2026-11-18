@@ -1,4 +1,4 @@
-# Scrapyard Derby play-log report · 2026-11-18 16:39 UTC
+# Scrapyard Derby play-log report · 2026-11-18 18:39 UTC
 
 1239 matches (1226 from real devices, 3685.9 game-minutes), 113 page loads, 9 bug reports.
 
@@ -332,7 +332,7 @@ Build 102+ reloads an autoplaying page whose memory runs away and logs what was 
 ### Autoplay health
 
 - **Mac** autoplay health: 55 sessions · ended: no word yet (still running, or not reloaded since) 55 · wake lock: acquired 1, denied 0, released by tab hidden 0, by the system 0, by us 0 (asked again 0) · suspends 0 (0 s asleep or frozen) · hidden 0×, frozen 0×, offline 0×
-- **other** autoplay health: 17 sessions · ended: no word yet (still running, or not reloaded since) 17 · wake lock: acquired 1, denied 0, released by tab hidden 0, by the system 0, by us 0 (asked again 0) · suspends 0 (0 s asleep or frozen) · hidden 0×, frozen 0×, offline 0×
+- **other** autoplay health: 18 sessions · ended: no word yet (still running, or not reloaded since) 17, not reloaded yet, last gasp pagehide 1 · wake lock: acquired 2, denied 0, released by tab hidden 0, by the system 0, by us 0 (asked again 0) · suspends 93 (9864 s asleep or frozen) · hidden 0×, frozen 0×, offline 0×
 
 ## Bug reports
 
@@ -347,14 +347,4 @@ Build 102+ reloads an autoplaying page whose memory runs away and logs what was 
 
 ## Changes since the previous report
 
-- physics catches up for Camper: 809 → 821
-- physics catches up for bull: 1477 → 1501
-- physics catches up for Tow Truck: 1481 → 1506
-- physics catches up for Outrider: 3577 → 3606
-- physics catches up for Cruiser: 1215 → 1229
-- physics catches up for Hellbender: 1133 → 1146
-- physics catches up for Forklift: 1370 → 1384
-- physics catches up for Viper: 1372 → 1402
-- physics catches up for Sandflea: 2118 → 2165
-- physics catches up for Fire Truck: 469 → 475
-- physics catches up for Spider-Walker: 741 → 753
+- nothing new
