@@ -172,6 +172,35 @@ def main():
     rj4 = json.load(open(os.path.join(out4, 'report-latest.json'))) if r.returncode == 0 else {}
     ok((rj4.get('autoplayHealth') or {}).get('Chromebook', {}).get('ended', {}).get('vanished') == 1, 'A9 report-latest.json carries autoplayHealth per device — got: ' + str(rj4.get('autoplayHealth')))
 
+    # A10: self-heal (Build 119) — every heal record counts in the Autoplay health line: reloads by cause (memory, planned refresh,
+    # lost GPU context, stalled frames), rate-limited ones, and the new game frames the launcher (autoplay.html) started after a crash.
+    MB = 'MacBook · Apple M-series'
+    hr = lambda sid, at, why, action, **k: dict({'v': 2, 'kind': 'heal', 'sid': sid, 'build': '119', 'device': MB, 'at': at, 'why': why, 'action': action, 'auto': True, 'upS': 5400, 'detail': why + ' detail', 'mem': {'g': 640, 'heapMB': 210}}, **k)
+    he = [
+        dict(MATCH, id='h1-1', sid='h1', build='119', role='autoplay', device=MB, game=180),
+        hr('h1', '2026-11-18T01:00:00.000Z', 'memory', 'rate-limited', waitS=600),
+        hr('h1', '2026-11-18T01:10:00.000Z', 'memory', 'reload'),
+        hr('h1', '2026-11-18T01:10:00.000Z', 'memory', 'reload'),  # the same record uploaded twice: counted once
+        hr('h2', '2026-11-18T02:40:00.000Z', 'refresh', 'reload'),
+        hr('h3', '2026-11-18T03:00:00.000Z', 'gpu', 'reload'),
+        hr('h4', '2026-11-18T03:30:00.000Z', 'stall', 'reload'),
+        hr('h5', '2026-11-18T04:00:00.000Z', 'frame dead', 'new frame', by='launcher', detail='no heartbeat from the game for 121 s', upS=10),
+        hr('h5', '2026-11-18T03:59:30.000Z', 'launcher', 'isolation', own=True, by='launcher'),
+        hr('h6', '2026-11-18T05:00:00.000Z', 'refresh', 'reload', test=True),  # a test run: left out
+    ]
+    arch5 = tempfile.mkdtemp(prefix='sd-arch-'); out5 = tempfile.mkdtemp(prefix='sd-out-')
+    with open(os.path.join(arch5, 'fixture-playlog.txt'), 'w') as f:
+        for x in [SESSION] + he: f.write(json.dumps(x) + '\n')
+    r = subprocess.run([sys.executable, os.path.join(HERE, 'analyze.py'), arch5, out5], capture_output=True, text=True)
+    md5 = open(os.path.join(out5, 'report-latest.md')).read() if r.returncode == 0 else ''
+    mb = next((l for l in md5.split('\n') if l.startswith('- **MacBook** autoplay health')), '')
+    print('     ' + mb)
+    ok('self-heal reloads 4 (memory 1, refresh 1, gpu 1, stall 1), rate-limited 1, new game frames from the launcher 1 (frame dead 1)' in mb, 'A10 self-heal reloads by cause, rate-limited, launcher frames (duplicate upload and test run left out) — got: ' + mb + r.stderr[-300:])
+    ok('· launcher frame in its own process 1×, shared 0×' in mb, 'A10 the launcher\'s process check — got: ' + mb)
+    ok('· last: frame dead new frame after 0 min (no heartbeat from the game for 121 s; geometries 640, heap 210 MB)' in mb, 'A10 the latest self-heal action with why, uptime and memory — got: ' + mb)
+    rj5 = json.load(open(os.path.join(out5, 'report-latest.json'))) if r.returncode == 0 else {}
+    ok(((rj5.get('autoplayHealth') or {}).get('MacBook', {}).get('heal') or {}).get('reloads') == {'memory': 1, 'refresh': 1, 'gpu': 1, 'stall': 1}, 'A10 report-latest.json carries the heal counts — got: ' + str(rj5.get('autoplayHealth')))
+
     print('FAILED ' + str(len(fails)) if fails else 'ALL PASS')
     return 1 if fails else 0
 

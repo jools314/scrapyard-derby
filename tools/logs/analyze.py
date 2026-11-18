@@ -312,14 +312,14 @@ if ap:
     if hid: L.append(f'- {len(hid)} autoplay matches spent time hidden (stats from those stretches are excluded from build 67)')
     L.append('')
 # --- autoplay health: how each autoplay page ended (from the next load's 'lifeEnd' record, or its last-gasp beacon), wake-lock releases by cause, suspends
-AH = collections.defaultdict(lambda: {'dev': None, 'end': None, 'gasp': [], 'n': collections.Counter()})
+AH = collections.defaultdict(lambda: {'dev': None, 'end': None, 'gasp': [], 'heal': {}, 'n': collections.Counter()})
 def ah_take(r):
     a = AH[r['sid']]
     if r.get('device') and not a['dev']: a['dev'] = dev_name(r)
     for k, v in ((r.get('n') if r.get('kind') in ('lifeEnd', 'gasp') else r.get('life')) or {}).items():
         if isinstance(v, (int, float)) and v > a['n'][k]: a['n'][k] = v  # (counters only grow within a page: the largest copy wins)
     return a
-ap_sids = {m['sid'] for m in ap if m.get('sid')} | {r['sid'] for r in recs if r.get('kind') in ('lifeEnd', 'gasp') and r.get('auto') and r.get('sid') and not is_test(r)}
+ap_sids = {m['sid'] for m in ap if m.get('sid')} | {r['sid'] for r in recs if r.get('kind') in ('lifeEnd', 'gasp', 'heal') and r.get('auto') and r.get('sid') and not is_test(r)}
 ap_sids |= {s for s, r in sessions.items() if 'autoplay=1' in (r.get('url') or '') and not is_test(r)}
 for r in recs:
     if r.get('sid') not in ap_sids or is_test(r): continue
@@ -329,6 +329,8 @@ for r in recs:
     elif r.get('kind') == 'gasp':
         a = ah_take(r)
         if all(g.get('at') != r.get('at') for g in a['gasp']): a['gasp'].append(r)
+    elif r.get('kind') == 'heal':  # self-heal actions (Build 119): reloads by cause, rate-limited ones, and new game frames from the launcher (autoplay.html)
+        a = ah_take(r); a['heal'][(r.get('at'), r.get('why'), r.get('action'))] = r  # (uploads overlap: one copy each)
     elif r.get('kind') in ('ck', 'match') and r.get('role') == 'autoplay': ah_take(r)
     elif r.get('kind') == 'session' and not AH[r['sid']]['dev'] and r.get('device'): AH[r['sid']]['dev'] = dev_name(r)
 if AH:
@@ -336,11 +338,19 @@ if AH:
     J['autoplayHealth'] = {}
     for d in sorted({a['dev'] or '?' for a in AH.values()}):
         xs = {s: a for s, a in AH.items() if (a['dev'] or '?') == d}
-        if not any(a['end'] or a['gasp'] or a['n'] for a in xs.values()):
+        if not any(a['end'] or a['gasp'] or a['n'] or a['heal'] for a in xs.values()):
             L.append(f'- **{d}** autoplay health: {len(xs)} sessions · page lifecycle not recorded yet (builds before the stop log)'); continue
-        ends = collections.Counter(); n = collections.Counter(); last = None
+        ends = collections.Counter(); n = collections.Counter(); last = None; hl = collections.Counter(); hiso = collections.Counter(); hlim = 0; hnew = collections.Counter(); hlast = None
         for s, a in xs.items():
             n.update(a['n'])
+            for h in a['heal'].values():
+                act = h.get('action')
+                if act == 'reload': hl[h.get('why') or '?'] += 1
+                elif act == 'rate-limited': hlim += 1
+                elif act == 'new frame': hnew[h.get('why') or '?'] += 1
+                elif act == 'isolation': hiso['own' if h.get('own') else 'shared'] += 1; continue  # (the launcher's check that the game frame has a process of its own)
+                else: continue
+                if not hlast or (h.get('at') or '') > (hlast.get('at') or ''): hlast = h
             if a['end']:
                 ends[a['end'].get('how', '?')] += 1
                 if not last or (a['end'].get('lastSeen') or '') > (last.get('lastSeen') or ''): last = a['end']
@@ -349,9 +359,16 @@ if AH:
         order = ['clean', 'suspended', 'vanished']
         endtxt = ', '.join([f'{k} {ends[k]}' for k in order if ends[k]] + [f'{k} {v}' for k, v in sorted(ends.items()) if k not in order])
         wl = f"wake lock: acquired {n['wlGot']}, denied {n['wlDenied']}, released by tab hidden {n['wlHidden']}, by the system {n['wlSystem']}, by us {n['wlUs']} (asked again {n['wlRe']})"
-        L.append(f"- **{d}** autoplay health: {len(xs)} sessions · ended: {endtxt} · {wl} · suspends {n['sus']} ({n['susS']} s asleep or frozen) · hidden {n['hid']}×, frozen {n['frz']}×, offline {n['off']}×"
+        horder = ['memory', 'refresh', 'gpu', 'stall']
+        heal = (f"self-heal reloads {sum(hl.values())}" + (' (' + ', '.join([f'{k} {hl[k]}' for k in horder if hl[k]] + [f'{k} {v}' for k, v in sorted(hl.items()) if k not in horder]) + ')' if hl else '')
+                + f", rate-limited {hlim}, new game frames from the launcher {sum(hnew.values())}" + (' (' + ', '.join(f'{k} {v}' for k, v in sorted(hnew.items())) + ')' if hnew else ''))
+        if hiso: heal += f" · launcher frame in its own process {hiso['own']}×, shared {hiso['shared']}×" + (' (a crash takes the launcher too)' if hiso['shared'] else '')
+        if hlast:
+            m = hlast.get('mem') or {}
+            heal += f" · last: {hlast.get('why')} {hlast.get('action')} after {round((hlast.get('upS') or 0) / 60)} min ({hlast.get('detail')}; geometries {m.get('g')}, heap {m.get('heapMB')} MB)"
+        L.append(f"- **{d}** autoplay health: {len(xs)} sessions · ended: {endtxt} · {wl} · suspends {n['sus']} ({n['susS']} s asleep or frozen) · hidden {n['hid']}×, frozen {n['frz']}×, offline {n['off']}× · {heal}"
                  + (f" · last stop: {last.get('how')} ({last.get('reason')}), last seen {last.get('lastSeen')}" if last else ''))
-        J['autoplayHealth'][d] = {'sessions': len(xs), 'ended': dict(ends), 'counters': dict(n)}
+        J['autoplayHealth'][d] = {'sessions': len(xs), 'ended': dict(ends), 'counters': dict(n), 'heal': {'reloads': dict(hl), 'rateLimited': hlim, 'newFrames': dict(hnew), 'isolation': dict(hiso)}}
     L.append('')
 # --- bug reports
 if bugs:
