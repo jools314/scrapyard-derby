@@ -809,7 +809,7 @@ const CAR_TYPES = {
   viper: { iconic: true, special: 'rockets', handling: { steer: 1.1, rate: 1.25, spring: 1.45, damp: 1.3, rear: 0.9, drag: 0.8, roll: 0.6 }, frontDrive: 0.2, name: 'Viper', blurb: 'Low wedge with a big wing. Fastest in the yard, but fragile.', style: 'wedge', mass: 1250, L: 4.4, W: 1.98, H: 0.5, wheelR: 0.38, wheelW: 0.36, wb: 2.7, track: 1.74, power: 1.12, grip: 1.12, armor: 1.2, cabin: { l: 1.6, h: 0.46, w: 1.5, x: -0.45 }, color: 0xc8302a, redline: 8200, idle: 1000, cyl: 5 },
   towtruck: { iconic: true, special: 'tow', handling: { steer: 0.85, rate: 0.9, spring: 1.1, damp: 1.15, rear: 1.1, drag: 1.3, roll: 0.8 }, name: 'Tow Truck', blurb: 'Wrecker with a boom and hook. Back up to a car, press F to hook it and drag it nose-up; F again whips it loose.', style: 'pickup', mass: 4200, L: 6.0, W: 2.2, H: 0.85, wheelR: 0.46, wheelW: 0.36, wb: 3.7, track: 1.86, power: 1.35, grip: 1.05, armor: 0.7, cabin: { l: 1.9, h: 0.95, w: 2.0, x: 1.25 }, color: 0x8a4a22, redline: 4200, idle: 700, cyl: 4 },
   forklift: { iconic: true, noPlant: true, special: 'lift', forkSteer: true, comBias: 0.02, frontDrive: 1, antiWheelie: true, handling: { steer: 1.3, rate: 1.5, spring: 1.4, damp: 1.4, rear: 1.0, drag: 110, roll: 0.6 }, name: 'Forklift', blurb: 'Warehouse forklift with a 2.5 t counterweight. Drive the forks under a car, press F to hoist it, F again to toss it.', style: 'fork', mass: 2900, L: 3.3, W: 1.35, H: 0.75, wheelR: 0.34, wheelW: 0.3, wb: 1.85, track: 1.12, power: 0.6, grip: 1.15, armor: 0.75, cabin: { l: 1.0, h: 0.42, w: 1.05, x: -0.35 }, color: 0xe0a812, redline: 3600, idle: 800, cyl: 3, noWheelLoss: true },
-  sandflea: { iconic: true, special: 'flame', handling: { steer: 1.15, rate: 1.35, spring: 0.7, damp: 0.75, rear: 0.95, drag: 1.25, roll: 1.1 }, frontDrive: 0.35, name: 'Sandflea', blurb: 'Light buggy on long-travel springs. Flies far.', style: 'buggy', mass: 850, L: 3.7, W: 1.9, H: 0.45, wheelR: 0.5, wheelW: 0.4, wb: 2.55, track: 1.8, power: 0.75, grip: 1.1, armor: 1.3, cabin: { l: 1.6, h: 0.75, w: 1.4, x: -0.15 }, color: 0x9ccf2e, hullW: 0.72, extraTravel: 0.12, redline: 8500, idle: 1100, cyl: 2 },
+  sandflea: { iconic: true, special: 'flame', handling: { steer: 1.15, rate: 1.35, spring: 0.7, damp: 0.75, rear: 0.95, drag: 1.25, roll: 0.9 }, frontDrive: 0.35, name: 'Sandflea', blurb: 'Light buggy on long-travel springs. Flies far.', style: 'buggy', mass: 950, L: 3.7, W: 1.9, H: 0.45, wheelR: 0.5, wheelW: 0.4, wb: 2.55, track: 1.8, power: 0.8, grip: 1.1, armor: 1.1, cabin: { l: 1.6, h: 0.75, w: 1.4, x: -0.15 }, color: 0x9ccf2e, hullW: 0.72, extraTravel: 0.12, redline: 8500, idle: 1100, cyl: 2 },
   camper: { iconic: true, special: 'bomb', handling: { steer: 0.55, rate: 0.65, spring: 0.85, damp: 0.9, rear: 1.4, drag: 1.5, roll: 1.0 }, name: 'Camper', blurb: 'Rusty old RV. Top-heavy, slow to turn, and a rolling wrecking ball.', style: 'van', flimsy: true, mass: 3600, L: 6.6, W: 2.3, H: 0.9, wheelR: 0.47, wheelW: 0.38, wb: 4.0, track: 2.0, power: 1.3, grip: 0.92, armor: 1.0, cabin: { l: 1.3, h: 0.6, w: 2.15, x: 2.5 }, color: 0xefe7d4, redline: 5000, idle: 700, cyl: 3 },
   mixer: { iconic: true, heavy: true, handling: { steer: 0.7, rate: 0.6, spring: 1.2, damp: 1.3, rear: 1.15, drag: 3.2, roll: 0.7 }, name: 'Mixer', blurb: 'Concrete mixer: 9.5 tonnes. F or FIRE pours wet concrete that bogs down anyone who drives into it.', style: 'mixer', pour: true, mass: 9500, L: 8.2, W: 2.5, H: 0.8, wheelR: 0.55, wheelW: 0.44, wb: 5.0, axles: [2.9, -1.4, -2.8], track: 2.05, power: 1.45, grip: 0.95, armor: 0.5, cabin: { l: 1.8, h: 1.3, w: 2.3, x: 2.85 }, color: 0xeeeae2, redline: 2800, idle: 600, cyl: 3 },
   firetruck: { iconic: true, heavy: true, special: 'water', handling: { steer: 0.8, rate: 0.75, spring: 1.1, damp: 1.2, rear: 1.15, drag: 1.3, roll: 0.75 }, name: 'Fire Truck', blurb: 'Long ladder, flashing lights, and automatic rear steering for tight turns. G toggles the siren.', style: 'fire', siren: true, rearSteer: true, mass: 8000, L: 9.6, W: 2.5, H: 0.95, wheelR: 0.52, wheelW: 0.42, wb: 6.0, track: 2.05, power: 1.8, grip: 0.95, armor: 0.6, cabin: { l: 2.4, h: 1.15, w: 2.3, x: 3.0 }, color: 0xb81e14, redline: 3200, idle: 650, cyl: 3 },
@@ -837,7 +837,7 @@ function loadSettings() {
 }
 function saveSettings() { try { localStorage.setItem(STORE_KEY, JSON.stringify(S)); } catch (e) {} }
 loadSettings();
-let playerType = 'outrider';
+let playerType = 'viper'; // a first visit starts in the Viper (dart in, rockets, run: the most fun first ride); a saved pick below wins
 try { const t = localStorage.getItem(CAR_KEY); if (t && CAR_TYPES[t]) playerType = t; } catch (e) {}
 
 const FIXED = 1 / 60;
@@ -2700,7 +2700,7 @@ const WEAPONS = {
       if (car.wrecked || !drifting || !(car.contacts > 0) || game.state !== 'playing') return;
       car.trailT = (car.trailT || 0) - dt; const b = car.body, rp = b.pointToWorldFrame(new CANNON.Vec3(-car.T.L / 2 - car.comShift, 0.2, 0));
       if (Math.random() < 0.7) emit('fire', rp.x + rand(-0.4, 0.4), 0.4, rp.z + rand(-0.4, 0.4), b.velocity.x * 0.2, rand(1, 2), b.velocity.z * 0.2, rand(0.3, 0.5), rand(0.35, 0.6));
-      if (car.trailT <= 0) { car.trailT = 0.3; addConcrete(rp.x, rp.z, rand(1.2, 1.7), 'fuel'); const pd = CONCRETE.list[CONCRETE.list.length - 1]; pd.burning = rand(3, 5); pd.owner = car; if (car.isPlayer && !car.trailSaid) { car.trailSaid = true; toast('🔥 FIRE DRIFT!', 'cool'); } }
+      if (car.trailT <= 0) { car.trailT = 0.3; addConcrete(rp.x, rp.z, rand(1.2, 1.7), 'fuel'); const pd = CONCRETE.list[CONCRETE.list.length - 1]; pd.burning = rand(3, 5); pd.owner = car; pd.trail = true; if (car.isPlayer && !car.trailSaid) { car.trailSaid = true; toast('🔥 FIRE DRIFT!', 'cool'); } }
     },
     start(car) { sfx.at(car.body.position).noiseHit('bandpass', 600, 0.6, 0.4 * wv(car), 0.6); },
     tick(car, dt) {
@@ -2993,7 +2993,7 @@ function puddleAt(x, z, kind, pad = 0) { for (const c of CONCRETE.list) { if (c.
 function inFire(car) {
   const p = car.body.position;
   if (p.y > 2.5) return false;
-  for (const c of CONCRETE.list) if (c.kind === 'fuel' && c.burning > 0 && (p.x - c.x) ** 2 + (p.z - c.z) ** 2 < (c.r + 1) ** 2) return true;
+  for (const c of CONCRETE.list) if (c.kind === 'fuel' && c.burning > 0 && !(c.trail && c.owner === car) && (p.x - c.x) ** 2 + (p.z - c.z) ** 2 < (c.r + 1) ** 2) return true; // (not the Sandflea's own fire-drift trail: each patch drops right under its tail, so any hard turn or circle back through it set the buggy alight, unattributed, until it burned to a wreck; a tanker's own lit slick still burns it)
   if (typeof ARENA !== 'undefined' && ARENA.firePit && inFirePit(p)) return true;
   return false;
 }
