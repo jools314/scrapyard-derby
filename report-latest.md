@@ -1,6 +1,6 @@
-# Scrapyard Derby play-log report · 2026-11-18 00:39 UTC
+# Scrapyard Derby play-log report · 2026-11-18 02:40 UTC
 
-1115 matches (1102 from real devices, 3327.7 game-minutes), 93 page loads, 9 bug reports.
+1115 matches (1102 from real devices, 3327.7 game-minutes), 99 page loads, 9 bug reports.
 
 ## Who and what
 
@@ -131,6 +131,7 @@ Portal players leave if the page sits frozen. scriptMs = building the yard, comp
 | iPhone | 107 | 1 | 1123 | 1123 | 314 | 154 | – | 1/1 |
 | iPhone | 111 | 2 | 1307 | 1307 | 309 | 149 | – | 2/2 |
 | iPhone | 112 | 2 | 919 | 919 | 338 | 490 | 1489 | 2/2 |
+| iPhone | 113 | 1 | 585 | 585 | 263 | 119 | 852 | 1/1 |
 | other | 105 | 2 | 15999 | 15999 | 1003 | 8091 | – | 2/2 |
 | other | 112 | 1 | 2715 | 2715 | 1474 | 0 | 6687 | 0/1 |
 
@@ -287,7 +288,7 @@ Build 102+ reloads an autoplaying page whose memory runs away and logs what was 
 - Mac: voice failures 371 over 764 matches · lines sent 41, started 25, errors 7
 - iPhone: voice failures 0 over 4 matches · lines sent 15, started 15, errors 0
 - other: voice failures 22 over 333 matches · lines sent 1, started 0, errors 1 (engine never started)
-- errors & incidents (in and out of matches): 23× voice: voices: # recorded clips loaded (# voices); 7× voice: voices: stuck - # lines asked for, engine busy # s and none started (last voice default, # voices, spea; 2× voice: voices: stuck - still busy # s after the tab came back from # s in the background (last voice default, ; 1× voice: voices: stuck - # lines asked for and not one reported back, engine idle (last voice default, # voices,
+- errors & incidents (in and out of matches): 26× voice: voices: # recorded clips loaded (# voices); 7× voice: voices: stuck - # lines asked for, engine busy # s and none started (last voice default, # voices, spea; 2× voice: voices: stuck - still busy # s after the tab came back from # s in the background (last voice default, ; 1× voice: voices: stuck - # lines asked for and not one reported back, engine idle (last voice default, # voices,
 - network incidents: 57
 
 ## Autoplay
