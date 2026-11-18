@@ -185,5 +185,54 @@ const rig = (page) => page.evaluate(() => { const D = __derby; window.__t = { re
       ok(iso2 && iso2.own === false, '6: control: with site isolation off, the check reports a shared process', iso2);
       await b2.close();
       } }
+  // ---------- 7: autoplay moves itself into the launcher (no bookmark to change), and never bounces ----------
+  if (!ONLY || ONLY.includes('7')) {
+    const cors = { 'Access-Control-Allow-Origin': '*' }, lpath = path.join(ROOT, 'autoplay.html');
+    const browser = await chromium.launch({ args: ['--site-per-process', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+    const fresh = async (deadFrame) => { const page = await browser.newPage({ viewport: { width: 480, height: 300 } }); const errors = [];
+      page.on('pageerror', (e) => errors.push('pageerror: ' + e.message));
+      await page.addInitScript(() => { window.__lnFast = 6; window.__noDrop = true; window.__launchTest = true; }); // (__launchTest: the redirect runs off github.io too)
+      await page.route('**/*', (r) => { const u = r.request().url(), inFrame = r.request().frame() !== page.mainFrame();
+        if (u.includes('three@0.160.0/build/three.module.js')) return r.fulfill({ headers: cors, contentType: 'application/javascript', body: fs.readFileSync(NM + '/three/build/three.module.js') });
+        if (u.includes('three@0.160.0/examples/jsm/')) return r.fulfill({ headers: cors, contentType: 'application/javascript', body: fs.readFileSync(NM + '/three/examples/jsm/' + u.split('/examples/jsm/')[1]) });
+        if (u.includes('cannon-es@0.20.0/dist/cannon-es.js')) return r.fulfill({ headers: cors, contentType: 'application/javascript', body: fs.readFileSync(NM + '/cannon-es/dist/cannon-es.js') });
+        if (u.startsWith('http://game.local/autoplay.html')) return fs.existsSync(lpath) ? r.fulfill({ contentType: 'text/html', body: fs.readFileSync(lpath, 'utf8') }) : r.fulfill({ status: 404, body: 'not found' });
+        if (u.startsWith('http://game.local/index.html')) return r.fulfill({ contentType: 'text/html', body: deadFrame && inFrame ? '<!doctype html><title>broken</title>' : fs.readFileSync(GAME, 'utf8') }); // (deadFrame: a launcher that can't start the game)
+        return r.abort(); });
+      return { page, errors }; };
+    const gameIn = (page) => page.evaluate(() => window.__ln ? 'launcher' : window.__derby ? 'top' : null).catch(() => null);
+    // a. top-level ?autoplay=1 -> autoplay.html, the game inside the frame, logged as 'moved'
+    let { page, errors } = await fresh(false);
+    await page.goto('http://game.local/index.html?autoplay=1&aplen=60');
+    const a = await page.waitForFunction(() => window.__ln && __ln.last && __ln.last.auto && __ln.last.booted, null, { timeout: 180000 }).then(() => page.evaluate(() => ({ url: location.href, src: __ln.frame && __ln.frame.src, made: __ln.made }))).catch(() => null);
+    ok(a && /\/autoplay\.html\?aplen=60$/.test(a.url) && /index\.html\?aplen=60&autoplay=1$/.test(a.src), '7a: top-level index.html?autoplay=1 moves itself to autoplay.html (other parameters kept), the game autoplays inside the frame', a || { url: page.url() });
+    const mv = a && await page.waitForFunction(() => { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (!/^derby-pl-\d+$/.test(k)) continue; try { const r = JSON.parse(localStorage.getItem(k)); if (r.kind === 'heal' && r.action === 'moved') return r; } catch (e) {} } return null; }, null, { timeout: 30000 }).then((h) => h.jsonValue()).catch(() => null);
+    ok(mv && mv.why === 'launcher' && mv.framed === true && /moved itself into the launcher/.test(mv.detail), "7a: logged as a heal record (why 'launcher', action 'moved')", mv && mv.detail);
+    ok(!errors.length, '7a: no page errors ' + errors.slice(0, 2).join(' | ')); await page.close();
+    // b. a person's plain index.html, idle autoplay and a join link stay put
+    for (const u of ['index.html', 'index.html?autoplay=1&idle=1', 'index.html#join-abc123']) {
+      ({ page, errors } = await fresh(false)); await page.goto('http://game.local/' + u); await page.waitForFunction(() => window.__derby, null, { timeout: 120000 }).catch(() => {}); await page.waitForTimeout(3000);
+      const w = await gameIn(page); ok(w === 'top' && page.url() === 'http://game.local/' + u, `7b: ${u} is never redirected`, { url: page.url(), w }); await page.close(); }
+    // c. loop guard: the launcher can't start a game -> autoplay goes back to the top level and stays (no second redirect)
+    ({ page, errors } = await fresh(true)); const navs = []; page.on('framenavigated', (f) => { if (f === page.mainFrame()) navs.push(f.url()); });
+    await page.goto('http://game.local/index.html?autoplay=1');
+    await page.waitForFunction(() => window.__derby && __derby.AUTO.on && !window.__ln, null, { timeout: 240000 }).catch(() => {});
+    await page.waitForTimeout(15000); // (time enough for a second bounce, if there were one)
+    const c = await page.evaluate(() => ({ url: location.href, auto: !!(window.__derby && __derby.AUTO.on), guard: JSON.parse(localStorage.getItem('derby-launch-guard') || 'null'), stay: !!window.__launchStay,
+      heal: (() => { const o = []; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (!/^derby-pl-\d+$/.test(k)) continue; try { const r = JSON.parse(localStorage.getItem(k)); if (r.kind === 'heal') o.push(r.why + '/' + r.action); } catch (e) {} } return o; })() })).catch((e) => ({ err: String(e) }));
+    const top = navs.filter((u) => /index\.html/.test(u)).length, lau = navs.filter((u) => /autoplay\.html/.test(u)).length;
+    ok(c.guard && c.guard.until > Date.now() + 23 * 3600000 && /could not start a game/.test(c.guard.why), '7c: a launcher that could not start a game in 3 min leaves a 24 h guard', c.guard);
+    ok(/index\.html\?autoplay=1$/.test(c.url || '') && c.auto && c.stay && lau === 1 && top === 2, `7c: autoplay went back to the top level once and stays there (top-level loads ${top}, launcher loads ${lau}: ${navs.join(' > ')})`, c);
+    ok((c.heal || []).includes('launcher/stayed') && (c.heal || []).includes('no game/new frame'), "7c: logged (the launcher's 'no game', then 'stayed')", c.heal);
+    await page.close();
+    // d. the other loop guard: the frame shares the launcher's process and crashes took both, twice in 6 h -> top level, and stay
+    ({ page, errors } = await fresh(false)); await page.goto('http://game.local/index.html'); await page.waitForFunction(() => window.__derby, null, { timeout: 120000 }).catch(() => {});
+    await page.evaluate(() => { localStorage.removeItem('derby-launch-guard'); localStorage.setItem('derby-launch-crash', JSON.stringify([Date.now() - 3600000])); localStorage.setItem('derby-launch-life', JSON.stringify({ seen: Date.now() - 60000, shared: true, clean: false })); });
+    const navs2 = []; page.on('framenavigated', (f) => { if (f === page.mainFrame()) navs2.push(f.url()); });
+    await page.goto('http://game.local/index.html?autoplay=1'); await page.waitForFunction(() => window.__derby && !window.__ln, null, { timeout: 120000 }).catch(() => {}); await page.waitForTimeout(8000);
+    const d = await page.evaluate(() => ({ url: location.href, guard: JSON.parse(localStorage.getItem('derby-launch-guard') || 'null') })).catch((e) => ({ err: String(e) }));
+    ok(d.guard && /shares the launcher's process/.test(d.guard.why) && /index\.html\?autoplay=1$/.test(d.url || '') && navs2.filter((u) => /autoplay\.html/.test(u)).length === 1, '7d: shared process + repeated crashes: back to the top level once, guarded', { d, navs: navs2 });
+    await page.close(); await browser.close();
+  }
   console.log(fails.length ? 'SELFHEAL FAIL (' + fails.length + ')' : 'SELFHEAL PASS'); process.exit(fails.length ? 1 : 0);
 })().catch((e) => { console.log('SELFHEAL FAIL (exception) ' + (e && e.stack || e)); process.exit(1); });

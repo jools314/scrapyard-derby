@@ -36,6 +36,22 @@
   addEventListener('message', function (e) { if (e.source !== window.parent || !e.data) return; if (e.data.derby === 'iso') window.__framed.iso = e.data.iso; if (e.data.derby !== 'probe') return; var t = Date.now(), t1 = t; while (t1 - t < 300) t1 = Date.now(); post({ derby: 'probe', t0: t, t1: t1 }); });
 })();
 </script>
+<script>
+// Autoplay moves itself into the launcher (autoplay.html): an unattended machine opened at index.html?autoplay=1 (a bookmark,
+// Chrome's start page, an old reload URL) switches by itself, so nobody has to change anything on it. Not a person's plain
+// index.html, not idle autoplay, not a multiplayer join link. If the launcher has failed on this browser (it could not start
+// a game, or its frame shares the launcher's process and crashes keep taking both), it leaves 'derby-launch-guard' with a time
+// limit (24 h) and sends autoplay back here, where it then stays: never back and forth.
+(function () {
+  if (window.parent !== window || !(/github\.io$/.test(location.hostname) || window.__launchTest)) return;
+  var q = new URLSearchParams(location.search); if (q.get('autoplay') !== '1' || q.get('idle') === '1' || /^#join/.test(location.hash)) return;
+  var g = null; try { g = JSON.parse(localStorage.getItem('derby-launch-guard') || 'null'); } catch (e) { return; } // (no storage: stay)
+  if (g && g.until > Date.now()) { window.__launchStay = g; return; }
+  try { localStorage.setItem('derby-launch-moved', JSON.stringify({ at: Date.now(), from: location.search })); } catch (e) { return; }
+  ['autoplay', 'mem', 'heal', 'wd'].forEach(function (k) { q.delete(k); }); var rest = String(q); // (the launcher adds autoplay=1 itself; the self-heal markers are one-off)
+  location.replace(location.pathname.replace(/[^/]*$/, '') + 'autoplay.html' + (rest ? '?' + rest : '') + location.hash);
+})();
+</script>
 <meta name="derby-build" content="119"><!-- must equal BUILD in the script and version.txt (tests/syntax.js checks) -->
 <script>
 // Updater of last resort (Build 100). Runs on its own, outside the game script, so a build whose game code breaks, a CDN
@@ -12406,7 +12422,10 @@ const HEAL = { K: 'derby-heal', t0: Date.now(), now: () => Date.now(), uaMB: nul
   deadSids() { try { return new Set((JSON.parse(localStorage.getItem('derby-heal-launch') || '[]') || []).map((x) => x && x.sid).filter(Boolean)); } catch (e) { return new Set(); } },
   boot() { // what the launcher (autoplay.html) did before this page: it leaves a note when it had to start a new game frame
     let L = null; try { L = JSON.parse(localStorage.getItem('derby-heal-launch') || 'null'); localStorage.removeItem('derby-heal-launch'); } catch (e) {}
-    for (const x of (Array.isArray(L) ? L : []).slice(-10)) if (x && x.why) this.rec(x.why, x.detail, 'new frame', { by: 'launcher', when: x.at, upS: x.upS, mem: x.mem || null, auto: x.auto || undefined, beatAgoS: x.beatAgoS }); },
+    for (const x of (Array.isArray(L) ? L : []).slice(-10)) if (x && x.why) this.rec(x.why, x.detail, 'new frame', { by: 'launcher', when: x.at, upS: x.upS, mem: x.mem || null, auto: x.auto || undefined, beatAgoS: x.beatAgoS });
+    let mv = null; try { mv = JSON.parse(localStorage.getItem('derby-launch-moved') || 'null'); } catch (e) {} // (the top-level ?autoplay=1 page that sent autoplay into the launcher)
+    if (mv && window.__framed) { try { localStorage.removeItem('derby-launch-moved'); } catch (e) {} this.rec('launcher', 'autoplay moved itself into the launcher (autoplay.html) from index.html' + (mv.from || ''), 'moved', { auto: true, when: new Date(mv.at || 0).toISOString() }); }
+    if (window.__launchStay) this.rec('launcher', 'autoplay stays at the top level: ' + (window.__launchStay.why || 'the launcher failed here') + ', until ' + new Date(window.__launchStay.until).toISOString(), 'stayed', { auto: true }); },
   iso() { if (this.isoDone || !window.__framed) return; const o = window.__framed.iso; // (the launcher's process check, once per frame)
     if (!o || !o.sid || o.sid !== PLAYLOG.sid) return; this.isoDone = true; this.rec('launcher', o.own ? `the game frame has its own process (launcher timer ran ${o.ticks}× during a 300 ms busy wait)` : `the game frame shares the launcher's process (${o.ticks} launcher ticks in 300 ms): a crash takes the launcher too`, 'isolation', { own: !!o.own, by: 'launcher' }); },
   beat() { this.iso(); if (window.__framed) window.__framed.post({ derby: 'beat', build: BUILD, sid: PLAYLOG.sid, auto: !!AUTO.on, idle: !!AUTO.idle, raf: BOOT.rafN || 0, booted: !!BOOT.frame, hidden: document.hidden, lost: !!this.lostAt, mem: this.mem() }); } };

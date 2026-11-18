@@ -5,7 +5,7 @@ Several AI agents (Claude, Muse and others) and humans work on this repo in para
 
 ## The pieces
 - `index.html`: the whole game, a single file with three.js + cannon-es from a CDN. The `const BUILD = 'NN'` line is the version number.
-- `autoplay.html`: the self-heal launcher for unattended autoplay machines. It runs the game in a sandboxed frame (its own process), keeps the game's storage, and starts a new game when the old one crashes, runs out of memory or hangs. Open `https://jools314.github.io/scrapyard-derby/autoplay.html` instead of `index.html?autoplay=1` on those machines. See *Unattended autoplay* in LOGS.md.
+- `autoplay.html`: the self-heal launcher for unattended autoplay machines. It runs the game in a sandboxed frame (its own process), keeps the game's storage, and starts a new game when the old one crashes, runs out of memory or hangs. A top-level `index.html?autoplay=1` moves itself there, so nothing needs changing on those machines. See *Unattended autoplay* in LOGS.md.
 - `voices/`: recorded character voice clips plus `manifest.json`. `lines.json`, `cast.json`, `extract.mjs` and `render.mjs` regenerate them (ElevenLabs).
 - `tests/`: browser tests (Playwright driving headless Chromium with a software GPU). `tests/run.sh` runs them.
 - `DESIGN-PRINCIPLES.md`, `RELEASES.md` (release log), `REVIEW-*.md` (feedback on contributions).

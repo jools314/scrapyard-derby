@@ -33,6 +33,10 @@
   var probe = function (sid) { // does the game really run in a process of its own? our 25 ms timer keeps ticking while it busy-waits 300 ms only if so
     var f = L.frame; if (!f || L.probe) return; var p = L.probe = { sid: sid, at: [], iv: setInterval(function () { p.at.push(Date.now()); }, 25) };
     try { f.contentWindow.postMessage({ derby: 'probe' }, '*'); } catch (e) {} setTimeout(function () { if (L.probe === p) { clearInterval(p.iv); L.probe = null; } }, 60000); };
+  // the way back: if this launcher can't run the game here, autoplay goes back to index.html?autoplay=1 and stays there for 24 h
+  // (index.html's redirect reads the guard), so it never bounces between the two
+  var giveUp = function (why) { try { localStorage.setItem('derby-launch-guard', JSON.stringify({ until: now() + 24 * 3600000, why: why, at: new Date().toISOString() })); } catch (e) {}
+    L.gaveUp = why; say('giving up: ' + why); var p = new URLSearchParams(q); location.replace('index.html?' + p); };
   var restart = function (why, detail) { // a crashed or hung game: a new frame, but not in a loop (2 min apart, longer while it keeps failing)
     if (now() < L.nextOk) return; L.fails = L.beatAt && now() - L.madeAt > 10 * 60000 / K ? 0 : L.fails + 1; L.nextOk = now() + Math.min(30, 2 * Math.pow(2, Math.max(0, L.fails - 1))) * 60000 / K;
     note(why, detail); var old = L.frame; L.frame = null; if (old) { try { old.remove(); } catch (e) {} } L.madeAt = now(); L.beatAt = 0;
@@ -50,7 +54,7 @@
   setInterval(function () {
     var t = now(); if (!L.frame) return; if (document.hidden) { L.visAt = t; return; } // (a hidden tab's timers run once a minute: wait until it's visible again)
     var since = Math.max(L.madeAt, L.visAt), b = L.last;
-    if (!L.beatAt) { if (t - since > 180000 / K) restart('no game', 'the game never started in ' + Math.round((t - L.madeAt) / 1000) + ' s'); return; }
+    if (!L.beatAt) { if (t - since > 180000 / K) { note('no game', 'the game never started in ' + Math.round((t - L.madeAt) / 1000) + ' s in the launcher'); giveUp('the launcher could not start a game in 3 min'); } return; }
     if (t - Math.max(L.beatAt, since) > L.wait / K) { restart('frame dead', 'no heartbeat from the game for ' + Math.round((t - L.beatAt) / 1000) + ' s: its process crashed, ran out of memory or hung'); return; }
     if (b && b.auto && !b.hidden && b.booted && t - L.beatAt < 15000 / K && t - Math.max(L.rafAt, since) > 90000 / K) restart('frames stopped', 'the game drew no frame for ' + Math.round((t - L.rafAt) / 1000) + ' s during autoplay');
   }, 5000 / K);
@@ -58,6 +62,15 @@
   // keep the screen on from here too (the game's own request from inside the frame may be refused)
   var wl = null, lock = function () { if (q.get('idle') || !navigator.wakeLock || document.hidden || (wl && !wl.released)) return; navigator.wakeLock.request('screen').then(function (w) { wl = w; }, function () {}); };
   document.addEventListener('visibilitychange', lock); lock();
+  // a frame that shares this page's process takes the launcher down with it when it crashes: the next launcher load sees the last
+  // one never closed cleanly while its check said 'shared'; twice in 6 h and autoplay goes back to the top level (giveUp)
+  var LIFEK = 'derby-launch-life', prev = null; try { prev = JSON.parse(localStorage.getItem(LIFEK) || 'null'); } catch (e) {}
+  var crashes = []; try { crashes = JSON.parse(localStorage.getItem('derby-launch-crash') || '[]'); } catch (e) {} if (!Array.isArray(crashes)) crashes = [];
+  crashes = crashes.filter(function (x) { return now() - x < 6 * 3600000; }); if (prev && prev.shared && !prev.clean) crashes.push(prev.seen || now());
+  try { localStorage.setItem('derby-launch-crash', JSON.stringify(crashes)); } catch (e) {}
+  var life = function (clean) { try { localStorage.setItem(LIFEK, JSON.stringify({ seen: now(), shared: !!(L.iso && !L.iso.own), clean: !!clean })); } catch (e) {} };
+  setInterval(function () { life(false); }, 20000); addEventListener('pagehide', function () { life(true); }); life(false);
+  if (crashes.length >= 2) { giveUp('the game frame shares the launcher\'s process here and ' + crashes.length + ' crashes took both in 6 h'); return; }
   make('start');
 })();
 </script>
