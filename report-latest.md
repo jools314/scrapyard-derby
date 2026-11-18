@@ -1,6 +1,6 @@
-# Scrapyard Derby play-log report · 2026-11-18 06:39 UTC
+# Scrapyard Derby play-log report · 2026-11-18 08:40 UTC
 
-1203 matches (1190 from real devices, 3586.1 game-minutes), 106 page loads, 9 bug reports.
+1203 matches (1190 from real devices, 3586.1 game-minutes), 107 page loads, 9 bug reports.
 
 ## Who and what
 
@@ -325,18 +325,4 @@ Build 102+ reloads an autoplaying page whose memory runs away and logs what was 
 
 ## Changes since the previous report
 
-- new stuck hotspot at (-96,-119) ×57
-- new inside-an-object hotspot at (-105,-69) ×1
-- physics catches up for Camper: 787 → 803
-- physics catches up for bull: 1401 → 1464
-- physics catches up for Tow Truck: 1436 → 1469
-- physics catches up for Outrider: 3411 → 3559
-- physics catches up for Cruiser: 1178 → 1203
-- physics catches up for Hellbender: 1035 → 1107
-- physics catches up for Forklift: 1314 → 1359
-- physics catches up for Viper: 1330 → 1369
-- physics catches up for Sandflea: 2000 → 2066
-- physics catches up for Big Bertha: 145 → 170
-- physics catches up for Tanker: 540 → 546
-- physics catches up for Fire Truck: 434 → 451
-- physics catches up for Spider-Walker: 545 → 688
+- nothing new
