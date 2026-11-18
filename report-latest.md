@@ -1,6 +1,6 @@
-# Scrapyard Derby play-log report · 2026-11-18 08:40 UTC
+# Scrapyard Derby play-log report · 2026-11-18 10:39 UTC
 
-1203 matches (1190 from real devices, 3586.1 game-minutes), 107 page loads, 9 bug reports.
+1203 matches (1190 from real devices, 3586.1 game-minutes), 108 page loads, 9 bug reports.
 
 ## Who and what
 
@@ -304,6 +304,7 @@ Build 102+ reloads an autoplaying page whose memory runs away and logs what was 
 - Mac: voice failures 371 over 804 matches · lines sent 41, started 25, errors 7
 - iPhone: voice failures 0 over 5 matches · lines sent 24, started 24, errors 0
 - other: voice failures 22 over 380 matches · lines sent 1, started 0, errors 1 (engine never started)
+- recorded clips vs computer voice: not recorded yet (the `vox` block arrives with the voice-path build)
 - errors & incidents (in and out of matches): 30× voice: voices: # recorded clips loaded (# voices); 7× voice: voices: stuck - # lines asked for, engine busy # s and none started (last voice default, # voices, spea; 2× #:#:# Uncaught TypeError: Cannot read properties of undefined (reading 'isReady') @three.module.js:#; 2× voice: voices: stuck - still busy # s after the tab came back from # s in the background (last voice default, ; 1× voice: voices: stuck - # lines asked for and not one reported back, engine idle (last voice default, # voices,
 - network incidents: 60
 
