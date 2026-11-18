@@ -752,13 +752,13 @@
 <script type="module">
 import * as THREE from 'three';
 const BOOT = { t0: performance.now() };
-// Incremental start (weak laptops, phones): the script gives the browser a turn every ~12 ms of work (the menu paints and answers taps
+// Incremental start (weak laptops, phones): the script gives the browser a turn every ~40 ms of work (the menu paints and answers taps
 // while the yard is built), and the props and the showroom cars are built after it, a few at a time (bootBuild). A match waits only for
 // what it needs: Start pressed while the yard is still being built starts the match the moment it is ready (bootWant).
 const BOOTQ = { t: performance.now(), slices: 0, longest: 0, live: false, fresh: false, want: false, skip: new Set(), phase: '' };
 const bootNow = () => new Promise((r) => { const go = () => { BOOTQ.t = performance.now(); BOOTQ.slices++; r(); }; const dt = performance.now() - BOOTQ.t; if (dt > BOOTQ.longest) BOOTQ.longest = Math.round(dt);
   if (globalThis.scheduler && scheduler.yield) scheduler.yield().then(go); else { const ch = new MessageChannel(); ch.port1.onmessage = go; ch.port2.postMessage(0); } }); // (not a timer: a hidden tab clamps those to 1 s)
-const bootSlice = () => (performance.now() - BOOTQ.t > 12 ? bootNow() : null); // (await null costs nothing)
+const bootSlice = () => (performance.now() - BOOTQ.t > 40 ? bootNow() : null); // (await null costs nothing; 40 ms of work a turn: each turn can paint a frame, and too many of them slow the build)
 const bootPaint = () => new Promise((r) => { let done = false; const go = () => { if (!done) { done = true; BOOTQ.t = performance.now(); r(); } };
   if (document.hidden) return go(); requestAnimationFrame(() => setTimeout(go, 0)); setTimeout(go, 150); }); // one painted frame (the menu), not waited for in a hidden tab
 window.__bootq = BOOTQ; window.__boot = BOOT; // (tests/incboot.js: the game's own hooks appear only once the yard is built)
@@ -11158,6 +11158,9 @@ function openBugReport() { // one tap: the full report goes straight to the clip
   ptag('bug report taken'); dropUpload('bug', t);
 }
 function frameBody(now) {
+  if (BOOT.lite && !BOOT.built) { if (!BOOT.frame) { if (BOOT.f1) bootFrame(); else BOOT.f1 = performance.now(); } // boot preview while the yard is built: the sky only, now and then, and no game step
+    const t = performance.now(); if (!(t - (BOOT.liteT || 0) < 400)) { BOOT.liteT = t; renderer.render(scene, camera); } lastDrawT = lastT = now; return; }
+  if (!BOOT.sim) BOOT.sim = performance.now(); // (the first full frame: tests/incboot.js checks none runs while the yard is built)
   if (now - (MEMGUARD.walkT || 0) > 5000) { MEMGUARD.walkT = now; try { MEMGUARD.walk(); } catch (e) {} } // (who holds each GPU object, every 5 s: so a leak can be named later)
   if (!BOOT.drive && BOOT.frame && game.state === 'playing' && game.countdown <= 0 && player) bootDrive();
   if (!BOOT.frame) { if (BOOT.f1) bootFrame(); else BOOT.f1 = performance.now(); } // (timed when the second frame starts: the first one, with any shader compiles it needed, is on screen)
@@ -12258,15 +12261,16 @@ const BOOT_LAYER = 31; // the boot preview's camera sees only this layer: the sk
 function bootLite() { BOOT.lite = true; BOOT.mask = camera.layers.mask; sky.layers.enable(BOOT_LAYER); scene.traverse((o) => { if (o.isLight) o.layers.enable(BOOT_LAYER); }); camera.layers.set(BOOT_LAYER); }
 function bootYard(how) { if (!BOOT.lite) return; BOOT.lite = false; BOOT.yardHow = how; camera.layers.mask = BOOT.mask; if (!BOOT.compiled) BOOT.compiled = performance.now(); bootNow().then(bootGo); }
 function bootFrame() { BOOT.frame = performance.now(); if (BOOT.built) bootCompile(); } // (the yard is compiled once it is all built: bootBuilt)
-async function bootCompile() { if (BOOT.c0 || !BOOT.frame) return; BOOT.c0 = performance.now();
-  if (!window.__noRender && renderer.initTexture) { const tx = new Set(); // the yard's textures go up to the GPU one per turn first: else the first frame of the whole yard uploads them all at once
+async function bootCompile() { if (BOOT.c0 || !BOOT.loop || (BOOT.loop === 'direct' && !BOOT.frame)) return; BOOT.c0 = performance.now(); // (with parallel compile it starts with the first frame, not after it)
+  let p = null; // the yard's shaders start compiling first (in parallel, where the browser can) ...
+  if (BOOT.lite && BOOT.loop !== 'direct') { BOOT.p1 = (renderer.info.programs || []).length; // (the sky's programs: all that was compiled before)
+    try { camera.layers.mask = BOOT.mask; BOOT.cAt = performance.now(); p = compileFor(scene, null, true); camera.layers.set(BOOT_LAYER); } catch (e) { return bootYard('error'); } }
+  if (!window.__noRender && renderer.initTexture) { const tx = new Set(); // ... and meanwhile its textures go up to the GPU one per turn: else the first frame of the whole yard uploads them all at once
     scene.traverseVisible((o) => { if (!o.layers.mask) return; for (const m of Array.isArray(o.material) ? o.material : o.material ? [o.material] : []) for (const k of ['map', 'bumpMap', 'emissiveMap', 'normalMap', 'roughnessMap', 'alphaMap']) if (m[k] && m[k].isTexture && m[k].image) tx.add(m[k]); });
     for (const t of tx) { if (!BOOT.lite) break; try { renderer.initTexture(t); } catch (e) {} await bootSlice(); } BOOT.tex = tx.size; }
   if (BOOT.loop === 'direct') return bootYard('direct');
-  if (!BOOT.lite) return; BOOT.p1 = (renderer.info.programs || []).length; // the yard with all its lights, compiled in parallel while the menu and sky are up
-  try { camera.layers.mask = BOOT.mask; const p = compileFor(scene, null, true); camera.layers.set(BOOT_LAYER);
-    p.then(() => bootYard('async'), () => bootYard('async-failed')); setTimeout(() => bootYard('timeout'), 30000); } catch (e) { bootYard('error'); } }
-function bootLoop() { if (BOOT.loop) return; // the frame loop starts once your car is in: the sky first, behind the menu
+  if (!p) return; setTimeout(() => bootYard('timeout'), 30000); p.then(() => bootYard('async'), () => bootYard('async-failed')); }
+function bootLoop() { if (BOOT.loop) return; // the frame loop: the sky first, behind the menu (until the yard is built, frameBody draws only that, now and then)
   try { BOOT.parallel = !!renderer.getContext().getExtension('KHR_parallel_shader_compile');
     if (window.__noRender) { BOOT.compiled = performance.now(); startLoop('direct'); }
     else if (!BOOT.parallel || !renderer.compileAsync) { bootLite(); startLoop('direct'); } // (compiled when the yard is drawn: bootCompile -> bootYard)
@@ -12284,13 +12288,13 @@ async function bootBuild() {
     if (BOOT.built || BOOTQ.skip.has(name)) continue;
     BOOTQ.phase = name; const g = mk(); let done = false;
     while (!BOOT.built && !BOOTQ.skip.has(name)) { const t0 = performance.now(); if (g.next().done) { done = true; break; } BOOTQ.steps = (BOOTQ.steps || 0) + 1; BOOTQ.stepMax = Math.max(BOOTQ.stepMax || 0, Math.round(performance.now() - t0));
-      if (BOOTQ.live) bootLoop(); await bootNow(); }
+      await bootSlice(); }
     if (done && end && !BOOT.built) end();
   }
   bootBuilt('staged');
 }
 function bootBuilt(how) { if (BOOT.built) return; BOOT.built = performance.now(); BOOT.builtHow = how; BOOTQ.phase = ''; BOOTQ.live = true; if (!BOOTQ.want) bootHint(true);
-  window.__derby = DERBY; bootLoop(); bootNow().then(() => { bootCompile(); if (!BOOT.lite) bootGo(); }); } // (the yard's shaders in a turn of their own)
+  window.__derby = DERBY; bootNow().then(() => { bootLoop(); bootCompile(); if (!BOOT.lite) bootGo(); }); } // (the sky and the yard's shaders together, in a turn of their own, before the first frame) // (the yard's shaders in a turn of their own)
 // Start tapped while the yard is still being built (or its shaders compiled): nothing freezes, the button says it is getting ready, the
 // match starts the moment the yard is on screen, with the props and cars just built (they wait, AI off, until then: bootBuild), so
 // nothing is built twice. Before, a tap that early waited for the script and then built the props and cars again in one go.
@@ -12313,5 +12317,6 @@ DERBY.BOOT = BOOT; DERBY.HITLOG = HITLOG; Object.defineProperty(DERBY, 'camMode'
 DERBY.IDLE = IDLE; DERBY.TALK = TALK; DERBY.DROP = DROP; DERBY.SCORE = SCORE; DERBY.UPDATE = UPDATE; DERBY.TABENV = TABENV; DERBY.PERFREP = PERFREP; // (test hooks)
 DERBY.VR = VR; DERBY.XRS = XRS; DERBY.composer = composer; DERBY.BOOTQ = BOOTQ;
 DERBY.VCLIP = VCLIP; DERBY.ROAST_BY = ROAST_BY; DERBY.ROAST_PAIR = ROAST_PAIR; DERBY.SHAZZA = SHAZZA; DERBY.CAR_CAST = CAR_CAST; DERBY.ANNOUNCER = ANNOUNCER; DERBY.COP = COP; DERBY.megaphone = megaphone; DERBY.hornLine = hornLine;
+if (!window.__noRender) bootLoop(); // the sky behind the menu straight away (frameBody's boot preview: nothing else runs until the yard is built)
 bootBuild(); // (window.__derby appears when it is done: what tests and the updater look for is all there by then)
 </script>

@@ -14,9 +14,10 @@ const init = () => { const P = WebGL2RenderingContext.prototype, gE = P.getExten
   window.__lt = []; window.__ev = {};
   try { new PerformanceObserver((l) => { for (const e of l.getEntries()) __lt.push([Math.round(e.startTime), Math.round(e.duration)]); }).observe({ type: 'longtask', buffered: true }); } catch (e) {}
   try { new PerformanceObserver((l) => { for (const e of l.getEntries()) __ev[e.name] = Math.round(e.startTime); }).observe({ type: 'paint', buffered: true }); } catch (e) {}
-  const poll = () => { const g = document.getElementById('garage'); if (g && g.children.length && !__ev.garage) __ev.garage = Math.round(performance.now());
-    const m = document.getElementById('menu'); if (m && !__ev.menuDom) __ev.menuDom = Math.round(performance.now()); if (!__ev.garage) requestAnimationFrame(poll); };
-  requestAnimationFrame(poll); };
+  /* (a MutationObserver, not a requestAnimationFrame poll: a rAF loop running from page open changed how fast the GPU-bound frames ran
+     after Start in groundtex by about 3x on this box, and made a branch that builds the yard after the script look much slower than it is) */
+  new MutationObserver(() => { const E = window.__ev || (window.__ev = {}), g = document.getElementById('garage'); if (g && g.children.length && !E.garage) E.garage = Math.round(performance.now()); })
+    .observe(document, { childList: true, subtree: true }); };
 (async () => {
   let cdp;
   const before = async (page) => { cdp = await page.context().newCDPSession(page); await cdp.send('Emulation.setCPUThrottlingRate', { rate: THR });
@@ -26,7 +27,7 @@ const init = () => { const P = WebGL2RenderingContext.prototype, gE = P.getExten
   const { browser, page, errors } = await H.open({ viewport: { width: 1280, height: 720 } }, init, async (page) => { page0 = page; await before(page);
     if (EAGER) clicker = setInterval(() => { page.evaluate(() => { const b = document.getElementById('btnStart'); if (b && (!window.__derby || __derby.game.state === 'menu')) { if (!__ev.click1) __ev.click1 = Math.round(performance.now()); b.click(); } }).catch(() => {}); }, 250); });
   if (!EAGER) { await page.waitForFunction(() => __derby.BOOT.frame && __derby.BOOT.yard, null, { timeout: 300000, polling: 250 }); await page.waitForTimeout(1000);
-    await page.evaluate(() => { __ev.click1 = Math.round(performance.now()); document.getElementById('btnStart').click(); __ev.raf = 0; const f = () => { __ev.raf++; if (!__derby.BOOT.drive) requestAnimationFrame(f); }; requestAnimationFrame(f); }); }
+    await page.evaluate(() => { __ev.click1 = Math.round(performance.now()); document.getElementById('btnStart').click(); __ev.raf = 0; __ev.gaps = []; let lt = performance.now(); const f = () => { const n = performance.now(); if (n - lt > 1000) __ev.gaps.push(Math.round(n - __ev.click1) + ':' + Math.round(n - lt)); lt = n; __ev.raf++; if (!__derby.BOOT.drive) requestAnimationFrame(f); }; requestAnimationFrame(f); }); }
   await page.waitForFunction(() => __derby.BOOT.drive, null, { timeout: 300000, polling: 250 });
   if (clicker) clearInterval(clicker);
   await page.waitForTimeout(2000);
@@ -34,7 +35,7 @@ const init = () => { const P = WebGL2RenderingContext.prototype, gE = P.getExten
   const r = await page.evaluate(() => { const B = __derby.BOOT; const R = (x) => (x ? Math.round(x) : x);
     return { B: { t0: R(B.t0), ready: R(B.ready), f1: R(B.f1), frame: R(B.frame), compiled: R(B.compiled), built: R(B.built), yard: R(B.yard), click: R(B.click), drive: R(B.drive), warm: B.warmMs, p1: B.p1, how: B.loop, yardHow: B.yardHow },
       ev: __ev, lt: __lt, marks: (window.__marks || []).map(([l, t]) => [l, Math.round(t)]), progs: __derby.renderer.info.programs.length, calls: __derby.renderer.info.render.calls,
-      props: (__derby.props || []).length, bq: window.__bootq ? { slices: __bootq.slices, longest: __bootq.longest, stepMax: __bootq.stepMax } : null }; });
+      q: __derby.QUALITY.level, qlog: (__derby.QUALITY.log || []).slice(-6), rewarms: __derby.BOOT.rewarms || 0, props: (__derby.props || []).length, bq: window.__bootq ? { slices: __bootq.slices, longest: __bootq.longest, stepMax: __bootq.stepMax } : null }; });
   console.log(`THR ${THR}x ${EAGER ? 'EAGER start' : 'start after whole yard'}  (wall ${Math.round((Date.now() - t0) / 1000)} s)`);
   const B = r.B, ev = r.ev;
   console.log('timeline (ms since page open):');
@@ -76,7 +77,8 @@ const init = () => { const P = WebGL2RenderingContext.prototype, gE = P.getExten
   console.log('self time by script:'); for (const [u, v] of [...urls].sort((a, b) => b[1] - a[1]).slice(0, 10)) console.log(`  ${u.padEnd(30)} ${ms(v)}`);
   console.log('inclusive time by game function (name:line):'); for (const [k, v] of [...incl].sort((a, b) => b[1] - a[1]).slice(0, TOP)) console.log(`  ${k.padEnd(40)} ${ms(v)}`);
   }
-  console.log(`frames from Start to driving: ${ev.raf}`);
+  console.log(`quality ${r.q} rewarms ${r.rewarms} log ${JSON.stringify(r.qlog).slice(0, 400)}`);
+  console.log(`frames from Start to driving: ${ev.raf} (gaps over 1 s, at:ms ${(ev.gaps || []).join(' ')})`);
   console.log(`programs ${r.progs}, draw calls ${r.calls}`);
   const pe = errors.filter((e) => e.startsWith('pageerror')); if (pe.length) console.log('page errors: ' + pe.slice(0, 3).join(' | '));
   await browser.close();

@@ -6,10 +6,13 @@
 //  2. eager: Start is tapped (a real click) as soon as the page has painted; how long until the tap is acknowledged; the match starts,
 //     its props are the same ones a synchronous rebuild makes (ids, masses, shapes, positions), and the car drives.
 // Fails on main before this change (Build 115 + groundtex, this box, 4x): the picker appeared at 5.7-12.8 s (5-8.7 s after the game
-// script started) and the script was one task of 4.6-8.5 s; an early tap waited for the whole script (seconds) to be answered.
+// script started) and the script was one task of 4.6-8.5 s; an early tap before the script was up was lost.
+// Also checked: the whole yard on screen and the countdown's frame time stay at groundtex level (absolute budgets for this setup),
+// and the two things that made this branch's first version show the yard ~2 s later than groundtex: game frames run between the
+// build's steps, and the yard's shaders asked for only after the first frame and the texture uploads (that version fails here).
 const H = require('./harness');
 const THR = +(process.env.THR || 4);
-const PICK_MS = 6000, PICK_AFTER_SCRIPT_MS = 1500, TASK_CAP_MS = 2500, ACK_MS = 3000;
+const PICK_MS = 6000, PICK_AFTER_SCRIPT_MS = 1500, TASK_CAP_MS = 2500, ACK_MS = 3000, YARD_MS = 25000, COMPILE_AFTER_BUILT_MS = 800, FRAME_MS = 2500;
 const init = () => { const P = WebGL2RenderingContext.prototype, gE = P.getExtension, gP = P.getProgramParameter;
   P.getExtension = function (n) { return n === 'KHR_parallel_shader_compile' ? { COMPLETION_STATUS_KHR: 0x91B1 } : gE.call(this, n); };
   P.getProgramParameter = function (p, k) { return k === 0x91B1 ? true : gP.call(this, p, k); };
@@ -17,7 +20,7 @@ const init = () => { const P = WebGL2RenderingContext.prototype, gE = P.getExten
   window.__lt = []; window.__ev = {};
   try { new PerformanceObserver((l) => { for (const e of l.getEntries()) __lt.push([Math.round(e.startTime), Math.round(e.duration)]); }).observe({ type: 'longtask', buffered: true }); } catch (e) {}
   try { new PerformanceObserver((l) => { for (const e of l.getEntries()) __ev[e.name] = Math.round(e.startTime); }).observe({ type: 'paint', buffered: true }); } catch (e) {}
-  new MutationObserver(() => { const g = document.getElementById('garage'), b = document.getElementById('btnStart'), m = document.getElementById('menu'); // (from the first byte of the page)
+  new MutationObserver(() => { const __ev = window.__ev || (window.__ev = {}); const g = document.getElementById('garage'), b = document.getElementById('btnStart'), m = document.getElementById('menu'); // (from the first byte of the page)
     if (g && g.children.length && !__ev.picker) __ev.picker = Math.round(performance.now());
     if (b && !__ev.ack && (b.classList.contains('booting') || (m && m.hidden))) __ev.ack = Math.round(performance.now());
     if (b && !b.__seen) { b.__seen = true; b.addEventListener('click', () => { if (!__ev.click) __ev.click = Math.round(performance.now()); }, true); }
@@ -40,8 +43,14 @@ const propSig = () => __derby.props.map((p) => [p.id, p.body.mass, p.body.shapes
     ok(r.longest <= TASK_CAP_MS, `no main-thread task over ${TASK_CAP_MS} ms until the yard is built (longest ${r.longest} ms)`);
     ok(r.props > 250 && r.cars === 1 + r.aiN, `whole menu yard built: ${r.props} props, ${r.cars} cars`);
     await page.waitForFunction(() => __derby.BOOT.yard, null, { timeout: 240000, polling: 500 });
-    const y = await page.evaluate(() => ({ calls: __derby.renderer.info.render.calls, mask: __derby.camera.layers.mask }));
+    const y = await page.evaluate(() => { const B = __derby.BOOT, R = Math.round; return { calls: __derby.renderer.info.render.calls, mask: __derby.camera.layers.mask, yard: R(B.yard), built: R(B.built || B.ready), staged: !!B.built, f1: R(B.f1), sim: R(B.sim || 0), cAt: R(B.cAt || 0), loop: B.loop }; });
+    console.log(`  passive: yard built ${y.built} ms, first frame (sky) ${y.f1} ms, first full frame ${y.sim} ms, yard shaders asked for ${y.cAt || '-'} ms, whole yard on screen ${y.yard} ms`);
     ok(y.mask === 1 && y.calls >= 40, `the whole yard is drawn behind the menu (${y.calls} draw calls)`);
+    ok(y.yard <= YARD_MS, `whole yard on screen ${y.yard} ms after page open (budget ${YARD_MS} ms; groundtex on this setup 7.8-15 s)`);
+    /* what made the yard ~2 s later than groundtex in this branch's first version: game frames run between the build's steps (each one a whole
+       simulation and HUD update behind a sky-only picture), and the yard's shaders asked for only after the first frame and the texture uploads */
+    ok(y.sim >= y.built, `no game frames (simulation, HUD, the whole scene) while the yard is being built (first one ${y.sim} ms, built ${y.built} ms)`);
+    ok(y.loop !== 'async' || !y.staged || (y.cAt && y.cAt - y.built <= COMPILE_AFTER_BUILT_MS), `the yard's shaders are asked for right after it is built (${y.cAt - y.built} ms, budget ${COMPILE_AFTER_BUILT_MS} ms)`);
     const pe = errors.filter((e) => e.startsWith('pageerror') || e.includes('frame error')); ok(!pe.length, `passive: no page errors ${pe.slice(0, 2).join(' | ')}`);
     await browser.close();
   }
@@ -62,7 +71,10 @@ const propSig = () => __derby.props.map((p) => [p.id, p.body.mass, p.body.shapes
     ok(clicked === true, `Start could be tapped right after the first paint (${clicked})`);
     ok(r.ack && r.ack - r.fcp <= ACK_MS, `a tap on Start right after the menu paints is answered within ${ACK_MS} ms of that paint (${r.ack - r.fcp} ms)`);
     ok(r.same && r.ids && r.n > 250, `the yard built in turns has the same ${r.n} props (ids, masses, shapes, positions) as a build in one go ${r.diff}`);
+    await page.evaluate(() => { window.__nf = 0; window.__nf0 = performance.now(); const f = () => { __nf++; if (!(__derby.game.state === 'playing' && __derby.game.countdown <= 0)) requestAnimationFrame(f); else window.__nf1 = performance.now(); }; requestAnimationFrame(f); });
     await page.waitForFunction(() => __derby.game.state === 'playing' && __derby.game.countdown <= 0, null, { timeout: 240000, polling: 500 });
+    const cf = await page.evaluate(() => Math.round(((window.__nf1 || performance.now()) - __nf0) / Math.max(1, __nf)));
+    ok(cf <= FRAME_MS, `countdown frames ${cf} ms each (budget ${FRAME_MS} ms at ${THR}x; groundtex here 1.06-1.34 s)`);
     await page.keyboard.down('KeyW');
     const moved = await page.waitForFunction(() => __derby.player.body.velocity.length() > 2, null, { timeout: 240000, polling: 500 }).then(() => true, () => false);
     await page.keyboard.up('KeyW');
