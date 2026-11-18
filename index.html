@@ -10780,7 +10780,7 @@ const PERFREP = { f: [], max: 900, seq: 0, lastT: 0, r0: 0, render: 0, calls: 0,
   tag(what, ms) { this.tags.push({ at: performance.now(), what: ms != null ? `${what} (${Math.round(ms)} ms)` : what }); if (this.tags.length > 40) this.tags.shift(); }, // game events, to explain the slow moments that follow them
   frameParts() { const now = SEC.snap(), d = []; if (this.lastSnap) for (const k in now.t) { const v = now.t[k] - (this.lastSnap.t[k] || 0); if (v > 0.5) d.push([k, v]); } this.lastSnap = now; return d.sort((a, b) => b[1] - a[1]); },
   watch(dtMs) {
-    if (dtMs > 1000 || document.hidden) { this.win.length = 0; return; } // a background tab isn't a slow game
+    if (dtMs > 1000 || document.hidden || game.paused) { this.win.length = 0; this.slow = null; return; } // a background tab isn't a slow game, and neither is a paused one: opening settings pauses a solo match and the frozen picture is redrawn at 10 fps on purpose, so each paced 100 ms frame read as '8s at 10 fps, waiting on the graphics chip'. A slow stretch a pause cuts into is dropped (it would average in paused frames)
     const fp = this.frameParts(); if (this.slow && dtMs > (this.slow.worstF ? this.slow.worstF.ms : 0)) this.slow.worstF = { ms: Math.round(dtMs), parts: (fp.map(([k, v]) => `${k} ${v.toFixed(0)}`).join(', ') || 'no game code') + (dtMs - fp.reduce((t, x) => t + x[1], 0) > 30 ? ` · ${Math.round(dtMs - fp.reduce((t, x) => t + x[1], 0))} ms outside the game code (graphics chip, garbage collection, shader compile or the browser)` : '') };
     const now = performance.now(); this.win.push([now, dtMs]); while (this.win.length && now - this.win[0][0] > 1000) this.win.shift();
     const avg = this.win.reduce((a, x) => a + x[1], 0) / this.win.length;
