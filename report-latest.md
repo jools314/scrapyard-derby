@@ -1,6 +1,6 @@
-# Scrapyard Derby play-log report · 2026-11-18 18:39 UTC
+# Scrapyard Derby play-log report · 2026-11-18 20:39 UTC
 
-1239 matches (1226 from real devices, 3685.9 game-minutes), 113 page loads, 9 bug reports.
+1239 matches (1226 from real devices, 3685.9 game-minutes), 114 page loads, 9 bug reports.
 
 ## Who and what
 
@@ -332,7 +332,7 @@ Build 102+ reloads an autoplaying page whose memory runs away and logs what was 
 ### Autoplay health
 
 - **Mac** autoplay health: 55 sessions · ended: no word yet (still running, or not reloaded since) 55 · wake lock: acquired 1, denied 0, released by tab hidden 0, by the system 0, by us 0 (asked again 0) · suspends 0 (0 s asleep or frozen) · hidden 0×, frozen 0×, offline 0×
-- **other** autoplay health: 18 sessions · ended: no word yet (still running, or not reloaded since) 17, not reloaded yet, last gasp pagehide 1 · wake lock: acquired 2, denied 0, released by tab hidden 0, by the system 0, by us 0 (asked again 0) · suspends 93 (9864 s asleep or frozen) · hidden 0×, frozen 0×, offline 0×
+- **other** autoplay health: 18 sessions · ended: clean 1, no word yet (still running, or not reloaded since) 17 · wake lock: acquired 2, denied 0, released by tab hidden 0, by the system 0, by us 0 (asked again 0) · suspends 93 (9864 s asleep or frozen) · hidden 1×, frozen 0×, offline 0× · last stop: clean (page closed (pagehide)), last seen 2026-11-18T18:39:32.438Z
 
 ## Bug reports
 
