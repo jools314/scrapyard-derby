@@ -12018,6 +12018,7 @@ Object.assign(PLAYLOG, {
       voice: { n: m.voiceN, list: m.voice, sent: (bs.sent || 0) - b0.sent, started: (bs.started || 0) - b0.started, errors: (bs.errors || 0) - b0.errors, resets: (bs.resets || 0) - b0.resets, ok: barks.speechOK ?? null, lastErr: barks.lastErr || undefined },
       net: { n: m.netN, list: m.net }, errs: { n: m.errN, list: m.errs },
       mem: { geo: mi.geometries, tex: mi.textures, heapMB: pm ? Math.round(pm.usedJSHeapSize / 1048576) : null, objs: scene.children.length, debris: debris.length, props: props.length, bodies: world.bodies.length, calls: renderer.info.render.calls, tris: renderer.info.render.triangles }, // (calls/tris: so the draw-call budget in QUALITY-GATES can be checked from play logs, not just in tests)
+      life: typeof LIFE !== 'undefined' ? { ...LIFE.n } : undefined, // (this page's wake-lock and suspend counters so far: see LIFE)
       ev: m.ev, evDrop: m.evDrop || undefined };
   },
   finish(ended) {
@@ -12052,7 +12053,7 @@ Object.assign(PLAYLOG, {
   session() {
     this.add({ v: 2, kind: 'session', test: navigator.webdriver ? true : undefined, sid: this.sid, dev: this.devId, build: BUILD, at: new Date().toISOString(), device: PERFREP.device(), ua: this.uaShort(), uaFull: navigator.userAgent.slice(0, 300), lang: navigator.language, url: location.search.slice(0, 120) || undefined,
       standalone: (matchMedia && matchMedia('(display-mode: standalone)').matches) || undefined, cores: navigator.hardwareConcurrency || null, mem: navigator.deviceMemory || null, screen: `${screen.width}x${screen.height}@${devicePixelRatio}`,
-      settings: { gfx: S.gfx, autoGfx: S.autoGfx, opp: S.aiCount, damage: S.damage, voices: !VOICES_OFF, tilt: !!tilt.on } });
+      settings: { gfx: S.gfx, autoGfx: S.autoGfx, opp: S.aiCount, damage: S.damage, voices: !VOICES_OFF, tilt: !!tilt.on }, prevEnd: typeof LIFE !== 'undefined' && LIFE.prev ? LIFE.prev.line : undefined });
   },
   // ---- upload ----
   soon(why) { // something went wrong: upload within ~10 s (then a minute apart, doubling up to 5 min within a match)
@@ -12149,6 +12150,7 @@ Object.assign(AUTO, {
     camMode = 0; for (const id of ['perfdlg', 'netlog', 'apReport', 'gearMenu', 'panel']) { const d = $(id); if (d) d.hidden = true; }
     clearInterval(PF.timer);
     this.on = true; this.t0 = performance.now(); this.camCar = null; document.body.classList.add('autoplay'); $('apBanner').hidden = false;
+    try { LIFE.note('autoplay', 'autoplay on' + (this.idle ? ' (idle)' : '')); } catch (e) {}
     this.lock(); this.nextMatch(); ptag('autoplay on');
   },
   stop() {
@@ -12157,10 +12159,15 @@ Object.assign(AUTO, {
     this.on = false; this.idle = false; IDLE.poke(); this.camCar = null; this.pending = false; document.body.classList.remove('autoplay'); $('apBanner').hidden = true;
     const p = this.prev || {}; playerType = p.playerType || playerType; GAME_MODE = p.mode || GAME_MODE; VOICES_OFF = !!p.voices; camMode = p.cam || 0;
     try { sfx.setMuted(!!p.muted); } catch (e) {}
-    if (this.wl) { try { this.wl.release(); } catch (e) {} this.wl = null; }
+    if (this.wl) { try { this.wl.__mine = true; this.wl.release().catch(() => {}); } catch (e) {} this.wl = null; }
+    try { LIFE.note('autoplay', 'autoplay stopped'); } catch (e) {}
     showMenu(); buildGarage(); ptag('autoplay off'); toast('AUTOPLAY STOPPED', 'cool');
   },
-  async lock() { try { if (this.on && !this.idle && navigator.wakeLock && !document.hidden && (!this.wl || this.wl.released)) this.wl = await navigator.wakeLock.request('screen'); } catch (e) {} }, // keep the screen awake
+  async lock() { // keep the screen awake (and say in the play log when it was given, refused or taken back, and by whom: see LIFE)
+    if (!(this.on && !this.idle && navigator.wakeLock && !document.hidden && (!this.wl || this.wl.released)) || this.wlAsk) return; this.wlAsk = true;
+    try { const wl = await navigator.wakeLock.request('screen'); wl.addEventListener('release', () => LIFE.wlGone(wl)); this.wl = wl; LIFE.wake('acquired', 'screen wake lock acquired');
+      if (!this.on) { wl.__mine = true; wl.release().catch(() => {}); } } // (autoplay stopped while we waited)
+    catch (e) { LIFE.wake('denied', 'screen wake lock denied: ' + ((e && e.name) || 'error') + (e && e.message ? ' (' + String(e.message).slice(0, 80) + ')' : '')); } finally { this.wlAsk = false; } },
   nextMatch() { if (UPDATE.updating && UPDATE.goNow) { UPDATE.goNow(); return; } if (MEMGUARD.check('autoplay match end')) return; this.pending = false; // (a new build is waiting: switch at the match boundary)
  playerType = this.nextType(); startMatch(); this.seq++; this.camCar = null; this.camHold = 0; },
   logged(r) { this.last = r; if (this.on) toast(`MATCH ${this.seq} LOGGED`, 'cool'); },
@@ -12225,8 +12232,71 @@ PERFREP.incidents.push = function (...a) { for (const x of a) { x.env = TABENV.s
   for (const x of real) setTimeout(() => { if (TABENV.suspect || document.hidden || !document.hasFocus()) { x.env = 'browser throttling (hidden right after)'; return; } try { PLAYLOG.slow(x); } catch (e) {} }, 2000);
   return Array.prototype.push.apply(this, a); }; // throttled-tab slowdowns are shown, but not logged as game problems
 { const i0 = NETLOG.incident; NETLOG.incident = function (who, what) { try { PLAYLOG.net(who, what); } catch (e) {} return i0.call(this, who, what); }; }
-try { PLAYLOG.meta(); PLAYLOG.recover(); PLAYLOG.session(); } catch (e) {}
-setTimeout(() => PLAYLOG.upload('page load'), 8000); // anything left over from last time
+// Why did the page stop? (An autoplay laptop went silent mid-match twice with nothing in the log to say whether the lid closed, the
+// tab was killed, the wake lock was dropped or the network went.) LIFE keeps a tiny note of this page's life in localStorage: the
+// last ~16 lifecycle events (hidden, frozen, pagehide, offline, wake lock given/refused/taken back and by whom, "woke after N s"),
+// refreshed by a 1 s heartbeat (written every 20 s). On pagehide / freeze / hidden it also fires a last-gasp beacon to the drop.
+// The next page load reads the note of the page before it and logs how it ended: clean (pagehide, autoplay stopped), suspended
+// (frozen or hidden, then nothing) or vanished (no lifecycle event at all: power loss, crash, killed), and how long ago.
+const LIFE = { K: 'derby-pl-life-', t0: Date.now(), evs: [], last: '', ended: null, prev: null, saveT: -1e9, gaspT: -1e9, beatW: Date.now(), beatP: performance.now(), wlReT: -1e9,
+  n: { wlGot: 0, wlDenied: 0, wlUs: 0, wlHidden: 0, wlSystem: 0, wlRe: 0, sus: 0, susS: 0, frz: 0, hid: 0, off: 0 },
+  note(type, detail, quiet) { // quiet: the play log's match timeline already has it (TABENV / the visibility handler log it)
+    this.evs.push([new Date().toISOString().slice(11, 19), type, String(detail).slice(0, 120)]); if (this.evs.length > 16) this.evs.shift(); this.last = type;
+    if (!quiet) try { PLAYLOG.ev(type, detail); } catch (e) {}
+    this.save(); },
+  state() { return { v: 1, sid: PLAYLOG.sid, dev: PLAYLOG.devId, build: BUILD, t0: this.t0, seen: Date.now(), auto: AUTO.on || undefined, idle: AUTO.idle || undefined, hidden: document.hidden || undefined,
+    frozen: TABENV.frozen || undefined, online: navigator.onLine, last: this.last, ended: this.ended || undefined, game: Math.round(game.time), match: (PLAYLOG.m && PLAYLOG.m.id) || undefined, wl: AUTO.wl ? (AUTO.wl.released ? 'released' : 'held') : 'none', bat: TABENV.battery, n: this.n, ev: this.evs }; },
+  save() { if (PLAYLOG.devId && PLAYLOG.ls(this.K + PLAYLOG.sid, JSON.stringify(this.state()))) this.saveT = performance.now(); },
+  wake(what, detail) { if (what === 'acquired') this.n.wlGot++; else this.n.wlDenied++; this.note('wakelock', detail); },
+  wlGone(wl) { // the WakeLockSentinel 'release' event: who took it back?
+    const by = wl.__mine ? 'us' : document.hidden ? 'tab hidden' : 'system'; this.n[by === 'us' ? 'wlUs' : by === 'tab hidden' ? 'wlHidden' : 'wlSystem']++;
+    this.note('wakelock', 'screen wake lock released by ' + (by === 'us' ? 'us (autoplay stopped)' : by === 'tab hidden' ? 'the browser (tab hidden)' : 'the system (battery saver, OS or browser policy)'));
+    if (by === 'system' && AUTO.on && !AUTO.idle && !document.hidden) { const now = performance.now(), wait = now - this.wlReT < 60000 ? 30000 : 3000; this.wlReT = now; // (asked again; a system that keeps taking it is asked less often)
+      setTimeout(() => { if (AUTO.on && !document.hidden && (!AUTO.wl || AUTO.wl.released)) { this.n.wlRe++; AUTO.lock(); } }, wait); } },
+  beat() { // a 1 s heartbeat: a wall-clock jump means the page didn't run (machine asleep, or the page frozen) for that long
+    const w = Date.now(), p = performance.now(), gw = w - this.beatW, gp = p - this.beatP; this.beatW = w; this.beatP = p;
+    if (gw > (document.hidden ? 90000 : 60000)) { const s = Math.round(gw / 1000), sp = Math.round(gp / 1000); this.n.sus++; this.n.susS += s; // (hidden: Chrome may run timers only once a minute)
+      this.note('woke', `woke after ${s} s` + (sp < s - 30 ? ` (page clock ran ${sp} s: the machine was asleep)` : ' (page frozen or starved, the clock kept running)') + (document.hidden ? ' · tab hidden' : '')); }
+    else if (p - this.saveT > 20000) this.save(); },
+  gasp(why) { // the page may never run again: say so now, in one small record, without waiting for an answer
+    this.save(); const now = performance.now(); if (!AUTO.on || Date.now() < (DROP.blockUntil || 0)) return; // (only autoplay pages, which run unattended; the note above covers everyone on the next load)
+    if (why !== 'pagehide' && now - this.gaspT < 600000) return; this.gaspT = now; // (hidden/freeze at most every 10 min: the drop has a daily limit per connection)
+    if (typeof window.dropBeacon !== 'function') return; const s = this.state();
+    const rec = { v: 2, kind: 'gasp', test: navigator.webdriver ? true : undefined, sid: s.sid, dev: s.dev, build: BUILD, at: new Date().toISOString(), device: PERFREP.device(), why, auto: s.auto, hidden: s.hidden, online: s.online, game: s.game, match: s.match, wl: s.wl, bat: s.bat, upS: Math.round((Date.now() - this.t0) / 1000), n: s.n, ev: this.evs.slice(-8) };
+    try { window.dropBeacon(`#derby-playlog v2 dev=${s.dev} sid=${s.sid} build=${BUILD} sent=${rec.at} why=last_gasp_${why}\n${JSON.stringify(rec)}`); } catch (e) {} },
+  verdict(s) { // how did the page described by note s end?
+    const evs = s.ev || [], lastEv = evs[evs.length - 1] || [], tail = (lastEv[2] || '').slice(0, 60);
+    if (s.ended) return ['clean', s.ended];
+    if (s.last === 'autoplay' && !s.auto && !s.hidden) return ['clean', 'autoplay stopped, then the page closed without a pagehide'];
+    if (s.frozen || s.last === 'freeze') return ['suspended', 'page frozen by the browser, then nothing'];
+    if (s.hidden || s.last === 'hidden') return ['suspended', 'tab hidden, then nothing (lid closed, sleep, or the tab discarded)'];
+    return ['vanished', 'no lifecycle event: power loss, crash, or the browser/OS killed it' + (s.online === false ? ' · it was offline' : '') + (tail ? ' · last event: ' + tail : '')]; },
+  recover() { // notes left by earlier pages of this browser
+    const keys = []; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith(this.K) && k !== this.K + PLAYLOG.sid) keys.push(k); } } catch (e) { return; }
+    const ago = (ms) => { const m = Math.round(ms / 60000); return m < 1 ? Math.round(ms / 1000) + ' s' : m < 120 ? m + ' min' : (m / 60).toFixed(1) + ' h'; };
+    for (const k of keys) {
+      let s = null; try { s = JSON.parse(this.ls(k) || 'null'); } catch (e) {}
+      if (!s || !s.sid) { this.ls(k, null); continue; }
+      const age = Date.now() - (s.seen || 0); if (!s.ended && age < (s.hidden ? 300000 : 60000)) continue; // (another open tab, still alive)
+      const [how, reason] = this.verdict(s), seen = new Date(s.seen || 0).toISOString();
+      const rec = { v: 2, kind: 'lifeEnd', test: navigator.webdriver ? true : undefined, sid: s.sid, dev: s.dev || PLAYLOG.devId, build: s.build, nowBuild: BUILD, at: new Date().toISOString(), device: PERFREP.device(), how, reason, lastSeen: seen, agoS: Math.round(age / 1000), upS: Math.round(((s.seen || 0) - (s.t0 || s.seen || 0)) / 1000),
+        auto: s.auto, match: s.match, game: s.game, wl: s.wl, bat: s.bat, n: s.n, ev: s.ev, line: `previous session ended: ${how} (${reason}), last seen ${seen} (${ago(age)} ago)` };
+      this.ls(k, null); PLAYLOG.add(rec); if (!this.prev || (s.seen || 0) > this.prev.seen) this.prev = { how, reason, seen: s.seen || 0, agoS: rec.agoS, auto: s.auto, line: rec.line };
+    } },
+  ls(k, v) { return PLAYLOG.ls(k, v); } };
+window.dropBeacon = window.dropBeacon || function (text) { // the drop takes a plain POST (title and tags as query parameters): a beacon can carry it while the page goes away
+  if (window.__noDrop || !navigator.sendBeacon) return false; const dev = (/iPhone|iPad|Mac|Android|Windows|CrOS/.exec(navigator.userAgent) || ['web'])[0];
+  return navigator.sendBeacon('https://ntfy.sh/' + DROP.topic + '?' + new URLSearchParams({ title: `gasp · build ${BUILD} · ${dev}`, tags: 'playlog' }), new Blob([text.slice(0, 3900)], { type: 'text/plain' })); }; // (under 4 KB: kept as a message, 12 h)
+setInterval(() => LIFE.beat(), 1000);
+addEventListener('pagehide', (e) => { LIFE.ended = 'page closed (pagehide' + (e.persisted ? ', kept in the back/forward cache' : '') + ')'; LIFE.note('pagehide', LIFE.ended); LIFE.gasp('pagehide'); });
+addEventListener('pageshow', (e) => { if (e.persisted) { LIFE.ended = null; LIFE.note('pageshow', 'back from the back/forward cache'); } });
+document.addEventListener('freeze', () => { LIFE.n.frz++; LIFE.note('freeze', 'page frozen by the browser', true); LIFE.gasp('freeze'); });
+document.addEventListener('resume', () => { LIFE.note('resume', 'page resumed', true); LIFE.beat(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden) { LIFE.n.hid++; LIFE.note('hidden', 'tab hidden', true); LIFE.gasp('hidden'); } else { LIFE.note('visible', 'tab visible again', true); LIFE.beat(); } });
+addEventListener('offline', () => { LIFE.n.off++; LIFE.note('offline', 'network offline'); });
+addEventListener('online', () => LIFE.note('online', 'network back online'));
+try { PLAYLOG.meta(); PLAYLOG.recover(); LIFE.recover(); PLAYLOG.session(); LIFE.save(); } catch (e) {}
+setTimeout(() => PLAYLOG.upload(LIFE.prev ? 'page load (previous session ' + LIFE.prev.how + ')' : 'page load'), 8000); // anything left over from last time (and how the page before this one ended)
 addEventListener('online', () => PLAYLOG.upload('back online'));
 addEventListener('pageshow', () => { PLAYLOG.closing = false; });
 addEventListener('pagehide', () => { PLAYLOG.closing = true; if (PLAYLOG.m) { PLAYLOG.writeCur(true); PLAYLOG.beacon(PLAYLOG.ck('page closed')); } }); // (a normal upload now could be cut off half way and then go again next time)
@@ -12302,7 +12372,7 @@ try { BOOT.parallel = !!renderer.getContext().getExtension('KHR_parallel_shader_
   else { bootLite(); renderer.compile(sky, camera, scene); startLoop('async'); } // (the yard's compile starts once this first frame is up: bootFrame)
 } catch (e) { bootYard('error'); startLoop('error'); }
 window.__derby.BOOT = BOOT; window.__derby.HITLOG = HITLOG; Object.defineProperty(window.__derby, 'camMode', { get: () => camMode }); window.__derby.MEMGUARD = MEMGUARD; window.__derby.GPULIVE = GPULIVE;
-window.__derby.setCarAlight = (c, by) => setCarAlight(c, by); window.__derby.dropBoulder = (c) => dropBoulder(c); window.__derby.sprites = sprites; window.__derby.IDLE = IDLE; window.__derby.TALK = TALK; window.__derby.DROP = DROP; window.__derby.SCORE = SCORE; window.__derby.UPDATE = UPDATE; window.__derby.TABENV = TABENV; window.__derby.PERFREP = PERFREP; // (test hooks)
+window.__derby.setCarAlight = (c, by) => setCarAlight(c, by); window.__derby.dropBoulder = (c) => dropBoulder(c); window.__derby.sprites = sprites; window.__derby.IDLE = IDLE; window.__derby.TALK = TALK; window.__derby.DROP = DROP; window.__derby.SCORE = SCORE; window.__derby.UPDATE = UPDATE; window.__derby.TABENV = TABENV; window.__derby.PERFREP = PERFREP; window.__derby.LIFE = LIFE; // (test hooks)
 window.__derby.VR = VR; window.__derby.XRS = XRS; window.__derby.composer = composer;
 window.__derby.VCLIP = VCLIP; window.__derby.TOURIST = TOURIST; window.__derby.ROAST_BY = ROAST_BY; window.__derby.ROAST_PAIR = ROAST_PAIR; window.__derby.SHAZZA = SHAZZA; window.__derby.CAR_CAST = CAR_CAST; window.__derby.ANNOUNCER = ANNOUNCER; window.__derby.COP = COP; window.__derby.megaphone = megaphone; window.__derby.hornLine = hornLine;
 </script>

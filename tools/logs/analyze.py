@@ -311,6 +311,48 @@ if ap:
     hid = [m for m in ap if m.get('hidden', 0) > 5]
     if hid: L.append(f'- {len(hid)} autoplay matches spent time hidden (stats from those stretches are excluded from build 67)')
     L.append('')
+# --- autoplay health: how each autoplay page ended (from the next load's 'lifeEnd' record, or its last-gasp beacon), wake-lock releases by cause, suspends
+AH = collections.defaultdict(lambda: {'dev': None, 'end': None, 'gasp': [], 'n': collections.Counter()})
+def ah_take(r):
+    a = AH[r['sid']]
+    if r.get('device') and not a['dev']: a['dev'] = dev_name(r)
+    for k, v in ((r.get('n') if r.get('kind') in ('lifeEnd', 'gasp') else r.get('life')) or {}).items():
+        if isinstance(v, (int, float)) and v > a['n'][k]: a['n'][k] = v  # (counters only grow within a page: the largest copy wins)
+    return a
+ap_sids = {m['sid'] for m in ap if m.get('sid')} | {r['sid'] for r in recs if r.get('kind') in ('lifeEnd', 'gasp') and r.get('auto') and r.get('sid') and not is_test(r)}
+ap_sids |= {s for s, r in sessions.items() if 'autoplay=1' in (r.get('url') or '') and not is_test(r)}
+for r in recs:
+    if r.get('sid') not in ap_sids or is_test(r): continue
+    if r.get('kind') == 'lifeEnd':
+        a = ah_take(r)
+        if not a['end'] or (r.get('lastSeen') or '') >= (a['end'].get('lastSeen') or ''): a['end'] = r  # (a frozen tab declared ended can come back and end again: the latest word wins)
+    elif r.get('kind') == 'gasp':
+        a = ah_take(r)
+        if all(g.get('at') != r.get('at') for g in a['gasp']): a['gasp'].append(r)
+    elif r.get('kind') in ('ck', 'match') and r.get('role') == 'autoplay': ah_take(r)
+    elif r.get('kind') == 'session' and not AH[r['sid']]['dev'] and r.get('device'): AH[r['sid']]['dev'] = dev_name(r)
+if AH:
+    L.append('### Autoplay health\n')
+    J['autoplayHealth'] = {}
+    for d in sorted({a['dev'] or '?' for a in AH.values()}):
+        xs = {s: a for s, a in AH.items() if (a['dev'] or '?') == d}
+        if not any(a['end'] or a['gasp'] or a['n'] for a in xs.values()):
+            L.append(f'- **{d}** autoplay health: {len(xs)} sessions · page lifecycle not recorded yet (builds before the stop log)'); continue
+        ends = collections.Counter(); n = collections.Counter(); last = None
+        for s, a in xs.items():
+            n.update(a['n'])
+            if a['end']:
+                ends[a['end'].get('how', '?')] += 1
+                if not last or (a['end'].get('lastSeen') or '') > (last.get('lastSeen') or ''): last = a['end']
+            elif a['gasp']: ends['not reloaded yet, last gasp ' + sorted(a['gasp'], key=lambda g: g.get('at') or '')[-1].get('why', '?')] += 1
+            else: ends['no word yet (still running, or not reloaded since)'] += 1
+        order = ['clean', 'suspended', 'vanished']
+        endtxt = ', '.join([f'{k} {ends[k]}' for k in order if ends[k]] + [f'{k} {v}' for k, v in sorted(ends.items()) if k not in order])
+        wl = f"wake lock: acquired {n['wlGot']}, denied {n['wlDenied']}, released by tab hidden {n['wlHidden']}, by the system {n['wlSystem']}, by us {n['wlUs']} (asked again {n['wlRe']})"
+        L.append(f"- **{d}** autoplay health: {len(xs)} sessions · ended: {endtxt} · {wl} · suspends {n['sus']} ({n['susS']} s asleep or frozen) · hidden {n['hid']}×, frozen {n['frz']}×, offline {n['off']}×"
+                 + (f" · last stop: {last.get('how')} ({last.get('reason')}), last seen {last.get('lastSeen')}" if last else ''))
+        J['autoplayHealth'][d] = {'sessions': len(xs), 'ended': dict(ends), 'counters': dict(n)}
+    L.append('')
 # --- bug reports
 if bugs:
     L.append('## Bug reports\n')

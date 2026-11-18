@@ -141,6 +141,37 @@ def main():
     rj3 = json.load(open(os.path.join(out3, 'report-latest.json'))) if r.returncode == 0 else {}
     ok((rj3.get('vox') or {}).get('iPhone b115', {}).get('clipPct') == 80, 'A8 report-latest.json carries vox per device/build — got: ' + str(rj3.get('vox')))
 
+    # A9: autoplay health — how each autoplay page ended (the next load's lifeEnd record, else its last-gasp beacon), wake-lock releases
+    # by cause and suspends, per device. Built for the Chromebook that went silent mid-match with nothing in the log to say why.
+    CB = 'Chromebook · 4 cores'
+    n1 = {'wlGot': 3, 'wlDenied': 1, 'wlUs': 0, 'wlHidden': 1, 'wlSystem': 1, 'wlRe': 1, 'sus': 1, 'susS': 7300, 'frz': 0, 'hid': 1, 'off': 0}
+    ah = [
+        dict(MATCH, id='a1-1', sid='a1', build='118', role='autoplay', device=CB, game=180, life={'wlGot': 2, 'wlSystem': 1, 'wlRe': 1, 'sus': 0, 'susS': 0}),
+        {'v': 2, 'kind': 'lifeEnd', 'sid': 'a1', 'build': '118', 'device': CB, 'how': 'vanished', 'reason': 'no lifecycle event: power loss, crash, or the browser/OS killed it',
+         'lastSeen': '2026-11-18T06:27:10.000Z', 'agoS': 3600, 'auto': True, 'n': n1, 'line': 'previous session ended: vanished (...)'},
+        {'v': 2, 'kind': 'lifeEnd', 'sid': 'a2', 'build': '118', 'device': CB, 'how': 'suspended', 'reason': 'page frozen by the browser, then nothing',
+         'lastSeen': '2026-11-17T21:28:00.000Z', 'auto': True, 'n': {'wlGot': 1, 'wlHidden': 1, 'frz': 1, 'hid': 1}},
+        {'v': 2, 'kind': 'gasp', 'sid': 'a3', 'build': '118', 'device': CB, 'why': 'hidden', 'at': '2026-11-18T07:00:00.000Z', 'auto': True, 'n': {'wlGot': 1, 'wlHidden': 1, 'hid': 1}},
+        {'v': 2, 'kind': 'gasp', 'sid': 'a3', 'build': '118', 'device': CB, 'why': 'pagehide', 'at': '2026-11-18T07:00:01.000Z', 'auto': True, 'n': {'wlGot': 1, 'wlHidden': 1, 'hid': 1, 'wlUs': 1}},
+        {'v': 2, 'kind': 'lifeEnd', 'sid': 't1', 'build': '118', 'device': CB, 'how': 'vanished', 'reason': 'x', 'auto': True, 'test': True, 'n': {'wlGot': 50}},  # a test run: left out
+        dict(MATCH, id='old-1', sid='old', build='110', role='autoplay', device='MacBook · Apple M-series'),  # an old build: nothing recorded
+    ]
+    arch4 = tempfile.mkdtemp(prefix='sd-arch-'); out4 = tempfile.mkdtemp(prefix='sd-out-')
+    with open(os.path.join(arch4, 'fixture-playlog.txt'), 'w') as f:
+        for x in [SESSION] + ah: f.write(json.dumps(x) + '\n')
+    r = subprocess.run([sys.executable, os.path.join(HERE, 'analyze.py'), arch4, out4], capture_output=True, text=True)
+    md4 = open(os.path.join(out4, 'report-latest.md')).read() if r.returncode == 0 else ''
+    ok(r.returncode == 0 and '### Autoplay health' in md4, 'A9 the report has an Autoplay health section ' + r.stderr[-300:])
+    cb = next((l for l in md4.split('\n') if l.startswith('- **Chromebook** autoplay health')), '')
+    print('     ' + cb)
+    ok('3 sessions · ended: suspended 1, vanished 1, not reloaded yet, last gasp pagehide 1 ·' in cb, 'A9 Chromebook: 3 autoplay sessions, how each ended (test run left out) — got: ' + cb)
+    ok('wake lock: acquired 5, denied 1, released by tab hidden 3, by the system 1, by us 1 (asked again 1)' in cb, 'A9 wake-lock releases by cause, summed over sessions (largest copy per session) — got: ' + cb)
+    ok('suspends 1 (7300 s asleep or frozen) · hidden 3×, frozen 1×' in cb, 'A9 suspends and hidden/frozen counts — got: ' + cb)
+    ok('last stop: vanished (no lifecycle event: power loss, crash, or the browser/OS killed it), last seen 2026-11-18T06:27:10.000Z' in cb, 'A9 the latest stop with its reason and last-seen time — got: ' + cb)
+    ok('- **MacBook** autoplay health: 1 sessions · page lifecycle not recorded yet' in md4, 'A9 an old build without lifecycle data says so')
+    rj4 = json.load(open(os.path.join(out4, 'report-latest.json'))) if r.returncode == 0 else {}
+    ok((rj4.get('autoplayHealth') or {}).get('Chromebook', {}).get('ended', {}).get('vanished') == 1, 'A9 report-latest.json carries autoplayHealth per device — got: ' + str(rj4.get('autoplayHealth')))
+
     print('FAILED ' + str(len(fails)) if fails else 'ALL PASS')
     return 1 if fails else 0
 
