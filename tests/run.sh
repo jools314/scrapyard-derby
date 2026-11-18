@@ -72,6 +72,7 @@ quick() {
   t heaps 300 "HEAPS PASS"
   t inside 600 "INSIDE PASS"
   t voicelines 300 "VOICELINES PASS"
+  t voicepath 600 "VOICEPATH PASS"
   t broadphase 600 "BROADPHASE PASS"
   t updatecheck 300 "UPDATECHECK PASS"
   t spider 1200 "SPIDER PASS"

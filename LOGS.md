@@ -42,7 +42,8 @@ A play-log file is a header line (`#derby-playlog v2 dev=… sid=… build=NN se
   - `phys`: physics safety-net catches, `{blowups, launches, rescues, below, nan, list: [{who, kind}]}`;
   - `veh`: per vehicle type `{lives, k, d, dmg, taken, life, fires}`;
   - `vs` (from build 68): `{"killer>victim": {k, dragged?}}`; `vsD`: damage dealt per pair;
-  - `voice`: speech failures; `errs`: JS errors; `net`: network incidents; `ev`: a short timeline of events.
+  - `voice`: speech failures; `errs`: JS errors; `net`: network incidents; `ev`: a short timeline of events;
+  - `vox` (voice-path build): recorded clips vs computer voice, `{clips, waited, busy, speech: {noCtx, suspended, muted, vol0, noClip, failed}, ctx: {running, suspended, interrupted, none}, ctxCh, music: {on, playing, ok, blocked, now}, session, wakes, loaded}`. `speech` says why a line was not a recorded clip: `noClip` nothing recorded for it, `suspended`/`noCtx` no running audio context (no tap yet, a tab or app switch, an iPhone interruption), `failed` fetch/decode; `muted`/`vol0` lines with no sound at all. `ctx` and `music` are samples every 2 s of the visible match. The report's *Recorded voices vs computer voice* table sums them per device and build.
 - **`kind: "errors"`:** errors that happened outside a match.
 
 Bug reports (`*bug-*.txt`) are the full text the 🐞 icon copies: state, recent events, network log and errors.

@@ -2556,7 +2556,8 @@ function addSpikeStrip(x, z, yaw, owner) { // a folding police stop-stick laid a
   while (CONCRETE.list.length > 40) { const old = CONCRETE.list.shift(); scene.remove(old.mesh); freePuddle(old); }
   sfx.at({ x, y: 0, z }).clank(0.5); if (MP.role === 'host') MP.event && MP.event({ k: 'ss', p: [Math.round(x * 10) / 10, Math.round(z * 10) / 10, Math.round(yaw * 100) / 100] });
 }
-const TOURIST = { nick: 'German tourist (in the back)', lang: 'de-DE', pitch: 1.35, rate: 1.2, words: { voice: ['Anna', 'Markus', 'Google Deutsch', 'Petra', 'Yannick'] } };
+const TOURIST = { nick: 'German tourist (in the back)', lang: 'de-DE', pitch: 1.35, rate: 1.2, words: { voice: ['Anna', 'Markus', 'Google Deutsch', 'Petra', 'Yannick'] },
+  native: new Set(['Sie fahren wie ein Tourist!', 'Achtung! Wir sind im Urlaub!']) }; // (his lines that are German, not English: only these may use a German voice)
 const HORN_LINES = { // what each driver shouts when you lean on the horn (in character)
   outrider: ["Oi! Shift yer motor, ye numpty!", "Och, get oot ma road!", "MacTavish comin' through! Move or get skelped!"],
   viper: ['I live my life a quarter mile at a time. You\'re in it!', 'Move! I got a family to get home to!', 'Ten seconds or less. Get outta my lane!'],
@@ -3537,11 +3538,18 @@ function updateDebris(dt) {
 const _panV = new THREE.Vector3();
 const sfx = {
   ctx: null, muted: false, musicOn: true, musicPlaying: false, lastProp: 0,
+  wake() { // the audio context plays effects, music and the recorded voices: ask it to run whenever it isn't ('suspended': made before a tap, or a tab/app switch; 'interrupted': WebKit after a call, Siri or the app switcher)
+    try { const AS = navigator.audioSession; if (AS && AS.type !== 'playback') AS.type = 'playback'; } catch (e) {} // iPhone/iPad: 'playback' plays through the ring/silent switch like the Web Speech voices do (the default 'ambient' goes silent, and you heard only computer voices)
+    const c = this.ctx; if (!c || c.state === 'running' || c.state === 'closed') return;
+    try { this.wakeN = (this.wakeN || 0) + 1; const p = c.resume(); if (p && p.catch) p.catch(() => {}); } catch (e) {}
+  },
   init() {
-    if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; }
+    if (this.ctx) { this.wake(); return; }
     try {
+      this.wake(); // (the audio session first: before the context exists is best)
       const AC = window.AudioContext || window.webkitAudioContext;
       const c = this.ctx = new AC();
+      c.onstatechange = () => { try { VCLIP.ctxState(c.state); } catch (e) {} };
       const comp = c.createDynamicsCompressor();
       comp.threshold.value = -12; comp.ratio.value = 5; comp.attack.value = 0.004; comp.release.value = 0.2;
       comp.connect(c.destination);
@@ -8003,6 +8011,12 @@ const TALK = { gap: [2.5, 5], gap2: 2, gap3: 0.8, budget1: 10, budget2: 15, budg
   drop() { if (PLAYLOG.m) PLAYLOG.m.talkDrop = (PLAYLOG.m.talkDrop || 0) + 1; },
   gate(P, line, prio) { if (game.state !== 'playing' || MP.role === 'guest') return true; const now = performance.now() / 1000; if (!this.ok(prio, now)) { this.drop(); return false; } this.take(P, line, now); return true; },
 };
+// Close events whose recorded lines fit when a driver has nothing fresh (or nothing recorded at all) for this one: rodeo and burger lines were never recorded for most drivers.
+const EV_ALT = { rodeo: ['taunt', 'gloat'], burger: ['gloat', 'kill'], crash: ['gotHit'], onFire: ['fire', 'gotHit'], fire: ['gotHit'], wheel: ['low', 'gotHit'], low: ['gotHit'], flee: ['low'], air: ['taunt'], charge: ['taunt'], kill: ['gloat'], wrecked: ['low'], respawn: ['start'], rival: ['taunt'], hitYou: ['gloat'], gloat: ['hitYou'], gotHit: ['low'], taunt: ['charge'], bull: ['taunt'] };
+// Web Speech is only the fallback for lines with no recording, and it must speak English in an English voice: a French or German voice reading English
+// sounds like a different language (Papa Jacques's lines came out in French). The accent comes from an English locale instead; only a line that is itself
+// in the character's language (P.native) may use a voice of that language.
+const EN_FOR = { fr: ['en-gb'], de: ['en-gb'], nb: ['en-gb'], no: ['en-gb'], sv: ['en-gb'], ro: ['en-gb'], ru: ['en-gb'], it: ['en-us'], es: ['en-us'], pt: ['en-us'], ja: ['en-us'], zh: ['en-hk', 'en-sg', 'en-gb'], 'en-ng': ['en-ng', 'en-za', 'en-gb'], 'en-gh': ['en-gh', 'en-ng', 'en-za', 'en-gb'] };
 const barks = {
   lastT: -99, el: null, voices: [],
   init() {
@@ -8020,7 +8034,7 @@ const barks = {
     if (!line) return;
     const near = player && car.body.position.distanceTo(player.body.position) < 45;
     const aboutYou = !!vars && (vars.target === 'you' || vars.v === 'you' || vars.v === 'our hero'); // (a default 'you' when nothing was passed is just chatter)
-    if (!TALK.gate(P, line, force ? 3 : aboutYou || near ? 2 : 1)) return;
+    if (!TALK.gate(P, line, force ? 3 : aboutYou || near ? 2 : 1)) { if (this.lastAdded === line) this.used.delete(line); return; } // (dropped by the talk governor: not heard, so not used up. ~30 lines are dropped per line heard, and they used to burn through the recorded lines in minutes)
     car.lastBark = now; this.lastT = now;
     this.show(P, car.baseColor, line);
     this.speak(P, line, car.body.position);
@@ -8035,13 +8049,18 @@ const barks = {
   compose(P, ev, vars) { // a fresh line every time: mix handwritten lines and templates, skip anything said this match
     const rr = this.roast(P, ev, vars); if (rr || ev === 'roast') return rr; // a roast aimed at that driver by name (about half the time)
     const hand = (P.lines && P.lines[ev]) || [], tpls = TEMPLATES[ev] || GENERIC[ev] || [];
-    const line = VCLIP.pick(14, () => { // (prefers lines that have a recorded clip, when there are clips)
-      const useHand = hand.length && Math.random() < (P.hand ?? 0.35);
+    const gen = (hand, tpls) => () => {
+      const useHand = hand.length && (!tpls.length || Math.random() < (P.hand ?? 0.35));
       const src = useHand ? hand : tpls;
       if (!src.length) return null;
       const l = this.fill(src[Math.random() * src.length | 0], P, vars);
       return l.charAt(0).toUpperCase() + l.slice(1);
-    }, P, this.used);
+    };
+    let line = VCLIP.pick(14, gen(hand, tpls), P, this.used, !!VCLIP.clips); // (prefers lines that have a recorded clip, when there are clips)
+    if (VCLIP.clips && !(line && VCLIP.id(P, line))) { // nothing fresh and recorded for this event: a fresh recorded line from a close event, else the recorded line said longest ago (never a computer voice when a recording will do)
+      for (const alt of EV_ALT[ev] || []) { const h2 = (P.lines && P.lines[alt]) || []; const l2 = h2.length ? VCLIP.pick(14, gen(h2, []), P, this.used, true) : null; if (l2 && VCLIP.id(P, l2)) { line = l2; break; } }
+      if (!(line && VCLIP.id(P, line))) { const l3 = VCLIP.pick(14, gen(hand, tpls), P, this.used); if (l3) line = l3; }
+    }
     if (line) { this.remember(line); return line; }
     return this.reuse(hand.length ? hand : tpls, P, vars); // every line already said: the respawn match never ends, so repeat one rather than go quiet for the rest of the session
   },
@@ -8051,7 +8070,7 @@ const barks = {
     const fresh = pool.filter((l) => !this.used.has(l)), line = fresh.length ? fresh[Math.random() * fresh.length | 0] : ev === 'roast' ? pool[Math.random() * pool.length | 0] : null; // (close-pass roasts may repeat: the per-pair cooldown spaces them)
     if (line) this.remember(line); return line;
   },
-  remember(line) { this.used.delete(line); this.used.add(line); if (this.used.size > 600) this.used.delete(this.used.values().next().value); }, // (the oldest lines become sayable again)
+  remember(line) { this.lastAdded = this.used.has(line) ? null : line; this.used.delete(line); this.used.add(line); if (this.used.size > 600) this.used.delete(this.used.values().next().value); }, // (the oldest lines become sayable again)
   reuse(src, P, vars) { if (!src || !src.length) return null; let line = this.fill(src[Math.random() * src.length | 0], P, vars); line = line.charAt(0).toUpperCase() + line.slice(1); this.remember(line); this.stats = this.stats || { sent: 0, started: 0, errors: 0, resets: 0, lastVoice: '' }; this.stats.repeats = (this.stats.repeats || 0) + 1; return line; },
   announce(ev, vars, force) {
     const now = performance.now() / 1000;
@@ -8060,7 +8079,7 @@ const barks = {
     let A = this.annSwap ? SHAZZA : ANNOUNCER, pool = annPool(A, ev); if (!pool.length) { A = A === SHAZZA ? ANNOUNCER : SHAZZA; pool = annPool(A, ev); } // Kev and Shazza take turns
     this.annSwap = A === ANNOUNCER;
     for (let i = 0; i < 1; i++) {
-      const r = VCLIP.pick(8, () => this.fill(pool[Math.random() * pool.length | 0], A, vars), A, this.used); // (prefers recorded lines)
+      const r = VCLIP.pick(8, () => this.fill(pool[Math.random() * pool.length | 0], A, vars), A, this.used); // (prefers recorded lines; with clips, an already-said recorded call rather than a computer voice)
       const line = r || this.fill(pool[Math.random() * pool.length | 0], A, vars); // (nothing fresh left: repeat one; a long match uses up the announcer's pool)
       if (!TALK.gate(A, line, force ? 2 : 1)) return;
       this.remember(line); this.annT = now; this.lastT = now;
@@ -8181,7 +8200,7 @@ const barks = {
       this.voices = speechSynthesis.getVoices();
       this.tries = (this.tries || 0) + 1; this.unlockT = performance.now();
       const u = new SpeechSynthesisUtterance(this.tries === 1 ? 'Welcome to Scrapyard Derby!' : 'Here we go!');
-      u.pitch = ANNOUNCER.pitch; u.rate = ANNOUNCER.rate; u.volume = this.tries === 1 ? Math.max(0.3, S.voiceVolume) : 0.25; // the device's default voice: a fancy voice that happens to be broken must not switch all speech off
+      u.pitch = ANNOUNCER.pitch; u.rate = ANNOUNCER.rate; u.volume = VCLIP.clips ? 0.05 : this.tries === 1 ? Math.max(0.3, S.voiceVolume) : 0.25; // the device's default voice: a fancy voice that happens to be broken must not switch all speech off. With recorded voices it only unlocks the engine: barely audible, not a computer voice greeting you
       const ok = () => { this.speechOK = true; this.heard(); }; u.onstart = ok; u.onboundary = ok; u.onend = ok; // (some voices speak without ever firing 'start')
       try { speechSynthesis.resume(); } catch (e) {} // Chrome on a Mac can be stuck 'paused'
       this.keep = (this.keep || []).concat(u).slice(-12); // (Chrome can drop an utterance nobody holds)
@@ -8210,12 +8229,15 @@ const barks = {
       t += dur + rand(0.01, 0.05) / P.rate;
     }
   },
-  pickVoice(P) { // named voices first (they carry the accent), then any voice of the language, then English
-    const local = performance.now() < this.preferLocalUntil, names = (P.words && P.words.voice) || [];
+  pickVoice(P, line) { // English text gets an English voice: a named English voice first (they carry the accent), then the English locale nearest the character's accent, then any English voice
+    const local = performance.now() < this.preferLocalUntil, names = (P.words && P.words.voice) || [], L = (x) => String(x.lang || '').toLowerCase().replace('_', '-');
     const vs = this.voices.filter((x) => !this.isBad(x) && !(local && x.localService === false)); // (banned and, while the network voices are down, online voices are skipped everywhere: nothing left means the device's default voice)
-    for (const n of names) { const v = vs.find((x) => x.name.toLowerCase().includes(n.toLowerCase())); if (v) return v; }
-    const lang = P.lang.toLowerCase().replace('_', '-');
-    return vs.find((x) => x.lang && x.lang.toLowerCase().replace('_', '-').startsWith(lang)) || vs.find((x) => x.lang && x.lang.toLowerCase().startsWith(lang.slice(0, 2))) || vs.find((x) => x.lang && x.lang.startsWith('en'));
+    const lang = String(P.lang || 'en-US').toLowerCase().replace('_', '-'), own = line != null && P.native && P.native.has(String(line)); // (a line that is itself in the character's language)
+    const pool = own ? vs : vs.filter((x) => L(x).startsWith('en'));
+    for (const n of names) { const v = pool.find((x) => x.name.toLowerCase().includes(n.toLowerCase())); if (v) return v; }
+    const want = own ? [lang, lang.slice(0, 2)] : [...(lang.startsWith('en') ? [lang] : []), ...(EN_FOR[lang] || EN_FOR[lang.slice(0, 2)] || []), 'en-gb', 'en-us', 'en'];
+    for (const w of want) { const v = pool.find((x) => L(x).startsWith(w)); if (v) return v; }
+    return own ? this.pickVoice(P, null) : null; // (no English voice at all: the device's default voice, told the text is English)
   },
   speak(P0, line0, pos, opt) { // opt: { fx: 'megaphone' } for the in-game sound of a recorded clip, { noClip: true } = Web Speech only
     if (VOICES_OFF) return; // the subtitles still show
@@ -8232,8 +8254,8 @@ const barks = {
       if (sfx.muted || S.voiceVolume <= 0) return;
       if (!this.voices.length) this.voices = speechSynthesis.getVoices();
       const u = new SpeechSynthesisUtterance(line.replace(/[#@%!$&*]{2,}!?/g, ' bleep ').replace(/#@%!/g, 'bleep'));
-      const v = this.pickVoice(P);
-      if (v) { u.voice = v; u.lang = v.lang; }
+      const v = this.pickVoice(P, line);
+      if (v) { u.voice = v; u.lang = v.lang; } else u.lang = 'en-US';
       u.pitch = P.pitch; u.rate = P.rate;
       const d = player && pos ? pos.distanceTo(player.body.position) : 0;
       u.volume = clamp(S.voiceVolume * (1 - d / 220), 0.25, 1);
@@ -8277,7 +8299,23 @@ const VCLIP = {
   clips: null, byChar: new Map(), fx: { 'crash-cam-kev': 'pa', lulu: 'pa', 'big-hank': 'radio', 'german-tourist-in-the-back': 'muffled' },
   bufs: new Map(), raw: new Map(), loading: new Map(), bytes: 0, rawBytes: 0, MAX_BYTES: 40e6, MAX_RAW: 12e6, // decoded audio is ~10x the mp3: cap both
   q: null, cur: null, seen: new WeakSet(), log: [],
-  stats: { clips: 0, generic: 0, speech: 0, failed: 0, fetched: 0, decoded: 0 },
+  stats: { clips: 0, generic: 0, speech: 0, failed: 0, fetched: 0, decoded: 0, reused: 0, why: {} },
+  GRACE: 1500, // a recorded line whose audio context isn't running yet (no tap yet, a tab or app switch, an iPhone interruption) waits this long for it before Web Speech takes it
+  // ---- what happened to each line, for the play log and the bug report: 'clips' played, 'waited' (played after the context woke up), 'busy' (another clip was still on),
+  // and why a line went to Web Speech instead: noClip (nothing recorded for it), noCtx / suspended (no running audio context), failed (fetch/decode); muted / vol0 = nothing at all
+  blank() { return { clips: 0, waited: 0, busy: 0, speech: { noCtx: 0, suspended: 0, muted: 0, vol0: 0, noClip: 0, failed: 0 }, ctx: { running: 0, suspended: 0, interrupted: 0, none: 0 }, ctxCh: [], music: { ok: 0, blocked: {} } }; },
+  note(k) { const w = this.stats.why; w[k] = (w[k] || 0) + 1; const m = typeof PLAYLOG !== 'undefined' && PLAYLOG.m, v = m && m.vox; if (!v) return; if (k in v.speech) v.speech[k]++; else v[k] = (v[k] || 0) + 1; },
+  ctxState(st) { this.stats.ctxCh = (this.stats.ctxCh || 0) + 1; const m = typeof PLAYLOG !== 'undefined' && PLAYLOG.m, v = m && m.vox; if (v && v.ctxCh.length < 12) v.ctxCh.push([Math.round(game.time), st, document.hidden ? 'hidden' : 'visible']); },
+  musicWhy() { const s = sfx, c = s.ctx; return !s.musicOn ? 'music off' : !c ? 'no audio context' : c.state !== 'running' ? 'audio ' + c.state : s.muted ? 'sound off' : S.musicVolume <= 0 ? 'music volume 0' : !s.musicPlaying ? 'not started' : ''; },
+  sample() { // every 2 s of a visible match: the audio context's state, and whether the music can be heard
+    const m = typeof PLAYLOG !== 'undefined' && PLAYLOG.m, v = m && m.vox; if (!v || document.hidden || game.state !== 'playing') return;
+    const st = sfx.ctx ? sfx.ctx.state : 'none'; v.ctx[st] = (v.ctx[st] || 0) + 1;
+    const w = this.musicWhy(); if (w) v.music.blocked[w] = (v.music.blocked[w] || 0) + 1; else v.music.ok++;
+  },
+  recBlock(v) { if (!v) return undefined; const AS = navigator.audioSession; return { ...v, ctxCh: v.ctxCh.length ? v.ctxCh : undefined, loaded: this.clips ? Object.keys(this.clips).length : 0, session: AS ? AS.type : undefined, wakes: sfx.wakeN || 0,
+    music: { on: !!sfx.musicOn, playing: !!sfx.musicPlaying, ok: v.music.ok, blocked: v.music.blocked, now: this.musicWhy() || 'playing' } }; },
+  report() { const w = this.stats.why, sp = ['noClip', 'suspended', 'noCtx', 'failed'], n = sp.reduce((a, k) => a + (w[k] || 0), 0), c = sfx.ctx, AS = navigator.audioSession;
+    return `Recorded voices: ${this.clips ? Object.keys(this.clips).length + ' clips loaded' : 'none loaded (no voices/manifest.json here)'} · this session ${this.stats.clips} clips played (${w.waited || 0} after waiting for the audio), ${n} lines in a computer voice (${sp.map((k) => k + ' ' + (w[k] || 0)).join(', ')}), silent: muted ${w.muted || 0}, vol0 ${w.vol0 || 0} · audio context ${c ? c.state : 'none'} (${sfx.wakeN || 0} wake-ups, ${this.stats.ctxCh || 0} state changes) · audio session ${AS ? AS.type : 'n/a'} · music ${sfx.musicOn ? 'on' : 'off'}, ${this.musicWhy() || 'playing'}`; },
   // (voices/extract.mjs runs hash, slug and generic from this block, so the ids always match)
   hash(str) { let h1 = 0xdeadbeef, h2 = 0x41c6ce57; for (let i = 0; i < str.length; i++) { const ch = str.charCodeAt(i); h1 = Math.imul(h1 ^ ch, 2654435761); h2 = Math.imul(h2 ^ ch, 1597334677); } h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909); h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909); return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36); },
   slug(nick) { return String(nick).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 32); },
@@ -8308,27 +8346,44 @@ const VCLIP = {
   },
   id(P0, line0) { if (!this.clips) return null; const [P, line] = barks.who(P0, line0), id = this.hash(this.slug(P.nick) + '|' + line); return this.clips[id] ? id : null; }, // the clip for this exact line, if any
   // pick a line: one with a clip (or the recorded generic version of its template) first, else the first unused one (Web Speech), as before
-  pick(n, gen, P, used) {
-    let first = null;
+  // fresh = true: only lines not said yet (the caller tries something else first); otherwise, when every recorded line in reach has been said, the one said longest ago
+  // comes back before an unrecorded line would go to Web Speech (a respawn match never ends: by its tenth minute 1 line in 4 was a computer voice)
+  pick(n, gen, P, used, fresh) {
+    let first = null, old = null, rank = null;
+    const older = (l) => { if (!rank) { rank = new Map(); let i = 0; for (const u of used) rank.set(u, i++); } if (old == null || (rank.get(l) ?? 1e9) < (rank.get(old) ?? 1e9)) old = l; };
     for (let i = 0; i < (this.clips ? n * 3 : n); i++) {
       barks.lastTpl = null; const line = gen(); if (line == null) continue; const tpl = barks.lastTpl;
       if (!this.clips) { if (!used.has(line)) return line; continue; }
-      if (!used.has(line) && this.id(P, line)) return line;
-      if (tpl) { const g = this.generic(tpl, P); if (g !== line && !used.has(g) && this.id(P, g)) { this.stats.generic++; return g; } }
+      const has = this.id(P, line);
+      if (has && !used.has(line)) return line;
+      if (tpl) { const g = this.generic(tpl, P); if (g !== line && this.id(P, g)) { if (!used.has(g)) { this.stats.generic++; return g; } if (!fresh) older(g); } }
+      if (has && !fresh) older(line);
       if (!first && !used.has(line)) first = line;
     }
+    if (old != null) { this.stats.reused++; return old; }
     return first;
   },
   // called by barks.speak: true = this line is ours (a clip will play, or Web Speech takes over if it can't load)
   speak(P0, line0, pos, opt) {
-    if (!this.clips || !sfx.ctx || sfx.muted || S.voiceVolume <= 0) return false;
+    if (!this.clips) return false;
+    if (sfx.muted) { this.note('muted'); return false; }
+    if (S.voiceVolume <= 0) { this.note('vol0'); return false; }
     const id = this.id(P0, line0);
-    if (!id) { this.stats.speech++; return false; }
+    if (!id) { this.stats.speech++; this.note('noClip'); return false; }
+    const why = !sfx.ctx ? 'noCtx' : sfx.ctx.state !== 'running' ? 'suspended' : '';
+    if (!sfx.ctx) sfx.init(); // (made outside a tap it starts suspended: the grace in play() gives the next tap, or the browser, a moment to start it)
+    if (!sfx.ctx) { this.note('noCtx'); return false; } // no Web Audio here at all
+    const now = performance.now(); if (this.cur && now > this.cur.until) this.stopAll(); // a clip that never reported its end (the context stopped under it) must not hold every later line
     const [P, line] = barks.who(P0, line0);
-    const it = { P0, line0, who: P.nick, line, pos, id, fx: (opt && opt.fx) || this.fx[this.slug(P.nick)] || '', t: performance.now() };
-    if (this.cur) { if (game.state !== 'playing' || MP.role === 'guest') this.q = it; } // during play the talk governor spaces lines, so nothing queues back-to-back
+    const it = { P0, line0, who: P.nick, line, pos, id, fx: (opt && opt.fx) || this.fx[this.slug(P.nick)] || '', t: now, why, until: now + 2500 + this.GRACE + 1000 };
+    if (this.cur) { if (game.state !== 'playing' || MP.role === 'guest') this.q = it; else this.note('busy'); } // during play the talk governor spaces lines, so nothing queues back-to-back
     else this.play(it);
     return true;
+  },
+  running(ms) { // resolves true once the audio context runs (asking it to), false if it still isn't running after ms
+    const c = sfx.ctx; if (!c) return Promise.resolve(false); if (c.state === 'running') return Promise.resolve(true);
+    sfx.wake(); const t0 = performance.now();
+    return new Promise((res) => { const k = () => { if (sfx.ctx !== c) return res(false); if (c.state === 'running') return res(true); if (performance.now() - t0 >= ms) return res(false); if (performance.now() - t0 > 600) sfx.wake(); setTimeout(k, 80); }; setTimeout(k, 40); });
   },
   fetchRaw(id) {
     if (this.raw.has(id)) return Promise.resolve(this.raw.get(id));
@@ -8356,6 +8411,8 @@ const VCLIP = {
     for (let i = 0; i < (n || 6); i++) { const id = ids[Math.random() * ids.length | 0]; if (!this.bufs.has(id)) this.fetchRaw(id).catch(() => {}); }
   },
   tick() { // every couple of seconds: preload for drivers who just arrived (new match, respawn as another car)
+    this.sample();
+    if (sfx.ctx && sfx.ctx.state !== 'running' && !document.hidden && game.state === 'playing' && (!navigator.userActivation || navigator.userActivation.hasBeenActive)) sfx.wake(); // (Chrome lets a page that has had a tap restart its audio)
     if (!this.clips) return;
     if (!this.kevDone) { this.kevDone = true; this.preload(ANNOUNCER, 8); this.preload(SHAZZA, 6); }
     for (const c of cars) { const P = c.persona; if (!P || c.isPlayer || this.seen.has(P)) continue; this.seen.add(P); this.preload(P, 6); if (P.duo) this.preload({ nick: P.duo.nick }, 4); }
@@ -8381,9 +8438,15 @@ const VCLIP = {
   play(it) {
     this.cur = it;
     const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('slow')), 2500));
-    Promise.race([this.get(it.id), timeout]).then((buf) => {
+    const gave = (why) => { // the clip can't be heard: this one line goes to Web Speech (once: the clip is never started after this)
+      if (this.cur !== it) return; this.note(why); if (why === 'failed') this.stats.failed++; else this.stats.speech++;
+      if (!VOICES_OFF && performance.now() - it.t < 3500) try { barks.speak(it.P0, it.line0, it.pos, { noClip: true }); } catch (e) {}
+      this.next(); };
+    Promise.all([Promise.race([this.get(it.id), timeout]), this.running(this.GRACE)]).then(([buf, up]) => {
       if (this.cur !== it) return; // stopped meanwhile
       if (VOICES_OFF || sfx.muted || S.voiceVolume <= 0 || performance.now() - it.t > 4000) { this.next(); return; } // switched off, or the caption is long gone
+      if (!up || sfx.ctx.state !== 'running') { gave(it.why || 'suspended'); return; } // still no running audio: a clip started now would be silent (and hold the queue)
+      if (it.why) this.note('waited');
       const c = sfx.ctx, t0 = c.currentTime + 0.03;
       const d = player && it.pos ? it.pos.distanceTo(player.body.position) : 0;
       const g = c.createGain(); g.gain.value = clamp(S.voiceVolume * (1 - d / 220), 0.25, 1); // same loudness rule as the Web Speech voices
@@ -8392,15 +8455,11 @@ const VCLIP = {
       g.connect(this.chain(it.fx, out));
       const s = c.createBufferSource(); s.buffer = buf; s.connect(g); s.start(t0); const t1 = t0 + buf.duration;
       if (it.fx === 'radio') { const n = c.createBufferSource(); n.buffer = sfx.noise; const ng = c.createGain(); ng.gain.setValueAtTime(0.0001, t1); ng.gain.exponentialRampToValueAtTime(0.12 * g.gain.value, t1 + 0.01); ng.gain.exponentialRampToValueAtTime(0.0001, t1 + 0.12); const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 1500; n.connect(hp); hp.connect(ng); ng.connect(out); n.start(t1, Math.random()); n.stop(t1 + 0.14); } // squelch tail
-      it.src = s; this.stats.clips++;
+      it.src = s; this.stats.clips++; this.note('clips'); it.until = performance.now() + buf.duration * 1000 + 1500;
       this.log.push({ who: it.who, line: it.line, fx: it.fx }); if (this.log.length > 30) this.log.shift(); // (shown in tests / console)
       this.duck(t0, t1);
       s.onended = () => { if (this.cur === it) this.next(); };
-    }).catch(() => { // couldn't fetch or decode: this one line goes to Web Speech
-      if (this.cur !== it) return; this.stats.failed++;
-      if (!VOICES_OFF && performance.now() - it.t < 3500) try { barks.speak(it.P0, it.line0, it.pos, { noClip: true }); } catch (e) {}
-      this.next();
-    });
+    }).catch(() => gave('failed')); // couldn't fetch or decode
   },
   next() { this.cur = null; const q = this.q; this.q = null; if (q && performance.now() - q.t < 3000) this.play(q); },
   duck(t0, t1) { // music dips under a voice and comes back after
@@ -9178,9 +9237,11 @@ document.addEventListener('pointerdown', (e) => { if (!el.panel.hidden && !el.pa
 $('btnNew').addEventListener('click', (e) => { e.currentTarget.blur(); if (GAME_MODE === 'respawn' && game.state === 'playing') openRespawnSheet(false); else showMenu(); }); // back to the garage to pick a car
 $('btnPause').addEventListener('click', (e) => { if (game.state === 'playing') game.paused = !game.paused; e.currentTarget.blur(); });
 // Browsers only allow audio after a user gesture
-const unlockAudio = () => sfx.init();
-window.addEventListener('pointerdown', unlockAudio, { once: true });
-window.addEventListener('keydown', unlockAudio, { once: true });
+// Every tap or key press (capture phase, so the tap that takes the game back from autoplay counts too) makes the audio context, or wakes it
+// if it has been suspended or interrupted since: a respawn match never passes Start again, so this is what brings back music and the recorded voices.
+const unlockAudio = () => { try { sfx.init(); } catch (e) {} };
+for (const ev of ['pointerdown', 'touchend', 'keydown', 'click']) window.addEventListener(ev, unlockAudio, { capture: true, passive: true });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) sfx.wake(); }); addEventListener('pageshow', () => sfx.wake()); // (back from another tab or app: some browsers allow it without a tap, the next tap does it otherwise)
 $('btnStart').addEventListener('click', startMatch);
 $('btnAgain').addEventListener('click', startMatch);
 $('btnGarage').addEventListener('click', showMenu);
@@ -10921,7 +10982,7 @@ const NETLOG = {
   exportText() {
     const pad = (v, n) => String(v ?? '').padStart(n), ts = (t) => new Date(t).toISOString().slice(11, 19);
     const L = [`Scrapyard Derby network log · build ${BUILD} · ${MP.role} · via ${MP.via || MP.transport || '?'} · ${new Date().toISOString()}`,
-      `Device: ${navigator.userAgent}`, `Uploads to the log drop: ${DROP.sent} sent this session · ${DROP.errN} refused${DROP.lastErr ? ' (last: HTTP ' + DROP.lastErr + ' at ' + new Date(DROP.lastErrAt).toISOString().slice(11, 19) + ')' : ''}${DROP.blockUntil > Date.now() ? ' · backing off until ' + new Date(DROP.blockUntil).toISOString().slice(11, 16) + ' UTC' : ''} · ${PLAYLOG.meta ? PLAYLOG.pending(PLAYLOG.meta()) : '?'} records waiting on this device`, `Voices: ${VOICES_OFF ? 'OFF in menu' : 'on'} · sound ${sfx.muted ? 'OFF' : 'on'} · voice volume ${S.voiceVolume} · speech ${window.speechSynthesis ? speechSynthesis.getVoices().length + ' voices' : 'none'} · ${JSON.stringify(barks.stats || {})} · engine ok=${barks.speechOK} lastErr=${barks.lastErr || '-'} · ${barks.voiceReport()}`, `Screen ${innerWidth}x${innerHeight} @${devicePixelRatio} · quality now ${QUALITY.level}/${QSTEPS.length - 1} (0 best) · mode ${GAME_MODE}`,
+      `Device: ${navigator.userAgent}`, `Uploads to the log drop: ${DROP.sent} sent this session · ${DROP.errN} refused${DROP.lastErr ? ' (last: HTTP ' + DROP.lastErr + ' at ' + new Date(DROP.lastErrAt).toISOString().slice(11, 19) + ')' : ''}${DROP.blockUntil > Date.now() ? ' · backing off until ' + new Date(DROP.blockUntil).toISOString().slice(11, 16) + ' UTC' : ''} · ${PLAYLOG.meta ? PLAYLOG.pending(PLAYLOG.meta()) : '?'} records waiting on this device`, `Voices: ${VOICES_OFF ? 'OFF in menu' : 'on'} · sound ${sfx.muted ? 'OFF' : 'on'} · voice volume ${S.voiceVolume} · speech ${window.speechSynthesis ? speechSynthesis.getVoices().length + ' voices' : 'none'} · ${JSON.stringify(barks.stats || {})} · engine ok=${barks.speechOK} lastErr=${barks.lastErr || '-'} · ${barks.voiceReport()}`, VCLIP.report(), `Screen ${innerWidth}x${innerHeight} @${devicePixelRatio} · quality now ${QUALITY.level}/${QSTEPS.length - 1} (0 best) · mode ${GAME_MODE}`,
       `Players: ${cars.filter((c) => c.remote || c.netPeer || c.isPlayer).map((c) => (c.isPlayer ? MP.nick() + ' (this device)' : c.name) + ' · ' + c.T.name).join(', ')}`,
       'Host sends 20 snapshots/s; guests should see ~20 updates/s, jitter < 30 ms, smoothing 80-200 ms, gaps < 150 ms.', '',
       `Performance reports (${this.perf.length}, newest last; sent after each wreck and every 2 minutes; times in ms per frame):`,
@@ -11797,7 +11858,7 @@ Object.assign(PLAYLOG, {
       role: AUTO.on ? 'autoplay' : MP.role, mode: GAME_MODE, q0: QUALITY.level, qNow: QUALITY.level, qCh: [], hist: new Uint32Array(400), frames: 0, ftSum: 0, worst: 0,
       veh: {}, vs: {}, vsD: {}, L: new Map(), weap: {}, me: [], meCur: null, meP: null, stuck: [], stuckN: 0, stuckS: 0, inN: 0, inL: [], launch: 0, launchW: [], below: 0, nan: 0,
       phys0: { fixes: PHYS.fixes, clamps: PHYS.clamps, blowups: PHYS.blowups }, kinds: {}, physL: [], inc: [], errs: [], errN: 0, voice: [], voiceN: 0, net: [], netN: 0,
-      ev: [], evDrop: 0, bark0: { sent: bs.sent || 0, started: bs.started || 0, errors: bs.errors || 0, resets: bs.resets || 0 }, sampT: 0 };
+      ev: [], evDrop: 0, bark0: { sent: bs.sent || 0, started: bs.started || 0, errors: bs.errors || 0, resets: bs.resets || 0 }, vox: VCLIP.blank(), sampT: 0 };
     this.ev('start', `${this.m.role} ${GAME_MODE} · ${cars.length} cars · q${QUALITY.level}`);
     this.curT = this.upT = performance.now(); this.soonGap = 60000; this.writeCur();
   },
@@ -11931,6 +11992,7 @@ Object.assign(PLAYLOG, {
       stuck: { n: m.stuckN, secs: r1(m.stuckS), list: stuck.sort((a, b) => b.secs - a.secs) },
       inside: MP.role !== 'guest' ? { n: m.inN || 0, secs: m.inL.reduce((a, x) => a + x.secs, 0), list: m.inL } : undefined, // cars inside objects (the host's record has them)
       veh, me, weap: m.weap,
+      vox: VCLIP.recBlock(m.vox), // recorded clips vs computer-voice lines and why, audio context state samples, music (see VCLIP.note)
       voice: { n: m.voiceN, list: m.voice, sent: (bs.sent || 0) - b0.sent, started: (bs.started || 0) - b0.started, errors: (bs.errors || 0) - b0.errors, resets: (bs.resets || 0) - b0.resets, ok: barks.speechOK ?? null, lastErr: barks.lastErr || undefined },
       net: { n: m.netN, list: m.net }, errs: { n: m.errN, list: m.errs },
       mem: { geo: mi.geometries, tex: mi.textures, heapMB: pm ? Math.round(pm.usedJSHeapSize / 1048576) : null, objs: scene.children.length, debris: debris.length, props: props.length, bodies: world.bodies.length, calls: renderer.info.render.calls, tris: renderer.info.render.triangles }, // (calls/tris: so the draw-call budget in QUALITY-GATES can be checked from play logs, not just in tests)
@@ -12220,5 +12282,5 @@ try { BOOT.parallel = !!renderer.getContext().getExtension('KHR_parallel_shader_
 window.__derby.BOOT = BOOT; window.__derby.HITLOG = HITLOG; Object.defineProperty(window.__derby, 'camMode', { get: () => camMode }); window.__derby.MEMGUARD = MEMGUARD; window.__derby.GPULIVE = GPULIVE;
 window.__derby.setCarAlight = (c, by) => setCarAlight(c, by); window.__derby.dropBoulder = (c) => dropBoulder(c); window.__derby.sprites = sprites; window.__derby.IDLE = IDLE; window.__derby.TALK = TALK; window.__derby.DROP = DROP; window.__derby.SCORE = SCORE; window.__derby.UPDATE = UPDATE; window.__derby.TABENV = TABENV; window.__derby.PERFREP = PERFREP; // (test hooks)
 window.__derby.VR = VR; window.__derby.XRS = XRS; window.__derby.composer = composer;
-window.__derby.VCLIP = VCLIP; window.__derby.ROAST_BY = ROAST_BY; window.__derby.ROAST_PAIR = ROAST_PAIR; window.__derby.SHAZZA = SHAZZA; window.__derby.CAR_CAST = CAR_CAST; window.__derby.ANNOUNCER = ANNOUNCER; window.__derby.COP = COP; window.__derby.megaphone = megaphone; window.__derby.hornLine = hornLine;
+window.__derby.VCLIP = VCLIP; window.__derby.TOURIST = TOURIST; window.__derby.ROAST_BY = ROAST_BY; window.__derby.ROAST_PAIR = ROAST_PAIR; window.__derby.SHAZZA = SHAZZA; window.__derby.CAR_CAST = CAR_CAST; window.__derby.ANNOUNCER = ANNOUNCER; window.__derby.COP = COP; window.__derby.megaphone = megaphone; window.__derby.hornLine = hornLine;
 </script>

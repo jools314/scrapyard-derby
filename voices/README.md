@@ -52,7 +52,13 @@ In game, when clips are loaded:
 - For a template line, the recorded generic version is said instead, and the caption shows what is actually said.
 - Otherwise the line uses Web Speech: the shared filler templates, events a character has no lines for, online nicknames, and the speech unlock.
 
-When choosing a line, the game prefers ones that have a clip.
+When choosing a line, the game prefers ones that have a clip. When every recorded line for that event has been said (a respawn match never ends), it takes a fresh recorded line from a close event (a burger line becomes a gloat), then the recorded line said longest ago, before a computer voice would say an unrecorded one.
+
+The clips, the music and the sound effects all play through one Web Audio context; Web Speech is a separate engine. If that context is not running (made before any tap, suspended by a tab or app switch, `interrupted` on an iPhone after a call or Siri), a recorded line asks it to resume and waits up to 1.5 s (`VCLIP.GRACE`), then plays as the clip; only if it is still not running does that one line go to Web Speech (never both). Every tap or key press and coming back to the tab wakes the context, and on iPhone/iPad the game sets `navigator.audioSession.type = 'playback'` so the ring/silent switch no longer mutes the clips and the music while the computer voices carry on.
+
+Web Speech lines always use an English voice for English text, with the accent from an English locale (Kev en-AU, Seamus en-IE, Papa Jacques en-GB...): a French or German voice reading English sounds like another language. Only lines that are themselves in the character's language (`native`, e.g. the German tourist's German shouts) may use a voice of that language.
+
+To see what each device actually heard: `__derby.VCLIP.report()` in the console, the "Recorded voices:" line in the bug report, and the `vox` block of every match in the play log (see LOGS.md).
 
 ## Unverified (could not be tested against the real API from the build machine)
 
