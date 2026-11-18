@@ -120,6 +120,27 @@ def main():
     tr = json.load(open(os.path.join(out2, 'trend.json')))['perf'] if r.returncode == 0 else []
     ok([x.get('insidePerHour') for x in tr] == [None, 6.0], 'A6 trend.json carries insidePerHour per build (None when not recorded)')
 
+    # A8: recorded clips vs computer voice — the match record's `vox` block, per device and build: % of lines heard as the recorded clips,
+    # % that went to Web Speech and why, how often the audio context wasn't running, and the music status. Old records without it still analyse.
+    ok('not recorded yet (the `vox` block' in md, 'A8 records without the vox block: the section says not recorded yet')
+    vox = {'clips': 30, 'waited': 2, 'busy': 1, 'speech': {'noCtx': 0, 'suspended': 6, 'muted': 0, 'vol0': 0, 'noClip': 4, 'failed': 0},
+           'ctx': {'running': 80, 'suspended': 20, 'interrupted': 0, 'none': 0}, 'music': {'on': True, 'playing': True, 'ok': 80, 'blocked': {'audio suspended': 20}, 'now': 'playing'}, 'session': 'playback'}
+    vox2 = dict(vox, clips=10, speech={'noCtx': 0, 'suspended': 0, 'muted': 0, 'vol0': 0, 'noClip': 0, 'failed': 0})
+    m3 = dict(MATCH, id='m3', build='115', game=600, start='2026-11-18T02:00:00.000Z', device='iPhone · 4 cores', vox=vox)
+    m4 = dict(MATCH, id='m4', build='115', game=600, start='2026-11-18T03:00:00.000Z', device='iPhone · 4 cores', vox=vox2)
+    arch3 = tempfile.mkdtemp(prefix='sd-arch-'); out3 = tempfile.mkdtemp(prefix='sd-out-')
+    with open(os.path.join(arch3, 'fixture-playlog.txt'), 'w') as f:
+        for x in (SESSION, MATCH, m3, m4): f.write(json.dumps(x) + '\n')
+    r = subprocess.run([sys.executable, os.path.join(HERE, 'analyze.py'), arch3, out3], capture_output=True, text=True)
+    md3 = open(os.path.join(out3, 'report-latest.md')).read() if r.returncode == 0 else ''
+    ok(r.returncode == 0 and '### Recorded voices vs computer voice' in md3, 'A8 the report has a recorded-vs-computer-voice table ' + r.stderr[-300:])
+    sec = md3.split('### Recorded voices vs computer voice')[-1]
+    row = next((l for l in sec.split('\n') if l.startswith('| iPhone | 115 |')), '')
+    ok('| 2 | 50 | 80% | 20% | 0% | suspended 6, noClip 4 |' in row, 'A8 iPhone b115: 2 matches, 50 lines, 80% clips, 20% computer voice, reasons suspended 6, noClip 4 — got: ' + row)
+    ok('| 20% | playing 80% · blocked: audio suspended 40 | playback |' in row, 'A8 audio not running 20% of samples, music playing 80% (blocked: audio suspended), session playback — got: ' + row)
+    rj3 = json.load(open(os.path.join(out3, 'report-latest.json'))) if r.returncode == 0 else {}
+    ok((rj3.get('vox') or {}).get('iPhone b115', {}).get('clipPct') == 80, 'A8 report-latest.json carries vox per device/build — got: ' + str(rj3.get('vox')))
+
     print('FAILED ' + str(len(fails)) if fails else 'ALL PASS')
     return 1 if fails else 0
 

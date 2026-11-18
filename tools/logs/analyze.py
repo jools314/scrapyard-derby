@@ -264,6 +264,36 @@ for d in sorted({dev_name(m) for m in real}):
     ok = [m for m in xs if (m.get('voice') or {}).get('ok')]
     vs = sum((m.get('voice') or {}).get('sent', 0) or 0 for m in xs); vt = sum((m.get('voice') or {}).get('started', 0) or 0 for m in xs); ve = sum((m.get('voice') or {}).get('errors', 0) or 0 for m in xs)
     L.append(f'- {d}: voice failures {vf} over {len(xs)} matches · lines sent {vs}, started {vt}, errors {ve}' + (' (engine never started)' if vf and not ok else ''))
+# recorded clips vs computer voice (build 115+: the match record's `vox` block): per device and build, what share of the lines were heard as the
+# recorded clips, why the rest went to Web Speech (noClip = nothing recorded for that line; suspended / noCtx = the audio context wasn't running;
+# failed = fetch/decode), lines with no sound at all (muted / vol0), how often the audio context was not running, and whether the music could play.
+VX = collections.defaultdict(list)
+for m in real:
+    if isinstance(m.get('vox'), dict): VX[(dev_name(m), m.get('build'))].append(m['vox'])
+if VX:
+    L.append('### Recorded voices vs computer voice (per device and build)\n')
+    L.append('| device | build | matches | lines | recorded clips | computer voice | no sound | top fallback reasons | audio not running | music | audio session |')
+    L.append('|---|---|---|---|---|---|---|---|---|---|---|')
+    J['vox'] = {}
+    for (d, b), vs in sorted(VX.items(), key=lambda kv: (kv[0][0], -int(kv[0][1] or 0))):
+        sp = collections.Counter(); ctx = collections.Counter(); mb = collections.Counter(); clips = mok = 0; sess = collections.Counter()
+        for v in vs:
+            clips += v.get('clips', 0) or 0
+            for k, n in (v.get('speech') or {}).items(): sp[k] += n or 0
+            for k, n in (v.get('ctx') or {}).items(): ctx[k] += n or 0
+            mu = v.get('music') or {}; mok += mu.get('ok', 0) or 0
+            for k, n in (mu.get('blocked') or {}).items(): mb[k] += n or 0
+            if v.get('session'): sess[v['session']] += 1
+        speech = sum(sp[k] for k in ('noClip', 'suspended', 'noCtx', 'failed')); silent = sp['muted'] + sp['vol0']; n = clips + speech + silent
+        pct = lambda x: f'{round(x / n * 100)}%' if n else '–'
+        top = ', '.join(f'{k} {c}' for k, c in sp.most_common() if c and k not in ('muted', 'vol0'))[:80] or '–'
+        cs = sum(ctx.values()); notrun = cs - ctx['running']
+        ms_ = mok + sum(mb.values()); music = (f'playing {round(mok / ms_ * 100)}%' + (f' · blocked: ' + ', '.join(f'{k} {c}' for k, c in mb.most_common(2)) if mb else '')) if ms_ else '–'
+        L.append(f"| {d} | {b} | {len(vs)} | {n} | {pct(clips)} | {pct(speech)} | {pct(silent)} | {top} | {f'{round(notrun / cs * 100)}%' if cs else '–'} | {music} | {', '.join(sess) or '–'} |")
+        J['vox'][f'{d} b{b}'] = {'lines': n, 'clipPct': round(clips / n * 100) if n else None, 'speechPct': round(speech / n * 100) if n else None, 'reasons': dict(sp), 'ctxNotRunningPct': round(notrun / cs * 100) if cs else None, 'musicOkPct': round(mok / ms_ * 100) if ms_ else None, 'musicBlocked': dict(mb)}
+    L.append('')
+else:
+    L.append('- recorded clips vs computer voice: not recorded yet (the `vox` block arrives with the voice-path build)')
 errs = collections.Counter()
 for m in real:
     for e in (m.get('errs') or {}).get('list') or []: errs[re.sub(r'\d+', '#', str(e)[:140])] += 1
