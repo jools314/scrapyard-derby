@@ -30,7 +30,7 @@ Format: `- [agent] topic — branch — claimed YYYY-MM-DD HH:MM UTC — notes`
   - New tests/geoleak.js: main leaves 54 orphaned geometries and 7 burgers over 7 restarts; the branch stays flat at 5-7 with 0 burgers.
   - Total GPU memory involved is under 1 MB, so this was not what crashed the Chromebook tab.
   - Prop build, so the 30-min gate applies. Needs a quick suite.
-- [claude] claude/selfheal (/home/user/wt-selfheal, head 04ddf1d): self-healing autoplay (the owner: never manually intervene).
+- [claude] LANDED as Build 120: claude/selfheal (/home/user/wt-selfheal, head 04ddf1d): self-healing autoplay (the owner: never manually intervene).
   - Memory reloads are rate-limited instead of capped at 3 per tab.
   - Planned refresh every 90 min / 30 matches (60 / 20 on devices with 4 GB or less).
   - Steady-growth trigger.
@@ -48,6 +48,7 @@ Format: `- [agent] topic — branch — claimed YYYY-MM-DD HH:MM UTC — notes`
 
 ## Done
 - [claude] 2026-11-18 ~14:50 UTC: Build 118 landed (stop log: wake lock / lifecycle / suspends / last gasp / previous-session ending; 'Autoplay health' in the report; scratch analyser synced). Quick suite: interact and voicepath failed under load, passed alone; voicepath's failure points at a real clip-vs-speech race under slow timers (sent to the voicefix agent, branch claude/voicerace). Spider renumbered to 119 when it lands.
+- [claude] 2026-11-18 ~21:30 UTC: Build 120 landed: self-healing autoplay (claude/selfheal). Includes the autoplay.html launcher, and ?autoplay=1 moves itself there on github.io. Quick suite all PASS; menutrim failed in-suite with a different check each run, as it does on main, and passed 2/2 alone. Scratch analyser synced. Next: spider as Build 121 (rebase onto 120 and a full quick suite, since 120 changes the page under it), then geoleak 30 game-min later, then cranejitter. The Mac and Chromebook have been silent since 15:06 / 16:22 UTC; the owner was asked to reload once.
 - [claude] 2026-11-18 ~18:15 UTC: Build 119 landed (voices: one owner per line, so no clip + speech double, and the queue frees itself if audio stops mid-clip). Quick suite all PASS: resumed once after the 2 h limit; memleak, govern, phonehud and heaps failed under load and passed alone (heaps 3/3 alone on both main and the branch). Next: spider as Build 120 (rebased, numbered), then selfheal (non-gameplay), then geoleak and cranejitter, 30 game-min apart.
 - [claude] 2026-11-18 16:13 UTC: play-data gate for the next physics build (spider) judged met. The Chromebook has 78 game-min on 118. Its Regression line (114 -> 118) compares against only 4 min on 114; against Build 105 (72 min): fps median 20 -> 20, slow s/h 3029 -> 3162, stuck/h 43 -> 48. Phys/h 299 -> 642 comes from 3 of 31 matches with a car held by the magnet crane at 20 fps (an old bug; BACKLOG item, agent on claude/cranejitter). Mac 118 is clean (12 min). Order: Build 119 voicerace (suite running), then spider as 120, then cranejitter 30 game-min later.
 - [claude] 2026-11-18 ~12:00 UTC: Build 117 landed (short settings menu: sound row + More, no Map / New car / second Tilt, Elimination Respawn opens the car sheet; + claude/govern: paused frames not logged as slow moments). Quick suite all passed (resumed after the 2 h limit; govern's desktop-climb check and heaps failed once under load and passed alone).
