@@ -1,6 +1,6 @@
-# Scrapyard Derby play-log report · 2026-11-18 00:13 UTC
+# Scrapyard Derby play-log report · 2026-11-18 00:39 UTC
 
-1115 matches (1102 from real devices, 3327.7 game-minutes), 92 page loads, 9 bug reports.
+1115 matches (1102 from real devices, 3327.7 game-minutes), 93 page loads, 9 bug reports.
 
 ## Who and what
 
@@ -130,7 +130,7 @@ Portal players leave if the page sits frozen. scriptMs = building the yard, comp
 | iPhone | 104 | 1 | 1422 | 1422 | 347 | 198 | – | 1/1 |
 | iPhone | 107 | 1 | 1123 | 1123 | 314 | 154 | – | 1/1 |
 | iPhone | 111 | 2 | 1307 | 1307 | 309 | 149 | – | 2/2 |
-| iPhone | 112 | 1 | 816 | 816 | 274 | 490 | 1489 | 1/1 |
+| iPhone | 112 | 2 | 919 | 919 | 338 | 490 | 1489 | 2/2 |
 | other | 105 | 2 | 15999 | 15999 | 1003 | 8091 | – | 2/2 |
 | other | 112 | 1 | 2715 | 2715 | 1474 | 0 | 6687 | 0/1 |
 
@@ -308,9 +308,4 @@ Build 102+ reloads an autoplaying page whose memory runs away and logs what was 
 
 ## Changes since the previous report
 
-- new stuck hotspot at (44,-109) ×56
-- physics catches up for Tow Truck: 1395 → 1410
-- physics catches up for Outrider: 3306 → 3319
-- physics catches up for Hellbender: 1006 → 1023
-- physics catches up for Forklift: 1278 → 1285
-- physics catches up for Spider-Walker: 481 → 518
+- nothing new
