@@ -106,7 +106,7 @@ const { open } = require('./harness');
     await tap('KeyY'); const m2 = document.body.classList.contains('nomap');
     await tap('KeyY'); const m3 = document.body.classList.contains('nomap');
     ok('tabNotMap', m0 === m1); ok('yToggles', m2 !== m1 && m3 === m1);
-    ok('mapTitle', document.getElementById('btnMap').title.includes('(Y)'));
+    ok('noMapButton', !document.getElementById('btnMap')); /* the map is hidden (owner, 2026-11-18): no button, Y only */
     return out;
   });
   const errs = errors.filter((e) => e.startsWith('pageerror') || (e.startsWith('error') && !e.includes('ERR_FAILED')));

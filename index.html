@@ -414,6 +414,19 @@
   #gearMenu button { display: flex !important; justify-content: space-between; align-items: center; min-height: 42px; text-align: left; }
   #gearMenu button[hidden] { display: none !important; }
   #gearMenu kbd { display: inline-block !important; }
+  #gmToggles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  #gmToggles button { justify-content: center !important; position: relative; font-size: 20px; min-height: 44px; padding: 0; }
+  #gmToggles button[aria-pressed="true"] { background: rgba(242, 162, 12, 0.22); border-color: rgba(242, 162, 12, 0.7); }
+  #gmToggles button[aria-pressed="false"] { opacity: 0.5; filter: grayscale(1); }
+  #gmToggles button[aria-pressed="false"]::after { content: ''; position: absolute; left: 22%; right: 22%; top: 50%; height: 2px; background: #ff7a50; transform: rotate(-35deg); border-radius: 1px; } /* off: struck through */
+  #gmMore { opacity: 0.85; } #gmMore[aria-expanded="true"] { opacity: 1; }
+  #gmMoreBox { display: grid; gap: 6px; padding-top: 6px; border-top: 1px solid var(--line); }
+  #gmMoreBox[hidden] { display: none !important; }
+  @media (max-height: 500px) { /* short landscape phones: More unfolds as a column beside the list, so nothing scrolls */
+    #gearMenu button { min-height: 36px; } #gmToggles button { min-height: 38px; }
+    #gearMenu:has(#gmMoreBox:not([hidden])) { grid-template-columns: minmax(190px, auto) minmax(190px, auto); align-items: start; }
+    #gearMenu:has(#gmMoreBox:not([hidden])) > :not(#gmMoreBox) { grid-column: 2; }
+    #gmMoreBox { grid-column: 1; grid-row: 1 / span 4; border-top: 0; padding-top: 0; } }
   #touch .tb { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1; }
   #touch .tb .ico { font-size: 24px; line-height: 1; }
   #touch .tb small { font: 700 9px/1 var(--ui); margin-top: 3px; letter-spacing: 0.06em; text-transform: uppercase; }
@@ -460,7 +473,8 @@
   #btnVR[hidden], #codeRow[hidden], #mpCodeShow[hidden] { display: none !important; }
   #mpCode { width: 9em; text-transform: lowercase; }
   body.touch #gearMenu .tonly { display: flex; }
-  body.touch #btnMap, body.touch #btnCam { display: none !important; }
+  body:not(.touch) #gearMenu .tonly { display: none !important; } /* (a desktop has the View button in its top row) */
+  body.touch #btnCam { display: none !important; }
   body:not(.touch) #btnTilt { display: none !important; } /* (no motion sensor to steer with on a desktop) */
   .rail #btnTilt.on { background: rgba(242, 162, 12, 0.85); border-color: #f2a20c; color: #1a1510; } .rail #btnTilt.on small { color: #1a1510; font-weight: 700; }
   /* phones and tablets: the speedometer IS the camera button (no room for a View button in the top row); the badge says so (owner couldn't find it, Build 103) */
@@ -468,7 +482,7 @@
   body.touch .rail { display: flex !important; flex-direction: row !important; gap: 6px; }
   body.touch .rail .ic { width: 44px; height: 44px; font-size: 18px; }
   body.touch .rail .ic small { font-size: 8px; }
-  body.touch #gearMenu { top: 52px; right: 0; max-height: calc(100vh - 140px); overflow-y: auto; }
+  body.touch #gearMenu { top: 52px; right: 0; max-height: calc(100vh - 64px); overflow-y: auto; } /* (the match is paused while it is open: it may reach down over the action buttons) */
   body.touch .speedo { pointer-events: auto; cursor: pointer; }
   @media (max-width: 500px) {
     body.touch #subs { left: calc(6px + env(safe-area-inset-left, 0px)); right: calc(6px + env(safe-area-inset-right, 0px)); top: calc(100px + env(safe-area-inset-top, 0px)); width: auto; min-width: 0; transform: none; }
@@ -533,26 +547,27 @@
       <div class="rail"><!-- a slim column on the right edge: nothing over the middle of the screen -->
         <button id="btnGear" class="ic gear" type="button" title="Settings and debugging" aria-label="Settings" aria-expanded="false">⚙️<span id="netDot" hidden></span></button>
         <button id="btnTilt" class="ic" type="button" title="Tilt steering: turn the phone like a wheel" aria-pressed="false">📱<small>Tilt</small></button>
-        <button id="btnMap" class="ic" type="button" title="Map (Y)" aria-pressed="false">🗺️<small>Map</small></button>
         <button id="btnCam" class="ic" type="button" title="Camera: chase / far / inside (C)">🎥<small>View</small></button>
         <button id="btnPause" class="ic" type="button" title="Pause (P)">⏸️<small>Pause</small></button>
         <button id="btnRespawn" class="ic hot" type="button" title="Respawn or pick a new car (K)">🔄<small>Respawn</small></button>
       </div>
-      <div id="gearMenu" hidden>
+      <div id="gearMenu" hidden><!-- short and calm (owner, 2026-11-18): the everyday items, one row of sound toggles, and the rest folded under ⋯ More -->
         <button id="gmVR" type="button" hidden>🥽 Enter VR</button>
-        <button id="gmCam" class="tonly" type="button">🎥 Camera view<kbd>C</kbd></button>
-        <button id="gmMap" class="tonly" type="button">🗺️ Map</button>
         <button id="gmScore" type="button">🏆 Scoreboard<kbd>L</kbd></button>
-        <button id="gmTilt" class="tonly" type="button">📱 Tilt steering: off</button>
-        <button id="gmFull" type="button">⛶ Full screen</button>
-        <button id="btnTune" type="button">🔧 Tune physics<kbd>T</kbd></button>
-        <button id="btnNew" type="button">🚗 New car<kbd>N</kbd></button>
-        <button id="btnPerf" type="button">🩺 Performance &amp; logs<kbd>I</kbd></button>
-        <button id="btnMusic" type="button">🎵 Music on<kbd>B</kbd></button>
-        <button id="btnMute" type="button">🔊 Sound on<kbd>M</kbd></button>
-        <button id="btnVoices" type="button">🗣️ Voices on<kbd>U</kbd></button>
-        <button id="btnVoiceTest" type="button">🎙️ Test voices</button>
-        <button id="btnSong" type="button">🎶 Song: your car's</button>
+        <button id="gmCam" class="tonly" type="button">🎥 Camera view<kbd>C</kbd></button>
+        <div id="gmToggles" role="group" aria-label="Sound">
+          <button id="btnMute" type="button" aria-pressed="true" aria-label="Sound" title="Sound (M)">🔊</button>
+          <button id="btnMusic" type="button" aria-pressed="true" aria-label="Music" title="Music (B)">🎵</button>
+          <button id="btnVoices" type="button" aria-pressed="true" aria-label="Voices" title="Voices (U)">🗣️</button>
+        </div>
+        <button id="gmMore" type="button" aria-expanded="false" aria-controls="gmMoreBox">⋯ More</button>
+        <div id="gmMoreBox" hidden>
+          <button id="btnSong" type="button">🎶 Song: your car's</button>
+          <button id="gmFull" type="button">⛶ Full screen</button>
+          <button id="btnTune" type="button">🔧 Tune physics<kbd>T</kbd></button>
+          <button id="btnPerf" type="button">🩺 Performance &amp; logs<kbd>I</kbd></button>
+          <button id="btnVoiceTest" type="button">🎙️ Test voices</button>
+        </div>
       </div>
     </div>
     <div class="speedo"><canvas id="gauge" aria-label="Speedometer and tachometer"></canvas><div class="gforce" id="gforce"></div></div>
@@ -627,7 +642,7 @@
       <div class="rs-title" id="rsTitle">Respawn</div>
       <div class="rs-sub" id="rsSub"></div>
       <button id="rsGo" class="primary" type="button">Respawn now</button>
-      <div class="rs-label">or come back in a different car</div>
+      <div class="rs-label" id="rsLabel">or come back in a different car</div>
       <div class="rs-cars" id="rsCars"></div>
       <button id="rsClose" type="button">Keep driving</button>
     </div>
@@ -8781,7 +8796,8 @@ const RS = { open: false, lastAsk: -99 };
 function openRespawnSheet(auto) {
   if (game.state !== 'playing' || !player) return;
   RS.open = true; RS.auto = !!auto; $('rsheet').hidden = false;
-  $('rsTitle').textContent = auto ? 'Wrecked!' : 'Respawn';
+  const elim = GAME_MODE !== 'respawn' && MP.role !== 'guest'; // elimination: no coming back, so the sheet flips you upright or starts the round again in another car
+  $('rsTitle').textContent = auto ? 'Wrecked!' : 'Respawn'; $('rsGo').textContent = elim ? 'Flip upright' : 'Respawn now'; $('rsLabel').textContent = elim ? 'or start again in a different car' : 'or come back in a different car';
   $('rsClose').hidden = !!auto;
   const box = $('rsCars'); box.innerHTML = '';
   for (const [k, T] of Object.entries(CAR_TYPES)) { const b = document.createElement('button'); b.type = 'button'; b.innerHTML = `<span class="sw" style="background:#${new THREE.Color(T.color).getHexString()}"></span>`; b.append(T.name); if (k === player.type) b.classList.add('primary'); b.addEventListener('click', () => askRespawn(k)); box.appendChild(b); }
@@ -8791,20 +8807,22 @@ function closeRespawnSheet() { RS.open = false; $('rsheet').hidden = true; }
 function askRespawn(type) {
   closeRespawnSheet(); if (!player || game.state !== 'playing') return;
   if (type) { playerType = type; try { localStorage.setItem(CAR_KEY, type); } catch (e) {} }
+  if (GAME_MODE !== 'respawn' && MP.role !== 'guest') { if (type && type !== player.type) startMatch(); else if (!player.wrecked) player.flipUpright(); return; } // elimination: a new car starts the round again (it used to be the gear menu's New car)
   if (MP.role === 'guest') { MP.rsN = (MP.rsN || 0) + 1; MP.room.presence({ rs: [MP.rsN, type || player.type], want: type || player.type }, true).catch(() => {}); return; }
   respawnCar(player, type || player.type);
 }
 function updateRespawnSheet(dt) {
   if (AUTO.on) { if (RS.open) closeRespawnSheet(); return; } // autoplay picks the next car itself
   if (MP.role === 'guest' && player) { if (player.wrecked) player.respawnT = (player.respawnT ?? RESPAWN_HUMAN) - (dt || 0); else player.respawnT = undefined; }
-  if (GAME_MODE !== 'respawn' || game.state !== 'playing' || !player) { if (RS.open) closeRespawnSheet(); return; }
+  if (game.state !== 'playing' || !player || (GAME_MODE !== 'respawn' && RS.auto)) { if (RS.open) closeRespawnSheet(); return; }
+  if (GAME_MODE !== 'respawn') { if (RS.open) $('rsSub').textContent = MP.role === 'guest' ? '' : 'Elimination: a new car starts the round again'; return; }
   if (player.wrecked && !RS.open && RS.wreckedCar !== player) { RS.wreckedCar = player; openRespawnSheet(true); }
   if (RS.open && RS.auto) { const left = player.wrecked ? Math.max(0, player.respawnT ?? RESPAWN_HUMAN) : 0; $('rsSub').textContent = player.wrecked ? `Back in the same car in ${Math.ceil(left)}… or pick one now` : ''; if (!player.wrecked) closeRespawnSheet(); }
   else if (RS.open) $('rsSub').textContent = 'Come back somewhere open, a little way from here';
 }
 $('rsGo').addEventListener('click', () => askRespawn(null));
 $('rsClose').addEventListener('click', closeRespawnSheet);
-$('btnRespawn').addEventListener('click', (e) => { e.currentTarget.blur(); if (game.state !== 'playing') return; if (GAME_MODE !== 'respawn' && MP.role !== 'guest' && !player.wrecked) { player.flipUpright(); return; } RS.open ? closeRespawnSheet() : openRespawnSheet(false); });
+$('btnRespawn').addEventListener('click', (e) => { e.currentTarget.blur(); if (game.state !== 'playing') return; RS.open ? closeRespawnSheet() : openRespawnSheet(false); }); // respawn, or pick a new car (also in elimination: flip upright or start again in another car)
 for (const b of document.querySelectorAll('.modes .mode')) b.addEventListener('click', () => { GAME_MODE = b.dataset.mode; try { localStorage.setItem('scrapyard-derby-mode', GAME_MODE); } catch (e) {} for (const x of document.querySelectorAll('.modes .mode')) x.setAttribute('aria-pressed', String(x === b)); });
 for (const x of document.querySelectorAll('.modes .mode')) x.setAttribute('aria-pressed', String(x.dataset.mode === GAME_MODE));
 /* ---------------- Scoreboard: who wrecked whom, per driver, for the whole match ---------------- */
@@ -9107,7 +9125,7 @@ $('btnRestart').addEventListener('click', (e) => { e.currentTarget.blur(); start
 $('btnDefaults').addEventListener('click', (e) => { e.currentTarget.blur(); for (const d of SETTINGS_DEF) setValue(d.key, d.def); });
 // (Chrome sometimes sits 'speaking' forever and says nothing more: barks.doctor() unsticks it, at a moment when a cancel is safe)
 let VOICES_OFF = false; try { VOICES_OFF = localStorage.getItem('derby-voices') === 'off'; } catch (e) {}
-function setVoices(off) { VOICES_OFF = off; $('btnVoices').firstChild.textContent = off ? '🗣️ Voices off' : '🗣️ Voices on'; try { localStorage.setItem('derby-voices', off ? 'off' : 'on'); } catch (e) {} if (off) try { speechSynthesis.cancel(); } catch (e) {} if (off) VCLIP.stopAll(); }
+function setVoices(off) { VOICES_OFF = off; soundBtns(); try { localStorage.setItem('derby-voices', off ? 'off' : 'on'); } catch (e) {} if (off) try { speechSynthesis.cancel(); } catch (e) {} if (off) VCLIP.stopAll(); }
 setVoices(VOICES_OFF);
 $('btnVoices').addEventListener('click', (e) => { e.currentTarget.blur(); setVoices(!VOICES_OFF); });
 function showNote(t) { let n = $('note'); if (!n) { n = document.createElement('div'); n.id = 'note'; n.addEventListener('click', () => { n.hidden = true; }); document.body.appendChild(n); } n.textContent = t + '  (tap to close)'; n.hidden = false; clearTimeout(n.tm); n.tm = setTimeout(() => { n.hidden = true; }, 12000); }
@@ -9144,26 +9162,32 @@ $('btnVoiceTest').addEventListener('click', () => { // speaks right inside the t
   }, 4500);
 });
 const btnMute = $('btnMute');
+// the settings menu's one row of sound toggles: lit while on, dimmed and struck through while off; the tooltip and aria-pressed say which
+function soundBtns() {
+  const set = (id, on, ico, name, key) => { const b = $(id); if (!b) return; b.textContent = ico; b.setAttribute('aria-pressed', String(on)); b.title = `${name} ${on ? 'on' : 'off'} (${key})`; };
+  set('btnMute', !sfx.muted, sfx.muted ? '🔇' : '🔊', 'Sound', 'M'); set('btnMusic', !!sfx.musicOn, '🎵', 'Music', 'B'); set('btnVoices', !VOICES_OFF, '🗣️', 'Voices', 'U');
+}
 function toggleMute() {
   sfx.setMuted(!sfx.muted);
-  btnMute.firstChild.textContent = sfx.muted ? '🔇 Sound off' : '🔊 Sound on';
+  soundBtns();
 }
 btnMute.addEventListener('click', (e) => { sfx.init(); toggleMute(); e.currentTarget.blur(); });
 const btnMusic = $('btnMusic');
 function toggleMusic() {
   sfx.musicOn = !sfx.musicOn;
   if (sfx.musicOn) { sfx.init(); sfx.startMusic(); } else sfx.stopMusic();
-  btnMusic.firstChild.textContent = sfx.musicOn ? '🎵 Music on' : '🎵 Music off';
+  soundBtns();
 }
 btnMusic.addEventListener('click', (e) => { toggleMusic(); e.currentTarget.blur(); });
-function gearOpen(open) { $('gearMenu').hidden = !open; $('btnGear').setAttribute('aria-expanded', String(open));
+function gearOpen(open) { $('gearMenu').hidden = !open; $('btnGear').setAttribute('aria-expanded', String(open)); if (!open) { $('gmMoreBox').hidden = true; $('gmMore').setAttribute('aria-expanded', 'false'); } /* ⋯ More folds away again each time */
   // the settings menu pauses a solo match while it is open, and resumes it on close if it was the menu that paused it (no Pause button)
   if (open && game.state === 'playing' && !game.paused && MP.role === 'solo' && !AUTO.on) { game.paused = true; gearOpen.paused = true; }
   else if (!open && gearOpen.paused) { gearOpen.paused = false; if (game.state === 'playing') game.paused = false; } }
 $('statsMore').addEventListener('pointerdown', (e) => e.stopPropagation());
 $('statsMore').addEventListener('click', (e) => { e.stopPropagation(); const st = document.querySelector('.stats'), o = !st.classList.contains('open'); st.classList.toggle('open', o); e.currentTarget.setAttribute('aria-expanded', String(o)); e.currentTarget.blur(); });
 $('btnGear').addEventListener('click', (e) => { e.stopPropagation(); e.currentTarget.blur(); gearOpen($('gearMenu').hidden); });
-for (const id of ['btnTune', 'btnNew', 'btnPerf', 'btnNetLog']) $(id).addEventListener('click', () => gearOpen(false));
+for (const id of ['btnTune', 'btnPerf', 'btnNetLog']) $(id).addEventListener('click', () => gearOpen(false));
+$('gmMore').addEventListener('click', (e) => { e.stopPropagation(); e.currentTarget.blur(); const box = $('gmMoreBox'), o = box.hidden; box.hidden = !o; e.currentTarget.setAttribute('aria-expanded', String(o)); if (o) { const m = $('gearMenu'); m.scrollTop = m.scrollHeight; } });
 document.addEventListener('pointerdown', (e) => { if (!$('gearMenu').hidden && !e.target.closest('#gearMenu, #btnGear')) gearOpen(false); });
 // New-version check (GitHub Pages): a tab left open, or the browser's cache, can keep running an old build. Look for a newer one and offer a one-tap reload.
 // Memory guard, part 2 (Build 102): long sessions must not slowly fill the GPU (Build 101 fixed a leak that took the Chromebook from
@@ -9234,7 +9258,6 @@ const UPDATE = { checked: 0, newer: null,
 };
 setTimeout(() => UPDATE.check(), 4000); setInterval(() => UPDATE.check(), 5 * 60000); document.addEventListener('visibilitychange', () => { if (!document.hidden) setTimeout(() => UPDATE.check(), 1500); }); // (back from sleep or the background: look straight away) setInterval(() => { if (AUTO.on) UPDATE.check(); }, 2 * 60000); // (autoplay checks more often: it updates itself)
 document.addEventListener('pointerdown', (e) => { if (!el.panel.hidden && !el.panel.contains(e.target) && !e.target.closest('#btnTune, #gearMenu, #btnGear')) togglePanel(false); }); // a tap anywhere outside the Tune Physics box closes it
-$('btnNew').addEventListener('click', (e) => { e.currentTarget.blur(); if (GAME_MODE === 'respawn' && game.state === 'playing') openRespawnSheet(false); else showMenu(); }); // back to the garage to pick a car
 $('btnPause').addEventListener('click', (e) => { if (game.state === 'playing') game.paused = !game.paused; e.currentTarget.blur(); });
 // Browsers only allow audio after a user gesture
 // Every tap or key press (capture phase, so the tap that takes the game back from autoplay counts too) makes the audio context, or wakes it
@@ -9319,7 +9342,7 @@ async function setTilt(on) {
   }
   if (on && typeof DeviceMotionEvent === 'undefined') { toast('NO MOTION SENSORS IN THIS BROWSER', 'bad'); return; }
   tilt.on = on; tilt.zero = null; tilt.got = false; tilt.steer = 0; tilt.roll = 0;
-  document.body.classList.toggle('tilt', on); $('btnTilt').classList.toggle('on', on); $('btnTilt').setAttribute('aria-pressed', String(on)); $('btnTilt').querySelector('small').textContent = on ? 'Tilt on' : 'Tilt'; $('gmTilt').textContent = '📱 Tilt steering: ' + (on ? 'on' : 'off');
+  document.body.classList.toggle('tilt', on); $('btnTilt').classList.toggle('on', on); $('btnTilt').setAttribute('aria-pressed', String(on)); $('btnTilt').querySelector('small').textContent = on ? 'Tilt on' : 'Tilt'; 
   if (on) {
     window.addEventListener('devicemotion', tiltRead);
     toast('TILT STEERING · hold it level now', 'cool');
@@ -9361,8 +9384,7 @@ $('btnFull').addEventListener('click', (e) => { e.stopPropagation(); toggleFulls
 $('btnStart').addEventListener('click', () => { if (isTouchUI() && FS.can() && !FS.on) toggleFullscreen(); }); // phones that can: starting a derby goes full screen (it's the tap the browser needs)
 $('gmFull').addEventListener('click', (e) => { e.stopPropagation(); gearOpen(false); toggleFullscreen(); });
 const fsLabel = () => { $('gmFull').textContent = FS.on ? '⛶ Leave full screen' : '⛶ Full screen'; $('btnFull').hidden = FS.on || FS.standalone(); }; fsLabel(); document.addEventListener('fullscreenchange', fsLabel); document.addEventListener('webkitfullscreenchange', fsLabel);
-$('gmTilt').addEventListener('touchend', (e) => { tiltTap(e); gearOpen(false); }); $('gmTilt').addEventListener('click', (e) => { tiltTap(e); gearOpen(false); });
-for (const [g, b] of [['gmCam', 'btnCam'], ['gmMap', 'btnMap'], ['gmBug', 'btnBug']]) $(g).addEventListener('click', (e) => { e.stopPropagation(); gearOpen(false); $(b).click(); });
+for (const [g, b] of [['gmCam', 'btnCam'], ['gmBug', 'btnBug']]) $(g).addEventListener('click', (e) => { e.stopPropagation(); gearOpen(false); $(b).click(); });
 document.querySelector('.speedo').addEventListener('click', () => { if (isTouchUI()) $('btnCam').click(); });
 const stickZone = $('stickZone'), stick = $('stick'), knob = $('knob');
 let stickId = null, sx0 = 0, sy0 = 0;
@@ -10917,12 +10939,12 @@ $('pfClose').addEventListener('click', () => perfOpen(false));
 $('pfHud').addEventListener('click', () => { S.perfHud = S.perfHud ? 0 : 1; try { saveSettings(); } catch (e) {} $('pfHud').textContent = 'Corner readout: ' + (S.perfHud ? 'on' : 'off'); });
 $('pfSend').addEventListener('click', () => { PERFREP.send('sent by hand'); $('pfSend').textContent = MP.role === 'guest' ? 'Sent to the host · saved on this device' : 'Saved on this device · see gear ▸ Network log'; }); // kept in the browser's storage (survives closing the page) and in the Net log export
 $('pfCopy').addEventListener('click', async () => { const t = $('pfVerdict').textContent + '\n' + $('pfText').textContent; try { await navigator.clipboard.writeText(t); $('pfCopy').textContent = 'Copied'; } catch (e) { $('pfCopy').textContent = 'Copy failed'; } setTimeout(() => { $('pfCopy').textContent = 'Copy'; }, 1500); });
-// the map: off by default, Map button or Y
-let MAP_ON = false; try { MAP_ON = localStorage.getItem('derby-map') === '1'; } catch (e) {}
-function setMap(on) { MAP_ON = on; document.body.classList.toggle('nomap', !on); $('btnMap').setAttribute('aria-pressed', String(on)); try { localStorage.setItem('derby-map', on ? '1' : '0'); } catch (e) {} }
+// the map: hidden (owner, 2026-11-18: "the map isn't very useful ... maybe we just hide that feature"); no button, every game starts without it.
+// Y still shows it on a keyboard for this game only (a hidden convenience), so a phone can never be left stuck with it.
+let MAP_ON = false; try { localStorage.removeItem('derby-map'); } catch (e) {}
+function setMap(on) { MAP_ON = on; document.body.classList.toggle('nomap', !on); }
 setMap(MAP_ON);
 $('btnCam').addEventListener('click', (e) => { e.currentTarget.blur(); nextCam(); });
-$('btnMap').addEventListener('click', (e) => { e.currentTarget.blur(); setMap(!MAP_ON); });
 const NETLOG = {
   perf: [], pfSeen: new Map(),
   addPerf(r) { this.perf.push(r); if (this.perf.length > 40) this.perf.shift(); this.save(); },

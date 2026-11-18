@@ -44,6 +44,7 @@ quick() {
   t twothumb 600 "TWO-THUMB PASS"
   t touchcam 600 "TOUCHCAM PASS"
   t gearmenu 600 "GEARMENU PASS"
+  t menutrim 1200 "MENUTRIM PASS"
   t hitlog 600 "HITLOG PASS"
   t zoom 600 '"twoFingerBlocked":true,"oneFingerAllowed":true,"gestureBlocked":true'
   t phone2 900 '"overlaps":\[\]'

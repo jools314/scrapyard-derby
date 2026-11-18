@@ -9,7 +9,7 @@ const { open } = require('./harness');
     await page.evaluate((t) => { if (t) document.body.classList.add('touch'); window.__noRender = true; __derby.S.aiCount = 2; document.getElementById('btnStart').click(); }, touch);
     await page.waitForFunction(() => __derby.game.state === 'playing' && __derby.game.countdown <= 0, null, { timeout: 90000 });
     const who = touch ? 'touch' : 'desktop';
-    const menu = await page.evaluate(() => { document.getElementById('btnGear').click(); return [...document.querySelectorAll('#gearMenu button')].filter((b) => b.offsetParent).map((b) => b.id); });
+    const menu = await page.evaluate(() => { document.getElementById('btnGear').click(); document.getElementById('gmMore').click(); /* (Performance & logs lives under ⋯ More) */ return [...document.querySelectorAll('#gearMenu button')].filter((b) => b.offsetParent).map((b) => b.id); });
     ok(!menu.includes('gmBug') && !menu.includes('btnNetLog') && !menu.includes('btnApReport') && menu.includes('btnPerf'), `${who}: gear menu has one Performance & logs item, no separate bug / network log / play report (${menu.length} items: ${menu.join(' ')})`);
     const dlg = await page.evaluate(() => { document.getElementById('btnPerf').click(); const d = document.getElementById('perfdlg'); return { open: !d.hidden, ids: [...d.querySelectorAll('button')].map((b) => b.id), title: d.querySelector('.rs-title').textContent }; });
     ok(dlg.open && dlg.ids.includes('gmBug') && dlg.ids.includes('btnNetLog') && dlg.ids.includes('plRep') && /logs/.test(dlg.title), `${who}: the window holds bug report, network log and play report ("${dlg.title}")`);
