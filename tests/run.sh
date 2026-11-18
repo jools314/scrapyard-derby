@@ -39,6 +39,7 @@ quick() {
   t lightcount 600 "LIGHTCOUNT PASS"
   t portalstart 900 "PORTALSTART PASS"
   t fastboot 900 "FASTBOOT PASS"
+  t groundtex 400 "GROUNDTEX PASS"
   t watchdog 600 "WATCHDOG PASS"
   t interact 1200 "^16/16"
   t twothumb 600 "TWO-THUMB PASS"

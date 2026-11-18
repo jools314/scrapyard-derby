@@ -1102,7 +1102,7 @@ world.addContactMaterial(carCM);
 function canvasTex(size, draw, rx = 1, ry = 1, w) {
   const c = document.createElement('canvas');
   c.width = w || size; c.height = size;
-  draw(c.getContext('2d'), c.width, c.height);
+  draw(c.getContext('2d', { willReadFrequently: true }), c.width, c.height); // drawn once on the CPU: a GPU-backed canvas defers its raster to the first upload, and the first one pays the GPU canvas setup (~1 s at 4x throttle in the test browser; first frame ~1.5 s sooner there)
   const t = new THREE.CanvasTexture(c);
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
   t.repeat.set(rx, ry);
@@ -1110,14 +1110,35 @@ function canvasTex(size, draw, rx = 1, ry = 1, w) {
   t.anisotropy = 8;
   return t;
 }
-const groundTex = canvasTex(1024, (g, s) => {
-  g.fillStyle = '#5f564b'; g.fillRect(0, 0, s, s);
-  for (let i = 0; i < 900; i++) { const r = rand(0.8, 3.2) * (Math.random() < 0.1 ? 2 : 1), x = Math.random() * s, y = Math.random() * s, v = 60 + Math.random() * 70 | 0; const gr = g.createRadialGradient(x - r * 0.3, y - r * 0.3, 0, x, y, r); gr.addColorStop(0, `rgba(${v + 24},${v + 18},${v + 8},0.8)`); gr.addColorStop(1, `rgba(${v - 20},${v - 26},${v - 34},0)`); g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); } // pebbles
-  for (let i = 0; i < 56000; i++) {
-    const v = 70 + Math.random() * 45 | 0;
-    g.fillStyle = `rgba(${v + 12},${v},${v - 14},${Math.random() * 0.5})`;
-    g.fillRect(Math.random() * s, Math.random() * s, 1 + Math.random() * 3, 1 + Math.random() * 3);
-  }
+// Speckle noise painted straight into the pixels, then one putImageData. As 56,000 fillRects (and 900 gradient pebbles), each with its own
+// rgba string, the ground cost ~2.5-3 s of canvas raster on a 4x-throttled laptop (Build 115: most of it lands when the texture is first
+// read or uploaded); as one pass over a byte array it costs tens of ms. Rects blend by how much of each pixel they cover, as the canvas
+// does, and wrap at the edges, so the tile repeats without seams. base: [r, g, b]; paint(rect, pebble) draws in canvas pixel units.
+function pixTex(g, w, h, base, paint) {
+  const im = g.createImageData(w, h), d = im.data;
+  for (let i = 0; i < d.length; i += 4) { d[i] = base[0]; d[i + 1] = base[1]; d[i + 2] = base[2]; d[i + 3] = 255; }
+  const mix = (o, r, gg, b, a) => { d[o] += (r - d[o]) * a; d[o + 1] += (gg - d[o + 1]) * a; d[o + 2] += (b - d[o + 2]) * a; };
+  const rect = (x0, y0, rw, rh, r, gg, b, a) => { // a source-over fillRect at (x0, y0), rw x rh, of rgba(r, gg, b, a)
+    const x1 = x0 + rw, y1 = y0 + rh;
+    for (let iy = Math.floor(y0); iy < y1; iy++) { const cy = Math.min(y1, iy + 1) - Math.max(y0, iy), row = ((iy % h) + h) % h * w;
+      for (let ix = Math.floor(x0); ix < x1; ix++) { const c = (Math.min(x1, ix + 1) - Math.max(x0, ix)) * cy; if (c > 0) mix((row + ((ix % w) + w) % w) * 4, r, gg, b, a * c); } }
+  };
+  const pebble = (x, y, rad, c0, c1) => { // the canvas radial gradient from a highlight 0.3 r up-left of the centre (colour c0 = [r, g, b, a]) out to the rim (c1)
+    const fx = x - rad * 0.3, fy = y - rad * 0.3, ex = x - fx, ey = y - fy, k = rad * rad - ex * ex - ey * ey;
+    for (let iy = Math.floor(y - rad); iy < y + rad; iy++) for (let ix = Math.floor(x - rad); ix < x + rad; ix++) {
+      const px = ix + 0.5, py = iy + 0.5; if ((px - x) * (px - x) + (py - y) * (py - y) > rad * rad) continue;
+      const dx = px - fx, dy = py - fy, de = dx * ex + dy * ey, t = Math.min(1, (de + Math.sqrt(de * de + k * (dx * dx + dy * dy))) / k), a = c0[3] + (c1[3] - c0[3]) * t;
+      if (a > 0.004) mix(((((iy % h) + h) % h) * w + ((ix % w) + w) % w) * 4, c0[0] + (c1[0] - c0[0]) * t, c0[1] + (c1[1] - c0[1]) * t, c0[2] + (c1[2] - c0[2]) * t, a);
+    }
+  };
+  paint(rect, pebble);
+  g.putImageData(im, 0, 0);
+}
+const groundTex = canvasTex(1024, (g, s) => { const t0 = performance.now();
+  pixTex(g, s, s, [0x5f, 0x56, 0x4b], (rect, pebble) => {
+    for (let i = 0; i < 900; i++) { const r = rand(0.8, 3.2) * (Math.random() < 0.1 ? 2 : 1), x = Math.random() * s, y = Math.random() * s, v = 60 + Math.random() * 70 | 0; pebble(x, y, r, [v + 24, v + 18, v + 8, 0.8], [v - 20, v - 26, v - 34, 0]); } // pebbles
+    for (let i = 0; i < 56000; i++) { const v = 70 + Math.random() * 45 | 0; rect(Math.random() * s, Math.random() * s, 1 + Math.random() * 3, 1 + Math.random() * 3, v + 12, v, v - 14, Math.random() * 0.5); }
+  });
   g.strokeStyle = 'rgba(30,24,18,.45)'; g.lineWidth = 1.5;
   for (let i = 0; i < 7; i++) {
     g.beginPath(); let x = Math.random() * s, y = Math.random() * s; g.moveTo(x, y);
@@ -1128,11 +1149,11 @@ const groundTex = canvasTex(1024, (g, s) => {
     g.fillStyle = 'rgba(20,16,12,.22)';
     g.beginPath(); g.ellipse(Math.random() * s, Math.random() * s, rand(10, 40), rand(8, 25), rand(0, 3), 0, 7); g.fill();
   }
+  BOOT.groundMs = Math.round(performance.now() - t0); // (tests/groundtex.js)
 }, 110, 110);
 // Perimeter wall: precast slabs with joints, rain streaks, tyre scuffs low down, spray-paint tags and peeling posters (24 m a tile)
 const wallTex = canvasTex(1024, (g, w, h) => {
-  g.fillStyle = '#8b847a'; g.fillRect(0, 0, w, h);
-  for (let i = 0; i < 14000; i++) { const v = 105 + Math.random() * 55 | 0; g.fillStyle = `rgba(${v},${v - 4},${v - 10},.3)`; g.fillRect(Math.random() * w, Math.random() * h, 2, 2); }
+  pixTex(g, w, h, [0x8b, 0x84, 0x7a], (rect) => { for (let i = 0; i < 14000; i++) { const v = 105 + Math.random() * 55 | 0; rect(Math.random() * w, Math.random() * h, 2, 2, v, v - 4, v - 10, 0.3); } });
   for (let x = 0; x < w; x += 128) { g.fillStyle = 'rgba(40,34,28,.55)'; g.fillRect(x, 0, 3, h); g.fillStyle = 'rgba(255,250,240,.12)'; g.fillRect(x + 3, 0, 2, h); } // slab joints
   for (let i = 0; i < 60; i++) { const x = Math.random() * w, len = rand(30, 160), gr = g.createLinearGradient(0, 0, 0, len); gr.addColorStop(0, `rgba(50,42,34,${rand(0.15, 0.4)})`); gr.addColorStop(1, 'rgba(50,42,34,0)'); g.fillStyle = gr; g.fillRect(x, 0, rand(2, 10), len); } // rain streaks
   for (let i = 0; i < 12; i++) { const x = Math.random() * w, len = rand(20, 70), gr = g.createLinearGradient(0, 0, 0, len); gr.addColorStop(0, 'rgba(130,62,26,.55)'); gr.addColorStop(1, 'rgba(130,62,26,0)'); g.fillStyle = gr; g.fillRect(x, rand(10, 40), rand(2, 5), len); } // rust bleeding from bolts
@@ -1162,8 +1183,7 @@ const corrugTex = canvasTex(256, (g, s) => {
   for (let i = 0; i < 60; i++) { g.fillStyle = `rgba(110,60,30,${Math.random() * 0.35})`; g.fillRect(Math.random() * s, Math.random() * s, rand(4, 30), rand(4, 50)); }
 }, 3, 1);
 const concreteTex = canvasTex(256, (g, s) => {
-  g.fillStyle = '#8d867b'; g.fillRect(0, 0, s, s);
-  for (let i = 0; i < 5000; i++) { const v = 110 + Math.random() * 50 | 0; g.fillStyle = `rgba(${v},${v - 4},${v - 10},.35)`; g.fillRect(Math.random() * s, Math.random() * s, 2, 2); }
+  pixTex(g, s, s, [0x8d, 0x86, 0x7b], (rect) => { for (let i = 0; i < 5000; i++) { const v = 110 + Math.random() * 50 | 0; rect(Math.random() * s, Math.random() * s, 2, 2, v, v - 4, v - 10, 0.35); } });
   g.strokeStyle = 'rgba(40,34,28,.5)'; g.lineWidth = 2; g.strokeRect(0, 0, s, s);
 }, 1, 1);
 const crackTex = canvasTex(256, (g, s) => {
@@ -1287,8 +1307,7 @@ const DET = { // small shared materials for the detail kit
 DET.fireTxt = DET.text('FIRE DEPT', 'rgba(0,0,0,0)', '#f2d24a'); DET.policeTxt = DET.text('POLICE', 'rgba(0,0,0,0)', '#101010'); DET.flam = DET.text('FLAMMABLE', '#c8281e', '#ffffff'); DET.towTxt = DET.text('24H TOWING', 'rgba(0,0,0,0)', '#151515');
 { // rusty diamond plate for the ramps and kickers
   const plate = canvasTex(512, (g, s) => { // big welded steel sheets: grey tread plate, seams, weld beads and a few rust runs (not a busy red knit)
-    g.fillStyle = '#77736c'; g.fillRect(0, 0, s, s);
-    for (let i = 0; i < 9000; i++) { const v = 100 + Math.random() * 40 | 0; g.fillStyle = `rgba(${v},${v - 2},${v - 6},.25)`; g.fillRect(Math.random() * s, Math.random() * s, 2, 2); }
+    pixTex(g, s, s, [0x77, 0x73, 0x6c], (rect) => { for (let i = 0; i < 9000; i++) { const v = 100 + Math.random() * 40 | 0; rect(Math.random() * s, Math.random() * s, 2, 2, v, v - 2, v - 6, 0.25); } });
     for (let y = 0; y < s; y += 22) for (let x = (y / 22) % 2 ? 11 : 0; x < s; x += 22) { g.save(); g.translate(x, y); g.rotate((x / 11 + y / 22) % 2 ? 0.7 : -0.7); g.fillStyle = 'rgba(200,196,188,.32)'; g.fillRect(-6, -1.5, 12, 2.4); g.fillStyle = 'rgba(30,26,22,.35)'; g.fillRect(-6, 0.9, 12, 1.2); g.restore(); }
     for (let i = 0; i < 14; i++) { const x = Math.random() * s, y = Math.random() * s, r = rand(25, 90), gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, `rgba(${rand(110, 140) | 0},${rand(58, 72) | 0},32,${rand(0.12, 0.3)})`); gr.addColorStop(1, 'rgba(110,60,30,0)'); g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); }
     for (let i = 0; i < 10; i++) { const x = Math.random() * s; const gr = g.createLinearGradient(0, 0, 0, 120); gr.addColorStop(0, 'rgba(120,62,28,.45)'); gr.addColorStop(1, 'rgba(120,62,28,0)'); g.fillStyle = gr; g.fillRect(x, rand(0, s), rand(2, 6), rand(40, 120)); } // rust runs
