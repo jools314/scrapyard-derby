@@ -26,7 +26,7 @@ const init = () => { const P = WebGL2RenderingContext.prototype, gE = P.getExten
   const { browser, page, errors } = await H.open({ viewport: { width: 1280, height: 720 } }, init, async (page) => { page0 = page; await before(page);
     if (EAGER) clicker = setInterval(() => { page.evaluate(() => { const b = document.getElementById('btnStart'); if (b && (!window.__derby || __derby.game.state === 'menu')) { if (!__ev.click1) __ev.click1 = Math.round(performance.now()); b.click(); } }).catch(() => {}); }, 250); });
   if (!EAGER) { await page.waitForFunction(() => __derby.BOOT.frame && __derby.BOOT.yard, null, { timeout: 300000, polling: 250 }); await page.waitForTimeout(1000);
-    await page.evaluate(() => { __ev.click1 = Math.round(performance.now()); document.getElementById('btnStart').click(); }); }
+    await page.evaluate(() => { __ev.click1 = Math.round(performance.now()); document.getElementById('btnStart').click(); __ev.raf = 0; const f = () => { __ev.raf++; if (!__derby.BOOT.drive) requestAnimationFrame(f); }; requestAnimationFrame(f); }); }
   await page.waitForFunction(() => __derby.BOOT.drive, null, { timeout: 300000, polling: 250 });
   if (clicker) clearInterval(clicker);
   await page.waitForTimeout(2000);
@@ -76,6 +76,7 @@ const init = () => { const P = WebGL2RenderingContext.prototype, gE = P.getExten
   console.log('self time by script:'); for (const [u, v] of [...urls].sort((a, b) => b[1] - a[1]).slice(0, 10)) console.log(`  ${u.padEnd(30)} ${ms(v)}`);
   console.log('inclusive time by game function (name:line):'); for (const [k, v] of [...incl].sort((a, b) => b[1] - a[1]).slice(0, TOP)) console.log(`  ${k.padEnd(40)} ${ms(v)}`);
   }
+  console.log(`frames from Start to driving: ${ev.raf}`);
   console.log(`programs ${r.progs}, draw calls ${r.calls}`);
   const pe = errors.filter((e) => e.startsWith('pageerror')); if (pe.length) console.log('page errors: ' + pe.slice(0, 3).join(' | '));
   await browser.close();

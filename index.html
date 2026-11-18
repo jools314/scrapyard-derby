@@ -9019,7 +9019,7 @@ function buildGarage() { // (built at the top of the script: see garage)
 }
 function selectCar(key) {
   playerType = key;
-  if (!BOOTQ.live) { try { localStorage.setItem(CAR_KEY, key); } catch (e) {} buildGarage(); return; } // (picked while the yard is still being built: your car is made with it)
+  if (!BOOTQ.live) { try { localStorage.setItem(CAR_KEY, key); } catch (e) {} buildGarage(); if (BOOT.ready) sfx.setStyle(MUSIC_FOR[key] || 'rock'); return; } // (picked while the yard is still being built: your car is made with it)
   if (MP.role === 'guest') { MP.sendWant(); buildGarage(); toast(`${CAR_TYPES[key].name.toUpperCase()} NEXT ROUND`, 'cool'); return; }
   sfx.setStyle(MUSIC_FOR[key] || 'rock');
   try { localStorage.setItem(CAR_KEY, key); } catch (e) {}
@@ -12260,7 +12260,7 @@ function bootYard(how) { if (!BOOT.lite) return; BOOT.lite = false; BOOT.yardHow
 function bootFrame() { BOOT.frame = performance.now(); if (BOOT.built) bootCompile(); } // (the yard is compiled once it is all built: bootBuilt)
 async function bootCompile() { if (BOOT.c0 || !BOOT.frame) return; BOOT.c0 = performance.now();
   if (!window.__noRender && renderer.initTexture) { const tx = new Set(); // the yard's textures go up to the GPU one per turn first: else the first frame of the whole yard uploads them all at once
-    scene.traverse((o) => { for (const m of Array.isArray(o.material) ? o.material : o.material ? [o.material] : []) for (const k of ['map', 'bumpMap', 'emissiveMap', 'normalMap', 'roughnessMap', 'alphaMap']) if (m[k] && m[k].isTexture && m[k].image) tx.add(m[k]); });
+    scene.traverseVisible((o) => { if (!o.layers.mask) return; for (const m of Array.isArray(o.material) ? o.material : o.material ? [o.material] : []) for (const k of ['map', 'bumpMap', 'emissiveMap', 'normalMap', 'roughnessMap', 'alphaMap']) if (m[k] && m[k].isTexture && m[k].image) tx.add(m[k]); });
     for (const t of tx) { if (!BOOT.lite) break; try { renderer.initTexture(t); } catch (e) {} await bootSlice(); } BOOT.tex = tx.size; }
   if (BOOT.loop === 'direct') return bootYard('direct');
   if (!BOOT.lite) return; BOOT.p1 = (renderer.info.programs || []).length; // the yard with all its lights, compiled in parallel while the menu and sky are up
