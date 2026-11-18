@@ -9792,7 +9792,7 @@ const CRANE = (() => {
   for (const a of [0, 2.1, 4.2]) { const c = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.5, 4), dark); c.position.set(Math.cos(a) * 0.5, 0.75, Math.sin(a) * 0.5); c.rotation.set(Math.sin(a) * 0.35, 0, -Math.cos(a) * 0.35); magnet.add(c); }
   const cable = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), new THREE.LineBasicMaterial({ color: 0x141210 })); cable.frustumCulled = false; scene.add(cable);
   const tower = new CANNON.Body({ type: CANNON.Body.STATIC, shape: new CANNON.Box(new CANNON.Vec3(2.2, 10, 2.2)), material: sceneryMat }); tower.position.set(cx, 10, cz); tower.isObstacle = true; tower.what = 'crane tower'; world.addBody(tower);
-  const mag = new CANNON.Body({ type: CANNON.Body.KINEMATIC, mass: 0 }); mag.collisionResponse = false; world.addBody(mag);
+  const mag = new CANNON.Body({ type: CANNON.Body.KINEMATIC, mass: 0, allowSleep: false }); mag.collisionResponse = false; world.addBody(mag); // (never asleep: a sleeping kinematic body ignores its velocity, and craneMagnetDrive moves it by velocity)
   return { cx, cz, H, R0, R1, slew, trolley, magnet, ring, cable, mag, ang: 0.8, r: 14, h: 15, state: 'idle', t: 4, target: null, con: null, held: null };
 })();
 function craneMagnetPos(C) { return { x: C.cx + Math.cos(C.ang) * C.r, y: C.h, z: C.cz - Math.sin(C.ang) * C.r }; }
@@ -9801,6 +9801,19 @@ function craneRelease(C, announce) {
   if (C.held && announce && game.state === 'playing') { barks.announce('craneDrop', { v: C.held.isPlayer ? 'our hero' : C.held.name, vcar: C.held.T.name }, true); if (C.held.isPlayer) toast('DROPPED!', 'bad'); }
   if (C.held) { C.held.craned = false; C.held.body.wakeUp(); }
   C.con = null; C.held = null;
+}
+// The magnet body is kinematic: cannon moves it by its velocity on every physics step (1 a frame at 60 fps, 2-3 at 20 fps). It used to be
+// teleported to the crane's spot every frame and given velocity (spot - where the physics left it) / dt: the physics had already moved it a
+// frame ahead, so that velocity flipped between ~2x and 0 every frame and the body jumped back each frame. At 60 fps the jumps were tiny;
+// at 20 fps (Chromebook, quality 7) the stiff magnet joint turned them into kicks on the held car ("solver kick undone" many times a second,
+// vertical speed -11.6 -> +16.4 m/s in 0.1 s). Now, while it holds a car, it moves at the crane's own speed over this frame's physics time,
+// plus a soft pull back onto the crane's path (steps lost to a slow frame), and is never teleported.
+function craneMagnetDrive(sdt) {
+  const C = CRANE, mb = C.mag, g = C.goal, p = C.gPrev || g; C.gPrev = g;
+  if (!g) return;
+  if (!C.held || !(sdt > 1e-4)) { mb.position.set(g.x, g.y, g.z); mb.velocity.set(0, 0, 0); return; }
+  const i = 1 / sdt, k = 8; // k: 1/s, closes a gap to the crane's path in ~1/8 s
+  mb.velocity.set((g.x - p.x) * i + (p.x - mb.position.x) * k, (g.y - p.y) * i + (p.y - mb.position.y) * k, (g.z - p.z) * i + (p.z - mb.position.z) * k);
 }
 function resetCrane() { const C = CRANE; craneRelease(C, false); C.state = 'idle'; C.t = 6; C.target = null; C.h = 15; }
 function updateCrane(dt) {
@@ -9828,7 +9841,7 @@ function updateCrane(dt) {
         if (hd > 3.5) { C.state = 'seek'; } else C.h = Math.max(topY + 0.5, C.h - dt * 5.5);
         if (C.h <= topY + 0.75 && hd < 2.2) { // clang: grabbed
           const piv = t.body.pointToLocalFrame(new CANNON.Vec3(m.x, topY - 0.25, m.z));
-          C.mag.position.set(m.x, C.h, m.z);
+          C.mag.position.set(m.x, C.h, m.z); C.mag.velocity.set(0, 0, 0); C.gPrev = null; // (the catch starts at rest: no leftover lowering speed shoved into the car)
           C.con = new CANNON.PointToPointConstraint(C.mag, new CANNON.Vec3(0, -0.35, 0), t.body, piv, 1.2e6); C.con.collideConnected = false; world.addConstraint(C.con);
           C.held = t; t.craned = true; C.state = 'lift'; t.body.wakeUp();
           sfx.clank(1); sparks(new CANNON.Vec3(m.x, topY, m.z), 16);
@@ -9844,10 +9857,7 @@ function updateCrane(dt) {
     const da = slewTo(C.swingTo, 0.45); C.r += clamp(C.rTo - C.r, -3 * dt, 3 * dt);
     if (da < 0.03 || C.t <= 0) { craneRelease(C, true); C.state = 'idle'; C.t = rand(7, 12); }
   }
-  // move the kinematic magnet with a matching velocity so the constraint stays smooth
-  const m = craneMagnetPos(C), mb = C.mag;
-  mb.velocity.set((m.x - mb.position.x) / Math.max(dt, 1e-3), (m.y - mb.position.y) / Math.max(dt, 1e-3), (m.z - mb.position.z) / Math.max(dt, 1e-3));
-  mb.position.set(m.x, m.y, m.z);
+  const m = craneMagnetPos(C); C.goal = m; // the physics magnet follows it in craneMagnetDrive, just before the physics step
   // visuals
   C.slew.rotation.y = C.ang; C.trolley.position.x = C.r;
   C.magnet.position.set(m.x, m.y, m.z); C.magnet.rotation.y = C.ang;
@@ -11422,6 +11432,7 @@ function simBody(now) {
     SEC.run('arena', () => updateArena(dt));
     const sdt = dt * S.timeScale * (game.hitStop > 0 ? 0.22 : game.slowmo > 0 ? 0.35 : 1); // hit-stop on big impacts, slow-mo on your kills
     game.hitStop -= dt; game.slowmo -= dt;
+    craneMagnetDrive(sdt);
     SEC.run('physics', () => world.step(FIXED, sdt, QUALITY.subSteps || 8));
     simTime += sdt;
     if (MP.role === 'host') SEC.run('net', () => MP.hostFrame(dt));
