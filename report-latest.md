@@ -1,4 +1,4 @@
-# Scrapyard Derby play-log report · 2026-11-18 12:39 UTC
+# Scrapyard Derby play-log report · 2026-11-18 14:39 UTC
 
 1203 matches (1190 from real devices, 3586.1 game-minutes), 109 page loads, 9 bug reports.
 
@@ -312,6 +312,11 @@ Build 102+ reloads an autoplaying page whose memory runs away and logs what was 
 
 - 1170 matches, 3405.8 game-minutes · endings: autoplay round done 1108, autoplay stopped 37, page closed mid-match 11, checkpoint: every # min 9, lost mid-match (crash, or the tab was ki 3, checkpoint: voice failure 1, checkpoint: physics: solver kick undone 1
 - 11 autoplay matches spent time hidden (stats from those stretches are excluded from build 67)
+
+### Autoplay health
+
+- **Mac** autoplay health: 54 sessions · page lifecycle not recorded yet (builds before the stop log)
+- **other** autoplay health: 16 sessions · page lifecycle not recorded yet (builds before the stop log)
 
 ## Bug reports
 
