@@ -1997,7 +1997,7 @@ const GASQ = [];
 function updateGas(dt) {
   for (let i = GASQ.length - 1; i >= 0; i--) { const q = GASQ[i]; q.t -= dt; if (q.t > 0) continue; GASQ.splice(i, 1);
     const pr = q.pr; if (pr.lit || !props.includes(pr)) continue; pr.lit = true;
-    const p = pr.body.position.clone(); props.splice(props.indexOf(pr), 1); propGone(pr); world.removeBody(pr.body); scene.remove(pr.mesh);
+    const p = pr.body.position.clone(); props.splice(props.indexOf(pr), 1); propGone(pr); world.removeBody(pr.body); scene.remove(pr.mesh); propsGone.push(pr.mesh);
     explodeShell(p, null, { isPlayer: false, name: '' }, 0.8); addConcrete(p.x, p.z, 2.2, 'fuel'); CONCRETE.list[CONCRETE.list.length - 1].burning = 6;
     const top = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.5, 10), M.gas); top.position.set(p.x, p.y + 0.5, p.z); scene.add(top); // the valve end rockets off
     addDebris(top, new CANNON.Cylinder(0.3, 0.3, 0.5, 8), undefined, undefined, 8, new CANNON.Vec3(rand(-6, 6), rand(16, 24), rand(-6, 6)), new CANNON.Vec3(rand(-20, 20), rand(-20, 20), rand(-20, 20)));
@@ -2235,7 +2235,7 @@ const BIT = { // little bits that fly out when props break
 const oilGeo = new THREE.CircleGeometry(1, 20);
 const oilMat = new THREE.MeshStandardMaterial({ color: 0x0b0a08, roughness: 0.08, metalness: 0.7, transparent: true, opacity: 0.85, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3 });
 function bits(p, mat, n, spread = 5, up = 5) { for (let i = 0; i < n; i++) emit('debris', p.x, p.y + 0.3, p.z, rand(-spread, spread), rand(1, up), rand(-spread, spread), rand(1.2, 2.5), rand(0.05, 0.16), mat); }
-const flats = [];
+const flats = [], propsGone = []; // (props taken out mid-match - burnt, splintered, blown up, harvested - are freed with the rest at the next yard build: Build 118 and before never freed them, e.g. a harvested sign's 3 shapes)
 function flattenProp(pr, by) { // 11 tonnes of tank: boxes, drums, bins and potties go flat as a pancake
   const i = props.indexOf(pr); if (i < 0 || MP.role === 'guest') return; // guests: the host decides (and says so)
   if (pr.kind === 'wood' || pr.kind === 'rubber') { damageProp(pr, 30, new CANNON.Vec3(0, 1, 0)); if (props.includes(pr)) { /* tyres just get squashed below */ } else return; }
@@ -2251,7 +2251,7 @@ function flattenProp(pr, by) { // 11 tonnes of tank: boxes, drums, bins and pott
     m.rotation.set(0, yaw, 0); m.scale.set(m.scale.x * 1.35, m.scale.y * 0.12, m.scale.z * 1.35);
     const box = new THREE.Box3().setFromObject(m); m.position.y += 0.04 - box.min.y; // lie flat on whatever's below
     m.position.y = Math.max(m.position.y, 0.02);
-    flats.push(m); while (flats.length > 60) scene.remove(flats.shift());
+    flats.push(m); while (flats.length > 60) { const o = flats.shift(); scene.remove(o); propsGone.push(o); }
   }
   if (by.isPlayer && game.state === 'playing') { game.score += 10; game.propHits++; if (simTime - game.propToast > 1.2) { game.propToast = simTime; toast('+10 FLATTENED', 'cool'); } }
 }
@@ -2271,7 +2271,7 @@ function damageProp(pr, v, nLocal) {
   else if (mass === 18 && m.isObject3D && !pr.bent) { pr.bent = true; m.children.forEach((ch, i) => { if (i > 0) { ch.rotation.z += rand(0.4, 0.9); ch.position.x += 0.2; } }); } // signs bend over
   if (pr.kind === 'wood' && v > 8 && MP.role !== 'guest') { // splinters into planks (on a guest, the host's word decides)
     const i = props.indexOf(pr); if (i < 0) return;
-    props.splice(i, 1); propGone(pr); world.removeBody(pr.body); scene.remove(m);
+    props.splice(i, 1); propGone(pr); world.removeBody(pr.body); scene.remove(m); propsGone.push(m);
     for (let k = 0; k < 4; k++) {
       const pm = new THREE.Mesh(plankGeo, m.material); pm.castShadow = true;
       pm.position.set(pr.body.position.x + rand(-0.4, 0.4), pr.body.position.y + rand(0, 0.5), pr.body.position.z + rand(-0.4, 0.4));
@@ -2349,7 +2349,8 @@ function buildProps() {
   // (each match rebuilds the props: free the old ones' GPU buffers, or every match leaked ~100 geometries; see Build 101)
   for (const p of props) { world.removeBody(p.body); scene.remove(p.mesh); freeObject(p.mesh, []); p.dormant = false; }
   for (const m of flats) { scene.remove(m); freeObject(m, []); } flats.length = 0;
-  props.length = 0;
+  for (const m of propsGone) { scene.remove(m); freeObject(m, []); } propsGone.length = 0;
+  props.length = 0; SIGN_PROPS.length = 0; // (the signs list only ever grew: it kept every match's old signs, freed and all, alive and watched)
   const crateShape = new CANNON.Box(new CANNON.Vec3(0.6, 0.6, 0.6));
   const wall = (ox, oz, alongX) => {
     for (let row = 0; row < 3; row++) for (let i = 0; i < 5 - row; i++) {
@@ -3117,7 +3118,7 @@ function igniteProp(pr, t = 8) {
 }
 function charProp(pr) { // burnt out: blackened (cardboard burns away to ash)
   const m = pr.mesh, p = pr.body.position;
-  if (pr.body.propKind === 'cardboard') { const i = props.indexOf(pr); if (i >= 0) { props.splice(i, 1); propGone(pr); world.removeBody(pr.body); scene.remove(m); bits(p, BIT.paper, 6, 2, 2); } return; }
+  if (pr.body.propKind === 'cardboard') { const i = props.indexOf(pr); if (i >= 0) { props.splice(i, 1); propGone(pr); world.removeBody(pr.body); scene.remove(m); propsGone.push(m); bits(p, BIT.paper, 6, 2, 2); } return; }
   if (MP.role === 'host') MP.event({ k: 'pc', id: pr.id });
   _charMat = _charMat || new THREE.MeshStandardMaterial({ color: 0x1a1512, roughness: 1 });
   pr.charred = true; m.userData.unbatched = true; m.traverse((o) => { if (o.isMesh) { o.material = _charMat; o.layers.mask = 1; } });
@@ -3546,7 +3547,7 @@ function smokeScreen(c) { const p = c.body.position; // the tank pops its smoke 
   sfx.at(p).noiseHit('lowpass', 500, 0.7, 0.4 * wv(c), 0.5); if (game.state === 'playing') { if (c.isPlayer) toast('💨 SMOKE SCREEN!', 'cool'); else if (Math.random() < 0.6) barks.say(c, 'flee', true); }
 }
 function harvestProp(car, pr) { // into the reel it goes; out the back comes a straw bale
-  const i = props.indexOf(pr); if (i < 0) return; props.splice(i, 1); propGone(pr); const p = pr.body.position.clone(); setTimeout(() => world.removeBody(pr.body), 0); if (pr.mesh) { pr.mesh.visible = false; scene.remove(pr.mesh); }
+  const i = props.indexOf(pr); if (i < 0) return; props.splice(i, 1); propGone(pr); const p = pr.body.position.clone(); setTimeout(() => world.removeBody(pr.body), 0); if (pr.mesh) { pr.mesh.visible = false; scene.remove(pr.mesh); propsGone.push(pr.mesh); }
   for (let k = 0; k < 10; k++) emit('dust', p.x, p.y + 0.5, p.z, rand(-2, 2), rand(1, 4), rand(-2, 2), rand(0.8, 1.4), rand(0.3, 0.6));
   if (player) sfx.at(p).propHit(pr.body.propKind, 0.7 * clamp(1 - player.body.position.distanceTo(p) / 70, 0, 1));
   setTimeout(() => { if (car.wrecked || !cars.includes(car)) return; const b = car.body, out = b.pointToWorldFrame(new CANNON.Vec3(-car.T.L / 2 - 0.8 - car.comShift, 0.8, 0));
@@ -9954,15 +9955,17 @@ function bullCollide(bull, e) {
 const DUCKS = [];
 const duckMat = new THREE.MeshStandardMaterial({ color: 0xffd83d, roughness: 0.55 });
 const duckBeakMat = new THREE.MeshStandardMaterial({ color: 0xf28c13, roughness: 0.6 });
+const DUCK_GEO = { body: new THREE.SphereGeometry(0.3, 12, 9), head: new THREE.SphereGeometry(0.17, 10, 8), beak: new THREE.ConeGeometry(0.07, 0.18, 8), tail: new THREE.ConeGeometry(0.09, 0.22, 8) }; // one set for every duck (each duck used to upload 4 new shapes, and the ones that floated away were never freed)
+for (const g of Object.values(DUCK_GEO)) g.userData.shared = true;
 function duckBull(bl, f, car) { // RUBBER DUCK: the first hosing of a bull ends the argument — it sits down in the puddle, defeated, and a rubber duck floats past
   bl.ducked = true; bl.satT = 5; bl.target = null; bl.angry = null;
   if (bl.state === 'charge' || bl.state === 'paw' || bl.state === 'proud') bl.state = 'graze';
   bl.t = Math.max(bl.t, 2);
   const g = new THREE.Group();
-  const body = new THREE.Mesh(new THREE.SphereGeometry(0.3, 12, 9), duckMat); body.scale.set(1.15, 0.78, 0.85); body.castShadow = true; g.add(body);
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.17, 10, 8), duckMat); head.position.set(0.26, 0.24, 0); head.castShadow = true; g.add(head);
-  const beak = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.18, 8), duckBeakMat); beak.rotation.z = -Math.PI / 2; beak.position.set(0.45, 0.21, 0); g.add(beak);
-  const tail = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.22, 8), duckMat); tail.rotation.z = 2.2; tail.position.set(-0.32, 0.14, 0); g.add(tail);
+  const body = new THREE.Mesh(DUCK_GEO.body, duckMat); body.scale.set(1.15, 0.78, 0.85); body.castShadow = true; g.add(body);
+  const head = new THREE.Mesh(DUCK_GEO.head, duckMat); head.position.set(0.26, 0.24, 0); head.castShadow = true; g.add(head);
+  const beak = new THREE.Mesh(DUCK_GEO.beak, duckBeakMat); beak.rotation.z = -Math.PI / 2; beak.position.set(0.45, 0.21, 0); g.add(beak);
+  const tail = new THREE.Mesh(DUCK_GEO.tail, duckMat); tail.rotation.z = 2.2; tail.position.set(-0.32, 0.14, 0); g.add(tail);
   g.position.set(bl.body.position.x + f.x * 1.4, 0.3, bl.body.position.z + f.z * 1.4);
   scene.add(g);
   DUCKS.push({ g, vx: f.x * 2.5, vz: f.z * 2.5, t: 6, ph: rand(0, 6) });
@@ -9991,19 +9994,22 @@ function hoseBull(car, bl, p, f, dt) { // what the fire truck's jet does to one 
 }
 
 // ---------- Flame-grilled: enough flamethrower on a bull and it becomes a giant cheeseburger (it comes back as a bull later) ----------
-let _burgerMats = null;
+let _burgerMats = null, _burgerGeos = null;
 function burgerLook(bl, on) {
   if (on && !bl.burger) {
     const M2 = _burgerMats || (_burgerMats = { bun: new THREE.MeshStandardMaterial({ color: 0xd99a4e, roughness: 0.6 }), patty: new THREE.MeshStandardMaterial({ color: 0x5a3018, roughness: 0.9 }), cheese: new THREE.MeshStandardMaterial({ color: 0xf2c230, roughness: 0.5 }),
       lettuce: new THREE.MeshStandardMaterial({ color: 0x5fae3a, roughness: 0.8 }), tomato: new THREE.MeshStandardMaterial({ color: 0xd8301f, roughness: 0.5 }), seed: new THREE.MeshStandardMaterial({ color: 0xf6ead0, roughness: 0.6 }) });
+    const G2 = _burgerGeos || (_burgerGeos = { bun: new THREE.CylinderGeometry(0.95, 0.9, 0.32, 20), lettuce: new THREE.CylinderGeometry(1.02, 1.02, 0.08, 20), patty: new THREE.CylinderGeometry(1.0, 1.0, 0.3, 20), // (one set for every burger: Build 118 and before
+      cheese: new THREE.BoxGeometry(1.55, 0.05, 1.55), tomato: new THREE.CylinderGeometry(0.85, 0.85, 0.1, 18), top: new THREE.SphereGeometry(0.97, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2), seed: new THREE.SphereGeometry(0.05, 6, 4) }); // built 16 new shapes per burger and never freed them)
+    for (const x of Object.values(G2)) x.userData.shared = true;
     const g = new THREE.Group(), add = (geo, m, y, ry = 0) => { const o = new THREE.Mesh(geo, m); o.position.y = y; o.rotation.y = ry; o.castShadow = true; g.add(o); return o; };
-    add(new THREE.CylinderGeometry(0.95, 0.9, 0.32, 20), M2.bun, 0.16);
-    add(new THREE.CylinderGeometry(1.02, 1.02, 0.08, 20), M2.lettuce, 0.36);
-    add(new THREE.CylinderGeometry(1.0, 1.0, 0.3, 20), M2.patty, 0.55);
-    add(new THREE.BoxGeometry(1.55, 0.05, 1.55), M2.cheese, 0.72, 0.4);
-    add(new THREE.CylinderGeometry(0.85, 0.85, 0.1, 18), M2.tomato, 0.8);
-    const top = add(new THREE.SphereGeometry(0.97, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2), M2.bun, 0.84); top.scale.y = 0.62;
-    for (let k = 0; k < 10; k++) { const a = k * 2.4, r = 0.25 + (k % 3) * 0.2; const sd = add(new THREE.SphereGeometry(0.05, 6, 4), M2.seed, 0.84 + 0.6 * Math.sqrt(Math.max(0, 1 - (r / 0.97) ** 2)) * 0.97); sd.position.x = Math.cos(a) * r; sd.position.z = Math.sin(a) * r; sd.scale.set(1.4, 0.6, 0.9); }
+    add(G2.bun, M2.bun, 0.16);
+    add(G2.lettuce, M2.lettuce, 0.36);
+    add(G2.patty, M2.patty, 0.55);
+    add(G2.cheese, M2.cheese, 0.72, 0.4);
+    add(G2.tomato, M2.tomato, 0.8);
+    const top = add(G2.top, M2.bun, 0.84); top.scale.y = 0.62;
+    for (let k = 0; k < 10; k++) { const a = k * 2.4, r = 0.25 + (k % 3) * 0.2; const sd = add(G2.seed, M2.seed, 0.84 + 0.6 * Math.sqrt(Math.max(0, 1 - (r / 0.97) ** 2)) * 0.97); sd.position.x = Math.cos(a) * r; sd.position.z = Math.sin(a) * r; sd.scale.set(1.4, 0.6, 0.9); }
     g.scale.setScalar(1.25); scene.add(g); bl.burger = g;
   }
   if (bl.burger) bl.burger.visible = on;
@@ -10022,7 +10028,7 @@ function cookBull(bl, by, dt) { // called while a flame hits the bull
   }
 }
 const trayMat = new THREE.MeshStandardMaterial({ color: 0xf0e9da, roughness: 0.9 });
-const trayGeo = new THREE.CylinderGeometry(1.15, 1.05, 0.07, 20);
+const trayGeo = new THREE.CylinderGeometry(1.15, 1.05, 0.07, 20); trayGeo.userData.shared = true;
 function smashBurger(bl, how) { // SMASH BURGER: a burger under something very heavy comes out wide, flat and proud on a little paper tray — and it still counts as a burger everywhere burgers count
   if (!bl || bl.state !== 'burger' || bl.smashed) return false;
   bl.smashed = true; bl.smashHow = how;
@@ -10035,7 +10041,7 @@ function smashBurger(bl, how) { // SMASH BURGER: a burger under something very h
 }
 const bunHatMat = new THREE.MeshStandardMaterial({ color: 0xd99a4e, roughness: 0.6 });
 const bunHatGeo = new THREE.SphereGeometry(0.34, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2);
-const seedGeo = new THREE.SphereGeometry(0.045, 6, 4);
+const seedGeo = new THREE.SphereGeometry(0.045, 6, 4); bunHatGeo.userData.shared = seedGeo.userData.shared = true;
 const seedMat = new THREE.MeshStandardMaterial({ color: 0xf6ead0, roughness: 0.6 });
 function wearBunHat(bl) { // IT REMEMBERS: the fresh bull wanders back in wearing a sesame-seed bun as a hat. It says nothing. It doesn't have to.
   if (!bl || bl.hat) return false;
@@ -10069,7 +10075,7 @@ function honkBack(car) { // HONK BACK: honk at a bull and it answers with a moo 
   return { bull: best, f, n: best.honkN };
 }
 function resetBulls() {
-  for (const bl of BULLS) { scene.remove(bl.g); freeObject(bl.g, []); world.removeBody(bl.body); } BULLS.length = 0; // (freed: new bulls every match)
+  for (const bl of BULLS) { scene.remove(bl.g); freeObject(bl.g, []); if (bl.burger) scene.remove(bl.burger); world.removeBody(bl.body); } BULLS.length = 0; // (freed: new bulls every match; a bull's burger lives in the scene, not in its group, and stayed behind)
   for (const d of DUCKS) { scene.remove(d.g); freeObject(d.g, []); } DUCKS.length = 0;
   lodGroups = null; // (a new yard: rebuild the far-away list, or it kept last match's bulls (and never thinned the new ones) whenever the scene had as many children as before)
   const spots = [[-60, -80], [60, -40], [-100, 20], [100, 80], [-40, 80]];
@@ -10620,7 +10626,7 @@ const MP = {
     for (const e of latest.e || []) {
       if (e.n <= this.seen) continue; this.seen = e.n;
       if (e.k === 'pc') { const pr = PROPID.map.get(e.id); if (pr && !pr.charred) { pr.fireT = 0; charProp(pr); } }
-      if (e.k === 'pr') { const pr = PROPID.map.get(e.id); const i = pr ? props.indexOf(pr) : -1; if (i >= 0) { props.splice(i, 1); world.removeBody(pr.body); scene.remove(pr.mesh); bits(pr.body.position, BIT.splinter, 8, 4, 4); } }
+      if (e.k === 'pr') { const pr = PROPID.map.get(e.id); const i = pr ? props.indexOf(pr) : -1; if (i >= 0) { props.splice(i, 1); world.removeBody(pr.body); scene.remove(pr.mesh); propsGone.push(pr.mesh); bits(pr.body.position, BIT.splinter, 8, 4, 4); } }
       if (e.k === 'b') { const c = cars[e.i], P = e.i === -1 ? ANNOUNCER : e.i === -3 ? SHAZZA : c && c.persona; if (P) { barks.show(P, e.i === -1 ? new THREE.Color(0xf2a20c) : e.i === -3 ? new THREE.Color(0xff6fa8) : c.baseColor, e.x); barks.speak(P, e.x, c ? c.body.position : null); } }
       else if (e.k === 'h') { const p = new CANNON.Vec3(e.p[0], e.p[1], e.p[2]); sparks(p, Math.min(50, e.v * 2.5 | 0)); if (player) sfx.at(p).crash(Math.min(1, e.v / 18) * clamp(1 - player.body.position.distanceTo(p) / 110, 0, 1), e.v); }
       else if (e.k === 'bd') { const host = cars.find((c) => c.T.special === 'dump') || { body: { velocity: new CANNON.Vec3(), pointToWorldFrame: () => new CANNON.Vec3() }, T: { L: 0, H: 0 }, fwd: new CANNON.Vec3(1, 0, 0), comShift: 0 }; dropBoulder(host, e.p); }
