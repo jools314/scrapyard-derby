@@ -4,6 +4,38 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'"><!-- (not render-blocking: the page paints with system fonts and swaps when these arrive) -->
+<script>
+// Self-heal launcher bridge (see autoplay.html). The launcher runs the game in a sandboxed iframe (no allow-same-origin), which
+// Chrome puts in a process of its own: when the game's process crashes or runs out of memory, the launcher lives on and starts a
+// new game. Such a frame has no storage of its own, so the launcher hands its localStorage/sessionStorage in through the frame's
+// name, and every write here is posted back to the launcher, which keeps it. Does nothing outside the launcher.
+(function () {
+  var N = 'derby-frame:'; if (window.parent === window || String(window.name).slice(0, N.length) !== N) return;
+  try { window.localStorage.length; return; } catch (e) {} // (storage works: not the sandboxed launcher frame)
+  var snap = {}; try { snap = JSON.parse(window.name.slice(N.length)) || {}; } catch (e) {}
+  var post = function (m) { try { window.parent.postMessage(m, '*'); } catch (e) {} }, own = function (d, k) { return Object.prototype.hasOwnProperty.call(d, k); };
+  var mk = function (area, d) { var size = 0; for (var k in d) size += k.length + String(d[k]).length;
+    var api = { getItem: function (k) { k = String(k); return own(d, k) ? d[k] : null; },
+      setItem: function (k, v) { k = String(k); v = String(v); var was = own(d, k) ? k.length + d[k].length : 0;
+        if (size - was + k.length + v.length > 5e6) throw new DOMException('the launcher storage is full', 'QuotaExceededError'); // (Chrome's own limit is ~5.2 M characters)
+        size += k.length + v.length - was; d[k] = v; post({ derby: 'ls', a: area, k: k, v: v }); },
+      removeItem: function (k) { k = String(k); if (own(d, k)) { size -= k.length + d[k].length; delete d[k]; post({ derby: 'ls', a: area, k: k, v: null }); } },
+      clear: function () { for (var k in d) delete d[k]; size = 0; post({ derby: 'ls', a: area, clear: 1 }); },
+      key: function (i) { var ks = Object.keys(d); return i < ks.length ? ks[i] : null; }, get length() { return Object.keys(d).length; } };
+    return new Proxy(api, { get: function (t, p) { return p in t ? t[p] : typeof p === 'string' && own(d, p) ? d[p] : undefined; }, set: function (t, p, v) { api.setItem(p, v); return true; },
+      deleteProperty: function (t, p) { api.removeItem(p); return true; }, has: function (t, p) { return p in t || own(d, p); }, ownKeys: function () { return Object.keys(d); },
+      getOwnPropertyDescriptor: function (t, p) { return own(d, p) ? { value: d[p], enumerable: true, configurable: true, writable: true } : undefined; } }); };
+  var L = snap.l || {}, S = snap.s || {};
+  Object.defineProperty(window, 'localStorage', { configurable: true, value: mk('l', L) }); Object.defineProperty(window, 'sessionStorage', { configurable: true, value: mk('s', S) });
+  // a navigation of this frame (an update, a self-heal reload) goes through the launcher, which starts a new frame (a new process);
+  // if no launcher answers in 10 s, the frame goes there itself, carrying the storage in its name
+  var nav = function (u) { post({ derby: 'nav', url: String(u) }); setTimeout(function () { location.replace(u); }, 10000); };
+  addEventListener('pagehide', function () { try { window.name = N + JSON.stringify({ l: L, s: S }); } catch (e) {} });
+  window.__framed = { post: post, nav: nav, at: Date.now() }; if (!window.__wdReload) window.__wdReload = nav;
+  // the launcher's one check that this frame really has a process of its own: it counts its own timer ticks while this busy-waits 300 ms
+  addEventListener('message', function (e) { if (e.source !== window.parent || !e.data) return; if (e.data.derby === 'iso') window.__framed.iso = e.data.iso; if (e.data.derby !== 'probe') return; var t = Date.now(), t1 = t; while (t1 - t < 300) t1 = Date.now(); post({ derby: 'probe', t0: t, t1: t1 }); });
+})();
+</script>
 <meta name="derby-build" content="119"><!-- must equal BUILD in the script and version.txt (tests/syntax.js checks) -->
 <script>
 // Updater of last resort (Build 100). Runs on its own, outside the game script, so a build whose game code breaks, a CDN
@@ -9215,17 +9247,30 @@ const MEMGUARD = { owner: new WeakMap(), base: null, n: 0, tripped: false, log: 
   census() { const inScene = this.walk(), groups = new Map(); let n = 0;
     for (const x of GPULIVE) { if (inScene.has(x)) continue; n++; const k = (this.owner.get(x) || 'never in the scene') + ' · ' + this.desc(x); groups.set(k, (groups.get(k) || 0) + 1); }
     return { orphans: n, top: [...groups].sort((a, b) => b[1] - a[1]).slice(0, 15) }; },
+  // Build 119 (self-heal): the sizes scale down on a small-memory device (navigator.deviceMemory), steady growth trips it too, not
+  // only a huge jump (Build 114's Chromebook went silent after 1 h 50 min with geometries +180/h: far below +1500), and the reload
+  // is rate-limited (HEAL.reload) instead of 3 per tab session, so an all-night run keeps its guard and still can't loop.
+  hist: [],
+  trend() { // steady growth: the median of the last 4 match ends against the first 4 of the last 16 (48 min at 3-min matches), at least 24 min apart; {k, perH, from, to, mins} or null
+    const H = this.hist; if (H.length < 8) return null; const med = (xs) => { const v = xs.slice().sort((a, b) => a - b); return (v[1] + v[2]) / 2; }, A = H.slice(0, 4), Z = H.slice(-4);
+    const hrs = (med(Z.map((x) => x.t)) - med(A.map((x) => x.t))) / 3.6e6, f = HEAL.devF(); if (hrs < 0.4) return null;
+    for (const [k, perH] of [['g', 150], ['live', 200], ['heapMB', 150], ['uaMB', 200]]) {
+      if (H.some((x) => x[k] == null)) continue; const from = med(A.map((x) => x[k])), to = med(Z.map((x) => x[k])), rate = (to - from) / hrs;
+      if (rate > perH * f && to - from > perH * f * 0.5) return { k, perH: Math.round(rate), from: Math.round(from), to: Math.round(to), mins: Math.round(hrs * 60) }; } // (medians: one first-time load or one busy match is not a trend)
+    return null; },
   check(where) { // returns true when it has started a reload
-    try { this.n++; this.walk(); const s = this.stats(); if (!this.base) { if (this.n >= 1) this.base = s; return false; }
-      const b = this.base, run = s.g > b.g + 1500 || s.t > b.t + 400 || s.live > b.live + 2000 || (s.heapMB && b.heapMB && s.heapMB > Math.max(700, b.heapMB * 3)) /* (Build 110) was 1500 MB: the owner's Chromebook tab crashes at ~1.2-1.3 GB (heap +~150 MB a match), so the guard never got to reload it and autoplay sat dead for hours */;
-      if (!run || this.tripped) return false; this.tripped = true;
-      const c = this.census(), rec = { v: 2, kind: 'leak', test: navigator.webdriver ? true : undefined, sid: PLAYLOG.sid, dev: PLAYLOG.devId, build: BUILD, at: new Date().toISOString(), device: PERFREP.device(), where, matches: this.n, base: b, now: s, orphans: c.orphans, top: c.top, auto: AUTO.on || undefined };
-      this.last = rec; PLAYLOG.add(rec); NETLOG.incident('me', `memory running away after ${this.n} matches: ${b.g} -> ${s.g} geometries, ${b.t} -> ${s.t} textures; top leak: ${c.top[0] ? c.top[0][0] + ' ×' + c.top[0][1] : '?'}`);
-      if (!AUTO.on) { PLAYLOG.upload('memory running away'); return false; } // a person is playing: log it, never interrupt
-      let k = 0; try { k = +sessionStorage.getItem('derby-mem-reloads') || 0; sessionStorage.setItem('derby-mem-reloads', String(k + 1)); } catch (e) {}
-      if (k >= 3) { PLAYLOG.upload('memory running away (reload limit reached)'); return false; } // (3 per tab session: never a reload loop)
-      const go = () => UPDATE.reload(location.pathname + '?autoplay=1' + (AUTO.idle ? '&idle=1' : '') + '&mem=' + (k + 1));
-      Promise.race([PLAYLOG.upload('memory running away: reloading'), new Promise((r) => setTimeout(r, 15000))]).then(go, go); return true;
+    try { this.n++; this.walk(); const s = this.stats(); s.uaMB = HEAL.uaMB; HEAL.measure(); if (!this.base) { if (this.n >= 1) this.base = s; return false; }
+      const b = this.base, f = HEAL.devF(); if (this.n > 3) { this.hist.push({ t: HEAL.now(), g: s.g, live: s.live, heapMB: s.heapMB, uaMB: s.uaMB }); if (this.hist.length > 16) this.hist.shift(); } // (the first matches load what each car needs for the first time: not counted)
+      const jump = s.g > b.g + 1500 * f || s.t > b.t + 400 * f || s.live > b.live + 2000 * f || (s.heapMB && b.heapMB && s.heapMB > Math.max(700 * f, b.heapMB * 3)) /* (Build 110) was 1500 MB: the owner's Chromebook tab crashes at ~1.2-1.3 GB (heap +~150 MB a match), so the guard never got to reload it and autoplay sat dead for hours */
+        || (s.uaMB && b.uaMB && s.uaMB > Math.max(1000 * f, b.uaMB * 3));
+      const tr = jump ? null : this.trend(); if (!jump && !tr) return false;
+      const why = jump ? 'memory running away' : `memory growing steadily: ${tr.k} ${tr.from} -> ${tr.to} in ${tr.mins} min (${tr.perH}/h)`;
+      if (!this.tripped) { this.tripped = true; // the leak record: once per page (what is leaking, for the report)
+        const c = this.census(), rec = { v: 2, kind: 'leak', test: navigator.webdriver ? true : undefined, sid: PLAYLOG.sid, dev: PLAYLOG.devId, build: BUILD, at: new Date().toISOString(), device: PERFREP.device(), where, matches: this.n, base: b, now: s, trend: tr || undefined, orphans: c.orphans, top: c.top, auto: AUTO.on || undefined };
+        this.last = rec; PLAYLOG.add(rec); NETLOG.incident('me', `${why} after ${this.n} matches: ${b.g} -> ${s.g} geometries, ${b.t} -> ${s.t} textures; top leak: ${c.top[0] ? c.top[0][0] + ' ×' + c.top[0][1] : '?'}`);
+        if (!AUTO.on) PLAYLOG.upload('memory running away'); }
+      if (!AUTO.on) return false; // a person is playing: log it, never interrupt
+      return HEAL.reload('memory', why + ` after ${this.n} matches`, { base: b, now: s }); // (rate-limited: if it says not yet, the next match end asks again)
     } catch (e) { return false; } },
 };
 const UPDATE = { checked: 0, newer: null,
@@ -9246,7 +9291,7 @@ const UPDATE = { checked: 0, newer: null,
     } catch (e) { this.note('check failed: ' + (e && e.message || e)); }
   },
   note(msg) { this.log = this.log || []; this.log.push(new Date().toISOString().slice(11, 19) + ' ' + msg); if (this.log.length > 8) this.log.shift(); try { PLAYLOG.ev?.('update', msg); } catch (e) {} },
-  reload(url) { location.replace(url); }, // (one place, so a test can watch it)
+  reload(url) { if (window.__framed) window.__framed.nav(url); else location.replace(url); }, // (one place, so a test can watch it; in the autoplay launcher, the launcher starts a new frame)
   // Autoplay: nobody is playing, so take the new build straight away: finish this match (or give it 3 minutes at most),
   // send the play log, then reload into autoplay on the new version.
   autoUpdate() {
@@ -9256,12 +9301,12 @@ const UPDATE = { checked: 0, newer: null,
       this.reload(location.pathname + '?autoplay=1' + (AUTO.idle ? '&idle=1' : '') + '&v=' + this.newer); }; // (idle autoplay stays idle autoplay: no wake lock)
     this.goNow = go; setTimeout(go, 180000); // (a long match doesn't hold the update back for more than 3 minutes)
   },
-  show() {
-    const b = document.createElement('button'); b.id = 'updBanner'; b.type = 'button';
-    b.textContent = `🆕 Build ${this.newer} is out (you have ${BUILD}) · tap to update`;
-    b.style.cssText = 'position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 8px);transform:translateX(-50%);z-index:60;padding:10px 16px;border-radius:12px;border:1px solid #f2a20c;background:rgba(20,17,14,.92);color:#ffd9a0;font:600 14px/1.2 system-ui,sans-serif;cursor:pointer;max-width:calc(100vw - 32px)';
-    b.addEventListener('click', () => { location.replace(location.pathname + '?v=' + this.newer); });
-    document.body.appendChild(b); NETLOG.incident('me', `newer build ${this.newer} available (running ${BUILD})`);
+  show() { this.banner(`🆕 Build ${this.newer} is out (you have ${BUILD}) · tap to update`, location.pathname + '?v=' + this.newer); NETLOG.incident('me', `newer build ${this.newer} available (running ${BUILD})`); },
+  banner(text, url) { // the one-tap reload button at the top (a newer build; the graphics stopped: HEAL)
+    let b = $('updBanner'); if (!b) { b = document.createElement('button'); b.id = 'updBanner'; b.type = 'button';
+      b.style.cssText = 'position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 8px);transform:translateX(-50%);z-index:60;padding:10px 16px;border-radius:12px;border:1px solid #f2a20c;background:rgba(20,17,14,.92);color:#ffd9a0;font:600 14px/1.2 system-ui,sans-serif;cursor:pointer;max-width:calc(100vw - 32px)';
+      document.body.appendChild(b); }
+    b.textContent = text; if (/graphics/.test(text)) b.dataset.heal = '1'; else delete b.dataset.heal; b.onclick = () => this.reload(url);
   },
 };
 setTimeout(() => UPDATE.check(), 4000); setInterval(() => UPDATE.check(), 5 * 60000); document.addEventListener('visibilitychange', () => { if (!document.hidden) setTimeout(() => UPDATE.check(), 1500); }); // (back from sleep or the background: look straight away) setInterval(() => { if (AUTO.on) UPDATE.check(); }, 2 * 60000); // (autoplay checks more often: it updates itself)
@@ -10844,6 +10889,7 @@ function paceInterval() {
 function frame(now) {
   if (XRS.on) { VR.rafIdle = true; return; } // in VR the headset's own frame loop calls frameBody (VR.loop); this one restarts when VR ends. Pacing never applies there.
   requestAnimationFrame(frame); // schedule first: an error below must never freeze the game
+  BOOT.lastRaf = performance.now(); BOOT.rafN = (BOOT.rafN || 0) + 1; // (the self-heal stall watchdog and the launcher's heartbeat watch these)
   const iv = paceInterval(); PACE.iv = iv;
   if (iv) { // keep the phase: on 120 Hz every other callback is drawn, exactly 16.7 ms apart; on 60 Hz (cap 60) none is skipped
     if (now < PACE.next - Math.min(4, iv * 0.2)) { PACE.skipped++; return; } // (the slack is half a 120 Hz vsync: rAF timestamps jitter)
@@ -12176,7 +12222,7 @@ Object.assign(AUTO, {
     try { const wl = await navigator.wakeLock.request('screen'); wl.addEventListener('release', () => LIFE.wlGone(wl)); this.wl = wl; LIFE.wake('acquired', 'screen wake lock acquired');
       if (!this.on) { wl.__mine = true; wl.release().catch(() => {}); } } // (autoplay stopped while we waited)
     catch (e) { LIFE.wake('denied', 'screen wake lock denied: ' + ((e && e.name) || 'error') + (e && e.message ? ' (' + String(e.message).slice(0, 80) + ')' : '')); } finally { this.wlAsk = false; } },
-  nextMatch() { if (UPDATE.updating && UPDATE.goNow) { UPDATE.goNow(); return; } if (MEMGUARD.check('autoplay match end')) return; this.pending = false; // (a new build is waiting: switch at the match boundary)
+  nextMatch() { if (UPDATE.updating && UPDATE.goNow) { UPDATE.goNow(); return; } if (HEAL.refresh() || MEMGUARD.check('autoplay match end')) return; this.pending = false; // (a new build is waiting: switch at the match boundary)
  playerType = this.nextType(); startMatch(); this.seq++; this.camCar = null; this.camHold = 0; },
   logged(r) { this.last = r; if (this.on) toast(`MATCH ${this.seq} LOGGED`, 'cool'); },
   tick(dt) { // (from the play log's sim step, while autoplay is on)
@@ -12285,7 +12331,7 @@ const LIFE = { K: 'derby-pl-life-', t0: Date.now(), evs: [], last: '', ended: nu
     for (const k of keys) {
       let s = null; try { s = JSON.parse(this.ls(k) || 'null'); } catch (e) {}
       if (!s || !s.sid) { this.ls(k, null); continue; }
-      const age = Date.now() - (s.seen || 0); if (!s.ended && age < (s.hidden ? 300000 : 60000)) continue; // (another open tab, still alive)
+      const age = Date.now() - (s.seen || 0); if (!s.ended && age < (s.hidden ? 300000 : 60000) && !HEAL.deadSids().has(s.sid)) continue; // (another open tab, still alive; unless the launcher has just replaced that page: autoplay.html)
       const [how, reason] = this.verdict(s), seen = new Date(s.seen || 0).toISOString();
       const rec = { v: 2, kind: 'lifeEnd', test: navigator.webdriver ? true : undefined, sid: s.sid, dev: s.dev || PLAYLOG.devId, build: s.build, nowBuild: BUILD, at: new Date().toISOString(), device: PERFREP.device(), how, reason, lastSeen: seen, agoS: Math.round(age / 1000), upS: Math.round(((s.seen || 0) - (s.t0 || s.seen || 0)) / 1000),
         auto: s.auto, match: s.match, game: s.game, wl: s.wl, bat: s.bat, n: s.n, ev: s.ev, line: `previous session ended: ${how} (${reason}), last seen ${seen} (${ago(age)} ago)` };
@@ -12296,14 +12342,78 @@ window.dropBeacon = window.dropBeacon || function (text) { // the drop takes a p
   if (window.__noDrop || !navigator.sendBeacon) return false; const dev = (/iPhone|iPad|Mac|Android|Windows|CrOS/.exec(navigator.userAgent) || ['web'])[0];
   return navigator.sendBeacon('https://ntfy.sh/' + DROP.topic + '?' + new URLSearchParams({ title: `gasp · build ${BUILD} · ${dev}`, tags: 'playlog' }), new Blob([text.slice(0, 3900)], { type: 'text/plain' })); }; // (under 4 KB: kept as a message, 12 h)
 setInterval(() => LIFE.beat(), 1000);
-addEventListener('pagehide', (e) => { LIFE.ended = 'page closed (pagehide' + (e.persisted ? ', kept in the back/forward cache' : '') + ')'; LIFE.note('pagehide', LIFE.ended); LIFE.gasp('pagehide'); });
+addEventListener('pagehide', (e) => { LIFE.ended = (LIFE.healWhy ? 'self-heal reload (' + LIFE.healWhy + '), ' : '') + 'page closed (pagehide' + (e.persisted ? ', kept in the back/forward cache' : '') + ')'; LIFE.note('pagehide', LIFE.ended); LIFE.gasp('pagehide'); });
 addEventListener('pageshow', (e) => { if (e.persisted) { LIFE.ended = null; LIFE.note('pageshow', 'back from the back/forward cache'); } });
 document.addEventListener('freeze', () => { LIFE.n.frz++; LIFE.note('freeze', 'page frozen by the browser', true); LIFE.gasp('freeze'); });
 document.addEventListener('resume', () => { LIFE.note('resume', 'page resumed', true); LIFE.beat(); });
 document.addEventListener('visibilitychange', () => { if (document.hidden) { LIFE.n.hid++; LIFE.note('hidden', 'tab hidden', true); LIFE.gasp('hidden'); } else { LIFE.note('visible', 'tab visible again', true); LIFE.beat(); } });
 addEventListener('offline', () => { LIFE.n.off++; LIFE.note('offline', 'network offline'); });
 addEventListener('online', () => LIFE.note('online', 'network back online'));
-try { PLAYLOG.meta(); PLAYLOG.recover(); LIFE.recover(); PLAYLOG.session(); LIFE.save(); } catch (e) {}
+// Self-heal (Build 119). The autoplay machines run unattended all night, and nobody should ever have to walk over and reload one.
+// Everything here acts only while autoplay runs (a person playing is never reloaded), logs a 'heal' record (why, after how long,
+// memory at the time) and reloads into autoplay through UPDATE.reload. Reloads are rate-limited, never capped: at most one per
+// GAP minutes per cause, 30 min apart after 6 in a row, and the count starts again after a healthy hour, so the guard works all
+// night but can't loop.
+//  - memory: MEMGUARD (a jump, or steady growth) at a match end;
+//  - refresh: a planned fresh start at a match boundary after 90 min or 30 matches (60 min / 20 on a small-memory device), leak or
+//    not: it clears what the page can't see (GPU driver memory, canvas backing stores, fragmentation). Build 114's Chromebook went
+//    silent after 1 h 50 min with its JS heap flat;
+//  - gpu: the WebGL context was lost (GPU process crash or reset): a lost context never draws again, so autoplay reloads at once;
+//    a person gets a toast, and if it isn't back within 5 s the reload banner (the update banner's one button);
+//  - stall: the frame loop stopped while the tab is visible, the screen wake lock is held and timers still run.
+// A crash of the whole page (out of memory, 'Aw, Snap') runs none of this: autoplay.html, the launcher, covers that.
+const HEAL = { K: 'derby-heal', t0: Date.now(), now: () => Date.now(), uaMB: null, uaT: -1e9, said: {}, going: false, stallMs: 20000, tickT: 0, stallBase: 0, lostAt: 0, last: null,
+  GAP: { memory: 20, refresh: 0, gpu: 1, stall: 2 }, // minutes since the last self-heal reload (any cause)
+  devF() { const m = navigator.deviceMemory; return !m ? 1 : m <= 2 ? 0.5 : m <= 4 ? 0.75 : 1; }, // (memory sizes are scaled down on a small-memory device)
+  refreshMins() { return this.devF() < 1 ? 60 : 90; }, refreshMatches() { return this.devF() < 1 ? 20 : 30; },
+  measure() { // the browser's own measure of this page's memory (JS, DOM, canvases): only on a cross-origin isolated page, which GitHub Pages can't be (it sends no COOP/COEP headers)
+    if (!self.crossOriginIsolated || !performance.measureUserAgentSpecificMemory || performance.now() - this.uaT < 120000) return; this.uaT = performance.now();
+    performance.measureUserAgentSpecificMemory().then((r) => { this.uaMB = Math.round(r.bytes / 1e6); }, () => {}); },
+  st() { let o = null; try { o = JSON.parse(localStorage.getItem(this.K) || 'null'); } catch (e) {} o = o && typeof o === 'object' ? o : { n: 0, last: 0 };
+    if (this.now() - (o.last || 0) > 3600000) o.n = 0; return o; }, // (a healthy hour since the last self-heal reload: the count starts again)
+  allow(why) { const o = this.st(), gap = Math.max(this.GAP[why] || 0, o.n >= 6 ? 30 : 0) * 60000, wait = (o.last || 0) + gap - this.now(); return { ok: wait <= 0, waitS: Math.max(0, Math.round(wait / 1000)), n: o.n }; },
+  mem() { try { const m = renderer.info.memory, pm = performance.memory; return { g: m.geometries, t: m.textures, live: GPULIVE.size, heapMB: pm ? Math.round(pm.usedJSHeapSize / 1e6) : null, uaMB: this.uaMB ?? undefined }; } catch (e) { return null; } },
+  rec(why, detail, action, extra) {
+    const rec = { v: 2, kind: 'heal', test: navigator.webdriver ? true : undefined, sid: PLAYLOG.sid, dev: PLAYLOG.devId, build: BUILD, at: new Date().toISOString(), device: PERFREP.device(), why, action, detail: String(detail || '').slice(0, 200),
+      upS: Math.round((this.now() - this.t0) / 1000), matches: AUTO.seq || 0, auto: AUTO.on || undefined, idle: AUTO.idle || undefined, framed: window.__framed ? true : undefined, mem: this.mem(), ...(extra || {}) };
+    try { PLAYLOG.add(rec); } catch (e) {} try { LIFE.note('heal', `self-heal ${action}: ${why} · ${rec.detail}`); } catch (e) {} this.last = rec; return rec; },
+  reload(why, detail, extra) { // autoplay only: returns true when a reload has started
+    if (!AUTO.on || this.going) return this.going;
+    const a = this.allow(why); if (!a.ok) { if (!this.said[why]) { this.said[why] = 1; this.rec(why, detail, 'rate-limited', { waitS: a.waitS, n: a.n }); } return false; } // (it is asked again: next match end, next check)
+    const n = a.n + 1; try { localStorage.setItem(this.K, JSON.stringify({ n, last: this.now(), why })); } catch (e) {}
+    this.going = true; this.rec(why, detail, 'reload', { n, ...(extra || {}) }); LIFE.healWhy = why; try { NETLOG.incident('me', `self-heal: ${why} (${detail}): reloading autoplay`); } catch (e) {}
+    const url = location.pathname + '?autoplay=1' + (AUTO.idle ? '&idle=1' : '') + (why === 'memory' ? '&mem=' + n : '&heal=' + why), go = () => { if (!AUTO.on) { this.going = false; LIFE.healWhy = null; this.rec(why, 'a person took over while it uploaded', 'cancelled'); return; } // (never reload under a person)
+      try { LIFE.ended = 'self-heal reload (' + why + ')'; LIFE.save(); } catch (e) {} UPDATE.reload(url); };
+    Promise.race([PLAYLOG.upload('self-heal: ' + why), new Promise((r) => setTimeout(r, why === 'gpu' || why === 'stall' ? 5000 : 15000))]).then(go, go); return true; },
+  refreshDue() { return AUTO.on && ((AUTO.seq || 0) >= this.refreshMatches() || this.now() - this.t0 >= this.refreshMins() * 60000); },
+  refresh() { return this.refreshDue() && this.reload('refresh', `planned fresh start after ${Math.round((this.now() - this.t0) / 60000)} min, ${AUTO.seq || 0} matches (clears memory the browser doesn't report)`); },
+  ctxLost(e) { if (e) e.preventDefault(); if (this.lostAt) return; this.lostAt = performance.now(); // (preventDefault: the browser may give the context back)
+    if (AUTO.on) { if (!this.reload('gpu', 'gpu context lost')) this.gpuRetry(); return; }
+    this.rec('gpu', 'gpu context lost while a person plays', 'toast'); toast('GRAPHICS HICCUP · RECOVERING…', 'bad');
+    clearTimeout(this.lostTo); this.lostTo = setTimeout(() => { if (!this.lostAt) return; if (AUTO.on) { this.reload('gpu', 'gpu context still lost'); return; }
+      this.rec('gpu', 'gpu context not back after 5 s', 'offer reload'); UPDATE.banner('⚠️ The graphics stopped · tap to reload', location.pathname); }, 5000); },
+  gpuRetry() { clearTimeout(this.gpuTo); this.gpuTo = setTimeout(() => { if (this.lostAt && AUTO.on && !this.reload('gpu', 'gpu context still lost')) this.gpuRetry(); }, Math.max(5000, this.allow('gpu').waitS * 1000)); },
+  ctxRestored() { if (!this.lostAt) return; const ms = Math.round(performance.now() - this.lostAt); this.lostAt = 0; clearTimeout(this.lostTo); clearTimeout(this.gpuTo);
+    this.rec('gpu', `gpu context back after ${ms} ms`, 'restored'); if (!AUTO.on && !this.going) { toast('GRAPHICS BACK', 'cool'); const b = $('updBanner'); if (b && b.dataset.heal) b.remove(); } },
+  stall() { // every 2 s: has the frame loop stopped while the page is visible and its timers still run?
+    const now = performance.now(), tick = now - (this.tickT || now); this.tickT = now;
+    if (tick > 10000 || document.hidden || TABENV.frozen || XRS.on || !BOOT.lastRaf) { this.stallBase = now; this.stallSaid = 0; return; } // (timers were stopped too: asleep, frozen or throttled, not a stall)
+    const gap = now - Math.max(BOOT.lastRaf, this.stallBase); if (gap < this.stallMs) { this.stallSaid = 0; return; }
+    const why = `no frame for ${Math.round(gap / 1000)} s while the tab is visible (timers still run)`;
+    if (!AUTO.on) return; // (a person: their game is theirs, and it may come back)
+    if (!(AUTO.wl && !AUTO.wl.released)) { if (!this.stallSaid) { this.stallSaid = 1; this.rec('stall', why + '; no screen wake lock, so the screen may be asleep: not reloading', 'seen'); } return; }
+    this.reload('stall', why); },
+  deadSids() { try { return new Set((JSON.parse(localStorage.getItem('derby-heal-launch') || '[]') || []).map((x) => x && x.sid).filter(Boolean)); } catch (e) { return new Set(); } },
+  boot() { // what the launcher (autoplay.html) did before this page: it leaves a note when it had to start a new game frame
+    let L = null; try { L = JSON.parse(localStorage.getItem('derby-heal-launch') || 'null'); localStorage.removeItem('derby-heal-launch'); } catch (e) {}
+    for (const x of (Array.isArray(L) ? L : []).slice(-10)) if (x && x.why) this.rec(x.why, x.detail, 'new frame', { by: 'launcher', when: x.at, upS: x.upS, mem: x.mem || null, auto: x.auto || undefined, beatAgoS: x.beatAgoS }); },
+  iso() { if (this.isoDone || !window.__framed) return; const o = window.__framed.iso; // (the launcher's process check, once per frame)
+    if (!o || !o.sid || o.sid !== PLAYLOG.sid) return; this.isoDone = true; this.rec('launcher', o.own ? `the game frame has its own process (launcher timer ran ${o.ticks}× during a 300 ms busy wait)` : `the game frame shares the launcher's process (${o.ticks} launcher ticks in 300 ms): a crash takes the launcher too`, 'isolation', { own: !!o.own, by: 'launcher' }); },
+  beat() { this.iso(); if (window.__framed) window.__framed.post({ derby: 'beat', build: BUILD, sid: PLAYLOG.sid, auto: !!AUTO.on, idle: !!AUTO.idle, raf: BOOT.rafN || 0, booted: !!BOOT.frame, hidden: document.hidden, lost: !!this.lostAt, mem: this.mem() }); } };
+canvas.addEventListener('webglcontextlost', (e) => HEAL.ctxLost(e)); canvas.addEventListener('webglcontextrestored', () => HEAL.ctxRestored());
+document.addEventListener('visibilitychange', () => { HEAL.stallBase = performance.now(); });
+setInterval(() => HEAL.stall(), 2000); setInterval(() => HEAL.beat(), 5000); HEAL.beat();
+try { PLAYLOG.meta(); PLAYLOG.recover(); LIFE.recover(); PLAYLOG.session(); LIFE.save(); HEAL.boot(); } catch (e) {}
 setTimeout(() => PLAYLOG.upload(LIFE.prev ? 'page load (previous session ' + LIFE.prev.how + ')' : 'page load'), 8000); // anything left over from last time (and how the page before this one ended)
 addEventListener('online', () => PLAYLOG.upload('back online'));
 addEventListener('pageshow', () => { PLAYLOG.closing = false; });
@@ -12380,7 +12490,7 @@ try { BOOT.parallel = !!renderer.getContext().getExtension('KHR_parallel_shader_
   else { bootLite(); renderer.compile(sky, camera, scene); startLoop('async'); } // (the yard's compile starts once this first frame is up: bootFrame)
 } catch (e) { bootYard('error'); startLoop('error'); }
 window.__derby.BOOT = BOOT; window.__derby.HITLOG = HITLOG; Object.defineProperty(window.__derby, 'camMode', { get: () => camMode }); window.__derby.MEMGUARD = MEMGUARD; window.__derby.GPULIVE = GPULIVE;
-window.__derby.setCarAlight = (c, by) => setCarAlight(c, by); window.__derby.dropBoulder = (c) => dropBoulder(c); window.__derby.sprites = sprites; window.__derby.IDLE = IDLE; window.__derby.TALK = TALK; window.__derby.DROP = DROP; window.__derby.SCORE = SCORE; window.__derby.UPDATE = UPDATE; window.__derby.TABENV = TABENV; window.__derby.PERFREP = PERFREP; window.__derby.LIFE = LIFE; // (test hooks)
+window.__derby.setCarAlight = (c, by) => setCarAlight(c, by); window.__derby.dropBoulder = (c) => dropBoulder(c); window.__derby.sprites = sprites; window.__derby.IDLE = IDLE; window.__derby.TALK = TALK; window.__derby.DROP = DROP; window.__derby.SCORE = SCORE; window.__derby.UPDATE = UPDATE; window.__derby.TABENV = TABENV; window.__derby.PERFREP = PERFREP; window.__derby.LIFE = LIFE; window.__derby.HEAL = HEAL; // (test hooks)
 window.__derby.VR = VR; window.__derby.XRS = XRS; window.__derby.composer = composer;
 window.__derby.VCLIP = VCLIP; window.__derby.TOURIST = TOURIST; window.__derby.ROAST_BY = ROAST_BY; window.__derby.ROAST_PAIR = ROAST_PAIR; window.__derby.SHAZZA = SHAZZA; window.__derby.CAR_CAST = CAR_CAST; window.__derby.ANNOUNCER = ANNOUNCER; window.__derby.COP = COP; window.__derby.megaphone = megaphone; window.__derby.hornLine = hornLine;
 </script>

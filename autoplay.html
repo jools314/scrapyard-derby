@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Scrapyard Derby · autoplay</title>
+<style>html,body{margin:0;height:100%;overflow:hidden;background:#17130f}iframe{display:block;border:0;width:100%;height:100%}</style>
+</head><body>
+<script>
+// Autoplay launcher (self-heal, Build 119). Open THIS page on an unattended autoplay machine instead of index.html?autoplay=1.
+// Why: when a page crashes or runs out of memory ('Aw, Snap'), none of its own code runs again and the tab sits dead until a
+// person reloads it (the Chromebook, Build 105, overnight). This page runs the game in a sandboxed iframe without
+// allow-same-origin: Chrome (site isolation on desktop and ChromeOS) gives such a frame a process of its own, so the game's
+// crash takes only the frame. This page stays alive, notices the game's heartbeat (every 5 s) has stopped, and starts a new
+// game. It also starts a new one when the game's frames stop for 90 s during autoplay (a hung page), and whenever the game asks
+// to reload itself (an update, a self-heal reload), so each fresh start is a fresh process.
+// The frame has no storage of its own: this page passes its localStorage/sessionStorage in through the frame's name and keeps
+// every write the game posts back (the bridge at the top of index.html), so the play log, the stop log and settings live here.
+// Every new frame for a crash or hang leaves a note ('derby-heal-launch') that the next game logs as a 'heal' record.
+(function () {
+  var K = window.__lnFast || 1, NOTE = 'derby-heal-launch', q = new URLSearchParams(location.search); q.set('autoplay', '1');
+  var L = window.__ln = { made: 0, beats: 0, log: [], last: null, frame: null, madeAt: 0, beatAt: 0, rafAt: 0, raf: -1, visAt: Date.now(), wait: 120000, fails: 0, nextOk: 0 };
+  var now = function () { return Date.now(); };
+  var dump = function (st) { var o = {}; try { for (var i = 0; i < st.length; i++) { var k = st.key(i); o[k] = st.getItem(k); } } catch (e) {} return o; };
+  var say = function (m) { L.log.push(new Date().toISOString().slice(11, 19) + ' ' + m); if (L.log.length > 30) L.log.shift(); };
+  var note = function (why, detail) { try { var a = JSON.parse(localStorage.getItem(NOTE) || '[]'); if (!Array.isArray(a)) a = [];
+    var b = L.last || {}; a.push({ why: why, detail: detail, at: new Date().toISOString(), upS: Math.round((now() - L.madeAt) / 1000), beatAgoS: L.beatAt ? Math.round((now() - L.beatAt) / 1000) : null, mem: b.mem || null, auto: b.auto || undefined, build: b.build, sid: b.sid });
+    localStorage.setItem(NOTE, JSON.stringify(a.slice(-10))); } catch (e) {} };
+  var make = function (why, url) {
+    var old = L.frame; if (old) { try { old.remove(); } catch (e) {} }
+    var f = document.createElement('iframe'); f.setAttribute('sandbox', 'allow-scripts allow-forms allow-downloads allow-pointer-lock');
+    f.setAttribute('allow', 'screen-wake-lock; autoplay; fullscreen; gamepad; clipboard-write; xr-spatial-tracking');
+    f.name = 'derby-frame:' + JSON.stringify({ l: dump(localStorage), s: dump(sessionStorage) }); f.src = url || ('index.html?' + q);
+    L.frame = f; L.probed = false; L.made++; L.madeAt = now(); L.beatAt = 0; L.rafAt = 0; L.raf = -1; L.last = null; say('new game frame (' + why + ')');
+    document.body.appendChild(f); f.addEventListener('load', function () { try { f.focus(); f.contentWindow.focus(); } catch (e) {} }); };
+  var probe = function (sid) { // does the game really run in a process of its own? our 25 ms timer keeps ticking while it busy-waits 300 ms only if so
+    var f = L.frame; if (!f || L.probe) return; var p = L.probe = { sid: sid, at: [], iv: setInterval(function () { p.at.push(Date.now()); }, 25) };
+    try { f.contentWindow.postMessage({ derby: 'probe' }, '*'); } catch (e) {} setTimeout(function () { if (L.probe === p) { clearInterval(p.iv); L.probe = null; } }, 60000); };
+  var restart = function (why, detail) { // a crashed or hung game: a new frame, but not in a loop (2 min apart, longer while it keeps failing)
+    if (now() < L.nextOk) return; L.fails = L.beatAt && now() - L.madeAt > 10 * 60000 / K ? 0 : L.fails + 1; L.nextOk = now() + Math.min(30, 2 * Math.pow(2, Math.max(0, L.fails - 1))) * 60000 / K;
+    note(why, detail); var old = L.frame; L.frame = null; if (old) { try { old.remove(); } catch (e) {} } L.madeAt = now(); L.beatAt = 0;
+    setTimeout(function () { make(why); }, 3000); }; // (a moment for the browser to end the old frame's process, so the new game doesn't land in a hung one)
+  addEventListener('message', function (e) {
+    var f = L.frame, d = e.data; if (!f || e.source !== f.contentWindow || !d || typeof d !== 'object') return;
+    if (d.derby === 'ls') { var st = d.a === 's' ? sessionStorage : localStorage; try { if (d.clear) st.clear(); else if (d.v == null) st.removeItem(String(d.k)); else st.setItem(String(d.k), String(d.v)); } catch (x) {} return; }
+    if (d.derby === 'beat') { L.beats++; L.beatAt = now(); L.last = d; if (d.raf !== L.raf) { L.raf = d.raf; L.rafAt = now(); } if (d.booted && !L.probed) { L.probed = true; probe(d.sid); } return; }
+    if (d.derby === 'probe' && L.probe) { var p0 = L.probe; L.probe = null; clearInterval(p0.iv); var n = p0.at.filter(function (x) { return x > d.t0 + 30 && x < d.t1; }).length; // (our ticks inside its busy window)
+      L.iso = { sid: p0.sid, ticks: n, own: n >= 2, at: new Date().toISOString() };
+      try { L.frame.contentWindow.postMessage({ derby: 'iso', iso: L.iso }, '*'); } catch (x) {} say('process check: ' + (L.iso.own ? 'own process' : 'SHARED process') + ' (' + n + ' ticks)'); return; }
+    if (d.derby === 'nav') { var u = null; try { u = new URL(String(d.url), location.href); } catch (x) {} // (the game reloading itself: only into this site's game)
+      if (u && u.origin === location.origin && /\/(index\.html)?$/.test(u.pathname)) { var p = new URLSearchParams(u.search); if (q.get('idle') && !p.get('idle')) p.set('idle', '1'); make('the game asked: ' + u.search, u.pathname.replace(/[^/]*$/, '') + 'index.html?' + p); } }
+  });
+  setInterval(function () {
+    var t = now(); if (!L.frame) return; if (document.hidden) { L.visAt = t; return; } // (a hidden tab's timers run once a minute: wait until it's visible again)
+    var since = Math.max(L.madeAt, L.visAt), b = L.last;
+    if (!L.beatAt) { if (t - since > 180000 / K) restart('no game', 'the game never started in ' + Math.round((t - L.madeAt) / 1000) + ' s'); return; }
+    if (t - Math.max(L.beatAt, since) > L.wait / K) { restart('frame dead', 'no heartbeat from the game for ' + Math.round((t - L.beatAt) / 1000) + ' s: its process crashed, ran out of memory or hung'); return; }
+    if (b && b.auto && !b.hidden && b.booted && t - L.beatAt < 15000 / K && t - Math.max(L.rafAt, since) > 90000 / K) restart('frames stopped', 'the game drew no frame for ' + Math.round((t - L.rafAt) / 1000) + ' s during autoplay');
+  }, 5000 / K);
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) L.visAt = now(); });
+  // keep the screen on from here too (the game's own request from inside the frame may be refused)
+  var wl = null, lock = function () { if (q.get('idle') || !navigator.wakeLock || document.hidden || (wl && !wl.released)) return; navigator.wakeLock.request('screen').then(function (w) { wl = w; }, function () {}); };
+  document.addEventListener('visibilitychange', lock); lock();
+  make('start');
+})();
+</script>
+</body></html>

@@ -32,6 +32,7 @@ quick() {
   t tiltbtn 1500 "TILTBTN PASS"
   t looks 400 "LOOKS PASS"
   t memguard 900 "MEMGUARD PASS"
+  t selfheal 1200 "SELFHEAL PASS"
   TAG=-spider t drive 900 "" ONLY=spider
   TAG=-spider t crusheropen 600 "CRUSHEROPEN PASS" TYPE=spider
   t tracks 900 "TRACKS PASS"
