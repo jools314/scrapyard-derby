@@ -54,6 +54,7 @@
     color-scheme: dark;
   }
   [hidden] { display: none !important; }
+  #btnStart.booting { opacity: 0.8; cursor: progress; } /* tapped before the yard was built: the match starts as soon as it is */
   html, body { height: 100%; margin: 0; overflow: hidden; background: var(--bg); color: var(--fg); font-family: var(--ui); }
   #app { position: fixed; inset: 0; overflow: hidden; user-select: none; -webkit-user-select: none; touch-action: none; }
   #gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
@@ -733,6 +734,14 @@
   </div>
 </div>
 
+<script>
+// Start works from the first paint: until the game script has its own handlers up, a tap on Start (or Enter) is noted here
+// and the match starts as soon as what it needs is built (bootBuild in the game script).
+(function () { var b = document.getElementById('btnStart'); if (!b) return;
+  var note = function () { if (window.__startOn || window.__earlyStart) return; window.__earlyStart = performance.now(); b.dataset.label = b.textContent; b.textContent = 'Getting the yard ready…'; b.classList.add('booting'); };
+  b.addEventListener('click', note); addEventListener('keydown', function (e) { if (e.code === 'Enter' && !(e.target && e.target.tagName === 'INPUT')) note(); });
+})();
+</script>
 <script type="importmap">
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
@@ -743,6 +752,16 @@
 <script type="module">
 import * as THREE from 'three';
 const BOOT = { t0: performance.now() };
+// Incremental start (weak laptops, phones): the script gives the browser a turn every ~12 ms of work (the menu paints and answers taps
+// while the yard is built), and the props and the showroom cars are built after it, a few at a time (bootBuild). A match waits only for
+// what it needs: Start pressed while the yard is still being built starts the match as soon as the props are in.
+const BOOTQ = { t: performance.now(), slices: 0, longest: 0, live: false, fresh: false, want: false, skip: new Set(), phase: '' };
+const bootNow = () => new Promise((r) => { const go = () => { BOOTQ.t = performance.now(); BOOTQ.slices++; r(); }; const dt = performance.now() - BOOTQ.t; if (dt > BOOTQ.longest) BOOTQ.longest = Math.round(dt);
+  if (globalThis.scheduler && scheduler.yield) scheduler.yield().then(go); else { const ch = new MessageChannel(); ch.port1.onmessage = go; ch.port2.postMessage(0); } }); // (not a timer: a hidden tab clamps those to 1 s)
+const bootSlice = () => (performance.now() - BOOTQ.t > 12 ? bootNow() : null); // (await null costs nothing)
+const bootPaint = () => new Promise((r) => { let done = false; const go = () => { if (!done) { done = true; BOOTQ.t = performance.now(); r(); } };
+  if (document.hidden) return go(); requestAnimationFrame(() => setTimeout(go, 0)); setTimeout(go, 150); }); // one painted frame (the menu), not waited for in a hidden tab
+window.__bootq = BOOTQ; window.__boot = BOOT; // (tests/incboot.js: the game's own hooks appear only once the yard is built)
 // Memory guard, part 1 (Build 102): every geometry and texture the GPU holds a copy of. three.js adds a 'dispose' listener when it
 // uploads one and removes it when it is freed, so this Set is exactly what is on the GPU. Costs a Set add/delete per upload.
 const GPULIVE = new Set();
@@ -849,6 +868,9 @@ const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const lerp = (a, b, t) => a + (b - a) * t;
 const rand = (a, b) => a + Math.random() * (b - a);
 const AX_X = new CANNON.Vec3(1, 0, 0), AX_Y = new CANNON.Vec3(0, 1, 0), AX_Z = new CANNON.Vec3(0, 0, 1);
+const garage = document.getElementById('garage'); // the car picker first, then one painted frame: the menu is whole and tappable before the yard is built
+const maxPW = Math.max(...Object.values(CAR_TYPES).map((t) => t.power / t.mass));
+buildGarage(); await bootPaint();
 
 /* ---------------- Renderer & scene ---------------- */
 const canvas = document.getElementById('gl');
@@ -862,6 +884,7 @@ const PLAYLOG = { m: null }; // the play log (every match): filled in near the e
 // 2.4x the pixels of 100 % (scene, shadows' lookups, bloom and grading, all of it) for a difference you only see standing still. MSAA keeps edges clean.
 function renderPixelRatio() { const w = canvas.clientWidth || window.innerWidth, h = canvas.clientHeight || window.innerHeight; return Math.max(0.5, Math.min(S.sharp ? 9 : QUALITY.prCap, Math.min(window.devicePixelRatio || 1, QUALITY.dprCap, Math.sqrt(QUALITY.maxPix / Math.max(1, w * h))) * QUALITY.scale)); }
 renderer.setPixelRatio(renderPixelRatio());
+await bootSlice();
 // three.js draws a transparent double-sided material twice (back faces, then front), flipping material.side and needsUpdate around each draw:
 // that re-resolved the shader program (getParameters, ~100 KB of garbage) for every pickup and glow ring, twice a frame. One pass is plenty for these.
 THREE.Material.prototype.onBeforeRender = function () { if (this.transparent && this.side === THREE.DoubleSide && !this.forceSinglePass) this.forceSinglePass = true; };
@@ -961,6 +984,7 @@ function makeEnv(night) {
   scene.environment = pm.fromScene(envScene, 0.03).texture; pm.dispose();
 }
 makeEnv(false);
+await bootSlice();
 
 const hemi = new THREE.HemisphereLight(0x94b2ea, 0x3e3028, 0.62); scene.add(hemi); // cool sky fill against the warm sun: shadows read blue, light reads gold
 const fill = new THREE.DirectionalLight(0x9fb4d8, 0.72); fill.position.set(-80, 40, -60); scene.add(fill); // cool fill from the far side so dark paint still reads
@@ -1134,6 +1158,7 @@ function pixTex(g, w, h, base, paint) {
   paint(rect, pebble);
   g.putImageData(im, 0, 0);
 }
+await bootSlice(); // (the ground texture gets a turn of its own: a yield before and after it)
 const groundTex = canvasTex(1024, (g, s) => { const t0 = performance.now();
   pixTex(g, s, s, [0x5f, 0x56, 0x4b], (rect, pebble) => {
     for (let i = 0; i < 900; i++) { const r = rand(0.8, 3.2) * (Math.random() < 0.1 ? 2 : 1), x = Math.random() * s, y = Math.random() * s, v = 60 + Math.random() * 70 | 0; pebble(x, y, r, [v + 24, v + 18, v + 8, 0.8], [v - 20, v - 26, v - 34, 0]); } // pebbles
@@ -1151,6 +1176,7 @@ const groundTex = canvasTex(1024, (g, s) => { const t0 = performance.now();
   }
   BOOT.groundMs = Math.round(performance.now() - t0); // (tests/groundtex.js)
 }, 110, 110);
+await bootSlice();
 // Perimeter wall: precast slabs with joints, rain streaks, tyre scuffs low down, spray-paint tags and peeling posters (24 m a tile)
 const wallTex = canvasTex(1024, (g, w, h) => {
   pixTex(g, w, h, [0x8b, 0x84, 0x7a], (rect) => { for (let i = 0; i < 14000; i++) { const v = 105 + Math.random() * 55 | 0; rect(Math.random() * w, Math.random() * h, 2, 2, v, v - 4, v - 10, 0.3); } });
@@ -1287,6 +1313,7 @@ function DET2() { // shared materials for the second detail pass (made once)
     dark: sm({ color: 0x1c1b1a, roughness: 0.7, metalness: 0.3 }), lensAmber: sm({ color: 0xffa531, emissive: 0x6a3800, roughness: 0.3 }), lensRed: sm({ color: 0xd8261c, emissive: 0x500600, roughness: 0.3 }), lensWhite: sm({ color: 0xf0f0f0, emissive: 0x303030, roughness: 0.3 }),
     strap: sm({ color: 0xc8a020, roughness: 0.8 }), cable: sm({ color: 0x302820, roughness: 0.8 }), wood: sm({ color: 0x8a5a2a, roughness: 0.8 }), olive: sm({ color: 0x55603a, roughness: 0.8 }) });
 }
+await bootSlice();
 const DET = { // small shared materials for the detail kit
   seam: new THREE.MeshStandardMaterial({ color: 0x0c0b0a, roughness: 0.9 }),
   primer: new THREE.MeshStandardMaterial({ color: 0x7d7a74, roughness: 0.95 }),
@@ -1304,7 +1331,9 @@ const DET = { // small shared materials for the detail kit
     g.fillStyle = fg; g.font = `bold ${t.length > 5 ? 22 : 30}px Impact, Arial Black, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(t, s / 2, s / 2); }, 1, 1), transparent: true, alphaTest: 0.5 })),
   text: (txt, bg, fg, w = 256) => new THREE.MeshStandardMaterial({ roughness: 0.5, map: canvasTex(w, (g, s) => { g.fillStyle = bg; g.fillRect(0, s * 0.3, s, s * 0.4); g.fillStyle = fg; g.font = `bold ${Math.round(Math.min(s * 0.2, s * 1.55 / txt.length))}px Impact, Arial Black, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, s / 2, s / 2); }, 1, 1), transparent: true, alphaTest: 0.4 }),
 };
+await bootSlice();
 DET.fireTxt = DET.text('FIRE DEPT', 'rgba(0,0,0,0)', '#f2d24a'); DET.policeTxt = DET.text('POLICE', 'rgba(0,0,0,0)', '#101010'); DET.flam = DET.text('FLAMMABLE', '#c8281e', '#ffffff'); DET.towTxt = DET.text('24H TOWING', 'rgba(0,0,0,0)', '#151515');
+await bootSlice();
 { // rusty diamond plate for the ramps and kickers
   const plate = canvasTex(512, (g, s) => { // big welded steel sheets: grey tread plate, seams, weld beads and a few rust runs (not a busy red knit)
     pixTex(g, s, s, [0x77, 0x73, 0x6c], (rect) => { for (let i = 0; i < 9000; i++) { const v = 100 + Math.random() * 40 | 0; rect(Math.random() * s, Math.random() * s, 2, 2, v, v - 2, v - 6, 0.25); } });
@@ -1327,6 +1356,7 @@ DET.fireTxt = DET.text('FIRE DEPT', 'rgba(0,0,0,0)', '#f2d24a'); DET.policeTxt =
   M.glass.emissiveMap.wrapS = M.glass.emissiveMap.wrapT = THREE.ClampToEdgeWrapping; M.glass.emissive.setHex(0xffffff); M.glass.emissiveIntensity = 0.16; M.chrome.envMapIntensity = 1.4; M.rim.envMapIntensity = 1.3;
 }
 
+await bootSlice();
 /* ---------------- Static arena ---------------- */
 const mapShapes = [];       // minimap footprints
 const ELEVATED = [];        // platforms the AI can route onto: {x0,x1,z0,z1,y,ramps:[{foot,top}]}
@@ -1501,7 +1531,7 @@ function buildGroundScatter() {
 }
 function mergeGeos(gs) { const pos = [], nor = [], uv = [], idx = []; let off = 0; for (const g of gs) { const gi = g.index ? g : g; pos.push(...g.attributes.position.array); nor.push(...g.attributes.normal.array); uv.push(...g.attributes.uv.array); for (const i of g.index.array) idx.push(i + off); off += g.attributes.position.count; }
   const m = new THREE.BufferGeometry(); m.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); m.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); m.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); m.setIndex(idx); return m; }
-function buildArena() {
+async function buildArena() { // (async: it gives the browser a turn between its parts)
   groundBody = new CANNON.Body({ type: CANNON.Body.STATIC, shape: new CANNON.Plane(), material: sceneryMat }); // a plane, not a 1200 m box: everything resting on the ground used cannon's box-box SAT every step (the costliest narrowphase pairs in a match); box/convex-vs-plane is a handful of dot products
   groundBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2); groundBody.aabbNeedsUpdate = true; groundBody.updateAABB(); // normal +y, surface at y = 0 (same top as the old box); static bodies never refresh their AABB, and the wheel rays find the ground through it
   world.addBody(groundBody);
@@ -1510,6 +1540,7 @@ function buildArena() {
   gmesh.receiveShadow = true;
   groundTex.repeat.set(110, 110);
   scene.add(gmesh);
+  await bootSlice();
   // large-scale colour variation so the tiling never shows: damp patches, pale sand, dark oil-soaked dirt
   const macro = canvasTex(256, (g, s) => { g.fillStyle = '#808080'; g.fillRect(0, 0, s, s); for (let i = 0; i < 160; i++) { const x = Math.random() * s, y = Math.random() * s, r = rand(8, 46), v = Math.random() < 0.5 ? rand(40, 110) : rand(150, 210); const gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, `rgba(${v},${v * 0.95},${v * 0.88},0.5)`); gr.addColorStop(1, 'rgba(128,128,128,0)'); g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); } }, 1, 1);
   macro.colorSpace = THREE.NoColorSpace;
@@ -1531,6 +1562,7 @@ function buildArena() {
   const ring2 = new THREE.Mesh(new THREE.RingGeometry(70, 70.8, 128), M.paint);
   ring2.rotation.x = -Math.PI / 2; ring2.position.y = 0.012; scene.add(ring2);
 
+  await bootSlice();
   // Perimeter walls, 6 m tall, hazard-striped caps
   const H = 3;
   for (const [x, z, hx, hz] of [[0, A + 1, A + 2, 1], [0, -A - 1, A + 2, 1], [A + 1, 0, 1, A + 2], [-A - 1, 0, 1, A + 2]]) {
@@ -1544,6 +1576,7 @@ function buildArena() {
     fence.addShape(new CANNON.Box(new CANNON.Vec3(hx, 6, hz))); fence.position.set(x, H * 2 + 6, z); fence.what = 'catch fence'; world.addBody(fence);
   }
 
+  await bootSlice();
   // Banked corners: 30° wall-ride bends tangent to both walls
   for (const [sx, sz] of [[1, 1], [-1, 1], [1, -1], [-1, -1]]) {
     const R = 46, half = 6, th = 0.4, n = 14, bank = 30 * D2R;
@@ -1571,6 +1604,7 @@ function buildArena() {
     for (const g of fillGeos) { const m = new THREE.Mesh(g, M.bank); m.receiveShadow = true; scene.add(m); }
   }
 
+  await bootSlice();
   // Central mesa, 3 m high, with four approach ramps
   addFrustum(0, 0, 12, 12, 3, 3 / Math.tan(24 * D2R), M.mesa);
   const mesa = { x0: -12, x1: 12, z0: -12, z1: 12, y: 3, ramps: [] };
@@ -1599,6 +1633,7 @@ function buildArena() {
     mapShapes.push({ kind: 'pillar', x, z, r: 1.3 }); PILLARS.push({ x, z, r: 1.3, h: 6 });
   }
 
+  await bootSlice();
   // Kicker + landing pairs on the diagonals: jump gaps
   for (let k = 0; k < 4; k++) {
     const ang = Math.PI / 4 + k * Math.PI / 2;
@@ -1610,6 +1645,7 @@ function buildArena() {
   addRamp(0, 96, 0, -1, 15, 8, 22);
   addRamp(0, -96, 0, 1, 15, 8, 22);
 
+  await bootSlice();
   // The Gap (west side): ramp up to a 6 m plateau, a 22 m gap, a second plateau and a ramp down
   {
     const x = -118, gA = 12, rise = 6, gL = rampForRise(rise, gA);
@@ -1627,6 +1663,7 @@ function buildArena() {
     pit.rotation.x = -Math.PI / 2; pit.position.set(x, 0.015, -35); scene.add(pit);
   }
 
+  await bootSlice();
   // Quarter pipe on the east wall
   {
     const r = 8, n = 10, maxA = 72 * D2R, zc = 0, width = 56;
@@ -1640,6 +1677,7 @@ function buildArena() {
     }
   }
 
+  await bootSlice();
   // Speed bumps (south lane): short sharp humps, lower than any car's ground clearance, that go boom-boom-boom at speed
   const bumpCv = document.createElement('canvas'); bumpCv.width = 16; bumpCv.height = 256; const bx = bumpCv.getContext('2d');
   for (let i = 0; i < 16; i++) { bx.fillStyle = i % 2 ? '#1c1a17' : '#e0a81a'; bx.fillRect(0, i * 16, 16, 16); }
@@ -1658,6 +1696,7 @@ function buildArena() {
     mapShapes.push({ kind: 'bump', x, z, yaw: Math.PI / 2, l: 18, w: 5 });
   }
 
+  await bootSlice();
   // Container yard (north)
   const ctColors = [0x8c3a22, 0x2d5a7a, 0x3f6b3a, 0x9a7a2a, 0x6a2f4a, 0x50585e];
   const addContainer = (x, z, yaw, level, color) => {
@@ -1679,6 +1718,7 @@ function buildArena() {
     if (l === 0) { const band = new THREE.Mesh(new THREE.BoxGeometry(4.7, 0.3, 2.1), new THREE.MeshStandardMaterial({ map: hazardTex(3), roughness: 0.7 })); band.position.set(100 + i * 6, 0.15, -60); scene.add(band); }
   }
 
+  await bootSlice();
   // Grandstands with a crowd, north and south, outside the walls
   const crowdGeo = new THREE.BoxGeometry(0.5, 0.9, 0.42);
   const crowdMat = new THREE.MeshStandardMaterial({ roughness: 0.9 });
@@ -1715,6 +1755,7 @@ function buildArena() {
   if (crowd.instanceColor) crowd.instanceColor.needsUpdate = true;
   scene.add(crowd);
 
+  await bootSlice();
   // Billboards on the wall tops
   const boards = [['SCRAPYARD DERBY', 'EST. IN A HURRY', '#1c1712', '#f2a20c'], ['NO REFUNDS', 'ON ANY PART THAT FALLS OFF', '#8c3a22', '#f1e8da'], ['MIND THE GRAVITY', 'IT IS ADJUSTABLE', '#2d5a7a', '#f1e8da'], ['WRECK RESPONSIBLY', 'OR AT LEAST LOUDLY', '#f2a20c', '#1c1712']];
   boards.forEach((b, i) => {
@@ -1730,6 +1771,7 @@ function buildArena() {
     }
   });
 
+  await bootSlice();
   // Scrap mountains beyond the fence
   { // lumpy heaps of crushed junk (not neat cones): a few shared lumpy shapes, coloured per vertex with rusty, painted and dark patches, drawn as one instanced mesh
     const shapes = [0, 1, 2].map(() => { const g = new THREE.IcosahedronGeometry(1, 2), P = g.attributes.position, col = [];
@@ -1757,6 +1799,7 @@ function buildArena() {
       per[k].forEach(([x, z, s], i) => { e.set(rand(-0.08, 0.08), rand(0, 6.3), rand(-0.08, 0.08)); q.setFromEuler(e); m4.compose(tmpV.set(x, -s * 0.05, z), q, new THREE.Vector3(s * rand(1, 1.6), s * rand(0.45, 0.8), s * rand(1, 1.5))); im.setMatrixAt(i, m4); });
       im.userData.shared = true; im.userData.heaps = per[k]; scene.add(im); });
   }
+  await bootSlice();
   // Floodlight towers
   for (const [x, z] of [[A + 8, A + 8], [-A - 8, A + 8], [A + 8, -A - 8], [-A - 8, -A - 8]]) {
     const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.8, 34, 8), M.steel);
@@ -1766,7 +1809,7 @@ function buildArena() {
     head.position.set(x, 34, z); head.lookAt(0, 0, 0); scene.add(head);
   }
 }
-buildArena();
+await buildArena();
 /* ---------------- Arena life: mud, boost pads, fire barrels, vultures, dust devils ---------------- */
 const ARENA = { mud: [{ x: -100, z: 12, r: 11 }, { x: 62, z: -40, r: 7 }], boost: [{ x: -40, z: 80, dx: 1, dz: 0 }, { x: 60, z: -82, dx: -1, dz: 0 }, { x: 82, z: 40, dx: 0, dz: -1 }, { x: -100, z: -40, dx: 0, dz: 1 }], barrels: [], birds: [], devil: null, devilT: 18, lastWreck: null };
 {
@@ -2104,6 +2147,7 @@ function mergeStatic() {
   return { before, after };
 }
 const MERGED = mergeStatic();
+await bootSlice();
 
 /* ---------------- Dynamic props ---------------- */
 const props = [];
@@ -2116,6 +2160,7 @@ const G = {
   shell: (() => { const lo = new THREE.BoxGeometry(4.2, 0.72, 1.8).translate(0, -0.19, 0), cab = new THREE.BoxGeometry(2.0, 0.4, 1.5).translate(-0.25, 0.37, 0); return mergeGeos([lo, cab]); })(), // a gutted car: body and cabin hump
 };
 const SHELL_MATS = []; // (filled once the texture exists, below)
+await bootSlice();
 const huskTex = canvasTex(256, (g, sz) => { g.fillStyle = '#9a9a9a'; g.fillRect(0, 0, sz, sz); // multiplied by each wreck's paint colour
   for (let i = 0; i < 70; i++) { g.fillStyle = `rgba(${110 + Math.random() * 40},${50 + Math.random() * 25},${20 + Math.random() * 15},${0.25 + Math.random() * 0.4})`; const x = Math.random() * sz, y = Math.random() * sz; g.beginPath(); g.ellipse(x, y, 4 + Math.random() * 18, 3 + Math.random() * 10, Math.random() * 3, 0, 7); g.fill(); } // rust blooms
   for (let i = 0; i < 40; i++) { g.strokeStyle = `rgba(90,40,15,${0.2 + Math.random() * 0.3})`; g.lineWidth = 1 + Math.random() * 2; const x = Math.random() * sz; g.beginPath(); g.moveTo(x, sz * 0.45); g.lineTo(x + (Math.random() - 0.5) * 6, sz * (0.6 + Math.random() * 0.4)); g.stroke(); } // rust streaks running down
@@ -2258,6 +2303,7 @@ function lightLook(m) {
   }
   return lightCache.get(m);
 }
+await bootSlice();
 const crateTex = canvasTex(128, (g, w) => {
   g.fillStyle = '#a8793f'; g.fillRect(0, 0, w, w);
   for (let i = 0; i < 6; i++) { g.fillStyle = i % 2 ? '#9a6e38' : '#b08246'; g.fillRect(0, i * 21, w, 20); g.fillStyle = 'rgba(60,35,15,.5)'; g.fillRect(0, i * 21 + 20, w, 1); }
@@ -2295,7 +2341,8 @@ function batchProps() {
 function updatePropBatches() {
   for (const { im, list } of PROPBATCH) { for (let i = 0; i < list.length; i++) { const m = list[i]; if (m.parent === scene && m.visible && !m.userData.unbatched) { _bm.compose(m.position, m.quaternion, m.scale); im.setMatrixAt(i, _bm); } else im.setMatrixAt(i, _bZero); } im.instanceMatrix.needsUpdate = true; }
 }
-function buildProps() {
+function buildProps() { BOOTQ.skip.add('props'); BOOTQ.fresh = false; for (const _ of buildPropsGen()); } // (all at once; bootBuild steps through it a group at a time, in the same order: the same props and ids)
+function* buildPropsGen() {
   PROPID.n = 0; PROPID.map.clear();
   // (each match rebuilds the props: free the old ones' GPU buffers, or every match leaked ~100 geometries; see Build 101)
   for (const p of props) { world.removeBody(p.body); scene.remove(p.mesh); freeObject(p.mesh, []); p.dormant = false; }
@@ -2308,16 +2355,18 @@ function buildProps() {
       addProp(crateShape, G.crate, M.crate, 35, ox + (alongX ? o : 0), 0.6 + row * 1.2, oz + (alongX ? 0 : o), 0, 'wood');
     }
   };
-  wall(0, -55, true); wall(-55, 0, false); wall(0, 55, true); wall(55, 0, false);
+  wall(0, -55, true); wall(-55, 0, false); wall(0, 55, true); wall(55, 0, false); yield;
   const barrelShape = new CANNON.Cylinder(0.45, 0.45, 1.2, 12);
   for (const [x, z] of [[30, -90], [-88, -32], [-30, 92], [92, 30], [110, -110], [-110, 110], [70, 110], [-70, -100]]) {
     for (let i = 0; i < 4; i++) addProp(barrelShape, G.barrel, i % 2 ? M.barrelRed : M.barrel, 90, x + (i % 2) * 1.0, 0.6, z + (i >> 1) * 1.0);
   }
+  yield;
   // red gas cylinders: knock one hard and it goes off, and can set off its neighbours
   const gasShape = new CANNON.Cylinder(0.3, 0.3, 1.5, 10), gasGeo = new THREE.LatheGeometry([[0, -0.75], [0.27, -0.75], [0.3, -0.71], [0.3, 0.42], [0.27, 0.56], [0.18, 0.66], [0.08, 0.7], [0.08, 0.78], [0.12, 0.79], [0.12, 0.86], [0.05, 0.9], [0, 0.9]].map(([r, y]) => new THREE.Vector2(r, y)), 16); // rounded shoulders, neck and valve
   for (const [x, z] of [[-20, 20], [20, -20], [-70, 60], [60, 60], [-60, -40], [100, 10], [10, 100], [-100, -10]]) for (let i = 0; i < 3; i++) {
     const b = addProp(gasShape, gasGeo, M.gas, 45, x + (i % 2) * 0.7, 0.75, z + (i >> 1) * 0.7, 0, 'metal'); b.gas = true;
   }
+  yield;
   const tireShape = new CANNON.Cylinder(0.65, 0.65, 0.4, 12);
   for (const [x, z] of [[18, 30], [-25, -30], [40, -20], [-40, 22], [75, 75], [-80, -78]]) {
     for (let l = 0; l < 4; l++) addProp(tireShape, G.tire, M.tire, 22, x, 0.2 + l * 0.41, z, 0, 'rubber');
@@ -2325,14 +2374,14 @@ function buildProps() {
   const coneShape = new CANNON.Cylinder(0.05, 0.3, 0.8, 8);
   const coneBodies = [];
   for (let i = 0; i < 12; i++) { coneBodies.push(addProp(coneShape, G.cone, M.cone, 3, -55 + i * 10, 0.4, 113, 0, 'plastic', false)); coneBodies.push(addProp(coneShape, G.cone, M.cone, 3, -55 + i * 10, 0.4, 135, 0, 'plastic', false)); }
-  if (coneBodies.length) coneBodies[Math.random() * coneBodies.length | 0].prop.golden = true; // THE GOLDEN CONE: exactly one cone per match is gold under the orange — knocking it over is the only reveal
+  yield; if (coneBodies.length) coneBodies[Math.random() * coneBodies.length | 0].prop.golden = true; // THE GOLDEN CONE: exactly one cone per match is gold under the orange — knocking it over is the only reveal
   const barrierShape = new CANNON.Box(new CANNON.Vec3(1.5, 0.45, 0.3));
   for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; addProp(barrierShape, G.barrier, M.barrier, 380, Math.cos(a) * 30, 0.45, Math.sin(a) * 30, -a + Math.PI / 2, 'concrete'); }
   const shellShape = new CANNON.Box(new CANNON.Vec3(2.1, 0.55, 0.9));
   [[60, 40, 0.3], [-62, -48, 1.2], [36, 70, 2], [-50, 60, -0.6]].forEach(([x, z, y], i) => {
     addProp(shellShape, G.shell, SHELL_MATS[i], 900, x, 0.55, z, y, 'metal');
   });
-  buildStreetProps();
+  yield; buildStreetProps();
 }
 const SG = {
   bin: new THREE.CylinderGeometry(0.3, 0.26, 0.95, 14),
@@ -3019,6 +3068,7 @@ function inFire(car) {
 // The fuel tanker going up: a fireball, a shockwave racing over the dirt, a smoke column, a lake of burning fuel, chain reactions
 const BOOMS = [];
 // Lights live in the scene for the whole match and only change brightness: adding or removing a light changes the light count, and three.js then recompiles every lit material at once (20+ shaders: a 0.4–0.7 s freeze on a Mac, seen in the play logs right after tanker blasts and cruiser/fire-truck respawns).
+await bootSlice();
 const boomLight = new THREE.PointLight(0xff8a30, 0, 120, 1.6); scene.add(boomLight);
 const SIREN_LIGHTS = [0, 1].map(() => { const l = new THREE.PointLight(0xff2a2a, 0, 22, 1.6); l.userData.owner = null; scene.add(l); return l; });
 function sirenLightFor(car, on) { // borrow one of the two siren lights while this car's siren is on
@@ -3326,6 +3376,7 @@ function updateFireLights(t) {
 
 /* ---------------- Skid marks (instanced decals) ---------------- */
 const SKID_MAX = 5000;
+await bootSlice();
 const skids = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x14110e, transparent: true, opacity: 0.55, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }), SKID_MAX);
 skids.frustumCulled = false;
 skids.count = 0;
@@ -3920,6 +3971,7 @@ let simTime = 0;
 const HULL_Y0 = -0.2; // hull bottom, relative to the centre of mass
 const ZONES = ['front', 'rear', 'left', 'right', 'top'];
 const GEAR_SPLIT = [0.24, 0.38, 0.52, 0.67, 0.83, 1.0]; // share of top speed reached at redline in each gear
+await bootSlice();
 const spikeGeo = new THREE.ConeGeometry(0.07, 0.42, 6);
 const scuffTex = canvasTex(128, (g, s) => { // scorched, scraped blotch with a soft edge
   const grd = g.createRadialGradient(s / 2, s / 2, 4, s / 2, s / 2, s / 2);
@@ -6792,6 +6844,7 @@ function platformOf(p) {
   return null;
 }
 
+await bootSlice();
 world.addEventListener('preStep', () => { for (const c of cars) c.physicsStep(FIXED); });
 world.addEventListener('postStep', () => { for (const c of cars) if (c.webbedT > 0 && !c.ghost) c.webHold(FIXED, true); if (TIES.length && MP.role !== 'guest') updateTies(FIXED); }); // (Anansi's web)
 // Weight matters: a light car can't lever up one more than 2.5x its weight. Its sloped nose can wedge under a heavy car's side and
@@ -6876,6 +6929,7 @@ const el = {
   gforce: $('gforce'), toasts: $('toasts'), hint: $('hint'), flash: $('flash'),
   menu: $('menu'), over: $('over'), panel: $('panel'), touch: $('touch'),
 };
+await bootSlice();
 const zoneEls = ZONES.map((z) => $('z-' + z)), wheelEls = [0, 1, 2, 3].map((i) => $('w-' + i));
 function dmgColor(v) { return v < 30 ? '#8cc76f' : v < 65 ? '#f2a20c' : '#e4472c'; }
 function toast(text, kind) {
@@ -7332,6 +7386,7 @@ CAR_CAST.spider = { nick: 'Kwaku Anansi', hand: 0.75, style: 'vulture', from: 'K
     charge: ["Agoo! Spider coming through!", "Eight legs, full speed! Here comes the clever part!"],
     flee: ["This is not running! This is a clever plan! Very clever!", "Every good trickster knows when to leave the story!"],
   } };
+await bootSlice();
 for (const P of Object.values(CAR_CAST)) PERSONAS.push(P); // (pushed last: guests look characters up by index)
 const CAST_SET = new Set(Object.values(CAR_CAST));
 const ANNOUNCER = { nick: 'Crash Cam Kev', caller: true, lang: 'en-AU', pitch: 0.95, rate: 1.18, words: { voice: ['Lee', 'Gordon', 'Karen', 'Catherine', 'Google UK English Male', 'Daniel', 'Ralph'] } }; // an over-the-top Aussie play-by-play caller
@@ -7982,6 +8037,7 @@ const CAST_R5 = {
 };
 for (const [type, more] of Object.entries(CAST_R5)) { const P = type === 'cruiser' ? COP : CAR_CAST[type]; if (P) for (const [ev, list] of Object.entries(more)) P.lines[ev] = (P.lines[ev] || []).concat(list); }
 const ROAST_BY = new Map(); // speaker persona -> target nick -> [lines]
+await bootSlice();
 for (const [type, targets] of Object.entries(ROASTS)) { const P = type === 'cruiser' ? COP : CAR_CAST[type]; if (!P) continue; const m = new Map(); for (const [tt, line] of Object.entries(targets)) { const T = tt === 'cruiser' ? COP : CAR_CAST[tt]; if (T) m.set(T.nick, [].concat(line)); } ROAST_BY.set(P, m); }
 Object.assign(GENERIC, { onFire: ['I\'m on fire! I\'M ON FIRE!', 'Hot hot hot!', 'Somebody hose me down!', 'My engine is a barbecue!'], rodeo: ['Yee-haw! Ride \'em!', 'Gotcha, bull!', 'Rodeo time!'], burger: ['Flame-grilled!', 'Medium rare!', 'Who ordered the bull burger?'], rival: ['Hey {v}! Get out of my way!', '{v}, your {vcar} is a joke!', 'I\'m coming for you, {v}!'], respawn: ['I\'m back!', 'Miss me?', 'Round two!'], kill: ['So long, {v}!', 'Got you, {v}!', 'Ha! {v} is out!'] });
 /* Talk governor: one voice at a time, a real silence between lines, and a cap on how much of each minute is talk.
@@ -8408,6 +8464,7 @@ const VCLIP = {
   stopAll() { const it = this.cur; this.cur = null; this.q = null; if (it && it.src) try { it.src.onended = null; it.src.stop(); } catch (e) {} },
 };
 VCLIP.load();
+await bootSlice(); // (the last turn given in the script: the timers and input handlers set up below must find everything they use)
 // Close-pass roasts: a driver closing in on (or flashing past) a rival they have a roast for says it. Host/solo decides; guests hear it through the bark event.
 const ROAST_PAIR = new Map(); // 'speaker|target' -> last time (s)
 function roastTick() {
@@ -8819,7 +8876,8 @@ $('gmScore').addEventListener('click', (e) => { e.stopPropagation(); gearOpen(fa
 $('sbClose').addEventListener('click', () => SCORE.show(false));
 $('sbEnd').addEventListener('click', () => SCORE.finish());
 $('sboard').addEventListener('click', (e) => { if (e.target === e.currentTarget) SCORE.show(false); }); // a tap outside closes it
-function spawnCars() {
+function spawnCars() { BOOTQ.skip.add('cars'); for (const _ of spawnCarsGen()); }
+function* spawnCarsGen() { // (bootBuild makes your car, then the others one at a time)
   for (const c of cars) c.dispose();
   cars.length = 0;
   const types = Object.keys(CAR_TYPES).filter((k) => k !== playerType).sort(() => Math.random() - 0.5); // one of each type, yours excluded
@@ -8827,7 +8885,8 @@ function spawnCars() {
   // You start on the south side; the pack starts across the yard on the north side, ~190 m away
   const ps = findSpawn(30, 100);
   player = new Car({ type: playerType, name: 'You', color: CAR_TYPES[playerType].color, number: 1, isPlayer: true, x: ps.x, z: ps.z, yaw: Math.PI / 2 }); player.did = MY_DID;
-  cars.push(player);
+  cars.push(player); BOOTQ.live = true;
+  yield;
   const castOrder = PERSONAS.filter((P) => !CAST_SET.has(P)).sort(() => Math.random() - 0.5); // extras, for cars without their own character
   let nAI = n;
   if (MP.role === 'host') { // human players take the next slots, each in the car they picked (or the nearest free one)
@@ -8849,7 +8908,8 @@ function spawnCars() {
     const P = type === 'cruiser' ? COP : CAR_CAST[type] || castOrder[i % castOrder.length]; // every car comes with its own driver
     const ai = new Car({ type, name: P.nick, color: COLORS[i % COLORS.length], number: 2 + i * 3 % 97, isPlayer: false, x: sp.x, z: sp.z, yaw: Math.atan2(sp.z, -sp.x) });
     ai.persona = P;
-    cars.push(ai);
+    cars.push(ai); if (!BOOTQ.hold) BOOTQ.fresh = false; // (cars move: the props are no longer untouched, unless a match is waiting to start: bootWant)
+    if (i < nAI - 1) { buildOpponentList(); yield; } // (the HUD's list has every car in the yard at each turn)
   }
   buildOpponentList();
   if (MP.role === 'host') MP.publishRoster();
@@ -8880,11 +8940,12 @@ function setControlsFor(type) {
   }
   { const T0 = CAR_TYPES[type]; const lab = document.querySelector('.row.gun-only .label'); if (lab) lab.textContent = T0.gun ? 'Cannon' : T0.pour ? (T0.pour === 'fuel' ? 'Fuel' : 'Concrete') : 'Weapon'; }
 }
-function resetMatch() {
+function resetMatch(staged) {
+  if (!staged) bootBuilt('reset'); // (a real reset builds everything now: any part of the boot build still to come is dropped)
   if (PLAYLOG.roundReset) PLAYLOG.roundReset(); // a match that is thrown away still goes in the play log
   game.crashCam = null; if (typeof CRUSHER !== 'undefined') { CRUSHER.state = 'idle'; CRUSHER.t = 8; CRUSHER.y = CRUSHER.top; }
   if (typeof CRANE !== 'undefined') resetCrane();
-  if (typeof BULLS !== 'undefined') resetBulls();
+  if (typeof BULLS !== 'undefined' && !staged) resetBulls(); // (at boot: bootBuild's first turn)
   sfx.setStyle(MUSIC_FOR[playerType] || 'rock'); // the soundtrack follows your ride
   document.body.classList.toggle('has-gun', !!(CAR_TYPES[playerType].gun || CAR_TYPES[playerType].pour || CAR_TYPES[playerType].special));
   setControlsFor(playerType); aimHintFor(playerType);
@@ -8901,17 +8962,20 @@ function resetMatch() {
   threatEls.clear();
   JUMBO.rec.length = 0; JUMBO.replay = null; JUMBO.tag.visible = false; // (the replay buffer held the old cars, meshes and all, and a replay can't show cars that are gone)
   clearSkids();
-  buildProps(); batchProps();
+  if (staged) return; // (the boot build, bootBuild, makes the props, pickups and cars next, a few at a time)
+  if (BOOTQ.fresh) BOOTQ.fresh = false; else { buildProps(); batchProps(); } // (the boot build's props, not touched yet: the same yard, no need to build it twice)
   buildPickups();
-  spawnCars(); SCORE.reset(); SCORE.show(false);
+  if (BOOTQ.carsFresh) { BOOTQ.carsFresh = false; buildOpponentList(); } else spawnCars(); // (and its cars, held still while Start waited for them: bootWant)
+  BOOTQ.hold = false; SCORE.reset(); SCORE.show(false);
   game.chatT = 14; game.score = 0; game.time = 0; game.overTimer = -1; game.attractReset = -1; game.shake = 0; game.propHits = 0; game.tromboneDone = false; game.tromboneKind = null;
 }
 // Speech only works after a tap or key press. Guests never press Start, and iOS sometimes doesn't confirm the first try:
 // so every tap or key press retries (at most every few seconds) until a voice has actually been heard.
 for (const ev of ['pointerdown', 'keydown', 'touchend']) addEventListener(ev, () => { if (barks.speechOK !== true && window.speechSynthesis && performance.now() - (barks.unlockT || -1e9) > 4000) barks.unlock(); }, { capture: true, passive: true });
-function startMatch() {
+function startMatch(e) {
   if (!BOOT.click) BOOT.click = performance.now(); // (time to start: when the first match was asked for)
   if (MP.role === 'guest') { toast('THE HOST STARTS THE ROUND', 'cool'); return; }
+  if (e && e.type && !XRS.on && (!BOOT.built || (BOOT.lite && BOOT.loop === 'async'))) { bootWant(); return; } // a tap or Enter while the yard is still being built: the match starts the moment it is ready (bootWant)
   sfx.init();
   if (sfx.ctx && sfx.ctx.state === 'suspended') sfx.ctx.resume();
   resetMatch(); // (first: it clears the speech queue, and a cancel right after a speak wedges Chrome's and Safari's speech engine)
@@ -8936,9 +9000,7 @@ function showOver() {
 }
 
 /* ---------------- Garage (car select) ---------------- */
-const garage = $('garage');
-const maxPW = Math.max(...Object.values(CAR_TYPES).map((t) => t.power / t.mass));
-function buildGarage() {
+function buildGarage() { // (built at the top of the script: see garage)
   garage.innerHTML = '';
   for (const [key, T] of Object.entries(CAR_TYPES)) {
     const b = document.createElement('button');
@@ -8953,10 +9015,11 @@ function buildGarage() {
     b.addEventListener('click', () => selectCar(key));
     garage.appendChild(b);
   }
-  $('blurb').textContent = CAR_TYPES[playerType].blurb;
+  document.getElementById('blurb').textContent = CAR_TYPES[playerType].blurb;
 }
 function selectCar(key) {
   playerType = key;
+  if (!BOOTQ.live) { try { localStorage.setItem(CAR_KEY, key); } catch (e) {} buildGarage(); return; } // (picked while the yard is still being built: your car is made with it)
   if (MP.role === 'guest') { MP.sendWant(); buildGarage(); toast(`${CAR_TYPES[key].name.toUpperCase()} NEXT ROUND`, 'cool'); return; }
   sfx.setStyle(MUSIC_FOR[key] || 'rock');
   try { localStorage.setItem(CAR_KEY, key); } catch (e) {}
@@ -8969,7 +9032,6 @@ function selectCar(key) {
     cars[idx] = nc; player = nc;
   }
 }
-buildGarage();
 
 /* ---------------- Settings panel ---------------- */
 function fmt(d, v) {
@@ -9193,7 +9255,7 @@ window.addEventListener('keydown', (e) => {
   keys.add(e.code);
   if (e.repeat) return;
   switch (e.code) {
-    case 'Enter': if (RS.open) { e.preventDefault && e.preventDefault(); if (document.activeElement !== $('rsGo')) $('rsGo').click(); } else if (game.state !== 'playing') startMatch(); break;
+    case 'Enter': if (RS.open) { e.preventDefault && e.preventDefault(); if (document.activeElement !== $('rsGo')) $('rsGo').click(); } else if (game.state !== 'playing') startMatch(e); break;
     case 'KeyJ': if (game.state === 'playing' && player) player.ctrl.jump = true; break;
     case 'KeyF': if (game.state === 'playing' && player) player.ctrl.fire = true; break;
     case 'KeyG': if (player && (player.T.police || player.T.siren)) { player.sirenOn = !player.sirenOn; toast(player.sirenOn ? 'SIREN ON' : 'SIREN OFF', 'cool'); } break;
@@ -9218,6 +9280,7 @@ window.addEventListener('keydown', (e) => {
   }
 });
 window.addEventListener('keyup', (e) => keys.delete(e.code));
+window.__startOn = true; // (from here Start and Enter are the game's own: before, the page's early catcher noted a tap for bootBuild)
 canvas.addEventListener('pointerdown', (e) => { if (e.pointerType === 'mouse' && game.state === 'playing' && player && (player.T.gun || player.T.pour || player.T.special)) { player.ctrl.fire = true; mouseFire = true; } }); // click to fire / pour / use weapon
 window.addEventListener('blur', () => keys.clear());
 // Touch (iPad / phone): floating steering stick on the left half, pedals and buttons on the right
@@ -10732,7 +10795,7 @@ function governQuality(realDt) {
 }
 
 /* ---------------- Main loop ---------------- */
-resetMatch();
+resetMatch(true); // (the props, pickups and cars come next, a few at a time: bootBuild, at the end of the script)
 let lastT = performance.now();
 let frameErrors = 0;
 // Frame pacing: a 120 Hz screen (ProMotion Macs and iPads) calls us 120 times a second. Drawing and simulating every one of them doubles
@@ -11123,7 +11186,7 @@ function simBody(now) {
     if (MP.role === 'guest') SEC.run('net', () => MP.guestFrame(dt));
     else if (game.state === 'menu') { const c = player.ctrl; c.throttle = 0; c.steer = 0; c.nitro = false; c.handbrake = true; }
     if (MP.role === 'host') MP.applyInputs();
-    if (MP.role !== 'guest') SEC.run('ai', () => { for (const c of cars) if ((!c.isPlayer && !c.remote) || (game.state === 'over' && !c.remote) || (AUTO.on && c.isPlayer)) c.think(dt); });
+    if (MP.role !== 'guest' && !BOOTQ.hold) SEC.run('ai', () => { for (const c of cars) if ((!c.isPlayer && !c.remote) || (game.state === 'over' && !c.remote) || (AUTO.on && c.isPlayer)) c.think(dt); });
     if (PLAYLOG.m) PLAYLOG.sim(dt); // play log (and autoplay: the bots' brain drives your car too)
     if (MP.role === 'guest') {} // the host counts down
     else if (game.state === 'playing' && game.countdown > 0) { // 3-2-1: everyone holds on the brakes
@@ -11252,7 +11315,7 @@ function drawBody(dt) {
   if (PERF.hostSkip && PERF.n % 2 && !XRS.on) return; // (never skip a headset frame)
   PERFREP.r0 = performance.now();
   if (BOOT.lite && (game.state !== 'menu' || XRS.on)) bootYard('start'); /* (Start pressed before the yard's shaders were ready: draw it all now) */
-  if (!window.__noRender) { const gq = Math.min(S.gfx, S.autoGfx ? (QUALITY.gfxCap ?? 2) : 2); if (BOOT.lite) renderer.render(scene, camera); /* boot preview: the sky only (camera on the boot layer), no post chain */ else if (XRS.on) renderer.render(scene, VR.cam); /* VR: straight into the headset, no post chain */ else if (gq > 0) { grade.uniforms.uTime.value = clock % 10; sunGlare(); grade.enabled = gq > 1; outPass.enabled = !grade.enabled; bloom.strength = gq > 1 ? 0.42 : 0.34; composer.render(); } else renderer.render(scene, camera); PERFREP.render = performance.now() - PERFREP.r0; SEC.add('render', PERFREP.render); } // tests can skip drawing to run physics faster
+  if (!window.__noRender) { const gq = Math.min(S.gfx, S.autoGfx ? (QUALITY.gfxCap ?? 2) : 2); if (BOOT.lite) { const t = performance.now(); if (!(t - (BOOT.liteT || 0) < 400)) { BOOT.liteT = t; renderer.render(scene, camera); } } /* boot preview: the sky only (camera on the boot layer), no post chain; it doesn't change, so it is redrawn only now and then: the GPU's time goes to building the yard */ else if (XRS.on) renderer.render(scene, VR.cam); /* VR: straight into the headset, no post chain */ else if (gq > 0) { grade.uniforms.uTime.value = clock % 10; sunGlare(); grade.enabled = gq > 1; outPass.enabled = !grade.enabled; bloom.strength = gq > 1 ? 0.42 : 0.34; composer.render(); } else renderer.render(scene, camera); PERFREP.render = performance.now() - PERFREP.r0; SEC.add('render', PERFREP.render); } // tests can skip drawing to run physics faster
 }
 /* =====================================================================
    VR MODE (WebXR: Meta Quest 2 / 3 / 3S in the Quest Browser)
@@ -12184,7 +12247,7 @@ const IDLE = { ms: 3 * 60 * 1000, last: performance.now(), on: !/[?&]noidle=1\b/
   } };
 for (const ev of ['keydown', 'pointerdown', 'pointermove', 'wheel', 'touchstart', 'touchmove']) addEventListener(ev, (e) => { if (e.isTrusted || window.__idleTest) IDLE.poke(); }, { capture: true, passive: true });
 setInterval(() => IDLE.check(), 5000);
-window.__derby = { GP, PICK, cyclePick: (d) => cyclePick(d), setPick: (c) => setPick(c, false), canAim, frontTarget: (c, r, k) => frontTarget(c, r, k), AUTO, PLAYLOG, INSIDE, BOULDERS, get mapShapes() { return mapShapes; }, respawnCar: (o, t) => respawnCar(o, t), PHYS, cockpitEye: (c) => cockpitEye(c), wakeProp: (pr) => wakeProp(pr), addConcrete: (x, z, r, k) => addConcrete(x, z, r, k), igniteProp: (pr, t) => igniteProp(pr, t), cookBull: (bl, by, dt) => cookBull(bl, by, dt), hoseBull: (car, bl, p, f, dt) => hoseBull(car, bl, p, f, dt), DUCKS, goldConeReveal: (pr) => goldConeReveal(pr), sadTromboneKind: (t) => sadTromboneKind(t), honkBack: (car) => honkBack(car), smashBurger: (bl, how) => smashBurger(bl, how), bladeSlam: (car) => bladeSlam(car), wearBunHat: (bl) => wearBunHat(bl), bunHatRoll: (bl) => bunHatRoll(bl), shakeOff: (bl) => shakeOff(bl), harvestProp: (car, pr) => harvestProp(car, pr), baleMsgRoll: () => baleMsgRoll(), BALE_MSGS, updateSigns: (dt) => updateSigns(dt), SIGN_PROPS, tankerBoom: (p, c) => tankerBoom(p, c), CAR_TYPES, sfx, CANNON, barks, PERF, shells, NETLOG, nearHostAdd: () => nearHostAdd(), nearJoin: () => nearJoin(), JUMBO, BALL, BOLLARDS, GASQ, updateArenaPub: (dt) => updateArena(dt), CRUSHER, crushNow: () => crushNow(), applyNight: () => applyNight(), FIREWORKS, ARENA, CROWD, MP, QUALITY, applyQuality: (i) => applyQuality(i), MERGED, camera, updatePropActivity: (dt) => updatePropActivity(dt), renderer, scene, spawnFree: (x, z, r) => spawnFree(x, z, r), BULLS, updateBulls: (dt) => updateBulls(dt), updateShells, tilt, setTilt, get CRANE() { return CRANE; }, updateCrane: (dt) => updateCrane(dt), CONCRETE, THREE, craters, shells, pickups, barks, PERSONAS, TUNE, game, cars, S, world, CAR_TYPES, sfx, touch, drawGauge, get player() { return player; }, keys, startMatch, selectCar, setValue, debris, props, platformOf, get simTime() { return simTime; }, set simTime(v) { simTime = v; } }; // console tinkering + tests
+const DERBY = { GP, PICK, cyclePick: (d) => cyclePick(d), setPick: (c) => setPick(c, false), canAim, frontTarget: (c, r, k) => frontTarget(c, r, k), AUTO, PLAYLOG, INSIDE, BOULDERS, get mapShapes() { return mapShapes; }, respawnCar: (o, t) => respawnCar(o, t), PHYS, cockpitEye: (c) => cockpitEye(c), wakeProp: (pr) => wakeProp(pr), addConcrete: (x, z, r, k) => addConcrete(x, z, r, k), igniteProp: (pr, t) => igniteProp(pr, t), cookBull: (bl, by, dt) => cookBull(bl, by, dt), hoseBull: (car, bl, p, f, dt) => hoseBull(car, bl, p, f, dt), DUCKS, goldConeReveal: (pr) => goldConeReveal(pr), sadTromboneKind: (t) => sadTromboneKind(t), honkBack: (car) => honkBack(car), smashBurger: (bl, how) => smashBurger(bl, how), bladeSlam: (car) => bladeSlam(car), wearBunHat: (bl) => wearBunHat(bl), bunHatRoll: (bl) => bunHatRoll(bl), shakeOff: (bl) => shakeOff(bl), harvestProp: (car, pr) => harvestProp(car, pr), baleMsgRoll: () => baleMsgRoll(), BALE_MSGS, updateSigns: (dt) => updateSigns(dt), SIGN_PROPS, tankerBoom: (p, c) => tankerBoom(p, c), CAR_TYPES, sfx, CANNON, barks, PERF, shells, NETLOG, nearHostAdd: () => nearHostAdd(), nearJoin: () => nearJoin(), JUMBO, BALL, BOLLARDS, GASQ, updateArenaPub: (dt) => updateArena(dt), CRUSHER, crushNow: () => crushNow(), applyNight: () => applyNight(), FIREWORKS, ARENA, CROWD, MP, QUALITY, applyQuality: (i) => applyQuality(i), MERGED, camera, updatePropActivity: (dt) => updatePropActivity(dt), renderer, scene, spawnFree: (x, z, r) => spawnFree(x, z, r), BULLS, updateBulls: (dt) => updateBulls(dt), updateShells, tilt, setTilt, get CRANE() { return CRANE; }, updateCrane: (dt) => updateCrane(dt), CONCRETE, THREE, craters, shells, pickups, barks, PERSONAS, TUNE, game, cars, S, world, CAR_TYPES, sfx, touch, drawGauge, get player() { return player; }, keys, startMatch, selectCar, setValue, debris, props, platformOf, get simTime() { return simTime; }, set simTime(v) { simTime = v; } }; // console tinkering + tests
 // Startup. Before Build 100 the first frame compiled every shader in one blocking step; Builds 100-108 compiled the menu scene off the
 // main thread first (KHR_parallel_shader_compile) but drew nothing until all of it was done, or 8 s had passed: a Chromebook's cold
 // start sat 16 s before its first frame. Now the first frame draws the sky behind the menu straight away (one small program), the
@@ -12193,11 +12256,45 @@ window.__derby = { GP, PICK, cyclePick: (d) => cyclePick(d), setPick: (c) => set
 function startLoop(why) { if (BOOT.loop) return; BOOT.loop = why; requestAnimationFrame(frame); }
 const BOOT_LAYER = 31; // the boot preview's camera sees only this layer: the sky dome (and the lights, so its program is the one the yard uses)
 function bootLite() { BOOT.lite = true; BOOT.mask = camera.layers.mask; sky.layers.enable(BOOT_LAYER); scene.traverse((o) => { if (o.isLight) o.layers.enable(BOOT_LAYER); }); camera.layers.set(BOOT_LAYER); }
-function bootYard(how) { if (!BOOT.lite) return; BOOT.lite = false; BOOT.yardHow = how; camera.layers.mask = BOOT.mask; if (!BOOT.compiled) BOOT.compiled = performance.now(); }
-function bootFrame() { BOOT.frame = performance.now(); if (BOOT.loop === 'direct') return bootYard('direct');
-  if (!BOOT.lite) return; BOOT.c0 = performance.now(); BOOT.p1 = (renderer.info.programs || []).length; // the yard with all its lights, compiled in parallel while the menu and sky are up
+function bootYard(how) { if (!BOOT.lite) return; BOOT.lite = false; BOOT.yardHow = how; camera.layers.mask = BOOT.mask; if (!BOOT.compiled) BOOT.compiled = performance.now(); if (BOOTQ.want) bootNow().then(bootGo); }
+function bootFrame() { BOOT.frame = performance.now(); if (BOOT.built) bootCompile(); } // (the yard is compiled once it is all built: bootBuilt)
+async function bootCompile() { if (BOOT.c0 || !BOOT.frame) return; BOOT.c0 = performance.now();
+  if (!window.__noRender && renderer.initTexture) { const tx = new Set(); // the yard's textures go up to the GPU one per turn first: else the first frame of the whole yard uploads them all at once
+    scene.traverse((o) => { for (const m of Array.isArray(o.material) ? o.material : o.material ? [o.material] : []) for (const k of ['map', 'bumpMap', 'emissiveMap', 'normalMap', 'roughnessMap', 'alphaMap']) if (m[k] && m[k].isTexture && m[k].image) tx.add(m[k]); });
+    for (const t of tx) { if (!BOOT.lite) break; try { renderer.initTexture(t); } catch (e) {} await bootSlice(); } BOOT.tex = tx.size; }
+  if (BOOT.loop === 'direct') return bootYard('direct');
+  if (!BOOT.lite) return; BOOT.p1 = (renderer.info.programs || []).length; // the yard with all its lights, compiled in parallel while the menu and sky are up
   try { camera.layers.mask = BOOT.mask; const p = compileFor(scene, null, true); camera.layers.set(BOOT_LAYER);
     p.then(() => bootYard('async'), () => bootYard('async-failed')); setTimeout(() => bootYard('timeout'), 30000); } catch (e) { bootYard('error'); } }
+function bootLoop() { if (BOOT.loop) return; // the frame loop starts once your car is in: the sky first, behind the menu
+  try { BOOT.parallel = !!renderer.getContext().getExtension('KHR_parallel_shader_compile');
+    if (window.__noRender) { BOOT.compiled = performance.now(); startLoop('direct'); }
+    else if (!BOOT.parallel || !renderer.compileAsync) { bootLite(); startLoop('direct'); } // (compiled when the yard is drawn: bootCompile -> bootYard)
+    else { bootLite(); renderer.compile(sky, camera, scene); startLoop('async'); } // (the yard's compile starts once this first frame is up and everything is built: bootCompile)
+  } catch (e) { bootYard('error'); startLoop('error'); } }
+// After the script: the bulls, the menu yard's props (a group at a time), the pickups, your car (then the frame loop starts) and the showroom
+// cars (one at a time), each in a turn of its own. The order is buildProps' and spawnCars' own, so the props and their ids are the same
+// as a build in one go (guests and hosts agree on them). A tap on Start meanwhile starts the match once the props are in.
+async function bootBuild() {
+  if (window.__earlyStart) { BOOT.click = BOOT.click || window.__earlyStart; bootWant(); } // (tapped before the game's own handlers were up)
+  const phases = [['bulls', function* () { resetBulls(); }, null], ['props', buildPropsGen, () => { batchProps(); BOOTQ.fresh = true; }], ['pickups', function* () { buildPickups(); }, null], ['cars', spawnCarsGen, () => { SCORE.reset(); SCORE.show(false); BOOTQ.carsFresh = BOOTQ.hold && !BOOTQ.moved; }]];
+  for (const [name, mk, end] of phases) {
+    if (BOOT.built || BOOTQ.skip.has(name)) continue;
+    BOOTQ.phase = name; const g = mk(); let done = false;
+    while (!BOOT.built && !BOOTQ.skip.has(name)) { const t0 = performance.now(); if (g.next().done) { done = true; break; } BOOTQ.steps = (BOOTQ.steps || 0) + 1; BOOTQ.stepMax = Math.max(BOOTQ.stepMax || 0, Math.round(performance.now() - t0));
+      if (BOOTQ.live) bootLoop(); await bootNow(); }
+    if (done && end && !BOOT.built) end();
+  }
+  bootBuilt('staged');
+}
+function bootBuilt(how) { if (BOOT.built) return; BOOT.built = performance.now(); BOOT.builtHow = how; BOOTQ.phase = ''; BOOTQ.live = true; if (!BOOTQ.want) bootHint(true);
+  window.__derby = DERBY; bootLoop(); bootNow().then(() => { bootCompile(); if (!BOOT.lite) bootGo(); }); } // (the yard's shaders in a turn of their own)
+// Start tapped while the yard is still being built (or its shaders compiled): nothing freezes, the button says it is getting ready, the
+// opponents built so far wait where they are (no AI), and the match starts the moment everything is in, with the props and cars just
+// built (nothing is built twice). Before, a tap that early waited for the script and then built the props and cars again in one go.
+function bootWant() { if (!BOOTQ.want) { BOOTQ.want = true; BOOTQ.hold = true; if (cars.length > 1) BOOTQ.moved = true; } bootHint(); }
+function bootGo() { if (!BOOTQ.want) return; BOOTQ.want = false; bootHint(true); if (game.state === 'menu' && !el.menu.hidden) startMatch(); else { BOOTQ.hold = false; BOOTQ.carsFresh = false; } }
+function bootHint(off) { const b = $('btnStart'); if (!b) return; if (!b.dataset.label) b.dataset.label = b.textContent; b.textContent = off ? b.dataset.label : 'Getting the yard ready…'; b.classList.toggle('booting', !off); }
 function bootYardShown() { BOOT.yard = performance.now(); try { PLAYLOG.add({ v: 2, kind: 'boot', test: navigator.webdriver ? true : undefined, sid: PLAYLOG.sid, dev: PLAYLOG.devId, build: BUILD, at: new Date().toISOString(), device: PERFREP.device(),
   scriptMs: Math.round(BOOT.ready - BOOT.t0), compileMs: Math.round(BOOT.compiled - (BOOT.c0 || BOOT.ready)), firstFrameMs: Math.round(BOOT.frame), yardMs: Math.round(BOOT.yard), firstProgs: BOOT.p1, parallel: BOOT.parallel, how: BOOT.loop, yardHow: BOOT.yardHow, q: QUALITY.level }); } catch (e) {}
   setTimeout(prewarmAsync, 300); }
@@ -12209,13 +12306,9 @@ BOOT.ready = performance.now();
 // A device whose last match settled at the lightest levels (no shadows: a weak laptop) starts there, instead of compiling the shadowed,
 // post-processed yard first and dropping to it a minute into the match. Fewer and cheaper programs; the governor still steps up.
 try { const q = +(localStorage.getItem('derby-qlevel') || 0); if (S.autoGfx && q >= 6 && q < QSTEPS.length && q > QUALITY.level) { applyQuality(q); BOOT.q = q; } } catch (e) {}
-try { BOOT.parallel = !!renderer.getContext().getExtension('KHR_parallel_shader_compile');
-  if (window.__noRender) { BOOT.compiled = BOOT.ready; startLoop('direct'); }
-  else if (!BOOT.parallel || !renderer.compileAsync) { bootLite(); BOOT.compiled = BOOT.ready; startLoop('direct'); }
-  else { bootLite(); renderer.compile(sky, camera, scene); startLoop('async'); } // (the yard's compile starts once this first frame is up: bootFrame)
-} catch (e) { bootYard('error'); startLoop('error'); }
-window.__derby.BOOT = BOOT; window.__derby.HITLOG = HITLOG; Object.defineProperty(window.__derby, 'camMode', { get: () => camMode }); window.__derby.MEMGUARD = MEMGUARD; window.__derby.GPULIVE = GPULIVE;
-window.__derby.IDLE = IDLE; window.__derby.TALK = TALK; window.__derby.DROP = DROP; window.__derby.SCORE = SCORE; window.__derby.UPDATE = UPDATE; window.__derby.TABENV = TABENV; window.__derby.PERFREP = PERFREP; // (test hooks)
-window.__derby.VR = VR; window.__derby.XRS = XRS; window.__derby.composer = composer;
-window.__derby.VCLIP = VCLIP; window.__derby.ROAST_BY = ROAST_BY; window.__derby.ROAST_PAIR = ROAST_PAIR; window.__derby.SHAZZA = SHAZZA; window.__derby.CAR_CAST = CAR_CAST; window.__derby.ANNOUNCER = ANNOUNCER; window.__derby.COP = COP; window.__derby.megaphone = megaphone; window.__derby.hornLine = hornLine;
+DERBY.BOOT = BOOT; DERBY.HITLOG = HITLOG; Object.defineProperty(DERBY, 'camMode', { get: () => camMode }); DERBY.MEMGUARD = MEMGUARD; DERBY.GPULIVE = GPULIVE;
+DERBY.IDLE = IDLE; DERBY.TALK = TALK; DERBY.DROP = DROP; DERBY.SCORE = SCORE; DERBY.UPDATE = UPDATE; DERBY.TABENV = TABENV; DERBY.PERFREP = PERFREP; // (test hooks)
+DERBY.VR = VR; DERBY.XRS = XRS; DERBY.composer = composer; DERBY.BOOTQ = BOOTQ;
+DERBY.VCLIP = VCLIP; DERBY.ROAST_BY = ROAST_BY; DERBY.ROAST_PAIR = ROAST_PAIR; DERBY.SHAZZA = SHAZZA; DERBY.CAR_CAST = CAR_CAST; DERBY.ANNOUNCER = ANNOUNCER; DERBY.COP = COP; DERBY.megaphone = megaphone; DERBY.hornLine = hornLine;
+bootBuild(); // (window.__derby appears when it is done: what tests and the updater look for is all there by then)
 </script>
