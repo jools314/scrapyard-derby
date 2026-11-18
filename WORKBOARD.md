@@ -22,6 +22,25 @@ Format: `- [agent] topic — branch — claimed YYYY-MM-DD HH:MM UTC — notes`
   - Note [muse] 2026-11-17 23:59 UTC: gate re-opened and re-closed in one cycle. The 20:39 report judged Build 111 clean (99 Mac game-min, "OK Mac: build 110 -> 111", phys 270/h, slow 0.0), so muse rebased the fix onto 111, renumbered to 112 and ran the full quick gate on that exact tree: every test PASS (in-suite until a service restart killed the runner after memguard; the rest individually on the same tree; drive-a/heapguard passed solo after in-suite load flakes, memleak solo 1035 s and heapleak solo 785 s after their in-suite caps, inside passed on re-run; perfbudget PERF PASS, high 427 calls / 495 geo, low 374 / 333, phys 4.6/4.4 ms/step). Before the push, claude landed Build 112 (fastboot: render/startup path) and Build 113 (UI), so the branch is rebased onto 113 and renumbered 114 (ebc4444, pushed; syntax + heaps PASS on the rebased tree as a sanity check only). NOT landed: Build 112 is a rendering-path change with zero game-minutes in the newest report, and Hard rule 2 forbids stacking a scenery change on an unjudged rendering build. Landing recipe unchanged: after a report shows Build 112 (or later) with 30+ game-min and a clean Regression check, re-run the full quick suite on the rebased tree (now including fastboot/phonehud/tiltbtn), re-check the board, push, move this claim to Done.
 - [muse] bob/improvements-round2 — branch exists; landing plan to follow (not yet claimed)
 ## Ready to land (needs the test gate)
+- [claude] claude/geoleak (/home/user/wt-geoleak, 013d347): fixes the steady GPU geometry climb.
+  - Rubber ducks and bull burgers built new shapes every time: now one shared set each.
+  - Burgers were left in the yard after a new match (also a visual bug): now removed.
+  - Props taken out mid-match (harvested, burnt, splintered, blown up, guest-removed) were never freed: now freed at the next buildProps.
+  - SIGN_PROPS is now cleared each match.
+  - New tests/geoleak.js: main leaves 54 orphaned geometries and 7 burgers over 7 restarts; the branch stays flat at 5-7 with 0 burgers.
+  - Total GPU memory involved is under 1 MB, so this was not what crashed the Chromebook tab.
+  - Prop build, so the 30-min gate applies. Needs a quick suite.
+- [claude] claude/selfheal (/home/user/wt-selfheal, ead2e23 + 23d2ae3): self-healing autoplay (the owner: never manually intervene).
+  - Memory reloads are rate-limited instead of capped at 3 per tab.
+  - Planned refresh every 90 min / 30 matches (60 / 20 on devices with 4 GB or less).
+  - Steady-growth trigger.
+  - webglcontextlost reloads autoplay; a person gets a tap-to-reload banner.
+  - 20 s stall watchdog, only while autoplay holds the wake lock.
+  - Launcher autoplay.html runs the game in a sandboxed (separate-process) frame and restarts it if it crashes or hangs.
+  - heal records in the play log and in the analyser.
+  - tests/selfheal.js: 35/35 on the branch, 18 failures on main.
+  - Follow-up in progress: top-level ?autoplay=1 moves itself into the launcher (with a loop guard).
+  - Non-gameplay. Land it near geoleak, because the growth trigger will reload the Mac and Chromebook every 40-60 min until geoleak is in.
 - [claude] claude/cranejitter (/home/user/wt-cranejitter, 780a8c4): a car held by the magnet crane no longer shakes on low-fps devices. The magnet is now driven by velocity before each physics step, instead of being given a velocity and then teleported every frame. On main its vertical speed flipped +19.2/-16.0 m/s frame to frame. New tests/cranejitter.js (quality 7, 35-65 ms frames): main fails 3/3 runs (up to 30 solver-kick undos on a held car, 16.5 m/s swings in 0.1 s), the fix passes 4/4 (0 undos, max 3.3 m/s). Physics build: lands after the spider (Build 120) plus 30 game-min; needs a quick suite on its rebased head.
 - [claude] In progress for the owner's 2026-11-17 evening requests (each its own branch; physics/AI ones wait for the 30-game-min gate after 112): claude/tiltbtn (Tilt button in the phone top row, mock-motion drive test; compact score card with ▾, hull/weapon %, no Pause button: settings pauses a solo match; small action buttons right-aligned above FIRE) · claude/spiderjump (spider leaps ~1.55 s apart, AI pounce/dodge/unstick leaps; next: a bit bigger and stronger) · claude/cruiser-dumpster (police car more power; Big Bertha dumpster fire) · claude/softhills (rounder hill edges so cars don't beach).
 - [claude] `claude/elephant` needs a walker-integration pass before it can follow the spider (found 18:15): both branches added walkers independently. The spider has `T.walker` + `car.walkStep()` + `webbedT`; the elephant has a `WALK` module (`WALK.physics`, `WALK.dispose`) + `stallT`. Both use network flag bit 64 (spider: webbed, elephant: stalled). Plan: after the spider lands, rebase the elephant on main, keep ONE walker path (the spider's `walkStep`, with the elephant's gait/trunk as per-type hooks), move the elephant flags to bits 128/256/512, then run spider.js, elephant tests and mp-elephant together.
