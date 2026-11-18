@@ -52,7 +52,7 @@
   location.replace(location.pathname.replace(/[^/]*$/, '') + 'autoplay.html' + (rest ? '?' + rest : '') + location.hash);
 })();
 </script>
-<meta name="derby-build" content="120"><!-- must equal BUILD in the script and version.txt (tests/syntax.js checks) -->
+<meta name="derby-build" content="121"><!-- must equal BUILD in the script and version.txt (tests/syntax.js checks) -->
 <script>
 // Updater of last resort (Build 100). Runs on its own, outside the game script, so a build whose game code breaks, a CDN
 // that fails, or a bug in the in-game update check (Build 94's Mac sat stuck for hours) can't strand a computer on an old build.
@@ -886,7 +886,7 @@ const CAR_TYPES = {
 };
 // Anansi the Spider-Walker: eight scrap-pipe legs instead of wheels (no RaycastVehicle: hover springs + drive forces, legs animated on top, see walkStep/updateLegs).
 // Its "wheels" are its legs: wheelBase = the 8 hips (front pair first, even = left), wheelLost = a leg snapped off. Fewer legs: slower, limps; under 6 it can't climb; under 4 it's a wreck.
-CAR_TYPES.spider = { walker: true, special: 'web', noPlant: true, handling: { steer: 1.2, rate: 1.4, spring: 1, damp: 1, rear: 1, drag: 1.1, roll: 0.5 }, name: 'Spider-Walker', blurb: 'Anansi\'s eight-legged scrap spider. Scuttles fast, climbs onto containers and walls, drops onto cars. F fires a steel web that pins the car in front for 3 s. Up close F bites instead (poison); a web hit near another car ties the two together, near a wall it sticks the car to it; J leaps high. Heavy rams snap its legs: every leg lost makes it slower.', style: 'spider', mass: 1600, L: 2.4, W: 1.7, H: 0.6, wheelR: 0.3, wheelW: 0.2, wb: 1.5, axles: [0.75, 0.25, -0.25, -0.75], track: 1.44, power: 1.0, grip: 1.1, armor: 1.0, cabin: { l: 0.9, h: 0.45, w: 0.95, x: 0.7 }, color: 0x7a5232, redline: 5200, idle: 900, cyl: 2 };
+CAR_TYPES.spider = { walker: true, special: 'web', noPlant: true, handling: { steer: 1.2, rate: 1.4, spring: 1, damp: 1, rear: 1, drag: 1.1, roll: 0.5 }, size: 1.18, name: 'Spider-Walker', blurb: 'Anansi\'s eight-legged scrap spider. Scuttles fast, climbs onto containers and walls, drops onto cars. F fires a steel web that pins the car in front for 3 s. Up close F bites (poison) and fires up an angle grinder that cuts panels off; a web hit near another car ties the two together, near a wall it sticks the car to it; J leaps 7 m, and a landing on a roof rides the car until it shakes you off. Heavy rams snap its legs: every leg lost makes it slower.', style: 'spider', mass: 2100, L: 2.4, W: 1.7, H: 0.6, wheelR: 0.3, wheelW: 0.2, wb: 1.5, axles: [0.75, 0.25, -0.25, -0.75], track: 1.44, power: 1.0, grip: 1.1, armor: 0.85, cabin: { l: 0.9, h: 0.45, w: 0.95, x: 0.7 }, color: 0x7a5232, redline: 5200, idle: 900, cyl: 2 };
 
 const S = {};
 const STORE_KEY = 'scrapyard-derby-settings-v9';
@@ -2982,7 +2982,7 @@ const WEAPONS = {
   },
   web: { label: 'WEB', cd: 6, dur: 3.2, // Anansi's steel web: a cable at the car in front that pins it to the ground for ~3 s, then a cooldown
     start(car) {
-      { const near = frontTarget(car, 5.5, 0.9); if (near && !near.wrecked) { spiderBite(car, near); return; } } // up close the fangs, not the web (owner, Build 106)
+      { const near = spiderCloseTarget(car) || frontTarget(car, 6, 0.9); if (near && !near.wrecked) { spiderBite(car, near); car.grindT = 2.5; car.grindRip = 0.5; car.grindHit = near; car.specialCd = 5; car.specialT = 0; return; } } // up close (or riding a roof) the fangs and the angle grinder, not the web (owner, Build 106 / 115+)
       const t = frontTarget(car, 32, 0.6);
       if (!t) { car.specialCd = 1.5; car.specialT = 0.35; car.web = { t: null, miss: car.body.pointToWorldFrame(new CANNON.Vec3(14, 0, 0)) }; car.web.miss.y = 0.05; webLine(car); if (car.isPlayer) toast('MISSED · NOTHING IN FRONT', 'bad'); sfx.at(car.body.position).zing(wv(car) * 0.6); return; }
       const tp = t.body.position; t.webbedT = 3; t.webAt = { x: tp.x, z: tp.z }; t.webBy = car; t.lastAttacker = car; t.lastAttackTime = simTime; t.body.wakeUp();
@@ -3806,6 +3806,7 @@ const sfx = {
   shotgun(vol) { if (!this.ctx || vol < 0.02) return; this.noiseHit('lowpass', 900, 0.7, vol * 0.75, 0.35, true); this.noiseHit('highpass', 2400, 0.8, vol * 0.4, 0.06); this.tone('sine', 110, 40, vol * 0.5, 0.25); }, // BOOM
   pump(vol) { if (!this.ctx || vol < 0.02) return; this.noiseHit('bandpass', 1800, 6, vol * 0.25, 0.04); this.noiseHit('bandpass', 1300, 6, vol * 0.25, 0.05, false, 0.13); }, // chk-chk
   thump(vol, mass = 1500) { if (!this.ctx || vol < 0.02) return; const lo = mass > 5000 ? 0.6 : 1; this.tone('sine', 95 * lo, 38 * lo, vol * 0.55, 0.22); this.noiseHit('lowpass', 260 * lo, 1.2, vol * 0.4, 0.14); this.noiseHit('bandpass', 1400, 3, vol * 0.08, 0.05); }, // speed bump: suspension bottoming out
+  grind(vol) { if (!this.ctx || vol < 0.02) return; this.tone('sawtooth', rand(2300, 2700), rand(1900, 2300), vol * 0.05, 0.11); this.noiseHit('bandpass', rand(3600, 4600), 3, vol * 0.16, 0.1); }, // the angle grinder biting metal
   ratchet(vol) { if (!this.ctx || vol < 0.02) return; this.noiseHit('bandpass', 2600, 6, vol * 0.18, 0.025); }, // reel winding in
   glug(vol) { if (!this.ctx || vol < 0.02) return; this.tone('sine', rand(140, 200), 60, vol * 0.3, 0.16); this.noiseHit('lowpass', 400, 2, vol * 0.12, 0.12); }, // fuel, oil, concrete pouring
   hydraulic(vol) { if (!this.ctx || vol < 0.02) return; this.tone('sawtooth', 210, 340, vol * 0.08, 0.6); this.noiseHit('bandpass', 900, 3, vol * 0.08, 0.5); },
@@ -4069,6 +4070,17 @@ function walkerRig(n, body) { // stands in for a RaycastVehicle: the code that l
   return { wheelInfos, chassisBody: body, addWheel() {}, addToWorld(w) { w.addBody(body); }, removeFromWorld(w) { w.removeBody(body); }, applyEngineForce() {}, setBrake() {}, setSteeringValue() {}, updateWheelTransform() {} };
 }
 let _spider = null;
+const LEAP_VY = 15.3; // the spider's leap: ~7.3 m up and ~1.9 s in the air (owner: "jump pretty high", Build 115+; it was 11.5: ~4 m)
+const GRINDER_SVG = '<svg viewBox="0 0 32 32" width="1em" height="1em" aria-hidden="true"><g fill="currentColor"><circle cx="20" cy="13" r="10" opacity="0.9"/><circle cx="20" cy="13" r="2.6" fill="rgba(0,0,0,0.45)"/><path d="M11 10 L3 22 Q2 25 5 26 L8 27 L16 15 Z"/></g><g stroke="#ffd04a" stroke-width="2" stroke-linecap="round"><path d="M27 21 L30 25"/><path d="M24 23 L25 28"/><path d="M29 17 L31 18"/></g></svg>'; // an angle grinder throwing sparks (no emoji reads as one)
+function spiderReach(car, t) { // is t's body where the grinder disc on car's front leg can touch it? (no allocations: called every step while it spins)
+  const K = car.T.size || 1; _wP.set(1.75 * K, -0.1 * K, 0.5 * K); car.body.pointToWorldFrame(_wP, _wL); t.body.pointToLocalFrame(_wL, _wP);
+  return Math.abs(_wP.x) < t.T.L / 2 + 1.0 && Math.abs(_wP.z) < t.T.W / 2 + 1.0 && _wP.y < HULL_Y0 + t.T.H + t.T.cabin.h + 2.2 && _wP.y > -1.5;
+}
+function spiderCloseTarget(car) { // the car right in front of its fangs (or under it, riding a roof): the grinder's target
+  if (car.latch && !car.latch.c.wrecked) return car.latch.c;
+  let best = null, bd = 9; for (const c of cars) { if (c === car || c.wrecked) continue; car.body.pointToLocalFrame(c.body.position, _wL); const d = Math.hypot(_wL.x, _wL.z); if (_wL.x > 0 && d < bd && Math.abs(Math.atan2(_wL.z, _wL.x)) < 0.9 && spiderReach(car, c)) { bd = d; best = c; } }
+  return best;
+}
 function SPIDER() { // shared by every spider, made once: one pipe material, two leg segments (femur with its knee, tibia with its foot)
   if (_spider) return _spider; const A = 1.15, B = 1.55;
   const pipe = new THREE.MeshStandardMaterial({ color: 0x8a6a4e, roughness: 0.5, metalness: 0.75, map: grimeTex });
@@ -4077,7 +4089,9 @@ function SPIDER() { // shared by every spider, made once: one pipe material, two
   fem.userData.shared = tib.userData.shared = true;
   const cap = new THREE.MeshStandardMaterial({ roughness: 0.8, map: canvasTex(64, (g, s) => { const c = ['#e8b81a', '#1d7a3a', '#c8281e', '#e8b81a', '#151311', '#1d7a3a', '#e8b81a', '#c8281e']; for (let i = 0; i < 8; i++) { g.fillStyle = c[i]; g.fillRect(i * s / 8, 0, s / 8, s); } g.fillStyle = '#151311'; for (let y = 0; y < s; y += 16) g.fillRect(0, y, s, 3); }, 1, 1) }); // a kente-pattern cap for the driver
   const web = new THREE.LineBasicMaterial({ color: 0xe8e4dc, transparent: true, opacity: 0.9 });
-  return (_spider = { A, B, pipe, fem, tib, cap, web, skin: new THREE.MeshStandardMaterial({ color: 0x4a2c1a, roughness: 0.7 }), zero: new THREE.Matrix4().makeScale(0, 0, 0) });
+  const disc = mergeGeometries([new THREE.CylinderGeometry(0.36, 0.36, 0.035, 22).rotateX(Math.PI / 2), new THREE.CylinderGeometry(0.1, 0.1, 0.1, 10).rotateX(Math.PI / 2)], false); disc.userData.shared = true; // the angle grinder's cutting disc and hub
+  const arm = new THREE.BoxGeometry(0.5, 0.09, 0.09); arm.userData.shared = true;
+  return (_spider = { A, B, pipe, fem, tib, cap, web, disc, arm, skin: new THREE.MeshStandardMaterial({ color: 0x4a2c1a, roughness: 0.7 }), zero: new THREE.Matrix4().makeScale(0, 0, 0) });
 }
 const _wf = new CANNON.Vec3(), _wt = new CANNON.Vec3(), _wr = new CANNON.RaycastResult(), _wF = new CANNON.Vec3(), _wR = new CANNON.Vec3(), _wQ = new CANNON.Quaternion(), _wA = new CANNON.Vec3(), _wL = new CANNON.Vec3(), _wP = new CANNON.Vec3();
 const _nz = (x, top) => (Number.isNaN(x) ? top : x); // (a feeler that found nothing counts as the highest one)
@@ -4086,7 +4100,7 @@ const _lq = new THREE.Quaternion(), _lqi = new THREE.Quaternion(), _lh = new THR
 function webLine(car) { // the steel web: one cable from the spinneret to the victim's roof, three more from the roof to the ground (one draw)
   const w = car.web; let L = car.webLine; if (!w) { if (L) L.visible = false; return; }
   if (!L) { L = car.webLine = new THREE.LineSegments(new THREE.BufferGeometry(), SPIDER().web); L.geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(8 * 3), 3)); L.frustumCulled = false; scene.add(L); }
-  const a = car.body.pointToWorldFrame(_wP.set(1.15, 0.3, 0), _wL), P = L.geometry.attributes.position; P.setXYZ(0, a.x, a.y, a.z);
+  const a = car.body.pointToWorldFrame(_wP.set(1.15, 0.3, 0).scale(car.T.size || 1, _wP), _wL), P = L.geometry.attributes.position; P.setXYZ(0, a.x, a.y, a.z);
   if (w.t) { const tp = w.t.body.position, ty = tp.y + w.t.T.H * 0.5 + 0.4, r = w.t.T.W * 0.7 + 0.8; P.setXYZ(1, tp.x, ty, tp.z);
     for (let k = 0; k < 3; k++) { const an = k * 2.094 + 0.5; P.setXYZ(2 + k * 2, tp.x, ty, tp.z); P.setXYZ(3 + k * 2, (w.at ? w.at.x : tp.x) + Math.cos(an) * r, 0.05, (w.at ? w.at.z : tp.z) + Math.sin(an) * r); } }
   else { const m = w.miss; for (let k = 1; k < 8; k++) P.setXYZ(k, m.x, m.y, m.z); }
@@ -4123,7 +4137,7 @@ function updateTies(dt) { // two webbed cars reel each other in (heavier one mov
     const P = T.line.geometry.attributes.position; P.setXYZ(0, pa.x, pa.y + 0.8, pa.z); P.setXYZ(1, pb.x, pb.y + 0.8, pb.z); P.needsUpdate = true; }
 }
 function spiderBite(car, t) { // the fangs: a small bite and 8 s of poison (damage over time, wobbly steering, green drips)
-  t.applyDamage(6 * S.damage * t.T.armor, car, 'front', null, 0); t.poisonT = 8; t.poisonBy = car; t.lastAttacker = car; t.lastAttackTime = simTime;
+  t.applyDamage(8 * S.damage * t.T.armor, car, 'front', null, 0); t.poisonT = 8; t.poisonBy = car; t.lastAttacker = car; t.lastAttackTime = simTime;
   const p = t.body.position; for (let i = 0; i < 14; i++) emit('debris', p.x + rand(-1, 1), p.y + 1, p.z + rand(-1, 1), rand(-2, 2), rand(2, 4), rand(-2, 2), rand(0.5, 0.9), rand(0.08, 0.14), PMAT.poison);
   sfx.at(p).clank(wv(car) * 0.9); car.web = null; webLine(car);
   if (PLAYLOG.m) { const V = PLAYLOG.V(car.type); V.bites = (V.bites || 0) + 1; }
@@ -4183,10 +4197,10 @@ class Car {
     const mass = T.mass * (isPlayer ? S.playerMassScale : S.aiMassScale);
     const b = this.body = new CANNON.Body({ mass, angularDamping: 0.2, allowSleep: false, material: carMat });
     b.collisionFilterGroup = CARG;
-    const hullW = T.W * (T.hullW || 1);
-    b.addShape(chamferBox(T.L / 2, T.H / 2, hullW / 2, Math.min(0.45, hullW * 0.22), 0.06, Math.min(0.7, T.H * 0.85)), new CANNON.Vec3(0, HULL_Y0 + T.H / 2, 0)); // nose rides up onto ramps
+    const hullW = T.W * (T.hullW || 1), K = T.size || 1; // (K: the spider is built at 1.18x its model size; every other car is 1)
+    b.addShape(chamferBox(T.L / 2 * K, T.H / 2 * K, hullW / 2 * K, Math.min(0.45, hullW * 0.22) * K, 0.06 * K, Math.min(0.7, T.H * 0.85) * K), new CANNON.Vec3(0, (HULL_Y0 + T.H / 2) * K, 0)); // nose rides up onto ramps
     const C = T.cabin;
-    b.addShape(chamferBox(C.l / 2, C.h / 2, C.w / 2, Math.min(0.3, C.w * 0.18), Math.min(0.15, C.h * 0.25)), new CANNON.Vec3(C.x, HULL_Y0 + T.H + C.h / 2, 0));
+    b.addShape(chamferBox(C.l / 2 * K, C.h / 2 * K, C.w / 2 * K, Math.min(0.3, C.w * 0.18) * K, Math.min(0.15, C.h * 0.25) * K), new CANNON.Vec3(C.x * K, (HULL_Y0 + T.H + C.h / 2) * K, 0));
     if (T.style === 'van') b.addShape(this.vanShape = new CANNON.Box(new CANNON.Vec3(2.65, 0.62, T.W / 2 * 0.97)), new CANNON.Vec3(-0.65, HULL_Y0 + T.H + 0.62, 0));
     if (T.style === 'tanker') b.addShape(new CANNON.Box(new CANNON.Vec3(2.9, 1.05, 1.05)), new CANNON.Vec3(-1.55, HULL_Y0 + T.H + 1.1, 0));
     if (T.style === 'combine') { b.addShape(new CANNON.Box(new CANNON.Vec3(0.7, 0.4, 3.0)), new CANNON.Vec3(T.L / 2 + 0.75, HULL_Y0 + 0.55, 0)); b.addShape(new CANNON.Box(new CANNON.Vec3(1.6, 0.7, 1.3)), new CANNON.Vec3(-0.9, HULL_Y0 + T.H + 0.7, 0)); } // the header out front, the grain tank on top
@@ -4195,9 +4209,9 @@ class Car {
     if (T.style === 'fire') b.addShape(new CANNON.Box(new CANNON.Vec3(2.6, 0.5, 1.2)), new CANNON.Vec3(-1.8, HULL_Y0 + T.H + 0.5, 0));
     if (T.style === 'tank') for (const sd of [-1, 1]) b.addShape(chamferBox(T.L * 0.48, 0.42, 0.3, 0.12, 0.02, 0.5), new CANNON.Vec3(0, -0.36, sd * T.track / 2)); // tracks
     if (T.dozer) b.addShape(this.bladeShape = new CANNON.Box(new CANNON.Vec3(0.2, 0.68, T.W * 0.56)), new CANNON.Vec3(T.L / 2 + 0.55, HULL_Y0 + 0.83, 0)); // the blade is solid steel: it pushes, it doesn't sink into what it hits
-    if (T.walker) b.addShape(new CANNON.Box(new CANNON.Vec3(1.25, 0.35, 1.2)), new CANNON.Vec3(0, -0.85, 0)); // the leg cage: low cars hit the legs, not thin air under the body
+    if (T.walker) b.addShape(new CANNON.Box(new CANNON.Vec3(1.25 * K, 0.35 * K, 1.2 * K)), new CANNON.Vec3(0, -0.85 * K, 0)); // the leg cage: low cars hit the legs, not thin air under the body
     this.baseOffsets = b.shapeOffsets.map((o) => o.clone());
-    b.position.set(x, T.walker ? 2.2 : 1.6, z);
+    b.position.set(x, T.walker ? 2.2 * K : 1.6, z);
     b.quaternion.setFromAxisAngle(AX_Y, yaw);
     b.car = this;
 
@@ -5095,7 +5109,7 @@ class Car {
 
   setInertia() {
     const b = this.body, T = this.T, m = b.mass;
-    const L = T.L, W = T.W, H = T.H + T.cabin.h;
+    const K = T.size || 1, L = T.L * K, W = (T.walker ? 2.6 : T.W) * K, H = (T.H + T.cabin.h) * K; // (a spider's legs splay ~4 m wide: they brace it against rolling like a much wider car)
     // Real cars carry mass at the corners (wheels, engine, axles): resist pitch/roll more than a uniform box
     const Ix = m / 12 * (H * H + W * W) * 1.3, Iy = m / 12 * (L * L + W * W), Iz = m / 12 * (L * L + H * H) * 1.45;
     b.inertia.set(Ix, Iy, Iz);
@@ -5639,7 +5653,7 @@ class Car {
       this.blob.position.set(b.position.x, 0.03, b.position.z); this.blob.rotation.z = yaw; this.blob.scale.set(T.L * (1.15 + (1 - k) * 0.4), T.W * (1.35 + (1 - k) * 0.4), 1); this.blob.material.opacity = 0.62 * k; this.blob.visible = k > 0.02; }
     // Wheels, springs, skid marks, dust
     let skid = 0;
-    if (T.walker) this.updateLegs(dt);
+    if (T.walker) { this.updateLegs(dt); this.grinderFrame(dt); }
     else for (let i = 0; i < this.nW; i++) {
       const wi = v.wheelInfos[i], inContact = wi.isInContact;
       v.updateWheelTransform(i);
@@ -5686,7 +5700,7 @@ class Car {
 
   /* ---------- the Spider-Walker ---------- */
   buildSpider() { // Anansi's machine: an oil-drum abdomen, a hubcap-domed cockpit, eight eyes (two of them headlights), mandible claws, and eight scrap-pipe legs (two instanced draws)
-    const T = this.T, g = this.group = new THREE.Group(), root = this.root = new THREE.Group(), SP = SPIDER(), D2 = DET2(); g.add(root); scene.add(g);
+    const T = this.T, g = this.group = new THREE.Group(), root = this.root = new THREE.Group(), SP = SPIDER(), D2 = DET2(), K = T.size || 1; g.add(root); scene.add(g); root.scale.setScalar(K); // (bigger, not just heavier: the model is drawn at K; legs too, below)
     this.paint = (QUALITY.level ?? 0) <= 2
       ? new THREE.MeshPhysicalMaterial({ color: this.baseColor.clone(), map: grimeTex, roughness: 0.38, metalness: 0.45, envMapIntensity: 1.3, clearcoat: 0.65, clearcoatRoughness: 0.18 })
       : new THREE.MeshStandardMaterial({ color: this.baseColor.clone(), map: grimeTex, roughness: 0.34, metalness: 0.5, envMapIntensity: 1.25 });
@@ -5711,6 +5725,7 @@ class Car {
     const bub = add(new THREE.SphereGeometry(0.42, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), this.glassMat, 0.55, 0.32, 0); bub.scale.set(1.15, 1, 1);
     add(new THREE.SphereGeometry(0.12, 10, 8), SP.skin, 0.5, 0.52, 0); add(new THREE.CylinderGeometry(0.115, 0.125, 0.09, 10), SP.cap, 0.5, 0.62, 0); add(new THREE.BoxGeometry(0.16, 0.18, 0.3), SP.cap, 0.5, 0.36, 0);
     // head: eight eyes (the two big ones are the headlights), mandible claws, the cable spool that throws the web
+    { const arm = add(SP.arm, M.steel, 1.2, -0.08, 0.42); arm.rotation.y = -0.3; this.grindDisc = add(SP.disc, M.chrome, 1.45, -0.08, 0.5); } // the angle grinder on its right fang (owner: "some form of laser cutter or vinkelslip")
     const head = add(new THREE.BoxGeometry(0.5, 0.36, 0.7), this.paint, 1.05, 0.12, 0); this.deform.push({ mesh: head, orig: head.geometry.attributes.position.array.slice() });
     for (const s of [-1, 1]) { const e = add(new THREE.SphereGeometry(0.11, 10, 8), M.lamp, 1.3, 0.2, s * 0.17); this.lampMeshes.push(e); }
     for (const [y, z] of [[0.3, 0.07], [0.3, -0.07], [0.06, 0.3], [0.06, -0.3], [0.24, 0.29], [0.24, -0.29]]) add(new THREE.SphereGeometry(0.05, 8, 6), this.tailMat, 1.29, y, z);
@@ -5722,28 +5737,30 @@ class Car {
     // legs: femurs and tibias as two instanced meshes on the body's frame (feet are planted in the world, the IK runs in updateLegs)
     this.legIM = [SP.fem, SP.tib].map((geo) => { const m = new THREE.InstancedMesh(geo, SP.pipe, 8); m.instanceMatrix.setUsage(THREE.DynamicDrawUsage); m.castShadow = true; m.receiveShadow = true;
       m.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, -0.6, 0), 4.2); m.boundingBox = new THREE.Box3(new THREE.Vector3(-3, -2.4, -3), new THREE.Vector3(3, 1.4, 3)); m.userData.lodR = 0.7; // (beyond ~120 m the legs aren't drawn)
-      for (let i = 0; i < 8; i++) m.setMatrixAt(i, SP.zero); g.add(m); return m; });
+      for (let i = 0; i < 8; i++) m.setMatrixAt(i, SP.zero); m.scale.setScalar(K); g.add(m); return m; });
     const restX = [1.5, 0.55, -0.55, -1.55];
     this.legs = [];
     for (let i = 0; i < 8; i++) { const k = i >> 1, s = i % 2 ? 1 : -1;
       this.legs.push({ i, k, side: s, grp: (k + (s > 0 ? 1 : 0)) % 2, hip: new THREE.Vector3(T.axles[k], 0, s * 0.72), rest: new THREE.Vector3(restX[k], 0, s * 2.0), foot: null, from: new THREE.Vector3(), to: new THREE.Vector3(), t: -1 }); }
   }
   groundAt(x, z, k) { // where a foot lands: the front feet reach up onto things (climbing), the rest look down
-    const p = this.body.position;
-    _wf.set(x, p.y + (k === 0 && this.canClimb ? 2.4 : 1.0), z); _wt.set(x, p.y - (this.ride || 1.45) - 1.8, z); _wr.reset();
+    const p = this.body.position, K = this.T.size || 1;
+    _wf.set(x, p.y + (k === 0 && this.canClimb ? 2.4 : 1.0) * K, z); _wt.set(x, p.y - (this.ride || 1.45 * K) - 1.8 * K, z); _wr.reset();
     world.raycastClosest(_wf, _wt, _walkRay, _wr);
-    return _wr.hasHit && _wr.body !== this.body ? _wr.hitPointWorld.y : p.y - (this.ride || 1.45);
+    return _wr.hasHit && _wr.body !== this.body ? _wr.hitPointWorld.y : p.y - (this.ride || 1.45 * K);
   }
   walkStep(dt) { // no wheels: four feelers find the ground (container tops included), a spring holds the body at standing height over the highest, and the legs push it along
     const b = this.body, T = this.T, m = b.mass, g = S.gravity, v = b.velocity;
     b.quaternion.vmult(AX_X, this.fwd); b.quaternion.vmult(AX_Y, this.up);
     let lostL = 0, lostR = 0; for (let i = 0; i < this.nW; i++) if (this.wheelLost[i]) { if (i % 2) lostR++; else lostL++; }
     const legs = this.legsLeft = this.nW - lostL - lostR;
+    if (this.grindT > 0) this.grindStep(dt);
+    if (this.latch && this.latchStep(dt)) return; // riding a car's roof: it goes where the car goes
     const legK = clamp(0.5 + (legs - 4) * 0.125, 0.3, 1); // 8 legs: full speed; 6: three quarters; 4: half
     const canClimb = this.canClimb = legs >= 6 && !this.wrecked;
     this.stretchT = (this.stretchT || 0) - dt; this.leapCd = (this.leapCd || 0) - dt;
     if (!this.wrecked && legs >= 6 && MP.role !== 'guest') this.spiderSense(); // a small car charging at it runs underneath; the AI leaps away from big ones
-    const ride = this.ride = this.wrecked ? 0.5 : 1.2 + 0.25 * clamp((legs - 4) / 4, 0, 1) + (this.stretchT > 0 ? 1.8 : 0); // (stretched: up on the tips of its legs)
+    const K = T.size || 1, ride = this.ride = (this.wrecked ? 0.5 : 1.2 + 0.25 * clamp((legs - 4) / 4, 0, 1) + (this.stretchT > 0 ? 1.8 : 0)) * K; // (stretched: up on the tips of its legs)
     const fh = Math.hypot(this.fwd.x, this.fwd.z) || 1, fx = this.fwd.x / fh, fz = this.fwd.z / fh, rx = -fz, rz = fx;
     const speed = this.speed = v.x * fx + v.z * fz, vr = v.x * rx + v.z * rz;
     const thr = this.wrecked ? 0 : this.ctrl.throttle;
@@ -5753,34 +5770,43 @@ class Car {
     // the feelers: the front pair reach high (that is how it walks up a container's side), the rear pair just follow
     const H = this.feel || (this.feel = [0, 0, 0, 0]); let top = -Infinity, hits = 0, under = null;
     for (let k = 0; k < 4; k++) {
-      const lx = k < 2 ? 1.75 : -1.75, lz = k % 2 ? 1.15 : -1.15, wx = b.position.x + fx * lx + rx * lz, wz = b.position.z + fz * lx + rz * lz;
-      _wf.set(wx, b.position.y + (k < 2 && canClimb && thr >= 0 ? 2.4 : 0.9), wz); _wt.set(wx, b.position.y - ride - 1.6, wz); _wr.reset();
+      const lx = (k < 2 ? 1.75 : -1.75) * K, lz = k % 2 ? 1.15 : -1.15, /* (not wider: the feelers must both land on a 2.4 m container) */ wx = b.position.x + fx * lx + rx * lz, wz = b.position.z + fz * lx + rz * lz;
+      _wf.set(wx, b.position.y + (k < 2 && canClimb && thr >= 0 ? 2.4 : 0.9) * K, wz); _wt.set(wx, b.position.y - ride - 1.6 * K, wz); _wr.reset();
       world.raycastClosest(_wf, _wt, _walkRay, _wr);
       if (_wr.hasHit && _wr.body !== b && !(this.stretchT > 0 && _wr.body.car)) { H[k] = _wr.hitPointWorld.y; hits++; if (H[k] > top) { top = H[k]; under = _wr.body; } } else H[k] = NaN; // (legs up to let a car pass under: its roof is not ground to stand on)
     }
+    if (this.airT > 0.35 && v.y < -3 && MP.role !== 'guest') { // coming down from a leap: is there a car right under its belly? (a car can fit between its legs, where the feelers miss it)
+      _wf.set(b.position.x, b.position.y - 1.5 * K, b.position.z); _wt.set(b.position.x, b.position.y - 2.5 * K, b.position.z); /* (from just under its own leg cage) */ _wr.reset(); world.raycastClosest(_wf, _wt, _walkRay, _wr);
+      const c = _wr.hasHit && _wr.body !== b && _wr.body.car; if (c && c !== this && !c.wrecked) { this._roofY = _wr.hitPointWorld.y; this.pounce(c, -v.y); this._roofY = null; if (this.latch) return; } }
     this.gait = (this.gait || 0) + Math.abs(speed) * dt / 2.2;
     const want = top + ride + (legs < 8 && Math.abs(speed) > 1 ? Math.sin(this.gait * 6.283) * 0.05 * (8 - legs) : 0); // fewer legs: it bobs and limps
     this.leapT = (this.leapT || 0) - dt; // (after a leap the legs let go while it is still rising, and catch it on the way down)
-    const grounded = hits > 0 && !(this.jumpCd > 0.65) && !(this.leapT > 0 && v.y > -1) && b.position.y < want + 0.6 && !this.craned && !this.carriedBy && !this.wrecked;
+    const grounded = hits > 0 && !(this.jumpCd > 0.65) && !(this.leapT > 0 && v.y > -1) && b.position.y < want + 0.6 + Math.max(0, -v.y - 6) * 0.15 && !this.craned && !this.carriedBy && !this.wrecked; // (coming down fast from a big leap the legs reach for the ground early)
     this.contacts = grounded ? 4 : 0;
-    // J: a high leap - forward and up ~3.5 m, over a charging car or onto its roof (a landing on a car is a pounce); 2.5 s between leaps
+    // J: a big leap - forward and up ~7 m, over a charging car or down onto its roof (a landing on a car is a pounce: it rides the roof). As often as you like:
+    // again as soon as the legs have caught the landing (0.15 s on its feet), never from mid-air, so leaps cannot stack
     if (this.ctrl.jump) { this.jumpBuf = 0.35; this.ctrl.jump = false; } this.jumpBuf = (this.jumpBuf || 0) - dt;
-    if (this.jumpBuf > 0 && this.leapCd <= 0 && hits > 0 && !this.wrecked && legs >= 4 && !this.craned && !this.carriedBy) {
-      this.jumpBuf = 0; this.leapCd = 2.5; this.leapT = 1.5; this.jumpCd = 0.9; const kL = legs >= 6 ? 1 : 0.7;
-      v.x += fx * 7 * kL; v.z += fz * 7 * kL; v.y = Math.max(v.y, 0) + 11.5 * kL; this.airT = 0.01; { const s0 = _pv.get(b); if (s0) s0.v.copy(v); _vmax = Math.max(_vmax, v.length()); } // (a leap inside the physics step is meant: the solver-kick net must not undo it)
+    if (grounded && b.position.y < want + 0.4 && v.y > -2) this.landT = (this.landT ?? 9) + dt; // (really down: not still braking a big drop)
+    if (this.jumpBuf > 0 && this.canLeap() && hits > 0 && legs >= 4) {
+      this.jumpBuf = 0; this.leapCd = 0.3; this.leapT = 2; this.jumpCd = 0.9; this.landT = 0; const kL = legs >= 6 ? 1 : 0.7, push = clamp(22 - speed, 0, 7) * kL; // (the forward kick tops out at ~22 m/s: back-to-back leaps don't ratchet it up)
+      const aim = this.leapVel; this.leapVel = null; if (aim && simTime - aim.t < 0.4 && kL === 1) { v.x = aim.x; v.z = aim.z; } else { v.x += fx * push; v.z += fz * push; } // (an AI pounce is aimed: no faster than the leap itself)
+      v.y = Math.max(v.y, LEAP_VY * kL); /* (not on top of the bounce from the last landing: every leap is the same height) */ this.airT = 0.01;
+      { const tf = 2 * v.y / S.gravity, lim = A - 8; for (const ax of ['x', 'z']) { const land = b.position[ax] + v[ax] * tf; if (Math.abs(land) > lim) v[ax] = Math.abs(b.position[ax]) >= lim ? Math.min(0, v[ax] * Math.sign(b.position[ax])) * Math.sign(b.position[ax]) : (Math.sign(land) * lim - b.position[ax]) / tf; } } /* (it always comes down inside the yard, 8 m from the wall) */ { const s0 = _pv.get(b); if (s0) s0.v.copy(v); _vmax = Math.max(_vmax, v.length()); } // (a leap inside the physics step is meant: the solver-kick net must not undo it)
       if (this.isPlayer) sfx.jump(); for (let i = 0; i < 8; i++) emit('dust', b.position.x + rand(-1.5, 1.5), 0.2, b.position.z + rand(-1.5, 1.5), rand(-2, 2), 0.6, rand(-2, 2), 0.8, 0.8);
       if (PLAYLOG.m) { const V = PLAYLOG.V(this.type); V.leaps = (V.leaps || 0) + 1; } }
     const wi = this.vehicle.wheelInfos; for (let i = 0; i < wi.length; i++) wi[i].isInContact = grounded && !this.wheelLost[i];
     const qi = b.quaternion.conjugate(_wQ), wl = qi.vmult(b.angularVelocity, _wA);
     if (grounded) {
       if (this.airT > 0.35 && v.y < -3 && under && under.car && under.car !== this && !under.car.wrecked) this.pounce(under.car, -v.y); // dropped onto a car from above
+      if (this.airT > 1.2 && this === player) sfx.thump(0.7, m); // the thud of a big landing
+      this.leapT = 0; // (the legs have caught the landing: the leap is over, so a bounce doesn't make them let go again)
       this.airT = 0;
       const climbing = want - b.position.y > 0.5;
-      const vyT = clamp((want - b.position.y) * 7, -5, climbing ? 6.5 : 4), Fy = m * clamp(g + (vyT - v.y) * 14, 0, g * 5);
+      const vyT = clamp((want - b.position.y) * 7, -5, climbing ? 6.5 : 4), Fy = m * clamp(g + (vyT - v.y) * 14, 0, g * (v.y < -6 ? 9 : 5)); // (a hard landing: the legs take up to 9 g, so a 7 m drop doesn't bottom out)
       _wF.set(0, Fy, 0); b.applyForce(_wF);
       if (under && under.type === CANNON.Body.DYNAMIC) { _wF.set(0, -Math.min(Fy, m * g * 1.2), 0); under.applyForce(_wF); } // (its weight rests on whatever it stands on)
       // stance: pitch and roll follow what the feet stand on (nose up while it climbs)
-      const h0 = _nz(H[0], top), h1 = _nz(H[1], top), h2 = _nz(H[2], top), h3 = _nz(H[3], top), pitchT = clamp(Math.atan2(Math.max(h0, h1) - Math.max(h2, h3), 3.5), -0.45, 0.5), rollT = clamp((Math.max(h1, h3) - Math.max(h0, h2)) / 2.3, -0.35, 0.35);
+      const h0 = _nz(H[0], top), h1 = _nz(H[1], top), h2 = _nz(H[2], top), h3 = _nz(H[3], top), pitchT = clamp(Math.atan2(Math.max(h0, h1) - Math.max(h2, h3), 3.5 * K), -0.45, 0.5), rollT = clamp((Math.max(h1, h3) - Math.max(h0, h2)) / 2.3, -0.35, 0.35);
       const right = b.quaternion.vmult(AX_Z, _wR), k = clamp(dt * 12, 0, 1);
       wl.z = lerp(wl.z, (pitchT - Math.asin(clamp(this.fwd.y, -1, 1))) * 7, k);
       wl.x = lerp(wl.x, -(rollT - right.y) * 7, k);
@@ -5829,23 +5855,89 @@ class Car {
     b.velocity.x += (tx - b.velocity.x) * k; b.velocity.z += (tz - b.velocity.z) * k; b.angularVelocity.y *= 0.85;
     if (this.webbedT <= 0) { this.webAt = null; this.webBy = null; }
   }
+  canLeap() { return this.leapCd <= 0 && (this.landT ?? 9) >= 0.15 && !this.wrecked && !this.craned && !this.carriedBy && (this.legsLeft ?? 8) >= 4; }
+  leapClear(lx, lz) { // AI: would a leap now (or one aimed at lx,lz) come down inside the yard, with nothing tall (a wall, a stack) in the way?
+    const b = this.body, p = b.position, v = b.velocity, kL = this.legsLeft >= 6 ? 1 : 0.7, push = clamp(22 - (this.speed || 0), 0, 7) * kL, tf = 2 * LEAP_VY * kL / S.gravity;
+    const fh = Math.hypot(this.fwd.x, this.fwd.z) || 1; if (lx === undefined) { lx = p.x + (v.x + this.fwd.x / fh * push) * tf; lz = p.z + (v.z + this.fwd.z / fh * push) * tf; }
+    if (Math.abs(lx) > A - 8 || Math.abs(lz) > A - 8) return null;
+    _wf.set(p.x, p.y + 2.5, p.z); _wt.set(lx, p.y + 2.5, lz); _wr.reset(); world.raycastClosest(_wf, _wt, _wheelRay, _wr); if (_wr.hasHit) return null; // (scenery only: cars it leaps over)
+    const L = this._land || (this._land = { x: 0, z: 0, tf: 0 }); L.x = lx; L.z = lz; L.tf = tf; return L;
+  }
   spiderSense() { // ~6 times a second: is anything charging at us?
     if ((this.senseT = (this.senseT || 0) - FIXED) > 0) return; this.senseT = 0.16; const p = this.body.position;
     for (const c of cars) { if (c === this || c.wrecked || c.ghost) continue; const q = c.body.position, dx = p.x - q.x, dz = p.z - q.z, d = Math.hypot(dx, dz); if (d > 18 || d < 1) continue;
       const closing = (c.body.velocity.x * dx + c.body.velocity.z * dz) / d; if (closing < 6) continue; const lateral = Math.abs(c.body.velocity.x * dz - c.body.velocity.z * dx) / d; if (lateral > closing * 0.6) continue; // (heading at us, not past)
       if (c.body.mass < 1800 && d / closing < 1.1) { /* by time to impact: the legs need ~0.4 s to lift the body clear of a roof */ if (this.stretchT <= 0) { this.stretchT = 1.3; if (this.isPlayer) toast('🕷️ LEGS UP!', 'cool'); } } // a small car: let it run underneath
-      else if (!this.isPlayer && c.body.mass >= 1800 && closing > 9 && d < 14 && this.leapCd <= 0) this.jumpBuf = 0.35; } // a big one: the AI leaps over it
+      else if (!this.isPlayer && c.body.mass >= 1800 && closing > 7 && d < 16 && this.canLeap() && this.leapClear()) { this.jumpBuf = 0.35; this.leapWhy = 'dodge'; } } // anything bigger: the AI leaps over it
   }
   pounce(c, vy) { // dropped from above onto a car's roof
     if (simTime - (this.pounceT ?? -9) < 1.5 || MP.role === 'guest' || game.state !== 'playing') return; this.pounceT = simTime;
     const roof = new THREE.Vector3(0, HULL_Y0 + c.T.H + c.T.cabin.h, 0);
-    c.applyDamage((10 + vy * 3) * S.damage * c.T.armor, this, 'top', roof, vy); c.dent(roof, { x: 0, y: 1, z: 0 }, 10 + vy * 2);
-    sparks(c.body.position, 25); if (player) sfx.at(c.body.position).crash(wv(this), 10 + vy);
-    this.body.velocity.y = 4; this.jumpCd = 0.9; // and springs off again
+    const hit = Math.min(vy, 12); c.applyDamage((10 + hit * 2) * S.damage * c.T.armor, this, 'top', roof, hit); c.dent(roof, { x: 0, y: 1, z: 0 }, 10 + hit * 2);
+    sparks(c.body.position, 25); if (player) sfx.at(c.body.position).crash(wv(this), 10 + hit);
+    if (!this.latchOn(c)) { this.body.velocity.y = 4; this.jumpCd = 0.9; } // it grabs the roof and rides it (or, if it can't, springs off again)
     if (PLAYLOG.m) { const V = PLAYLOG.V(this.type); V.pounce = (V.pounce || 0) + 1; }
     if (this.isPlayer) { toast(`POUNCED ON ${c.name}!`); game.addScore(Math.round(150 + vy * 30), null); } else if (c.isPlayer) toast(`${this.name} POUNCED ON YOU!`, 'bad');
     barks.announce('pounce', { a: this.isPlayer ? 'Our hero' : this.name, v: c.isPlayer ? 'our hero' : c.name }, true);
     if (!this.isPlayer && Math.random() < 0.6) barks.say(this, 'hitYou', true, { target: c.name, car: c.T.name });
+  }
+  latchOn(c) { // landed on a car's roof: the legs grab it and it rides there for ~3.5 s (2.2 s on a heavy), clawing, until the car shakes it off
+    const rider = c.latchedBy; if (rider && !(rider.latch && rider.latch.c === c && cars.includes(rider))) c.latchedBy = null; // (a spider that respawned isn't riding it any more)
+    if (this.noLatch && this.noLatch.c === c && simTime < this.noLatch.until) return false; // (just shaken off this one: it doesn't grab straight back on)
+    if (this.latch || c.T.walker || c.latchedBy || c.ghost || this.legsLeft < 4 || MP.role === 'guest') return false;
+    const b = this.body, cb = c.body, l = cb.pointToLocalFrame(b.position), K = this.T.size || 1;
+    l.x = clamp(l.x, -c.T.L / 2, c.T.L / 2); l.z = clamp(l.z, -c.T.W / 2, c.T.W / 2); l.y = (this._roofY != null ? cb.pointToLocalFrame(new CANNON.Vec3(b.position.x, this._roofY, b.position.z)).y : Math.max(l.y - this.ride, HULL_Y0 + c.T.H + c.T.cabin.h)) + this.ride * 0.85; // (crouched on the roof, not in it)
+    const q = cb.quaternion.conjugate().mult(b.quaternion);
+    this.latch = { c, t: cb.mass >= 5000 ? 2.2 : 3.5, shake: 0, off: l, q, claw: 0 }; c.latchedBy = this; b.collisionResponse = false; // (it follows the roof exactly: no contact pushes either of them)
+    this.grindT = this.grindT || 0;
+    if (this.isPlayer) toast(`RIDING ${c.name}!`, 'cool'); else if (c.isPlayer) toast('🕷️ ON YOUR ROOF! SWERVE!', 'bad');
+    if (this === player && !XRS.on && game.state === 'playing' && simTime - (game.matrixT ?? -9) > 4) { // the Matrix beat: a quick swing round it as it lands (slow-mo only in a solo game: never slow a shared yard)
+      game.matrixT = simTime; game.crashCam = { t: 0.75, p: new THREE.Vector3(b.position.x, b.position.y, b.position.z), side: Math.random() < 0.5 ? 1 : -1, n: new THREE.Vector3(this.fwd.x, 0, this.fwd.z).normalize() };
+      if (MP.role === 'solo') game.slowmo = Math.max(game.slowmo, 0.55); sfx.noiseHit('bandpass', 520, 0.6, 0.4, 0.7, true); }
+    if (PLAYLOG.m) { const V = PLAYLOG.V(this.type); V.rides = (V.rides || 0) + 1; }
+    return true;
+  }
+  latchStep(dt) { // riding a roof; false when it lets go this step (then it walks, or leaps, as usual)
+    const L = this.latch, c = L.c, b = this.body, cb = c.body; L.t -= dt;
+    L.shake += Math.max(0, Math.abs(cb.angularVelocity.y) - 1.5) * dt * (cb.mass >= 5000 ? 2 : 1); // a hard swerve slings it off
+    if (this.ctrl.jump) { this.jumpBuf = 0.35; this.ctrl.jump = false; } this.jumpBuf = (this.jumpBuf || 0) - dt;
+    const gone = this.wrecked || this.craned || this.carriedBy || c.wrecked || !cars.includes(c), flip = c.up.y < 0.55, hop = !c.T.walker && c.contacts === 0 && cb.velocity.y > 2.5;
+    if (gone || flip || hop || L.shake > 0.7 || L.t <= 0 || (this.jumpBuf > 0 && this.legsLeft >= 4)) { this.unlatch(gone ? 'gone' : flip ? 'flip' : hop ? 'jump' : L.shake > 0.7 ? 'shake' : L.t <= 0 ? 'time' : 'leap'); return false; }
+    cb.pointToWorldFrame(L.off, _wL); b.position.copy(_wL); _wL.vsub(cb.position, _wR); cb.angularVelocity.cross(_wR, _wA); cb.velocity.vadd(_wA, b.velocity); // the roof point's own velocity
+    cb.quaternion.mult(L.q, b.quaternion); b.angularVelocity.copy(cb.angularVelocity); { const s0 = _pv.get(b); if (s0) { s0.v.copy(b.velocity); s0.w.copy(b.angularVelocity); } }
+    _wF.set(0, b.mass * S.gravity, 0); b.applyForce(_wF); // (held up by its legs, not by the roof)
+    b.quaternion.vmult(AX_X, this.fwd); b.quaternion.vmult(AX_Y, this.up); this.speed = cb.velocity.dot(this.fwd);
+    this.contacts = 4; this.airT = 0; this.landT = (this.landT ?? 9) + dt; this.braking = false; this.boosting = false;
+    if ((L.claw += dt) >= 0.5) { L.claw = 0; c.applyDamage(1.5 * S.damage * c.T.armor, this, 'top', null, 0); } // the claws: ~3 health a second while it rides
+    return true;
+  }
+  unlatch(why) {
+    const L = this.latch; if (!L) return; this.latch = null; const c = L.c, b = this.body; if (c.latchedBy === this) c.latchedBy = null; b.collisionResponse = true;
+    if (why !== 'leap' && why !== 'gone') { // thrown off sideways and down: the legs catch it on the ground
+      const side = L.off.z >= 0 ? 1 : -1; c.body.quaternion.vmult(AX_Z, _wR); b.velocity.x += _wR.x * side * 5; b.velocity.z += _wR.z * side * 5; b.velocity.y = Math.max(b.velocity.y, 4); b.position.y += 0.3;
+      this.leapT = 0.6; this.jumpCd = 0.9; this.landT = 0; { const s0 = _pv.get(b); if (s0) s0.v.copy(b.velocity); _vmax = Math.max(_vmax, b.velocity.length()); }
+      if (this.isPlayer) toast('THROWN OFF!', 'bad'); else if (c.isPlayer && why !== 'time') toast('SHOOK IT OFF!', 'cool');
+      this.noLatch = { c, until: simTime + 2.5 };
+    }
+    this.unlatchWhy = why;
+  }
+  grindStep(dt) { // the angle grinder (F up close, or riding a roof): ~7 health a second to the car it touches, and it cuts a panel off every ~0.9 s
+    this.grindT -= dt; if (this.wrecked || MP.role === 'guest') { this.grindT = 0; return; }
+    const t = this.latch ? this.latch.c : this.grindHit && !this.grindHit.wrecked && spiderReach(this, this.grindHit) ? this.grindHit : spiderCloseTarget(this);
+    this.grindHit = t; if (!t) return;
+    this.grindAcc = (this.grindAcc || 0) + 7 * dt; this.grindRip = (this.grindRip ?? 0.5) - dt;
+    t.body.pointToLocalFrame(this.body.position, _wL); const zone = this.latch ? 'top' : Math.abs(_wL.x) > Math.abs(_wL.z) * 1.3 ? (_wL.x > 0 ? 'front' : 'rear') : (_wL.z > 0 ? 'right' : 'left');
+    if (this.grindAcc >= 1.75) { const d = this.grindAcc; this.grindAcc = 0; this._hitWhat = 'grinder'; t.applyDamage(d * S.damage * t.T.armor, this, zone, null, 0); this._hitWhat = null; }
+    if (this.grindRip <= 0) { this.grindRip = 0.9; const live = t.parts.filter((q) => !q.detached), pick = live.find((q) => q.zone === zone) || live.find((q) => q.zone !== 'bottom');
+      if (pick) { t.detach(pick, this); this.grindRips = (this.grindRips || 0) + 1; if (this.isPlayer) toast(`CUT ${t.name} OPEN!`); } }
+  }
+  grinderFrame(dt) { // the disc spins while it cuts and throws a fan of sparks off whatever it bites (a guest sees it from the snapshot's grinding flag)
+    const D = this.grindDisc; if (!D) return; const on = this.grindT > 0 || (this.ghost && this.netGrind);
+    this.grindSpin = lerp(this.grindSpin || 0, on ? 70 : 0, clamp(dt * (on ? 6 : 1.5), 0, 1)); if (this.grindSpin < 0.05) return;
+    D.rotation.z -= this.grindSpin * dt; if (!on || !(this.grindHit || this.ghost)) return;
+    const cam = camera.position, p = this.body.position; if (Math.abs(cam.x - p.x) + Math.abs(cam.z - p.z) > 110) return;
+    D.getWorldPosition(_lo); const f = this.fwd; for (let i = 0; i < 3; i++) emit('spark', _lo.x, _lo.y, _lo.z, -f.x * rand(4, 10) + rand(-3, 3), rand(1, 6), -f.z * rand(4, 10) + rand(-3, 3), rand(0.2, 0.5), rand(0.04, 0.08));
+    if (player && (this.grindSnd = (this.grindSnd || 0) - dt) <= 0) { this.grindSnd = 0.09; sfx.at(_lo).grind(wv(this)); }
   }
   snapNearestLeg(model, by) {
     let best = -1, bd = Infinity; for (let i = 0; i < this.nW; i++) { if (this.wheelLost[i]) continue; const [wx, wz] = this.wheelBase[i], d = Math.hypot(model.x - wx, model.z - wz * 2.5); if (d < bd) { bd = d; best = i; } }
@@ -5856,8 +5948,8 @@ class Car {
     const left = this.nW - this.wheelLost.filter(Boolean).length, l = this.legs && this.legs[i];
     if (PLAYLOG.m) { const V = PLAYLOG.V(this.type); V.legs = (V.legs || 0) + 1; }
     if (l) { const SP = SPIDER(); for (const im of this.legIM) { im.setMatrixAt(i, SP.zero); im.instanceMatrix.needsUpdate = true; }
-      const hip = this.body.pointToWorldFrame(new CANNON.Vec3(l.hip.x, l.hip.y, l.hip.z)), leg = new THREE.Group(), f = new THREE.Mesh(SP.fem, SP.pipe), tb = new THREE.Mesh(SP.tib, SP.pipe);
-      tb.position.y = SP.A; tb.rotation.z = 2.2; f.castShadow = tb.castShadow = true; leg.add(f, tb); leg.position.set(hip.x, hip.y, hip.z); leg.quaternion.setFromAxisAngle(new THREE.Vector3(1, 0, 0), l.side * 1.2); scene.add(leg);
+      const K = this.T.size || 1, hip = this.body.pointToWorldFrame(new CANNON.Vec3(l.hip.x * K, l.hip.y * K, l.hip.z * K)), leg = new THREE.Group(), f = new THREE.Mesh(SP.fem, SP.pipe), tb = new THREE.Mesh(SP.tib, SP.pipe);
+      tb.position.y = SP.A; tb.rotation.z = 2.2; f.castShadow = tb.castShadow = true; leg.add(f, tb); leg.scale.setScalar(K); leg.position.set(hip.x, hip.y, hip.z); leg.quaternion.setFromAxisAngle(new THREE.Vector3(1, 0, 0), l.side * 1.2); scene.add(leg);
       const sw = this.body.vectorToWorldFrame(new CANNON.Vec3(0, 0, l.side)), bv = this.body.velocity;
       addDebris(leg, new CANNON.Box(new CANNON.Vec3(0.13, 0.9, 0.13)), new CANNON.Vec3(0, 0.9, 0), undefined, 18, new CANNON.Vec3(bv.x + sw.x * rand(3, 7), bv.y + rand(3, 6), bv.z + sw.z * rand(3, 7)), new CANNON.Vec3(rand(-6, 6), rand(-6, 6), rand(-6, 6)));
       sparks(hip, 24); for (let k = 0; k < 6; k++) emit('smoke', hip.x, hip.y, hip.z, rand(-1, 1), rand(1, 2), rand(-1, 1), rand(0.6, 1.1), rand(0.25, 0.45)); }
@@ -5871,23 +5963,23 @@ class Car {
   }
   updateLegs(dt) { // feet stay planted where they landed; a foot that falls too far behind swings to a new spot ahead (four at a time, alternating), lands where a ray finds the ground
     const L = this.legs; if (!L) return;
-    const b = this.body, p = b.position, q = b.quaternion, v = b.velocity, SP = SPIDER();
+    const b = this.body, p = b.position, q = b.quaternion, v = b.velocity, SP = SPIDER(), K = this.T.size || 1;
     if (this.ghost) { // a remote spider: no physics here, so read standing and leg count off the snapshot
-      const legs = this.nW - this.wheelLost.filter(Boolean).length; this.ride = this.wrecked ? 0.5 : 1.2 + 0.25 * clamp((legs - 4) / 4, 0, 1); this.canClimb = legs >= 6;
+      const legs = this.nW - this.wheelLost.filter(Boolean).length; this.ride = (this.wrecked ? 0.5 : 1.2 + 0.25 * clamp((legs - 4) / 4, 0, 1)) * (this.T.size || 1); this.canClimb = legs >= 6;
       this.contacts = !this.wrecked && Math.abs(v.y) < 4 ? 4 : 0; }
     const cam = camera.position, d = Math.hypot(cam.x - p.x, cam.z - p.z);
     this.legDt = (this.legDt || 0) + dt; this.legFrame = (this.legFrame || 0) + 1;
     if (d > 125 && this.legInit) return; // too far to see legs (carLOD hides them): no work at all
     if (this.legInit && d > 60 && this.legFrame % (d > 90 ? 3 : 2)) return; // far: every second or third frame
     const ldt = Math.min(0.1, this.legDt); this.legDt = 0;
-    const ride = this.ride || 1.45, grounded = this.contacts > 0 && !this.wrecked, hv = Math.hypot(v.x, v.z), yawR = Math.abs(b.angularVelocity.y);
-    const stride = 0.45 + Math.min(0.7, hv * 0.05), swingT = clamp(0.3 - hv * 0.013, 0.11, 0.3), lift = 0.25 + Math.min(0.3, hv * 0.02);
+    const ride = this.ride || 1.45 * K, grounded = this.contacts > 0 && !this.wrecked, hv = Math.hypot(v.x, v.z), yawR = Math.abs(b.angularVelocity.y);
+    const stride = (0.45 + Math.min(0.7, hv * 0.05)) * K, swingT = clamp(0.3 - hv * 0.013, 0.11, 0.3), lift = (0.25 + Math.min(0.3, hv * 0.02)) * K;
     _lq.set(q.x, q.y, q.z, q.w); _lqi.copy(_lq).invert();
     let swingA = 0, swingB = 0; for (const l of L) if (l.t >= 0) { if (l.grp) swingB++; else swingA++; }
     const A = SP.A, B = SP.B;
     for (const l of L) {
-      if (this.wheelLost[l.i]) { if (hv > 2 && Math.random() < ldt * 2.5) { _lh.copy(l.hip).applyQuaternion(_lq).add(p); sparks(_lh, 2); } continue; } // a sparking stump
-      _ld.copy(l.rest).applyQuaternion(_lq); const ix = p.x + _ld.x + v.x * 0.12, iz = p.z + _ld.z + v.z * 0.12;
+      if (this.wheelLost[l.i]) { if (hv > 2 && Math.random() < ldt * 2.5) { _lh.copy(l.hip).multiplyScalar(K).applyQuaternion(_lq).add(p); sparks(_lh, 2); } continue; } // a sparking stump
+      _ld.copy(l.rest).multiplyScalar(K).applyQuaternion(_lq); const ix = p.x + _ld.x + v.x * 0.12, iz = p.z + _ld.z + v.z * 0.12;
       if (!l.foot || !this.legInit) { (l.foot || (l.foot = new THREE.Vector3())).set(ix, this.groundAt(ix, iz, l.k), iz); l.t = -1; }
       if (!grounded) { const k = Math.min(1, ldt * 6); l.foot.x += (ix - l.foot.x) * k; l.foot.z += (iz - l.foot.z) * k; l.foot.y += (p.y - ride * (this.wrecked ? 0.45 : 0.8) - l.foot.y) * k; l.t = -1; }
       else if (l.t < 0) {
@@ -5901,7 +5993,7 @@ class Car {
         else { l.foot.lerpVectors(l.from, l.to, l.t); l.foot.y += Math.sin(Math.PI * l.t) * lift; }
       }
       // two-bone IK in the body's frame: knee up and out, like a spider's
-      _lh.copy(l.hip); _lf.copy(l.foot).sub(p).applyQuaternion(_lqi);
+      _lh.copy(l.hip); _lf.copy(l.foot).sub(p).applyQuaternion(_lqi).divideScalar(K); // (the IK in model units: the leg mesh is drawn at K)
       _ld.subVectors(_lf, _lh); let dd = _ld.length(); const reach = A + B - 0.02; if (dd > reach) { _ld.multiplyScalar(reach / dd); _lf.copy(_lh).add(_ld); dd = reach; } else if (dd < 0.4) { dd = 0.4; } _ld.normalize();
       _lp.set(0, 1, l.side * 0.35); _lp.addScaledVector(_ld, -_lp.dot(_ld)).normalize();
       const ca = clamp((A * A + dd * dd - B * B) / (2 * A * dd), -1, 1), sa = Math.sqrt(1 - ca * ca);
@@ -5932,6 +6024,22 @@ class Car {
     if (prey) { this.perch = null; this.perchNext = simTime + rand(12, 20); this.target = prey; this.mode = 'charge'; this.modeT = 3; barks.say(this, 'charge'); return { throttle: 1, steer: steerTo(prey.body.position.x, prey.body.position.z) }; } // drop on it
     if (P.sit > 8) this.perch = null;
     return { throttle: 0, steer: t ? steerTo(t.body.position.x, t.body.position.z) * 0.6 : 0 }; // wait up there, watching
+  }
+
+  spiderLeaps(dt, t, dist, throttle) { // AI: leap at the car it's hunting (a pounce), over low junk in its way, and out of a spot it's stuck in (~5 looks a second)
+    if (this.latch) { if (!this.specialCd && !(this.grindT > 0)) this.ctrl.fire = true; return; } // riding a roof: out with the grinder
+    if ((this.leapLook = (this.leapLook || 0) - dt) > 0 || !this.canLeap() || this.contacts < 4 || this.legsLeft < 6 || this.reverseTimer > 0) return; this.leapLook = 0.2;
+    const pounce = t && !t.wrecked && !t.ghost && !t.latchedBy && dist > 5 && dist < 40 && throttle > 0 && simTime - (this.pounceLeapT ?? -9) > 3; // (one pounce every 3 s at most: a pounce hurts)
+    const stuck = throttle > 0 && this.stuckTimer > 0.8, hop = this.blocked && this.speed > 3;
+    if (!pounce && !stuck && !hop) return;
+    if (pounce) { // aim the leap to come down on their roof where they'll be: no faster than a full leap could carry it, and roughly straight ahead
+      const p = this.body.position, v = this.body.velocity, q = t.body.position, w = t.body.velocity, dh = t.T.H + t.T.cabin.h + 0.6, tf = (LEAP_VY + Math.sqrt(LEAP_VY * LEAP_VY - 2 * S.gravity * dh)) / S.gravity, an = t.body.angularVelocity.y * tf / 2, kc = Math.abs(an) > 1e-3 ? Math.sin(an) / an : 1, ca = Math.cos(an) * kc, sa = Math.sin(an) * kc, tx = q.x + (w.x * ca + w.z * sa) * tf, tz = q.z + (-w.x * sa + w.z * ca) * tf; // (it comes down on the roof, ~a car's height up, a little sooner than on the ground; and where a turning car will be, round its curve)
+      const vx = (tx - p.x) / tf, vz = (tz - p.z) / tf, vn = Math.hypot(vx, vz), fh = Math.hypot(this.fwd.x, this.fwd.z) || 1, along = (vx * this.fwd.x + vz * this.fwd.z) / fh, vNow = Math.min(22, Math.hypot(v.x, v.z) + 7);
+      if (vn > 3 && vn < vNow && along > vn * 0.85 && this.leapClear(tx, tz)) { this.leapVel = { x: vx, z: vz, t: simTime }; this.ctrl.jump = true; this.leapWhy = 'pounce'; this.pounceLeapT = simTime; return; }
+    }
+    if (!stuck && !hop) return;
+    const L = this.leapClear(); if (!L) return;
+    if (stuck || hop) { this.ctrl.jump = true; this.stuckTimer = 0; this.leapWhy = stuck ? 'stuck' : 'hop'; }
   }
 
   updateGun(dt) {
@@ -6811,8 +6919,10 @@ class Car {
       throttle = -0.65; steer = clamp(-ang * 1.6, -1, 1);
     }
     if (this.T.walker && !this.delivery) ({ throttle, steer } = this.spiderTactics(dt, t, dist, throttle, steer));
+    if (this.T.walker && !this.delivery) this.spiderLeaps(dt, t, dist, throttle);
     ctrl.throttle = throttle; ctrl.steer = steer; ctrl.pitch = 0;
     ctrl.handbrake = Math.abs(angle) > 1.2 && this.speed > 14 && S.aiSkill > 0.4;
+    if (this.latchedBy && this.latchedBy.latch && this.latchedBy.latch.c === this) { ctrl.throttle = 1; ctrl.steer = Math.sin(simTime * 3.2 + this.number) > 0 ? 1 : -1; ctrl.handbrake = false; if (this.body.mass < 3000 && this.contacts >= 3 && Math.random() < 0.01) ctrl.jump = true; } // a spider on the roof: swerve hard to sling it off
     ctrl.nitro = (this.mode === 'charge' && Math.abs(angle) < 0.35) || this.mode === 'flee' || (Math.abs(angle) < 0.2 && dist > 35 && this.nitro > 0.35 && S.aiSkill > 0.3);
     if (this.persona && this.persona.style === 'chaos' && this.body.mass < 3000 && this.contacts >= 3 && Math.random() < 0.002) ctrl.jump = true;
     if (S.aiSkill > 0.4 && this.body.mass < 3000 && dist < 14 && Math.abs(angle) < 0.25 && Math.random() < 0.004 * S.aiSkill) ctrl.jump = true;
@@ -6827,6 +6937,7 @@ const wedged = new Map();
 function unwedge(dt) {
   for (let i = 0; i < cars.length; i++) for (let j = i + 1; j < cars.length; j++) {
     const a = cars[i], b = cars[j], pa = a.body.position, pb = b.body.position;
+    if ((a.latch && a.latch.c === b) || (b.latch && b.latch.c === a)) continue; // (a spider riding a roof is meant to be there)
     const dx = pa.x - pb.x, dz = pa.z - pb.z, dh = Math.hypot(dx, dz), dy = Math.abs(pa.y - pb.y);
     const near = dh < (a.T.L + b.T.L) * 0.42 && dy < 3;
     const key = a.body.id * 1000 + b.body.id;
@@ -6992,7 +7103,9 @@ function updateHUD(dt) {
     const W = WEAPONS[player.T.special], cd = player.specialCd || 0;
     if (player.T.special === 'minigun') { const a = player.mgAmmo ?? W.ammo; hudWidth($('gunFill'), (player.mgReload > 0 ? (1 - player.mgReload / 4) * 100 : a / W.ammo * 100).toFixed(0) + '%'); hudTxt($('gunState'), player.mgReload > 0 ? 'RELOADING' : player.mgOn ? `${Math.round(a)} ROUNDS` : `MINIGUN ${Math.round(a)}`); }
     else { hudWidth($('gunFill'), ((1 - cd / W.cd) * 100).toFixed(0) + '%');
-    hudTxt($('gunState'), player.specialT > 0 ? 'ACTIVE' : cd > 0 ? 'RECHARGING' : W.label); }
+    hudTxt($('gunState'), player.grindT > 0 ? 'GRINDING' : player.specialT > 0 ? 'ACTIVE' : cd > 0 ? 'RECHARGING' : player.T.walker ? (player.fireMode === 'grind' ? 'GRINDER' : 'WEB') : W.label); }
+    if (player.T.walker && (HUDLITE.spT = (HUDLITE.spT || 0) - dt) <= 0) { HUDLITE.spT = 0.2; const m = spiderCloseTarget(player) ? 'grind' : 'web'; // the FIRE button shows what F does right now: up close the grinder, otherwise the web
+      if (m !== player.fireMode) { player.fireMode = m; if (m === 'grind') $('fireIco').innerHTML = GRINDER_SVG; else $('fireIco').textContent = '🕸️'; $('fireLab').textContent = m === 'grind' ? 'Grinder' : 'Web'; } }
     const rt = $('reticle'), lockT = player.T.special === 'rockets' && game.state === 'playing' ? frontTarget(player, 110, 0.6) : null; // the Viper's rockets lock on: show who they'll chase
     if (lockT) { tv3.set(lockT.body.position.x, lockT.body.position.y + 0.8, lockT.body.position.z).project(camera); rt.hidden = tv3.z > 1; rt.style.transform = `translate(${((tv3.x + 1) / 2 * canvas.clientWidth).toFixed(0)}px, ${((1 - tv3.y) / 2 * canvas.clientHeight).toFixed(0)}px)`; rt.classList.toggle('lock', cd <= 0); if (cd <= 0 && player.lockOn !== lockT) { player.lockOn = lockT; sfx.tone('square', 1400, 1400, 0.05, 0.06); sfx.tone('square', 1800, 1800, 0.05, 0.06, false, 0.08); } } else { rt.hidden = true; player.lockOn = null; }
   } else if (player.T.pour) { // concrete load
@@ -8995,7 +9108,7 @@ function aimHintFor(type) { if (!canAim(CAR_TYPES[type])) return; let n = 0; try
 function setControlsFor(type) {
   document.body.classList.toggle('has-gun', !!(CAR_TYPES[type].gun || CAR_TYPES[type].pour || CAR_TYPES[type].special));
   { const T0 = CAR_TYPES[type]; // the controls strip and the touch FIRE button follow your car
-    const act = T0.gun ? 'fire 3-round burst' : T0.pour ? (T0.pour === 'fuel' ? 'dump fuel' : 'pour concrete') : ({ reel: 'reel on / off', dump: 'dump boulders', blade: 'raise / slam blade', lift: 'lift / toss', tow: 'hook / release (back up first)', minigun: 'minigun', rockets: 'rocket salvo', water: 'water cannon', harpoon: 'harpoon', flame: 'flamethrower', bomb: 'propane bomb', spikes: 'shotgun · Z stop stick', oil: 'oil slick', ram: 'rocket ram', web: 'web the car in front' })[T0.special];
+    const act = T0.gun ? 'fire 3-round burst' : T0.pour ? (T0.pour === 'fuel' ? 'dump fuel' : 'pour concrete') : ({ reel: 'reel on / off', dump: 'dump boulders', blade: 'raise / slam blade', lift: 'lift / toss', tow: 'hook / release (back up first)', minigun: 'minigun', rockets: 'rocket salvo', water: 'water cannon', harpoon: 'harpoon', flame: 'flamethrower', bomb: 'propane bomb', spikes: 'shotgun · Z stop stick', oil: 'oil slick', ram: 'rocket ram', web: 'web the car in front · up close: bite + grinder' })[T0.special];
     const kb = (k, t, cls) => `<span${cls ? ' class="sp"' : ''}><b>${k}</b> ${t}</span>`;
     const parts = [kb('W A S D', 'drive'), kb('Space', 'handbrake'), kb('Shift', 'nitro'), kb('J', 'jump')];
     if (act) parts.push(kb('F', act, true));
@@ -10320,7 +10433,7 @@ const MP = {
     const r = (v, k = 100) => Math.round(v * k);
     const cs = cars.map((c) => { const b = c.body, p = b.position, q = b.quaternion, v = b.velocity, z = c.zones;
       return [r(p.x), r(p.y), r(p.z), r(q.x, 1e4), r(q.y, 1e4), r(q.z, 1e4), r(q.w, 1e4), r(v.x, 10), r(v.y, 10), r(v.z, 10), Math.round(c.health),
-        (c.wrecked ? 1 : 0) | (c.boosting ? 2 : 0) | (c.braking ? 4 : 0) | (c.sirenOn ? 8 : 0) | (c.turretGone ? 16 : 0) | (c.burnT > 0 ? 32 : 0) | (c.webbedT > 0 ? 64 : 0),
+        (c.wrecked ? 1 : 0) | (c.boosting ? 2 : 0) | (c.braking ? 4 : 0) | (c.sirenOn ? 8 : 0) | (c.turretGone ? 16 : 0) | (c.burnT > 0 ? 32 : 0) | (c.webbedT > 0 ? 64 : 0) | (c.latch ? 1024 : 0) | (c.grindT > 0 ? 2048 : 0),
         [z.front, z.rear, z.left, z.right, z.top].map((x) => Math.round(x)).join('.'),
         c.parts.reduce((a, pt, i) => (pt.detached ? a.concat(i) : a), []), c.wheelLost.reduce((a, l, i) => a | (l ? 1 << i : 0), 0),
         r(c.rpm || 0, 0.01), r(c.steerVal || 0), r(c.turretYaw || 0), r(c.forkH || 0), c.kills || 0]; });
@@ -10492,6 +10605,7 @@ const MP = {
       for (const pi of B[13] || []) if (c.parts[pi] && !c.parts[pi].detached) c.detach(c.parts[pi], null);
       for (let w = 0; w < c.nW; w++) if ((B[14] >> w) & 1 && !c.wheelLost[w]) c.loseWheel(w, null); else if (c.T.walker && !((B[14] >> w) & 1) && c.wheelLost[w] && !c.wrecked) c.refitWheel(w); // (a repaired spider grows its leg back here too)
       c.netWebbed = !!(B[11] & 64); // caught in a web: the spider draws the cable
+      c.netLatched = !!(B[11] & 1024); c.netGrind = !!(B[11] & 2048); // a spider riding a roof, and its grinder spinning (sparks)
       c.health = B[10];
       if ((B[11] & 1) && !c.wrecked) c.wreck();
       if ((B[11] & 16) && c.T.gun && !c.turretGone) c.blowBarrel();
@@ -10618,7 +10732,7 @@ function nearRoom() {
 }
 // ---------- One scan, online: the QR carries a game code; the WebRTC offer/answer travel over ntfy.sh (a public message relay) ----------
 const NTFY = 'https://ntfy.sh/';
-const BUILD = '120'; // shown on screen, and put in join links so phones never open a stale cached copy
+const BUILD = '121'; // shown on screen, and put in join links so phones never open a stale cached copy
 const ONLINE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }] }; // STUN finds each phone's public address; TURN relays when they can't reach each other directly
 function ntfySub(topic, onMsg) { const es = new EventSource(NTFY + topic + '/sse'); es.onmessage = (e) => { try { const d = JSON.parse(e.data); if (!d.event || d.event === 'message') onMsg(d.message); } catch (err) {} }; return es; }
 async function ntfyPub(topic, text) { const r = await fetch(NTFY + topic, { method: 'POST', body: text }); if (!r.ok) throw { type: 'network' }; }

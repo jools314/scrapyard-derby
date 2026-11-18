@@ -42,7 +42,7 @@ const SHOTS = process.env.SHOTS;
         const st = __derby.tilt.steer, c0 = P.ctrl.steer, y0 = yaw(), t0 = __derby.game.time; await gw(1.5);
         let d = yaw() - y0; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; window.__tiltA = 0; __derby.touch.throttle = 0;
         return { paused: __derby.game.paused, state: __derby.game.state, tiltSteer: +st.toFixed(2), ctrlSteer: +c0.toFixed(2), turn: +d.toFixed(2), dt: +(__derby.game.time - t0).toFixed(1) }; }, a);
-      await page.evaluate(() => { __derby.respawnCar(__derby.player, 'viper'); }); await page.waitForTimeout(800);
+      await page.evaluate(() => { __derby.respawnCar(__derby.player, 'viper'); for (const c of __derby.cars) if (c !== __derby.player) { c.think = () => {}; c.ctrl.throttle = 0; c.ctrl.steer = 0; } }); await page.waitForTimeout(800); /* (park the AI: Build 115's suite run had one ram the test car mid-turn) */
       const L = await drive(0.35), R = await drive(-0.35);
       console.log(`  tilt drive: left ${JSON.stringify(L)} right ${JSON.stringify(R)}`);
       ok(L.tiltSteer > 0.5 && L.ctrlSteer > 0.5 && L.turn > 0.15, `mock motion sensor: phone twisted 20° left steers the car left (${JSON.stringify(L)})`);
