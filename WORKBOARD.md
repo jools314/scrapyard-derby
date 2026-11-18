@@ -30,7 +30,7 @@ Format: `- [agent] topic — branch — claimed YYYY-MM-DD HH:MM UTC — notes`
   - New tests/geoleak.js: main leaves 54 orphaned geometries and 7 burgers over 7 restarts; the branch stays flat at 5-7 with 0 burgers.
   - Total GPU memory involved is under 1 MB, so this was not what crashed the Chromebook tab.
   - Prop build, so the 30-min gate applies. Needs a quick suite.
-- [claude] claude/selfheal (/home/user/wt-selfheal, ead2e23 + 23d2ae3): self-healing autoplay (the owner: never manually intervene).
+- [claude] claude/selfheal (/home/user/wt-selfheal, head 04ddf1d): self-healing autoplay (the owner: never manually intervene).
   - Memory reloads are rate-limited instead of capped at 3 per tab.
   - Planned refresh every 90 min / 30 matches (60 / 20 on devices with 4 GB or less).
   - Steady-growth trigger.
@@ -39,7 +39,7 @@ Format: `- [agent] topic — branch — claimed YYYY-MM-DD HH:MM UTC — notes`
   - Launcher autoplay.html runs the game in a sandboxed (separate-process) frame and restarts it if it crashes or hangs.
   - heal records in the play log and in the analyser.
   - tests/selfheal.js: 35/35 on the branch, 18 failures on main.
-  - Follow-up in progress: top-level ?autoplay=1 moves itself into the launcher (with a loop guard).
+  - Top-level ?autoplay=1 moves itself into the launcher, so no bookmark changes. Loop guard: if the launcher fails, autoplay goes back to the top level once, for 24 h. selfheal.js 45/45.
   - Non-gameplay. Land it near geoleak, because the growth trigger will reload the Mac and Chromebook every 40-60 min until geoleak is in.
 - [claude] claude/cranejitter (/home/user/wt-cranejitter, 780a8c4): a car held by the magnet crane no longer shakes on low-fps devices. The magnet is now driven by velocity before each physics step, instead of being given a velocity and then teleported every frame. On main its vertical speed flipped +19.2/-16.0 m/s frame to frame. New tests/cranejitter.js (quality 7, 35-65 ms frames): main fails 3/3 runs (up to 30 solver-kick undos on a held car, 16.5 m/s swings in 0.1 s), the fix passes 4/4 (0 undos, max 3.3 m/s). Physics build: lands after the spider (Build 120) plus 30 game-min; needs a quick suite on its rebased head.
 - [claude] In progress for the owner's 2026-11-17 evening requests (each its own branch; physics/AI ones wait for the 30-game-min gate after 112): claude/tiltbtn (Tilt button in the phone top row, mock-motion drive test; compact score card with ▾, hull/weapon %, no Pause button: settings pauses a solo match; small action buttons right-aligned above FIRE) · claude/spiderjump (spider leaps ~1.55 s apart, AI pounce/dodge/unstick leaps; next: a bit bigger and stronger) · claude/cruiser-dumpster (police car more power; Big Bertha dumpster fire) · claude/softhills (rounder hill edges so cars don't beach).
