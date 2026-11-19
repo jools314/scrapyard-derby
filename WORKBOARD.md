@@ -32,6 +32,7 @@ Format: `- [agent] topic — branch — claimed YYYY-MM-DD HH:MM UTC — notes`
   - Bulls flee spiders.
   - tests/spider2.js: 10/11 checks fail on main.
   - Gameplay build. Needs a quiet-machine quick suite (memleak in particular) and the 30-game-min gate. Watch the spider's K/D afterwards: a ridden light car dies about 2 s after the landing.
+- [claude] 2026-11-19 ~09:20 UTC: claude/tsunami (/home/user/wt-tsunami, 4eccefc, rebased on 124) ready for the gate: Victor's tsunami (~1 match in 3, 88% of floor flooded 34 s), golden pickup Jet with laser minigun + speedboat Ann (bow laser, dive, auto broadside cannons), cop cash, Captain Goldtooth (83 lines, computer voice until the owner picks). tsunami.js + jet.js + listed tests pass alone. Before landing: review tests/voicelines.js change (4506bf5: unvoiced lines listed, not failed) and rerun perfbudget TSUNAMI=1 vs main on a quiet machine (physics 2x check failed under load). Gameplay build: waits its turn behind 121 data.
 - [claude] 2026-11-19 owner requests (family session). Four agents, each on its own branch:
   - **claude/spider2:** higher jump; leap aim-assist onto an oncoming car; much better grip on roofs; a laser cutter replaces the grinder and does real damage; web bursts of 3 that target whoever is coming at you first, and you can cycle targets.
   - **claude/hovercraft:** Lucas's hovercraft. It floats and drifts: fast but slow to turn, easily pushed, never stuck in concrete. A spinning saw ring hurts rammers. Hop-and-bomb: aim a bomb at a car below while airborne.
