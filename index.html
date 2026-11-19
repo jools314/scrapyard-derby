@@ -2214,7 +2214,8 @@ function propCollide(e) {
   if (me.gas && me.prop && Math.abs(e.contact.getImpactVelocityAlongNormal()) > 6 && MP.role !== 'guest') { GASQ.push({ pr: me.prop, t: 0.05 }); return; }
   if (me.prop && me.prop.golden && Math.abs(e.contact.getImpactVelocityAlongNormal()) > 4) goldConeReveal(me.prop);
   if (!other.car) return;
-  if (other.car.T.skid && me.prop && me.propKind !== 'concrete' && me.mass < 600 && !other.car.wrecked) { flattenProp(me.prop, other.car); return; }
+  if (me.prop && me.prop.scare) me.prop.scare.by = other.car; // (whoever launches it gets the commentary)
+  if (other.car.T.skid && me.prop && !me.prop.scare && me.propKind !== 'concrete' && me.mass < 600 && !other.car.wrecked) { flattenProp(me.prop, other.car); return; }
   const v = Math.abs(e.contact.getImpactVelocityAlongNormal());
   if (v < 3 || simTime - (me.lastHit || -9) < 0.3) return;
   me.lastHit = simTime;
@@ -2294,7 +2295,7 @@ function damageProp(pr, v, nLocal) {
   m.material.color.multiplyScalar(0.88);
   if (m.material.emissiveIntensity) m.material.emissiveIntensity *= 0.6;
 }
-const PROP_LABEL = { metal: 'CLANG', wood: 'SPLINTERS', plastic: 'BINNED', cardboard: 'BOXED', rubber: 'BOING', concrete: 'THUD' };
+const PROP_LABEL = { metal: 'CLANG', wood: 'SPLINTERS', plastic: 'BINNED', cardboard: 'BOXED', rubber: 'BOING', concrete: 'THUD', straw: 'STRAW' };
 // Visual weight language: light props are bright and faintly glowing, heavy ones stay dark, solid scenery is hazard-striped
 const lightCache = new Map();
 function lightLook(m) {
@@ -2345,7 +2346,7 @@ function updatePropBatches() {
   for (const { im, list } of PROPBATCH) { for (let i = 0; i < list.length; i++) { const m = list[i]; if (m.parent === scene && m.visible && !m.userData.unbatched) { _bm.compose(m.position, m.quaternion, m.scale); im.setMatrixAt(i, _bm); } else im.setMatrixAt(i, _bZero); } im.instanceMatrix.needsUpdate = true; }
 }
 function buildProps() {
-  PROPID.n = 0; PROPID.map.clear();
+  PROPID.n = 0; PROPID.map.clear(); scareClear(); // (a rag doll's limb bodies and joints go with it)
   // (each match rebuilds the props: free the old ones' GPU buffers, or every match leaked ~100 geometries; see Build 101)
   for (const p of props) { world.removeBody(p.body); scene.remove(p.mesh); freeObject(p.mesh, []); p.dormant = false; }
   for (const m of flats) { scene.remove(m); freeObject(m, []); } flats.length = 0;
@@ -2368,7 +2369,7 @@ function buildProps() {
     const b = addProp(gasShape, gasGeo, M.gas, 45, x + (i % 2) * 0.7, 0.75, z + (i >> 1) * 0.7, 0, 'metal'); b.gas = true;
   }
   const tireShape = new CANNON.Cylinder(0.65, 0.65, 0.4, 12);
-  for (const [x, z] of [[18, 30], [-25, -30], [40, -20], [-40, 22], [75, 75], [-80, -78]]) {
+  for (const [x, z] of [[18, 30], [-25, -30], [40, -20], [-40, 22]]) { // ([75, 75] and [-80, -78] are scarecrows now)
     for (let l = 0; l < 4; l++) addProp(tireShape, G.tire, M.tire, 22, x, 0.2 + l * 0.41, z, 0, 'rubber');
   }
   const coneShape = new CANNON.Cylinder(0.05, 0.3, 0.8, 8);
@@ -2382,6 +2383,7 @@ function buildProps() {
     addProp(shellShape, G.shell, SHELL_MATS[i], 900, x, 0.55, z, y, 'metal');
   });
   buildStreetProps();
+  buildScarecrows();
 }
 const SG = {
   bin: new THREE.CylinderGeometry(0.3, 0.26, 0.95, 14),
@@ -2430,7 +2432,7 @@ function buildStreetProps() {
     addProp(lidShape, SG.lid, SM.bin, 1.2, x, 0.99, z, 0, 'metal', false);
   };
   for (let i = 0; i < 5; i++) bin(24 + i * 3, 86);                 // right in front of the start line
-  for (const [cx, cz] of [[30, 20], [-35, -18], [70, -20], [-70, 30], [20, -75], [-20, 82], [95, 60], [-95, -60]]) {
+  for (const [cx, cz] of [[30, 20], [-35, -18], [20, -75], [-20, 82]]) { // ([70, -20], [-70, 30], [95, 60] and [-95, -60] are scarecrows now)
     for (let i = 0; i < 4; i++) bin(cx + (i % 2) * 0.9, cz + (i >> 1) * 0.9);
   }
   const dShape = new CANNON.Box(new CANNON.Vec3(1.1, 0.65, 0.65));
@@ -2441,7 +2443,7 @@ function buildStreetProps() {
   for (let i = 0; i < 14; i++) addProp(fShape, SG.fence, SM.fence, 22, -100, 0.6, 40 + i * 2.45, Math.PI / 2, 'wood', false);
   for (let i = 0; i < 10; i++) addProp(fShape, SG.fence, SM.fence, 22, 40 + i * 2.45, 0.6, 90, 0, 'wood', false);
   const bShape = new CANNON.Box(new CANNON.Vec3(0.35, 0.3, 0.35));
-  for (const [cx, cz] of [[18, -40], [-42, 45], [60, 85], [-85, 10]]) {
+  for (const [cx, cz] of [[18, -40], [-42, 45]]) { // ([60, 85] and [-85, 10] are scarecrows now)
     for (let l = 0; l < 3; l++) for (let i = 0; i < 3 - l; i++) addProp(bShape, SG.box, SM.box, 4, cx + i * 0.75 + l * 0.37, 0.3 + l * 0.6, cz, rand(-0.2, 0.2), 'cardboard', false);
   }
   const sShape = new CANNON.Box(new CANNON.Vec3(0.04, 1.1, 0.04));
@@ -2452,6 +2454,186 @@ function buildStreetProps() {
     b.addShape(boardShape, new CANNON.Vec3(0, 0.9, 0));
     b.prop.sign = true; SIGN_PROPS.push(b.prop); // HELICOPTER SIGN: signs are marked and watched
   }
+}
+
+/* ---------------- Scarecrows: straw rag dolls on posts. Ram one and it flies, arms and legs flopping, straw everywhere ----------------
+   Standing (and lying still after a flight) a scarecrow is ONE light prop body (torso + post) and is drawn by shared InstancedMeshes
+   (torso, head, arms, legs, and the burnt stick): no draw calls or geometries of its own, nothing allocated per match but its body.
+   A hit turns it into a rag doll: head, arms and legs get small bodies of their own, joined to the torso by ball joints. At most
+   SCARE_CAP() rag dolls at once (the oldest freezes when a new one starts). Once it lies still the limbs freeze in their pose and
+   their bodies go: the torso stays an ordinary prop, so it can be hit again, harpooned, dragged, burned (down to a charred stick)
+   and synced to guests like any other prop. The host announces each launch; guests run the floppy limbs themselves. */
+const SCARE_SPOTS = [[70, -20], [-70, 30], [95, 60], [-95, -60], [75, 75], [-80, -78], [60, 85], [-85, 10]]; // where 4 bin clusters, 2 tyre stacks and 2 box piles stood (they made room: QUALITY-GATES 3b)
+const SCARE = [], SCARE_CAP = () => (QUALITY.lite ? 2 : 3);
+const SC_COL = { straw: 0xe8c862, straw2: 0xc99f3a, sack: 0xcaa878, sack2: 0xa88658, shirt: 0xc4472f, patch: 0x3f74bc, patch2: 0xf0b83a, jeans: 0x46629a, patch3: 0x8a5a2b, hat: 0xd8af55, band: 0x8a2a1e, wood: 0x6e4b2a, ink: 0x241710, rope: 0xa88a56, char: 0x1e1814, ember: 0xa8401a };
+let SCIM = null; // the shared instanced meshes, made once
+const _scT = new THREE.Matrix4(), _scM = new THREE.Matrix4(), _scP = new THREE.Vector3(), _scQ = new THREE.Quaternion(), _sc1 = new THREE.Vector3(1, 1, 1), _scC = new THREE.Color(), _scS = new THREE.Vector3(), SC_KEYS = ['torso', 'head', 'arm', 'leg', 'stick'];
+const scCompose = (m, p, q) => m.compose(_scP.set(p.x, p.y, p.z), _scQ.set(q.x, q.y, q.z, q.w), _sc1); // (three's compose wants its own vector and quaternion types)
+BIT.straw = new THREE.MeshStandardMaterial({ color: SC_COL.straw, roughness: 1, emissive: 0x3a2a08 }); BIT.ash = new THREE.MeshStandardMaterial({ color: 0x2a2420, roughness: 1 });
+// rest pose of head, right arm, left arm, right leg, left leg in the torso's frame (torso centre = origin, the post runs 1.9 m down to the ground)
+const SC_REST = [[0, 0.72, 0, 0, 0, 0.1], [0.7, 0.3, 0, 0, 0, -0.05], [-0.7, 0.3, 0, 0, Math.PI, -0.05], [0.17, -0.8, 0, 0, 0, 0.07], [-0.17, -0.8, 0, 0, 0, -0.07]].map(([x, y, z, rx, ry, rz]) => new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, ry, rz)), new THREE.Vector3(1, 1, 1)));
+const SC_PART = [ // joint point in the part's own frame, its collision box, mass
+  { pivot: new CANNON.Vec3(0, -0.27, 0), shape: new CANNON.Sphere(0.26), mass: 1.5 },
+  { pivot: new CANNON.Vec3(-0.36, 0, 0), shape: new CANNON.Box(new CANNON.Vec3(0.36, 0.08, 0.08)), mass: 1.2 },
+  { pivot: new CANNON.Vec3(-0.36, 0, 0), shape: new CANNON.Box(new CANNON.Vec3(0.36, 0.08, 0.08)), mass: 1.2 },
+  { pivot: new CANNON.Vec3(0, 0.38, 0), shape: new CANNON.Box(new CANNON.Vec3(0.09, 0.38, 0.09)), mass: 1.5 },
+  { pivot: new CANNON.Vec3(0, 0.38, 0), shape: new CANNON.Box(new CANNON.Vec3(0.09, 0.38, 0.09)), mass: 1.5 },
+];
+for (let k = 0; k < 5; k++) { const v = new THREE.Vector3(SC_PART[k].pivot.x, SC_PART[k].pivot.y, SC_PART[k].pivot.z).applyMatrix4(SC_REST[k]); SC_PART[k].pivotT = new CANNON.Vec3(v.x, v.y, v.z); } // the same point in the torso's frame
+function scareGeos() { // cartoon scarecrow parts, each one geometry with vertex colours
+  const at = (g, x, y, z, rx = 0, ry = 0, rz = 0) => g.rotateX(rx).rotateY(ry).rotateZ(rz).translate(x, y, z);
+  const tuft = (x, y, z, rx, rz, l = 0.2) => at(new THREE.ConeGeometry(0.034, l, 3), 0, 0, 0, rx, 0, rz).translate(x, y, z);
+  const one = (parts) => { const gs = parts.map(([g, c]) => { g.deleteAttribute('uv'); const col = new THREE.Color(c), n = g.attributes.position.count, a = new Float32Array(n * 3); for (let i = 0; i < n; i++) { a[i * 3] = col.r; a[i * 3 + 1] = col.g; a[i * 3 + 2] = col.b; } g.setAttribute('color', new THREE.BufferAttribute(a, 3)); return g; });
+    const m = mergeGeometries(gs, false); for (const g of gs) g.dispose(); m.userData.shared = true; return m; };
+  const S = SC_COL, torso = [
+    [new THREE.CylinderGeometry(0.29, 0.34, 0.8, 8).rotateY(Math.PI / 8).scale(1, 1, 0.62), S.shirt],
+    [at(new THREE.BoxGeometry(0.17, 0.17, 0.03), 0.12, 0.12, 0.185, 0, 0, 0.12), S.patch], [at(new THREE.BoxGeometry(0.14, 0.12, 0.03), -0.13, -0.12, 0.19, 0, 0, -0.2), S.patch2], [at(new THREE.BoxGeometry(0.16, 0.15, 0.03), -0.05, 0.05, -0.185, 0, 0, 0.3), S.patch2], // patches, front and back
+    [new THREE.CylinderGeometry(0.345, 0.35, 0.07, 8, 1, true).rotateY(Math.PI / 8).scale(1, 1, 0.64).translate(0, -0.28, 0), S.rope], // rope belt
+    [at(new THREE.CylinderGeometry(0.06, 0.07, 2.4, 6), 0, -0.7, 0), S.wood], [at(new THREE.CylinderGeometry(0.045, 0.045, 1.9, 6), 0, 0.3, -0.06, 0, 0, Math.PI / 2), S.wood], // the post and its crossbar
+  ];
+  for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2; torso.push([tuft(Math.cos(a) * 0.1, 0.47, Math.sin(a) * 0.07, Math.sin(a) * 0.5, -Math.cos(a) * 0.5), k % 2 ? S.straw : S.straw2]); } // straw out of the collar
+  for (let k = 0; k < 7; k++) { const a = k / 7 * Math.PI * 2; torso.push([tuft(Math.cos(a) * 0.26, -0.47, Math.sin(a) * 0.16, Math.PI - Math.sin(a) * 0.45, Math.cos(a) * 0.45, 0.24), k % 2 ? S.straw : S.straw2]); } // ...and out of the shirt tails
+  const head = [[new THREE.SphereGeometry(0.27, 9, 7).scale(1, 1.08, 0.95), S.sack], [at(new THREE.CylinderGeometry(0.08, 0.13, 0.12, 6), 0, -0.29, 0), S.sack2], [at(new THREE.TorusGeometry(0.085, 0.018, 3, 8), 0, -0.26, 0, Math.PI / 2), S.rope],
+    [at(new THREE.CylinderGeometry(0.05, 0.05, 0.025, 8), 0.095, 0.06, 0.235, Math.PI / 2), S.ink], [at(new THREE.CylinderGeometry(0.05, 0.05, 0.025, 8), -0.095, 0.06, 0.235, Math.PI / 2), S.ink], // button eyes
+    [at(new THREE.ConeGeometry(0.04, 0.09, 4), 0, -0.01, 0.27, Math.PI / 2), S.patch3]]; // a patch of a nose
+  for (let k = 0; k <= 5; k++) { const t = Math.PI * (1.17 + k * 0.66 / 5), x = 0.14 * Math.cos(t), y = -0.07 + 0.1 * Math.sin(t), z = Math.sqrt(Math.max(0, 0.0729 - x * x - (y / 1.08) ** 2)) * 0.95 + 0.006;
+    head.push([at(new THREE.BoxGeometry(0.05, 0.014, 0.014), x, y, z, 0, 0, t + Math.PI / 2), S.ink]); } // the stitched smile
+  const hat = [[new THREE.CylinderGeometry(0.44, 0.44, 0.03, 10).translate(0, 0.25, 0), S.hat], [new THREE.CylinderGeometry(0.17, 0.21, 0.2, 8).translate(0, 0.36, 0), S.hat], [new THREE.CylinderGeometry(0.215, 0.215, 0.05, 8).translate(0, 0.29, 0), S.band]];
+  for (const [g] of hat) g.rotateZ(0.14).rotateX(-0.06); head.push(...hat); // the straw hat sits at a jaunty angle
+  for (const sd of [-1, 1]) for (let k = 0; k < 3; k++) head.push([tuft(sd * 0.27, 0.12 - k * 0.07, -0.05 + k * 0.05, (k - 1) * 0.3, -sd * (Math.PI / 2 + 0.35 + k * 0.15)), k % 2 ? S.straw2 : S.straw]); // straw sticking out under the hat
+  const arm = [[at(new THREE.CylinderGeometry(0.085, 0.095, 0.6, 6), -0.08, 0, 0, 0, 0, Math.PI / 2), S.shirt], [at(new THREE.CylinderGeometry(0.1, 0.1, 0.05, 6), 0.2, 0, 0, 0, 0, Math.PI / 2), S.rope], [at(new THREE.BoxGeometry(0.12, 0.03, 0.1), -0.15, 0.085, 0, 0, 0, 0.05), S.patch]];
+  for (let k = 0; k < 5; k++) arm.push([tuft(0.33, (k - 2) * 0.03, ((k * 3) % 5 - 2) * 0.025, ((k * 3) % 5 - 2) * 0.25, -Math.PI / 2 + (k - 2) * 0.22, 0.22), k % 2 ? S.straw2 : S.straw]); // straw hands
+  const leg = [[at(new THREE.CylinderGeometry(0.1, 0.09, 0.62, 6), 0, 0.07, 0), S.jeans], [at(new THREE.BoxGeometry(0.11, 0.11, 0.03), 0, -0.02, 0.092), S.patch3], [at(new THREE.CylinderGeometry(0.1, 0.1, 0.04, 6), 0, -0.23, 0), S.rope]];
+  for (let k = 0; k < 5; k++) leg.push([tuft(((k * 2) % 5 - 2) * 0.03, -0.33, (k - 2) * 0.03, Math.PI + (k - 2) * 0.2, ((k * 2) % 5 - 2) * 0.2, 0.22), k % 2 ? S.straw2 : S.straw]); // straw feet
+  const stick = [[at(new THREE.CylinderGeometry(0.05, 0.068, 2.4, 6), 0, -0.7, 0), S.char], [at(new THREE.CylinderGeometry(0.038, 0.038, 1.5, 6), 0, 0.3, -0.06, 0, 0, Math.PI / 2), S.char], [at(new THREE.BoxGeometry(0.07, 0.05, 0.07), 0, 0.5, 0), S.ember], [at(new THREE.BoxGeometry(0.05, 0.05, 0.05), 0.76, 0.3, -0.06), S.ember]]; // what's left: a charred stick, embers glowing at the tips
+  for (let k = 0; k < 4; k++) stick.push([tuft((k - 1.5) * 0.06, 0.42, 0, 0, (k - 1.5) * 0.4, 0.16), S.char]);
+  return { torso: one(torso), head: one(head), arm: one(arm), leg: one(leg), stick: one(stick) };
+}
+function scareMeshes() {
+  if (SCIM) return SCIM;
+  const G = scareGeos(), mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95 }), n = SCARE_SPOTS.length; SCIM = {};
+  for (const [k, cap] of [['torso', n], ['head', n], ['arm', n * 2], ['leg', n * 2], ['stick', n]]) {
+    const im = new THREE.InstancedMesh(G[k], mat, cap); im.instanceMatrix.setUsage(THREE.DynamicDrawUsage); im.castShadow = true; im.receiveShadow = true; im.frustumCulled = false; im.userData.keep = true;
+    for (let i = 0; i < cap; i++) { im.setMatrixAt(i, _bZero); im.setColorAt(i, _scC.setRGB(1, 1, 1)); }
+    scene.add(im); SCIM[k] = im;
+  }
+  SCIM.list = [SCIM.torso, SCIM.head, SCIM.arm, SCIM.arm, SCIM.leg, SCIM.leg]; // (torso, then the five parts in SC_REST order)
+  return SCIM;
+}
+const scIdx = (sc, k) => (k === 0 || k === 1 ? sc.i : sc.i * 2 + (k & 1 ? 0 : 1)); // instance slot of part k (0 torso, 1 head, 2/3 arms, 4/5 legs)
+function buildScarecrows() {
+  scareClear(); scareMeshes();
+  const torsoShape = new CANNON.Box(new CANNON.Vec3(0.3, 0.4, 0.2)), postShape = new CANNON.Box(new CANNON.Vec3(0.06, 1.2, 0.06)), barShape = new CANNON.Box(new CANNON.Vec3(0.95, 0.04, 0.04));
+  SCARE_SPOTS.forEach(([x, z], i) => {
+    const b = addProp(torsoShape, new THREE.Object3D(), null, 10, x, 1.9, z, Math.atan2(-x, -z), 'straw', false); // facing the middle of the yard
+    b.addShape(postShape, new CANNON.Vec3(0, -0.7, 0)); b.addShape(barShape, new CANNON.Vec3(0, 0.3, -0.06));
+    const base = new CANNON.Box(new CANNON.Vec3(0.24, 0.04, 0.24)); b.addShape(base, new CANNON.Vec3(0, -1.86, 0)); // planted: a foot under the post (it goes when it's knocked off)
+    const sc = { i, pr: b.prop, up: true, active: false, stick: false, gone: false, pb: [], cons: [], lm: SC_REST.map((m) => m.clone()), base, torsoShape, burn: 0, burnShown: 0, vis: null, lx: NaN, ly: 0, lz: 0, lq: 0, t0: 0, age: 0, still: 0, fx: x, fz: z, said: false, by: null, launches: 0 };
+    b.prop.scare = sc; SCARE.push(sc);
+  });
+}
+function scareRemoveLimbs(sc) { for (const c of sc.cons) world.removeConstraint(c); for (const pb of sc.pb) world.removeBody(pb); sc.cons.length = 0; sc.pb.length = 0; sc.active = false; }
+function scareClear() { for (const sc of SCARE) scareRemoveLimbs(sc); SCARE.length = 0; if (SCIM) for (const k of SC_KEYS) { const im = SCIM[k]; for (let i = 0; i < im.count; i++) im.setMatrixAt(i, _bZero); im.instanceMatrix.needsUpdate = true; } }
+function scareLaunch(sc, by) { // off the post (or up off the ground): it becomes a rag doll
+  if (!sc || sc.active || sc.stick || sc.gone) return false;
+  let n = 0, old = null; for (const o of SCARE) if (o.active) { n++; if (!old || o.t0 < old.t0) old = o; }
+  if (n >= SCARE_CAP()) scareSettle(old); // the cap: the oldest rag doll freezes where it is
+  const pr = sc.pr, b = pr.body, v = b.velocity; wakeProp(pr); b.wakeUp();
+  const sp = v.length(); if (sp > 22) v.scale(22 / sp, v); // (light as straw, but it doesn't leave the yard)
+  if (by) sc.by = by;
+  if (sc.up) { // the first knock: off the post it goes, with a hop and a tumble and a burst of straw
+    sc.up = false; sc.launches++; b.removeShape(sc.base); b.updateMassProperties(); sc.fx = b.position.x; sc.fz = b.position.z; sc.said = false;
+    const hs = Math.hypot(v.x, v.z); if (hs > 4) { v.y = Math.max(v.y, Math.min(8, 2.5 + hs * 0.3)); b.angularVelocity.set(rand(-6, 6), rand(-3, 3), rand(-6, 6)); }
+    const p = b.position; bits(p, BIT.straw, QUALITY.lite ? 6 : 14, 4, 5); emit('dust', p.x, 0.4, p.z, rand(-1, 1), rand(1, 2), rand(-1, 1), rand(0.8, 1.2), rand(0.6, 1));
+    if (player) sfx.at(p).propHit('straw', clamp(1 - player.body.position.distanceTo(p) / 70, 0, 1));
+    if (MP.role === 'host') MP.event({ k: 'sc', id: pr.id });
+  }
+  scCompose(_scT, b.position, b.quaternion);
+  for (let k = 0; k < 5; k++) {
+    const P = SC_PART[k], pb = new CANNON.Body({ mass: P.mass, linearDamping: 0.08, angularDamping: 0.35, sleepSpeedLimit: 0.5, sleepTimeLimit: 0.5 });
+    pb.addShape(P.shape); pb.collisionFilterGroup = LIGHT; pb.collisionFilterMask = ~LIGHT; // limbs hit cars, the ground and heavy things, not each other or the clutter
+    pb.prop = pr; pb.propKind = 'straw'; // (a bullet or a blast that finds a limb is hitting the scarecrow)
+    _scM.multiplyMatrices(_scT, sc.lm[k]).decompose(_scP, _scQ, _scS);
+    pb.position.set(_scP.x, _scP.y, _scP.z); pb.quaternion.set(_scQ.x, _scQ.y, _scQ.z, _scQ.w);
+    pb.velocity.set(v.x + rand(-1.5, 1.5), v.y + rand(0, 1.5), v.z + rand(-1.5, 1.5)); pb.angularVelocity.set(rand(-7, 7), rand(-7, 7), rand(-7, 7));
+    world.addBody(pb); sc.pb.push(pb);
+    const c = new CANNON.PointToPointConstraint(b, P.pivotT, pb, P.pivot, 1e4); world.addConstraint(c); sc.cons.push(c);
+  }
+  sc.active = true; sc.t0 = simTime; sc.age = 0; sc.still = 0;
+  return true;
+}
+function scareSettle(sc) { // lying still (or over the cap): the limbs freeze in their pose relative to the torso, and their bodies go
+  if (!sc || !sc.active) return;
+  const b = sc.pr.body; scCompose(_scT, b.position, b.quaternion).invert();
+  for (let k = 0; k < 5; k++) { const pb = sc.pb[k]; sc.lm[k].multiplyMatrices(_scT, scCompose(_scM, pb.position, pb.quaternion)); }
+  scareRemoveLimbs(sc); sc.lx = NaN;
+}
+function scareChar(sc) { // burnt out: the straw is gone, a charred stick is left
+  if (!sc || sc.stick) return;
+  scareSettle(sc); sc.stick = true; sc.up = false; const b = sc.pr.body, p = b.position;
+  if (b.shapes.includes(sc.torsoShape)) { b.removeShape(sc.torsoShape); b.updateMassProperties(); }
+  if (b.shapes.includes(sc.base)) { b.removeShape(sc.base); b.updateMassProperties(); }
+  bits(p, BIT.ash, QUALITY.lite ? 4 : 10, 2, 3); for (let k = 0; k < 4; k++) emit('smoke', p.x + rand(-0.5, 0.5), p.y + 0.5, p.z + rand(-0.5, 0.5), rand(-0.5, 0.5), rand(1.5, 3), rand(-0.5, 0.5), rand(1.5, 2.5), rand(0.6, 1));
+  wakeProp(sc.pr); b.wakeUp(); sc.lx = NaN;
+}
+function scarePlace(sc, x, z, yaw = 0) { // (tests) stand it back up on its post
+  if (!sc || sc.gone) return;
+  scareRemoveLimbs(sc); const b = sc.pr.body;
+  if (sc.stick) { b.addShape(sc.torsoShape); sc.stick = false; sc.pr.charred = false; } if (!b.shapes.includes(sc.base)) b.addShape(sc.base, new CANNON.Vec3(0, -1.86, 0));
+  b.updateMassProperties(); wakeProp(sc.pr); b.position.set(x, 1.9, z); b.quaternion.setFromAxisAngle(AX_Y, yaw); b.velocity.set(0, 0, 0); b.angularVelocity.set(0, 0, 0); b.sleep(); b.aabbNeedsUpdate = true; // (a sleeping body never refreshes its box: rays would miss it)
+  for (let k = 0; k < 5; k++) sc.lm[k].copy(SC_REST[k]);
+  sc.up = true; sc.burn = 0; sc.pr.fireT = 0; sc.fx = x; sc.fz = z; sc.lx = NaN; sc.said = false;
+}
+function scareGone(sc) { // harvested, crushed, flattened...: the prop is gone, so are the limbs
+  scareRemoveLimbs(sc); sc.gone = true; const p = sc.pr.body.position; bits(p, BIT.straw, QUALITY.lite ? 4 : 10, 3, 4); sc.lx = NaN;
+}
+function scareDraw(sc) {
+  const b = sc.pr.body, I = SCIM, show = !sc.gone && sc.pr.mesh.visible;
+  if (!show || sc.stick) { I.torso.setMatrixAt(sc.i, _bZero); for (let k = 0; k < 5; k++) I.list[k + 1].setMatrixAt(scIdx(sc, k + 1), _bZero); }
+  scCompose(_scT, b.position, b.quaternion);
+  I.stick.setMatrixAt(sc.i, show && sc.stick ? _scT : _bZero);
+  if (!show || sc.stick) return;
+  I.torso.setMatrixAt(sc.i, _scT);
+  for (let k = 0; k < 5; k++) { if (sc.active) { scCompose(_scM, sc.pb[k].position, sc.pb[k].quaternion); } else _scM.multiplyMatrices(_scT, sc.lm[k]); I.list[k + 1].setMatrixAt(scIdx(sc, k + 1), _scM); }
+}
+function updateScarecrows(dt) {
+  if (!SCIM) return;
+  let dirty = false, colors = false, sticks = 0;
+  for (let i = 0; i < SCARE.length; i++) {
+    const sc = SCARE[i], pr = sc.pr, b = pr.body;
+    if (sc.gone) continue;
+    if (props.indexOf(pr) < 0) { scareGone(sc); scareDraw(sc); dirty = true; continue; }
+    if (sc.active) {
+      sc.age += dt; let still = b.sleepState === CANNON.Body.SLEEPING || b.velocity.lengthSquared() < 0.36;
+      if (still) for (let k = 0; k < 5; k++) if (sc.pb[k].velocity.lengthSquared() > 0.5) { still = false; break; }
+      sc.still = still ? sc.still + dt : 0;
+      if (!sc.said && sc.launches && MP.role !== 'guest' && game.state === 'playing') { const dx = b.position.x - sc.fx, dz = b.position.z - sc.fz; if (dx * dx + dz * dz > 144) { sc.said = true; const by = sc.by; barks.announce('scarecrow', { a: by ? (by.isPlayer ? 'our hero' : by.name) : 'somebody' }, !!(by && by.isPlayer)); } } // launched a long way: the commentators call it (through TALK.gate)
+      if (sc.still > 0.5 || sc.age > 9 || pr.dormant) scareSettle(sc);
+    } else if (!sc.stick && !pr.dormant && b.sleepState !== CANNON.Body.SLEEPING) {
+      const v = b.velocity, w = b.angularVelocity, q = b.quaternion;
+      if (v.lengthSquared() > 6.25 || w.lengthSquared() > 12 || (sc.up && 1 - 2 * (q.x * q.x + q.z * q.z) < 0.85)) scareLaunch(sc, null); // knocked hard, or tipped off balance
+    }
+    if (!sc.up && !sc.stick && b.position.y < 1.2 && MP.role !== 'guest') { // lying down it's lower than a car's floor: a car rolling over it scoops it up and tosses it (the wheels never touch light props)
+      const p = b.position;
+      for (let j = 0; j < cars.length; j++) { const c = cars[j], cb = c.body, cv = cb.velocity; const cs2 = cv.x * cv.x + cv.z * cv.z; if (c.wrecked || cs2 < 16 || b.velocity.lengthSquared() > cs2 * 0.3) continue; // (already flying off faster: leave it be)
+        const dx = p.x - cb.position.x, dz = p.z - cb.position.z; if (dx * dx + dz * dz > 64) continue;
+        const al = dx * c.fwd.x + dz * c.fwd.z, lat = dx * c.fwd.z - dz * c.fwd.x;
+        if (Math.abs(al) < c.T.L / 2 + 0.4 && Math.abs(lat) < c.T.W / 2 + 0.3) { wakeProp(pr); b.wakeUp(); b.velocity.set(cv.x * 1.15, Math.max(cv.y, 0) + 3 + Math.sqrt(cv.x * cv.x + cv.z * cv.z) * 0.15, cv.z * 1.15); b.angularVelocity.set(rand(-6, 6), rand(-3, 3), rand(-6, 6)); sc.by = c; if (sc.active) for (let k = 0; k < 5; k++) sc.pb[k].velocity.copy(b.velocity); else scareLaunch(sc, c); break; }
+      }
+    }
+    if (pr.fireT > 0) { // straw burns bright and fast: flames all over, embers drifting up, and it blackens as it goes
+      const p = b.position; sc.burn = Math.min(1, sc.burn + dt * 0.16);
+      if (!QUALITY.lite && Math.random() < 0.8) emit('fire', p.x + rand(-0.7, 0.7), p.y + rand(-0.5, 0.9), p.z + rand(-0.7, 0.7), rand(-0.4, 0.4), rand(2, 3.5), rand(-0.4, 0.4), rand(0.3, 0.6), rand(0.4, 0.7));
+      if (Math.random() < 0.25) emit('spark', p.x + rand(-0.5, 0.5), p.y + rand(0, 1), p.z + rand(-0.5, 0.5), rand(-1, 1), rand(2, 4), rand(-1, 1), rand(0.5, 1), 0.05);
+    }
+    if (Math.abs(sc.burn - sc.burnShown) > 0.04) { sc.burnShown = sc.burn; const k = 1 - sc.burn * 0.8; _scC.setRGB(k, k * 0.92, k * 0.85); SCIM.torso.setColorAt(sc.i, _scC); for (let j = 1; j < 6; j++) SCIM.list[j].setColorAt(scIdx(sc, j), _scC); colors = true; }
+    if (sc.stick) sticks++;
+    const p = b.position, q = b.quaternion, vis = pr.mesh.visible;
+    if (sc.active || vis !== sc.vis || p.x !== sc.lx || p.y !== sc.ly || p.z !== sc.lz || q.w !== sc.lq) { sc.vis = vis; sc.lx = p.x; sc.ly = p.y; sc.lz = p.z; sc.lq = q.w; scareDraw(sc); dirty = true; }
+  }
+  if (dirty) for (let j = 0; j < 5; j++) SCIM[SC_KEYS[j]].instanceMatrix.needsUpdate = true;
+  if (colors) for (let j = 0; j < 4; j++) SCIM[SC_KEYS[j]].instanceColor.needsUpdate = true;
+  SCIM.stick.visible = sticks > 0; const any = SCARE.length > 0; SCIM.torso.visible = SCIM.head.visible = SCIM.arm.visible = SCIM.leg.visible = any; // (no scarecrows burnt: the stick batch costs no draw call)
 }
 
 /* ---------------- Pickups: repair wrenches and nitro canisters ---------------- */
@@ -2513,7 +2695,7 @@ const tmpW = new THREE.Vector3();
 function frontObject(car, range, cone) { // nearest bull or shootable prop ahead, wrapped like a car target ({ body })
   let best = null, bd = range; const b = car.body;
   for (const bl of BULLS) { if (bl.state === 'burger') continue; const l = b.pointToLocalFrame(bl.body.position); if (l.x > 2 && Math.abs(l.z) < l.x * cone && l.x < bd) { bd = l.x; best = { body: bl.body }; } }
-  for (const pr of props) { const o = pr.body; if (!(o.gas || o.mass === 90 || o.propKind === 'rubber') || pr.dormant && !props.includes(pr)) continue; const l = b.pointToLocalFrame(o.position); if (l.x > 2 && Math.abs(l.z) < l.x * cone && l.x < bd) { bd = l.x; best = { body: o }; } }
+  for (const pr of props) { const o = pr.body; if (!(o.gas || o.mass === 90 || o.propKind === 'rubber' || (pr.scare && !pr.scare.stick)) || pr.dormant && !props.includes(pr)) continue; const l = b.pointToLocalFrame(o.position); if (l.x > 2 && Math.abs(l.z) < l.x * cone && l.x < bd) { bd = l.x; best = { body: o }; } }
   return best;
 }
 function frontTarget(car, range, cone) { // nearest car ahead inside a cone (a human's picked target first, when it is inside this weapon's reach)
@@ -2733,7 +2915,7 @@ const WEAPONS = {
       if (!t) { // no car in sight: harpoon a bull (rodeo!) or a barrel and reel it in
         let best = null, bd = 40; const b0 = car.body;
         for (const bl of BULLS) { if (bl.state === 'burger') continue; const l = b0.pointToLocalFrame(bl.body.position); if (l.x > 2 && Math.abs(l.z) < l.x * 0.5 && l.x < bd) { bd = l.x; best = { body: bl.body, name: 'the bull', bull: bl }; } }
-        if (!best) for (const pr of props) { if (pr.body.mass > 120 || !props.includes(pr)) continue; const l = b0.pointToLocalFrame(pr.body.position); if (l.x > 2 && Math.abs(l.z) < l.x * 0.4 && l.x < bd) { bd = l.x; best = { body: pr.body, name: 'a ' + (pr.body.propKind === 'wood' ? 'crate' : pr.body.propKind === 'rubber' ? 'tyre' : 'barrel'), prop: pr }; } }
+        if (!best) for (const pr of props) { if (pr.body.mass > 120 || !props.includes(pr)) continue; const l = b0.pointToLocalFrame(pr.body.position); if (l.x > 2 && Math.abs(l.z) < l.x * 0.4 && l.x < bd) { bd = l.x; best = { body: pr.body, name: 'a ' + (pr.scare ? 'scarecrow' : pr.body.propKind === 'wood' ? 'crate' : pr.body.propKind === 'rubber' ? 'tyre' : 'barrel'), prop: pr }; } }
         if (!best) { car.specialCd = 1; car.specialT = 0; if (car.isPlayer) toast('NO TARGET', 'bad'); return; }
         t = best; if (best.prop) wakeProp(best.prop); best.body.wakeUp();
         if (best.bull) { const bl = best.bull; bl.state = 'down'; bl.t = 3.2; best.body.fixedRotation = false; best.body.updateMassProperties(); bullMoo(bl, 1.2); if (game.state === 'playing') { if (car.isPlayer) toast('🤠 RODEO!', 'cool'); if (!car.isPlayer && !car.remote && Math.random() < 0.5) barks.say(car, 'rodeo', true); else barks.announce('rodeo', { a: car.isPlayer ? 'our hero' : car.name }, true); } }
@@ -2814,6 +2996,7 @@ const WEAPONS = {
         if (c.leakT > 0 || c.onFire || c.wrecked || c.health < 15) { if (!(c.douse > 0) && car.isPlayer && game.state === 'playing') toast(`FIRE OUT · ${c.name}`, 'cool'); }
         c.douse = c.wrecked ? 25 : 8; c.leakT = 0; if (c.burnT > 0) { c.burnT = 0; if (car.isPlayer) toast(`💧 PUT OUT ${c.name.toUpperCase()}`, 'cool'); } } }
       for (const pr of props) if (pr.fireT > 0) { const l = b.pointToLocalFrame(pr.body.position); if (l.x > 0 && l.x < 30 && Math.abs(l.z) < 2 + l.x * 0.15) { pr.fireT = 0; for (let k = 0; k < 6; k++) emit('steam', pr.body.position.x, pr.body.position.y + 0.6, pr.body.position.z, rand(-1, 1), rand(2, 3), rand(-1, 1), rand(0.6, 1), rand(0.4, 0.7)); if (car.isPlayer) toast('💧 FIRE OUT', 'cool'); } }
+      for (const sc of SCARE) { if (sc.gone || sc.stick) continue; const q = sc.pr.body.position, vx = q.x - p.x, vz = q.z - p.z, al = vx * f.x + vz * f.z; if (al > 0 && al < 26 && Math.abs(vx * f.z - vz * f.x) < 1.8 + al * 0.15) { const sb = sc.pr.body; wakeProp(sc.pr); sb.wakeUp(); sb.velocity.x += f.x * 16 * dt; sb.velocity.z += f.z * 16 * dt; sb.velocity.y += 5 * dt; sc.by = car; } } // the jet knocks a scarecrow flying
       for (const o of BOULDERS) if (o.fireT > 0) { const l = b.pointToLocalFrame(o.body.position); if (l.x > 0 && l.x < 30 && Math.abs(l.z) < 2 + l.x * 0.15) o.fireT = 0.001; } // a flaming boulder: hissed out (burnBoulder steams it next frame)
       for (const bl of BULLS) hoseBull(car, bl, p, f, dt); // a cold shower: no more cooking, and it gets shoved back (and see hoseBull: once is enough for some bulls)
       if (car.douse === undefined || car.douse < 1) car.douse = 1; // spray yourself a bit too
@@ -3106,21 +3289,21 @@ function updateBooms(dt) {
     if (B.t > 2.2) { scene.remove(B.fire); scene.remove(B.ring); if (BOOMS.length === 1) B.light.intensity = 0; B.fire.geometry.dispose(); B.ring.geometry.dispose(); BOOMS.splice(i, 1); } }
 }
 // ---------- Fire on things: crates, cardboard, tyres, bins and potties burn; fire spreads; water puts it out ----------
-const flammable = (pr) => !pr.body.gas && !pr.charred && ['wood', 'cardboard', 'rubber', 'plastic'].includes(pr.body.propKind);
+const flammable = (pr) => !pr.body.gas && !pr.charred && ['wood', 'cardboard', 'rubber', 'plastic', 'straw'].includes(pr.body.propKind);
 let _charMat = null;
 function igniteProp(pr, t = 8) {
   if (!pr || !props.includes(pr) || MP.role === 'guest') return false;
   if (pr.body.gas) { if (!pr.lit && typeof GASQ !== 'undefined' && !GASQ.some((q) => q.pr === pr)) GASQ.push({ pr, t: rand(0.3, 0.9) }); return true; } // gas bottles just go bang
   if (!flammable(pr) || pr.fireT > 0) return false;
   ptag('prop caught fire');
-  pr.fireT = t + rand(0, 3); wakeProp(pr); return true;
+  pr.fireT = t + rand(0, 3); if (pr.scare) pr.fireT = Math.min(pr.fireT, rand(5, 6.5)); wakeProp(pr); return true; // (straw goes up fast)
 }
 function charProp(pr) { // burnt out: blackened (cardboard burns away to ash)
   const m = pr.mesh, p = pr.body.position;
   if (pr.body.propKind === 'cardboard') { const i = props.indexOf(pr); if (i >= 0) { props.splice(i, 1); propGone(pr); world.removeBody(pr.body); scene.remove(m); bits(p, BIT.paper, 6, 2, 2); } return; }
   if (MP.role === 'host') MP.event({ k: 'pc', id: pr.id });
   _charMat = _charMat || new THREE.MeshStandardMaterial({ color: 0x1a1512, roughness: 1 });
-  pr.charred = true; m.userData.unbatched = true; m.traverse((o) => { if (o.isMesh) { o.material = _charMat; o.layers.mask = 1; } });
+  pr.charred = true; if (pr.scare) scareChar(pr.scare); m.userData.unbatched = true; m.traverse((o) => { if (o.isMesh) { o.material = _charMat; o.layers.mask = 1; } });
 }
 let fireScanT = 0;
 function updatePropFires(dt) {
@@ -3837,6 +4020,7 @@ const sfx = {
     else if (kind === 'plastic') { this.tone('sine', rand(180, 260), 90, vol * 0.5, 0.15); this.noiseHit('lowpass', 1200, 1, vol * 0.2, 0.08); }
     else if (kind === 'cardboard') { this.noiseHit('lowpass', 800, 0.7, vol * 0.4, 0.1); }
     else if (kind === 'rubber') { this.tone('sine', 110, 60, vol * 0.5, 0.18); }
+    else if (kind === 'straw') { this.noiseHit('bandpass', rand(1600, 2400), 0.8, vol * 0.45, 0.22); this.tone('sine', 120, 55, vol * 0.35, 0.14); } // a scarecrow: a straw whumph
     else { this.noiseHit('lowpass', 500, 0.8, vol * 0.5, 0.2, true); this.tone('sine', 90, 40, vol * 0.4, 0.2); }
   },
   cheer(v) {
@@ -7558,6 +7742,7 @@ const ANN_LINES = {
   crusher: ['{v} just got BALED! That is a cube now, folks!', 'Into the crusher goes {v}! Recycling at its finest!', 'The crusher says hello to {v}! Flat as a pancake!'],
   bullGore: ['A BULL just gored {v}! Ole!', '{v} got the horns! Somebody wave a red flag!', 'Bull one, {v} nothing!'],
   bullDown: ['{a} just bowled over a bull! It looks furious!', 'Bull down! It will remember that, {a}!'],
+  scarecrow: ['{a} just sent a scarecrow into orbit! The crows are celebrating!', 'Wah! Flying scarecrow! Straw everywhere, lah!', 'Look at him go! Arms flapping like he wants to be a crow!', 'Aiyaa, {a}! That scarecrow is on holiday now!'],
   towHook: ['{a} just hooked {v}! Somebody call a lawyer!', '{v} is being towed! Illegally parked, folks!', 'Hooked and booked! {a} is dragging {v} around the yard!'],
   towWhip: ['{a} cracks the whip and {v} goes spinning!', 'And {v} is cut loose at full speed! Look at it go!'],
   craneGrab: ['THE MAGNET HAS {v}! Up, up and away!', 'The crane just picked up {v} like a toy!', 'Whoa! {v} is going for a ride on the big magnet!'],
@@ -9890,7 +10075,7 @@ function updatePropActivity(dt) {
     const q = pr.body.position; let d2 = 1e9;
     for (const m of movers) { const dx = m.x - q.x, dz = m.z - q.z, d = dx * dx + dz * dz; if (d < d2) d2 = d; }
     if (pr.dormant) { if (d2 < 22 * 22) wakeProp(pr); }
-    else if (d2 > 32 * 32 && pr.body.sleepState === CANNON.Body.SLEEPING) { pr.dormant = true; world.removeBody(pr.body); }
+    else if (d2 > 32 * 32 && pr.body.sleepState === CANNON.Body.SLEEPING && !(pr.scare && pr.scare.active)) { pr.dormant = true; world.removeBody(pr.body); }
   }
 }
 
@@ -10619,6 +10804,7 @@ const MP = {
     // events: barks, hits, blasts
     for (const e of latest.e || []) {
       if (e.n <= this.seen) continue; this.seen = e.n;
+      if (e.k === 'sc') { const pr = PROPID.map.get(e.id); if (pr && pr.scare && props.includes(pr)) scareLaunch(pr.scare, null); } // the host's scarecrow came off its post
       if (e.k === 'pc') { const pr = PROPID.map.get(e.id); if (pr && !pr.charred) { pr.fireT = 0; charProp(pr); } }
       if (e.k === 'pr') { const pr = PROPID.map.get(e.id); const i = pr ? props.indexOf(pr) : -1; if (i >= 0) { props.splice(i, 1); world.removeBody(pr.body); scene.remove(pr.mesh); bits(pr.body.position, BIT.splinter, 8, 4, 4); } }
       if (e.k === 'b') { const c = cars[e.i], P = e.i === -1 ? ANNOUNCER : e.i === -3 ? SHAZZA : c && c.persona; if (P) { barks.show(P, e.i === -1 ? new THREE.Color(0xf2a20c) : e.i === -3 ? new THREE.Color(0xff6fa8) : c.baseColor, e.x); barks.speak(P, e.x, c ? c.body.position : null); } }
@@ -11461,6 +11647,7 @@ function simBody(now) {
     for (const p of props) { const m = p.mesh, bp = p.body.position, bq = p.body.quaternion; // a prop at rest (most of them, most of the time) keeps its matrix: no copy, no recompose every frame
       if (!m.matrixAutoUpdate && m.position.x === bp.x && m.position.y === bp.y && m.position.z === bp.z && m.quaternion.x === bq.x && m.quaternion.y === bq.y && m.quaternion.z === bq.z && m.quaternion.w === bq.w) continue;
       m.position.copy(bp); m.quaternion.copy(bq); if (p.body.sleepState === CANNON.Body.SLEEPING || p.dormant) { m.updateMatrix(); m.matrixAutoUpdate = false; } else m.matrixAutoUpdate = true; }
+    updateScarecrows(sdt);
     updateDebris(sdt);
     updatePickups(sdt);
     updateShells(sdt);
@@ -12600,7 +12787,7 @@ const IDLE = { ms: 3 * 60 * 1000, last: performance.now(), on: !/[?&]noidle=1\b/
   } };
 for (const ev of ['keydown', 'pointerdown', 'pointermove', 'wheel', 'touchstart', 'touchmove']) addEventListener(ev, (e) => { if (e.isTrusted || window.__idleTest) IDLE.poke(); }, { capture: true, passive: true });
 setInterval(() => IDLE.check(), 5000);
-window.__derby = { GP, PICK, cyclePick: (d) => cyclePick(d), setPick: (c) => setPick(c, false), canAim, frontTarget: (c, r, k) => frontTarget(c, r, k), AUTO, PLAYLOG, INSIDE, BOULDERS, get mapShapes() { return mapShapes; }, respawnCar: (o, t) => respawnCar(o, t), PHYS, cockpitEye: (c) => cockpitEye(c), wakeProp: (pr) => wakeProp(pr), addConcrete: (x, z, r, k) => addConcrete(x, z, r, k), igniteProp: (pr, t) => igniteProp(pr, t), cookBull: (bl, by, dt) => cookBull(bl, by, dt), hoseBull: (car, bl, p, f, dt) => hoseBull(car, bl, p, f, dt), DUCKS, goldConeReveal: (pr) => goldConeReveal(pr), sadTromboneKind: (t) => sadTromboneKind(t), honkBack: (car) => honkBack(car), smashBurger: (bl, how) => smashBurger(bl, how), bladeSlam: (car) => bladeSlam(car), wearBunHat: (bl) => wearBunHat(bl), bunHatRoll: (bl) => bunHatRoll(bl), shakeOff: (bl) => shakeOff(bl), harvestProp: (car, pr) => harvestProp(car, pr), baleMsgRoll: () => baleMsgRoll(), BALE_MSGS, updateSigns: (dt) => updateSigns(dt), SIGN_PROPS, tankerBoom: (p, c) => tankerBoom(p, c), CAR_TYPES, sfx, CANNON, barks, PERF, shells, NETLOG, nearHostAdd: () => nearHostAdd(), nearJoin: () => nearJoin(), JUMBO, BALL, BOLLARDS, GASQ, updateArenaPub: (dt) => updateArena(dt), CRUSHER, crushNow: () => crushNow(), applyNight: () => applyNight(), FIREWORKS, ARENA, CROWD, MP, QUALITY, applyQuality: (i) => applyQuality(i), MERGED, camera, updatePropActivity: (dt) => updatePropActivity(dt), renderer, scene, spawnFree: (x, z, r) => spawnFree(x, z, r), BULLS, updateBulls: (dt) => updateBulls(dt), updateShells, tilt, setTilt, get CRANE() { return CRANE; }, updateCrane: (dt) => updateCrane(dt), CONCRETE, THREE, craters, shells, pickups, barks, PERSONAS, TUNE, game, cars, S, world, CAR_TYPES, sfx, touch, drawGauge, get player() { return player; }, keys, startMatch, selectCar, setValue, debris, props, platformOf, get simTime() { return simTime; }, set simTime(v) { simTime = v; } }; // console tinkering + tests
+window.__derby = { GP, PICK, cyclePick: (d) => cyclePick(d), setPick: (c) => setPick(c, false), canAim, frontTarget: (c, r, k) => frontTarget(c, r, k), AUTO, PLAYLOG, INSIDE, BOULDERS, get mapShapes() { return mapShapes; }, respawnCar: (o, t) => respawnCar(o, t), PHYS, cockpitEye: (c) => cockpitEye(c), wakeProp: (pr) => wakeProp(pr), addConcrete: (x, z, r, k) => addConcrete(x, z, r, k), igniteProp: (pr, t) => igniteProp(pr, t), cookBull: (bl, by, dt) => cookBull(bl, by, dt), hoseBull: (car, bl, p, f, dt) => hoseBull(car, bl, p, f, dt), DUCKS, goldConeReveal: (pr) => goldConeReveal(pr), sadTromboneKind: (t) => sadTromboneKind(t), honkBack: (car) => honkBack(car), smashBurger: (bl, how) => smashBurger(bl, how), bladeSlam: (car) => bladeSlam(car), wearBunHat: (bl) => wearBunHat(bl), bunHatRoll: (bl) => bunHatRoll(bl), shakeOff: (bl) => shakeOff(bl), harvestProp: (car, pr) => harvestProp(car, pr), baleMsgRoll: () => baleMsgRoll(), BALE_MSGS, updateSigns: (dt) => updateSigns(dt), SIGN_PROPS, SCARE, SCARE_SPOTS, scareLaunch: (sc, by) => scareLaunch(sc, by), scarePlace: (sc, x, z, yaw) => scarePlace(sc, x, z, yaw), scareCap: () => SCARE_CAP(), get SCIM() { return SCIM; }, tankerBoom: (p, c) => tankerBoom(p, c), CAR_TYPES, sfx, CANNON, barks, PERF, shells, NETLOG, nearHostAdd: () => nearHostAdd(), nearJoin: () => nearJoin(), JUMBO, BALL, BOLLARDS, GASQ, updateArenaPub: (dt) => updateArena(dt), CRUSHER, crushNow: () => crushNow(), applyNight: () => applyNight(), FIREWORKS, ARENA, CROWD, MP, QUALITY, applyQuality: (i) => applyQuality(i), MERGED, camera, updatePropActivity: (dt) => updatePropActivity(dt), renderer, scene, spawnFree: (x, z, r) => spawnFree(x, z, r), BULLS, updateBulls: (dt) => updateBulls(dt), updateShells, tilt, setTilt, get CRANE() { return CRANE; }, updateCrane: (dt) => updateCrane(dt), CONCRETE, THREE, craters, shells, pickups, barks, PERSONAS, TUNE, game, cars, S, world, CAR_TYPES, sfx, touch, drawGauge, get player() { return player; }, keys, startMatch, selectCar, setValue, debris, props, platformOf, get simTime() { return simTime; }, set simTime(v) { simTime = v; } }; // console tinkering + tests
 // Startup. Before Build 100 the first frame compiled every shader in one blocking step; Builds 100-108 compiled the menu scene off the
 // main thread first (KHR_parallel_shader_compile) but drew nothing until all of it was done, or 8 s had passed: a Chromebook's cold
 // start sat 16 s before its first frame. Now the first frame draws the sky behind the menu straight away (one small program), the
