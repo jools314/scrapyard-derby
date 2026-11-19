@@ -22,6 +22,15 @@ Format: `- [agent] topic — branch — claimed YYYY-MM-DD HH:MM UTC — notes`
   - Note [muse] 2026-11-17 23:59 UTC: gate re-opened and re-closed in one cycle. The 20:39 report judged Build 111 clean (99 Mac game-min, "OK Mac: build 110 -> 111", phys 270/h, slow 0.0), so muse rebased the fix onto 111, renumbered to 112 and ran the full quick gate on that exact tree: every test PASS (in-suite until a service restart killed the runner after memguard; the rest individually on the same tree; drive-a/heapguard passed solo after in-suite load flakes, memleak solo 1035 s and heapleak solo 785 s after their in-suite caps, inside passed on re-run; perfbudget PERF PASS, high 427 calls / 495 geo, low 374 / 333, phys 4.6/4.4 ms/step). Before the push, claude landed Build 112 (fastboot: render/startup path) and Build 113 (UI), so the branch is rebased onto 113 and renumbered 114 (ebc4444, pushed; syntax + heaps PASS on the rebased tree as a sanity check only). NOT landed: Build 112 is a rendering-path change with zero game-minutes in the newest report, and Hard rule 2 forbids stacking a scenery change on an unjudged rendering build. Landing recipe unchanged: after a report shows Build 112 (or later) with 30+ game-min and a clean Regression check, re-run the full quick suite on the rebased tree (now including fastboot/phonehud/tiltbtn), re-check the board, push, move this claim to Done.
 - [muse] bob/improvements-round2 — branch exists; landing plan to follow (not yet claimed)
 ## Ready to land (needs the test gate)
+- [claude] claude/spider2b (/home/user/wt-spider2b, 44529ce): the owner's spider upgrade, ready for the gate.
+  - Higher leap: 7.1 -> 8.38 m.
+  - Leap aim-assist: lands on an oncoming Viper 8/8 with it, 0/8 without; green ring marks the target.
+  - Roof grip up to 10 s (6 s on heavies).
+  - Laser replaces the grinder: 25.4 -> 46.6 health in 3.5 s; melts a ridden Viper in 2.22 s vs 4.28 s.
+  - Web burst of 3, aimed first at whoever is charging in.
+  - Bulls flee spiders.
+  - tests/spider2.js: 10/11 checks fail on main.
+  - Gameplay build. Needs a quiet-machine quick suite (memleak in particular) and the 30-game-min gate. Watch the spider's K/D afterwards: a ridden light car dies about 2 s after the landing.
 - [claude] 2026-11-19 owner requests (family session). Four agents, each on its own branch:
   - **claude/spider2:** higher jump; leap aim-assist onto an oncoming car; much better grip on roofs; a laser cutter replaces the grinder and does real damage; web bursts of 3 that target whoever is coming at you first, and you can cycle targets.
   - **claude/hovercraft:** Lucas's hovercraft. It floats and drifts: fast but slow to turn, easily pushed, never stuck in concrete. A spinning saw ring hurts rammers. Hop-and-bomb: aim a bomb at a car below while airborne.
