@@ -32,6 +32,7 @@ Format: `- [agent] topic — branch — claimed YYYY-MM-DD HH:MM UTC — notes`
   - Bulls flee spiders.
   - tests/spider2.js: 10/11 checks fail on main.
   - Gameplay build. Needs a quiet-machine quick suite (memleak in particular) and the 30-game-min gate. Watch the spider's K/D afterwards: a ridden light car dies about 2 s after the landing.
+- [claude] 2026-11-19 ~20:05 UTC: Build 128 LANDED (spider combo). Next: hpbar (HUD only) as 129, then the gated queue after 30 game-min on 128: hovercraft-124, tsunami, scarecrow, carai-124, perf2.
 - [claude] 2026-11-19 ~19:12 UTC: gate for 128 met (Mac 126 -> 127 OK: stuck/h 138.0 -> 136.8, phys/h 220.0 -> 271.0, within threshold). spider3 128 quick suite still running (28 passed; interact fire-spread flaked once, rerun alone after the suite).
 - [claude] 2026-11-19 ~18:12 UTC: Build 127 LANDED (spider round 2). Quick suite ALL PASSED (72). Gate: Mac 126 OK vs 125. Next: spider3 (combo) as 128 after 30 game-min on 127: rebase onto main, number, quick suite. hpbar (HUD only) can be numbered after it.
 - [claude] 2026-11-19 ~18:00 UTC: claude/hpbar (/home/user/wt-hpbar, 8d519d4, on 125) health bars over cars the player damages (pool of 3 DOM bars, drain chunk, fade 3-3.5 s, 0 layout reads, ~40 µs/frame, no 3D draws). hpbar.js PASS (fails on 125); hudlite, uiaudit, phonehud PASS alone. Guests mostly see no bars (no attacker in snapshots). HUD-only, not gated: needs rebase + number + quick suite.
