@@ -847,9 +847,9 @@
       "role": "Jet (golden pirate truck) and Ann (golden speedboat)",
       "gender": "male",
       "age": "middle_aged",
-      "accent": "english (west country, booming cartoon pirate)",
-      "description": "Captain Rufus Goldtooth, an original jolly cartoon pirate captain: a big, booming, warm West Country English voice in his fifties, rolling his R's on every 'Arr', laughing 'Ha harr!' at his own jokes, greedy for gold but never mean. Theatrical and fun, like a pantomime pirate for kids.",
-      "library_search": "pirate west country man booming",
+      "accent": "british (english west country, booming cartoon pirate)",
+      "description": "Captain Rufus Goldtooth, an original jolly cartoon pirate captain: a booming English (West Country) pirate, not Caribbean. A big, warm voice in his fifties, rolling his R's on every 'Arr', laughing 'Ha harr!' at his own jokes, greedy for gold but never mean. Theatrical and fun, like a pantomime pirate for kids.",
+      "library_search": "pirate",
       "voice_id": null,
       "voice_name": null,
       "tier": 1,
@@ -860,7 +860,7 @@
         "use_speaker_boost": true,
         "speed": 1.0
       },
-      "pending": "owner picks the voice first (Victor's pirate, Build 124+): every line is Web Speech until then"
+      "pending": "owner picks the voice first (Victor's pirate, Build 124+; Victor: an English pirate, not Caribbean). Voice Library candidates from --suggest: Pirate Marshal, Tom - Pirate Character, Matthew Schmitz - Old Pirate Captain. Every line is Web Speech until then"
     }
   }
 }
