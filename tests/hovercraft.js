@@ -59,14 +59,16 @@ const { open } = require('./harness');
       const p1 = c.body.position; out.concrete[t] = { moved: +Math.hypot(p1.x - p0.x, p1.z - p0.z).toFixed(1), stuckFrames: stuck }; pd.t = 0.5; await wt(0.6);
     }
     // 6 bombs: a parked Outrider ahead / behind / under; the hovercraft throws one bomb at it each time
-    const bombRun = async (setup) => { D.respawnCar(D.player, 'hover'); await wt(0.3); parkAll(); const c = D.player; let tg = ais()[0]; if (tg.type !== 'outrider') { tg = D.respawnCar(tg, 'outrider'); await wt(0.3); } stub(tg);
+    const bombRun = async (setup, tt = 'outrider') => { D.respawnCar(D.player, 'hover'); await wt(0.3); parkAll(); const c = D.player; let tg = ais()[0]; if (tg.type !== tt) { tg = D.respawnCar(tg, tt); await wt(0.3); } stub(tg);
       c.bombCd = 0; const r0 = await setup(c, tg); if (!r0) return { fired: false }; const th0 = tg.health; key('KeyF', true); await sleep(40); key('KeyF', false);
       let s = null, last = null, t0 = D.game.time, from = null; while (D.game.time - t0 < 5) { await sleep(10); const x = D.shells.find((q) => q.hbomb && q.owner === c); if (x) { s = x; if (!from) from = +(x.pos.y).toFixed(1); last = x.pos.clone(); } else if (s) break; }
       key('KeyW', false); await wt(0.4); const q = tg.body.position;
-      return { fired: !!s, from, aimed: !!(c._aim && c._aim.t === tg), miss: last ? +Math.hypot(last.x - q.x, last.z - q.z).toFixed(1) : null, hurt: +(th0 - tg.health).toFixed(1) }; };
+      return { fired: !!s, from, aimed: !!(c._aim && c._aim.t === tg), miss: last ? +Math.hypot(last.x - q.x, last.z - q.z).toFixed(1) : null, hurt: +(th0 - tg.health).toFixed(1), bar: D.HPBAR.slots.some((b) => b.car === tg) }; }; // (bar: the health bar over the car you hurt, Build 129)
     out.bomb = {};
     out.bomb.ahead = await bombRun(async (c, tg) => { put(tg, -62, 75, 0); put(c, -80, 75, 0); await wt(1.2); return true; });
     out.bomb.behind = await bombRun(async (c, tg) => { put(tg, -89, 75, 0); put(c, -80, 75, 0); await wt(1.2); return true; });
+    { const tg = ais()[0], h = D.respawnCar(tg, 'hover'); await wt(0.3); stub(h); h.health = 100; D.HPBAR.free(D.HPBAR.slots[0]); D.HPBAR.free(D.HPBAR.slots[1]); D.HPBAR.free(D.HPBAR.slots[2]); // (a hovercraft you hurt gets a health bar too)
+      h.applyDamage(20, D.player, 'left', null, 0); await wt(0.2); const s = D.HPBAR.slots.find((b) => b.car === h); out.bomb.hover = { bar: !!s, f: s ? +s.f.toFixed(2) : null, health: +(h.health / 100).toFixed(2) }; }
     out.bomb.below = await bombRun(async (c, tg) => { put(tg, -40, 75, 0); put(c, -56, 75, 0); await wt(1.2); key('KeyJ', true); await sleep(60); key('KeyJ', false);
       let t0 = D.game.time; while (D.game.time - t0 < 2 && !(c.liftH > 3.5)) await sleep(15); key('KeyW', true);
       t0 = D.game.time; while (D.game.time - t0 < 4) { await sleep(10); if (Math.abs(c.body.position.x - tg.body.position.x) < 4) { key('KeyW', false); return true; } } return false; });
@@ -99,6 +101,8 @@ const { open } = require('./harness');
   ok(co.hover.stuckFrames === 0 && co.hover.moved > 8 && co.hover.moved > 3 * co.outrider.moved, `wet concrete can't hold it: ${co.hover.moved} m in 2 s (never bogged) vs the Outrider ${co.outrider.moved} m (bogged ${co.outrider.stuckFrames} frames)`);
   for (const [k, what] of [['ahead', 'lobbed onto a car 18 m ahead'], ['behind', 'dropped behind onto a car 9 m back'], ['below', 'boosted up, dropped onto the car below']]) { const x = b[k];
     ok(x.fired && x.aimed && x.miss !== null && x.miss <= 4 && x.hurt >= 10, `a bomb ${what}: thrown from ${x.from} m up, landed ${x.miss} m from it, it lost ${x.hurt}`); }
+  ok(['ahead', 'behind', 'below'].every((k) => b[k].bar), `your bombs put a health bar over the car they hurt (${['ahead', 'behind', 'below'].map((k) => k + ' ' + b[k].bar).join(', ')})`);
+  ok(b.hover.bar && b.hover.f === b.hover.health && b.hover.f < 1, `a hovercraft you hurt gets a health bar too (bar ${b.hover.bar}, showing ${b.hover.f} of its health ${b.hover.health})`);
   ok(b.below.from >= 4, `the boosted drop comes from high up: ${b.below.from} m`);
   ok(r.ai.boosts >= 1 && r.ai.maxUp >= 3 && r.ai.bombs >= 2 && r.ai.nearCar >= Math.max(1, Math.ceil(r.ai.landed.length * 0.3)) && r.ai.maxAbs < 150 && r.ai.escaped === 0, `the AI hovercraft boost (${r.ai.boosts}, up to ${r.ai.maxUp} m) and bomb (${r.ai.bombs}; ${r.ai.nearCar} of ${r.ai.landed.length} landed within 6 m of a car) and stay in the yard (max |x|,|z| ${r.ai.maxAbs}, escapes ${r.ai.escaped}), saw hits ${r.ai.sawHits}`);
   ok(r.kicksTotal === 0, `no solver kick undone on the hovercraft (${r.kicksScripted} scripted, ${r.ai.kicks} in AI play) ${JSON.stringify(r.physLog)}`);

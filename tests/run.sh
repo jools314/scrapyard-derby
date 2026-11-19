@@ -93,6 +93,7 @@ quick() {
   t spider2 900 "SPIDER2 PASS"
   t spider3 900 "SPIDER3 PASS"
   t hovercraft 1500 "HOVERCRAFT PASS"
+  t hovernet 60 "HOVERNET PASS"
 }
 release() {
   quick
