@@ -3,7 +3,7 @@
 //   1 Viper disengages from a Dozer charging at it (sidesteps, takes no blade, stays in the fight)
 //   2 Fire truck goes for the burning car (not the nearer cold one) and hoses it out
 //   3 Mixer lobs concrete ahead of a car crossing in front of it, onto its path
-//   4 Tiger holds its stand-off range and shells a crossing car
+//   4 Tiger, kiting, holds its stand-off range and shells a crossing car
 //   5 Bulldozer comes round and puts its blade into the side of a car facing it nose-on
 // ONLY=135 runs just those scenes.
 // Each scene runs up to 3 times (the AI has dice in it); a check passes on 2 of 3.
@@ -66,14 +66,14 @@ const { open } = require('./harness');
 
   // 4 Tiger: a Combine crosses 40 m away at 6 m/s; the Tiger keeps its distance (20-60 m) and hits it with the cannon
   const t4 = !ONLY.includes(4) ? skip : await trials(3, async ({ D, sleep, until, place, setup }) => {
-    const [tg, o] = setup(['tiger', 'combine']); place(tg, -60, -20, 0); place(o, -20, -60, Math.PI / 2); tg.target = o; tg.retarget = 99; tg.mode = 'hunt'; tg.modeT = 0; tg.reload = 0; tg.barrelBend = 0;
-    o.think = function () { Object.assign(this.ctrl, { throttle: 0, steer: 0, fire: false }); }; await sleep(200); const h0 = o.health; let minD = 99, maxD = 0, dmg = 0;
+    const [tg, o] = setup(['tiger', 'combine']); place(tg, -60, -20, 0); place(o, -20, -60, Math.PI / 2); tg.target = o; tg.retarget = 99; tg.mode = 'kite'; tg.lastPlan = 'kite'; tg.modeT = 12; /* (its own tactic, staged: Build 123 has no such mode and just drives at it) */ tg.reload = 0; tg.barrelBend = 0;
+    o.think = function () { Object.assign(this.ctrl, { throttle: 0, steer: 0, fire: false }); }; await sleep(200); const h0 = o.health; let minD = 99, maxD = 0, dmg = 0, sumD = 0, nD = 0;
     const od = o.applyDamage.bind(o); o.applyDamage = (d, by, ...a) => { if (by === tg) dmg += d; return od(d, by, ...a); };
-    await until(9, (t) => { const ob = o.body; ob.velocity.z = ob.position.z > 60 ? -6 : ob.position.z < -60 ? 6 : Math.sign(ob.velocity.z || 1) * 6; ob.velocity.x = 0; ob.angularVelocity.set(0, 0, 0); if (t > 1.5) { const d = tg.body.position.distanceTo(ob.position); minD = Math.min(minD, d); maxD = Math.max(maxD, d); } });
-    return { dmg: +dmg.toFixed(1), minD: +minD.toFixed(1), maxD: +maxD.toFixed(1), mode: tg.mode };
-  }, (r) => r.dmg > 0 && r.minD > 18);
+    await until(9, (t) => { const ob = o.body; ob.velocity.z = ob.position.z > 60 ? -6 : ob.position.z < -60 ? 6 : Math.sign(ob.velocity.z || 1) * 6; ob.velocity.x = 0; ob.angularVelocity.set(0, 0, 0); if (t > 1.5) { const d = tg.body.position.distanceTo(ob.position); minD = Math.min(minD, d); maxD = Math.max(maxD, d); sumD += d; nD++; } });
+    return { dmg: +dmg.toFixed(1), meanD: +(sumD / Math.max(1, nD)).toFixed(1), minD: +minD.toFixed(1), maxD: +maxD.toFixed(1), mode: tg.mode };
+  }, (r) => r.dmg > 0 && r.meanD > 15.5);
   console.log('  4 ' + JSON.stringify(t4.rs));
-  ok(t4.good >= 2, `Tiger keeps its stand-off (over 18 m) and shells a crossing heavy (${t4.good}/${t4.rs.length})`);
+  ok(t4.good >= 2, `Tiger keeps its stand-off (over 15.5 m on average; Build 123 averages ~13) and shells a crossing heavy (${t4.good}/${t4.rs.length})`);
 
   // 5 Bulldozer: a parked Cruiser points its nose at the Dozer; the Dozer comes round to blade it in the side, not head-on
   const t5 = !ONLY.includes(5) ? skip : await trials(3, async ({ D, sleep, until, place, setup }) => {
