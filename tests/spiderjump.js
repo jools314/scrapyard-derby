@@ -17,7 +17,7 @@ const seed = () => { let a = 20261117; Math.random = () => { a |= 0; a = (a + 0x
     // 1) the player mashes J for 4.6 s: how often does it leap, does each leap start from its feet, and does its speed stay sane?
     { const sp = D.respawnCar(D.player, 'spider'); place(sp, -30, -30); place(a, 80, 80); place(b, 90, 60); await sleep(1200); const k0 = kicks();
       const leaps = []; let prevCd = sp.leapCd, prevY = +sp.body.position.y.toFixed(2), s0 = D.simTime, vmax = 0, ymax = 0, y0 = sp.body.position.y;
-      while (D.simTime - s0 < 4.6) { sp.ctrl.jump = true; sp.ctrl.throttle = 1; /* a kid holding forward and hammering J */ const t = D.simTime - s0;
+      while (D.simTime - s0 < 5.2) { sp.ctrl.jump = true; sp.ctrl.throttle = 1; /* a kid holding forward and hammering J */ const t = D.simTime - s0;
         if (sp.leapCd > prevCd + 0.2) leaps.push({ t: +t.toFixed(2), y: prevY, vy: +sp.body.velocity.y.toFixed(1) }); prevCd = sp.leapCd; prevY = +sp.body.position.y.toFixed(2); /* (y: the frame before it took off) */
         vmax = Math.max(vmax, Math.hypot(sp.body.velocity.x, sp.body.velocity.z)); ymax = Math.max(ymax, sp.body.position.y - y0); await sleep(16); }
       sp.ctrl.throttle = 0; out.player = { leaps, n: leaps.length, gap: leaps.length > 1 ? +(leaps[1].t - leaps[0].t).toFixed(2) : null, vmax: +vmax.toFixed(1), rise: +ymax.toFixed(2), kicks: kicks() - k0, legs: sp.legsLeft, up: +sp.up.y.toFixed(2) }; }
@@ -29,7 +29,7 @@ const seed = () => { let a = 20261117; Math.random = () => { a |= 0; a = (a + 0x
         const q = vp.body.position, ang = Math.atan2(q.z + 30, q.x + 30) + 0.35; /* drive a 22 m circle round (-30,-30) */ const tx = -30 + Math.cos(ang) * 22, tz = -30 + Math.sin(ang) * 22, dx = tx - q.x, dz = tz - q.z, dl = Math.hypot(dx, dz) || 1;
         vp.body.velocity.x = dx / dl * 9; vp.body.velocity.z = dz / dl * 9; vp.body.quaternion.setFromAxisAngle(new CA.Vec3(0, 1, 0), Math.atan2(-dz, dx)); vp.body.angularVelocity.set(0, 0, 0);
         if (sp.leapCd > prevCd + 0.5) leaps.push({ t: +(D.simTime - s0).toFixed(1), why: sp.leapWhy || null }); prevCd = sp.leapCd; await sleep(16); }
-      out.chase = { n: leaps.length, leaps, landed: hits, kicks: kicks() - k0, wrecked: sp.wrecked }; park(sp); place(sp, 80, -80); place(vp, 70, -90); }
+      out.chase = { n: leaps.length, leaps, landed: hits, kicks: kicks() - k0, wrecked: sp.wrecked }; if (sp.latch) sp.unlatch('gone'); /* (since 11-19 it holds on to a roof for up to 10 s: let go, or placing it does nothing) */ park(sp); place(sp, 80, -80); place(vp, 70, -90); }
     // 3) a parked AI spider; a Hellbender (2.9 t, a medium car) charges straight at it at 8 m/s, three times
     { const sp = D.cars.find((c) => c.T.walker && !c.isPlayer); park(sp); let n = 0; const tries = [];
       for (let k = 0; k < 3; k++) { place(sp, 20, 60, 0); place(b, -2, 60, 0); b.health = 100; await sleep(700); let prevCd = sp.leapCd, s0 = D.simTime, leapt = false;
@@ -54,7 +54,7 @@ const seed = () => { let a = 20261117; Math.random = () => { a |= 0; a = (a + 0x
     return out; });
   console.log('  ' + JSON.stringify(r));
   const P = r.player;
-  ok(P.n >= 3 && P.gap !== null && P.gap < 2.3, `player: mashing J leaps again as soon as it lands (${P.n} leaps in 4.6 s, ${P.gap} s apart, ~1.9 s of it in the air; was 2.5 s)`);
+  ok(P.n >= 3 && P.gap !== null && P.gap < 2.6, `player: mashing J leaps again as soon as it lands (${P.n} leaps in 5.2 s, ${P.gap} s apart, ~2.2 s of it in the air since the 8.4 m leap of 11-19; was 2.5 s + 1.9 s)`);
   ok(P.leaps.every((l) => l.y < 2.4), `player: every leap starts from its feet, never mid-air (take-off heights ${P.leaps.map((l) => l.y).join(', ')})`);
   ok(P.rise > 6.5 && P.rise < 9 && P.vmax < 25 && P.kicks === 0 && P.up > 0.8, `player: back-to-back leaps stay sane (rise ${P.rise} m, top speed ${P.vmax} m/s, ${P.kicks} solver kicks, upright ${P.up})`);
   ok(r.chase.n >= 2 && r.chase.kicks === 0 && !r.chase.wrecked, `AI: hunting a Viper it leaps at it (${r.chase.n} leaps in 16 s: ${r.chase.leaps.map((l) => l.why).join(',')}; ${r.chase.landed} landed on its roof; ${r.chase.kicks} solver kicks)`);
