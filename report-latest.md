@@ -1,6 +1,6 @@
-# Scrapyard Derby play-log report · 2026-11-19 04:39 UTC
+# Scrapyard Derby play-log report · 2026-11-19 07:11 UTC
 
-1240 matches (1227 from real devices, 3694.9 game-minutes), 120 page loads, 9 bug reports.
+1240 matches (1227 from real devices, 3694.9 game-minutes), 121 page loads, 9 bug reports.
 
 ## Who and what
 
@@ -327,7 +327,7 @@ Build 102+ reloads an autoplaying page whose memory runs away and logs what was 
 | iPhone | 122 | 1 | 57 | 100% | 0% | 0% | – | 0% | playing 100% | playback |
 | other | 118 | 28 | 0 | – | – | – | – | 100% | playing 0% · blocked: audio suspended 2971 | – |
 
-- errors & incidents (in and out of matches): 35× voice: voices: # recorded clips loaded (# voices); 7× voice: voices: stuck - # lines asked for, engine busy # s and none started (last voice default, # voices, spea; 2× #:#:# Uncaught TypeError: Cannot read properties of undefined (reading 'isReady') @three.module.js:#; 2× voice: voices: stuck - still busy # s after the tab came back from # s in the background (last voice default, ; 1× voice: voices: stuck - # lines asked for and not one reported back, engine idle (last voice default, # voices,
+- errors & incidents (in and out of matches): 37× voice: voices: # recorded clips loaded (# voices); 7× voice: voices: stuck - # lines asked for, engine busy # s and none started (last voice default, # voices, spea; 2× #:#:# Uncaught TypeError: Cannot read properties of undefined (reading 'isReady') @three.module.js:#; 2× voice: voices: stuck - still busy # s after the tab came back from # s in the background (last voice default, ; 1× voice: voices: stuck - # lines asked for and not one reported back, engine idle (last voice default, # voices,
 - network incidents: 60
 
 ## Autoplay
@@ -353,6 +353,4 @@ Build 102+ reloads an autoplaying page whose memory runs away and logs what was 
 
 ## Changes since the previous report
 
-- new stuck hotspot at (97,-71) ×74
-- physics catches up for Outrider: 3606 → 3633
-- first data from build 122
+- nothing new
