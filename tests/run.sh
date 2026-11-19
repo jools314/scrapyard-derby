@@ -35,6 +35,8 @@ quick() {
   t selfheal 1200 "SELFHEAL PASS"
   TAG=-spider t drive 900 "" ONLY=spider
   TAG=-spider t crusheropen 600 "CRUSHEROPEN PASS" TYPE=spider
+  TAG=-hover t drive 900 "" ONLY=hover
+  TAG=-hover t crusheropen 600 "CRUSHEROPEN PASS" TYPE=hover
   t tracks 900 "TRACKS PASS"
   t blade 600 "BLADE PASS"
   t crusheropen 600 "CRUSHEROPEN PASS"
@@ -85,6 +87,7 @@ quick() {
   t dumpsterfire 600 "DUMPSTERFIRE PASS"
   t spiderjump 600 "SPIDERJUMP PASS"
   t spiderroof 600 "SPIDERROOF PASS"
+  t hovercraft 1500 "HOVERCRAFT PASS"
 }
 release() {
   quick

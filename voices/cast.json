@@ -821,6 +821,26 @@
         "use_speaker_boost": true,
         "speed": 1.05
       }
+    },
+    "typhoon-tomoko": {
+      "speaker": "Typhoon Tomoko",
+      "role": "Buzzsaw Hover (a hovercraft with a ring of spinning saws; drops bombs from the air)",
+      "gender": "female",
+      "age": "middle_aged",
+      "accent": "japanese (osaka, kansai)",
+      "description": "Tomoko \"Typhoon\" Kazehara, a loud, laughing Osaka takoyaki-stall owner in her forties who delivers by hovercraft, speaking English with a natural Japanese (Kansai, Osaka) accent: fast, bright and bouncy, a street-vendor's carrying voice, quick to cackle, outraged and delighted in the same breath (\"Nande yanen!\"). Warm and cheeky, never mocking.",
+      "library_search": "japanese accent woman energetic english",
+      "voice_id": "",
+      "voice_name": "",
+      "tier": 1,
+      "note": "Not cast yet: the owner picks this voice first (render.mjs --suggest typhoon-tomoko or --design typhoon-tomoko). Until then the game speaks her lines with the browser voice.",
+      "settings": {
+        "stability": 0.35,
+        "similarity_boost": 0.8,
+        "style": 0.6,
+        "use_speaker_boost": true,
+        "speed": 1.1
+      }
     }
   }
 }

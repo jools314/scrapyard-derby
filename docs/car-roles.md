@@ -19,3 +19,4 @@ Principle (from the user): every car is strong at something and has ONE visible 
 | Camper | propane bombs | PROPANE TANKS: fire → it explodes | Sandflea, Hellbender | heavies with propane |
 | Forklift | lift & toss | FORKS UP = TOP-HEAVY: tips over from side hits | any side ram, Dozer | light cars, wrecks |
 | Tow truck | drags victims to the crusher | slow & exposed while towing | Viper, Outrider hit it mid-tow | damaged/light cars |
+| Buzzsaw Hover | speed, big drifts, saw ring, hop-and-bomb from the air; floats over concrete, oil and mud | EXPOSED FAN at the back (no saws there): rear hits bend it → it pushes less, smokes and wobbles; so light that every hit and hose shoves it | Fire truck water blasts it across the yard; fast cars hit the fan from behind (Viper, Outrider) | slow heavies (bombed from above, they can't catch it), anyone who rams the saws |
