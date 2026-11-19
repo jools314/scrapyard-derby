@@ -3,6 +3,7 @@
 //  - lines stay short (one breath, ~6 s: at most 105 characters for the main cast);
 //  - nothing on the banned list (strong swearing, the retired Rocket Raju), and no leftover "{" blanks in the recorded text;
 //  - the main cast is recorded: Kev and Lulu fully, every car character all but at most 15 lines (round-5 extras render after the credit reset);
+//    a driver with no voice picked yet in cast.json (the owner picks first) uses the browser voice and is exempt, with 70+ lines;
 //  - round 5 is in: Emeka Danfo on the Sandflea, 60+ new lines each for Kev and Lulu, 15 more lines per driver.
 const fs = require('fs'), path = require('path'), os = require('os'), { execFileSync } = require('child_process');
 const ROOT = path.join(__dirname, '..'), game = process.env.GAME || path.join(ROOT, 'index.html');
@@ -28,7 +29,12 @@ ok(!bad.length, `${bad.length} lines hit the banned list, e.g. "${bad[0] && bad[
 ok(!fresh.some((l) => /[{}]/.test(l.say)), 'a recorded line still has a {blank} in it');
 const by = {}; for (const l of t1) { const b = by[l.character] || (by[l.character] = { n: 0, rec: 0 }); b.n++; if (man.clips[l.id]) b.rec++; }
 for (const c of ['crash-cam-kev', 'lulu']) ok(by[c] && by[c].rec === by[c].n, `${c}: ${by[c] && by[c].rec}/${by[c] && by[c].n} lines recorded (should be all)`);
-for (const [c, b] of Object.entries(by)) if (!['crash-cam-kev', 'lulu'].includes(c)) ok(b.n - b.rec <= 15, `${c}: ${b.n - b.rec} lines not recorded (at most 15, the round-5 extras)`);
+// A new driver the owner hasn't picked a voice for yet (cast.json has no voice_id) speaks with the browser voice: their own lines aren't held to the
+// recorded rule, and every other driver may have one more unrecorded line per such newcomer (the roast aimed at them).
+const castF = JSON.parse(fs.readFileSync(path.join(ROOT, 'voices', 'cast.json'), 'utf8')).characters, uncast = Object.keys(by).filter((c) => castF[c] && !castF[c].voice_id && !['crash-cam-kev', 'lulu'].includes(c));
+for (const [c, b] of Object.entries(by)) if (!['crash-cam-kev', 'lulu'].includes(c) && !uncast.includes(c)) ok(b.n - b.rec <= 15 + uncast.length, `${c}: ${b.n - b.rec} lines not recorded (at most ${15 + uncast.length}: the round-5 extras, plus a roast per driver still waiting for a voice)`);
+for (const c of uncast) ok(by[c].n >= 70, `${c} (no voice picked yet) has ${by[c].n} lines (want 70+)`);
+if (uncast.length) console.log(`waiting for a voice (browser voice for now): ${uncast.map((c) => `${c} ${by[c].n} lines`).join(', ')}`);
 ok(by['emeka-danfo'] && by['emeka-danfo'].n >= 95, `Emeka Danfo has ${by['emeka-danfo'] && by['emeka-danfo'].n} lines (want 95+)`);
 const src = fs.readFileSync(game, 'utf8'), count = (name) => { const m = src.match(new RegExp(`const ${name} = \\{([\\s\\S]*?)\\n\\};`)); return m ? (m[1].match(/"(?:[^"\\]|\\.)*"/g) || []).length : 0; };
 ok(count('KEV_LINES') >= 60, `KEV_LINES has ${count('KEV_LINES')} lines (want 60+)`);
