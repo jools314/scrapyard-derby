@@ -33,11 +33,11 @@ const who = (P, line) => { const m = String(line).match(/^([BC])\|/); if (!m) re
 const bleep = (s) => s.replace(/[#@%!$&*]{2,}!?/g, ' bleep ').replace(/#@%!/g, 'bleep').replace(/\s+/g, ' ').trim(); // what speak() says for the #@%! swear marks
 
 const out = new Map();
-function add(P0, line0, ev, tpl) {
+function add(P0, line0, ev, tpl, to) {
   const [P, text] = who(P0, line0), ch = VCLIP.slug(P.nick), id = VCLIP.hash(ch + '|' + text);
   if (out.has(id)) return;
   const e = { id, character: ch, speaker: P.nick, text, say: bleep(text), ev, style: ev.startsWith('ann:') ? (ev === 'ann:status' ? 'hyping the crowd' : 'excitable play-by-play commentary') : STYLE[ev] || '', tier: MAIN.has(P.nick) ? 1 : 2 };
-  if (ev === 'roast') e.roast = true;
+  if (ev === 'roast') { e.roast = true; if (to) e.to = to; } // (to: whom the roast is aimed at)
   if (tpl && tpl !== line0) e.tpl = tpl;
   out.set(id, e);
 }
@@ -45,7 +45,7 @@ for (const P of [...PERSONAS, COP]) for (const [ev, list] of Object.entries(P.li
 for (const [type, pool] of Object.entries(HORN_LINES)) for (let line of pool) { let P = type === 'cruiser' ? COP : CAR_CAST[type] || ANNOUNCER; if (line.startsWith('T|')) { P = TOURIST; line = line.slice(2); } add(P, line, 'horn'); }
 for (const pool of Object.values(MEGA)) for (const line of pool) add(COP, line, 'mega');
 for (const ev of Object.keys(ANN_LINES)) for (const A of SHAZZA ? [ANNOUNCER, SHAZZA] : [ANNOUNCER]) for (const tpl of annPool ? annPool(A, ev) : ANN_LINES[ev]) add(A, VCLIP.generic(tpl, A), 'ann:' + ev, tpl); // Kev and Shazza split the calls
-if (ROAST_BY) for (const [P, m] of ROAST_BY) for (const list of m.values()) for (const line of list) add(P, line, 'roast'); // roasts aimed at a named rival
+if (ROAST_BY) for (const [P, m] of ROAST_BY) for (const [to, list] of m) for (const line of list) add(P, line, 'roast', undefined, to); // roasts aimed at a named rival
 
 const lines = [...out.values()];
 fs.writeFileSync(path.join(HERE, 'lines.json'), JSON.stringify(lines, null, 0).replace(/\},\{/g, '},\n{') + '\n');
