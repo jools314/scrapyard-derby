@@ -84,8 +84,15 @@ J['regressions'] = []; rc_lines = []
 for d in sorted({r['device'] for r in TR}):
     rows = sorted([r for r in TR if r['device'] == d], key=lambda r: r['build'])
     if len(rows) < 2: continue
-    a, b = rows[-1], rows[-2]
+    a = rows[-1]
     if a['gameMin'] < 30: rc_lines.append(f"- {d}: build {a['build']} has only {a['gameMin']} game-min (need 30) — not judged yet"); continue
+    # The baseline is the newest earlier build that also has >= 30 game-min: a thin previous build (Mac 118: 5 matches, 12 game-min, the lowest
+    # rates of any Mac build 104-124) is noise, and comparing against it flagged a false Mac 118 -> 124 'regression'.
+    full = [r for r in rows[:-1] if r['gameMin'] >= 30]
+    if not full: rc_lines.append(f"- {d}: build {a['build']} has no earlier build with 30+ game-min to compare with — not judged"); continue
+    b = full[-1]
+    thin = [r for r in rows[:-1] if r['build'] > b['build']]
+    skip = (' (skipped as too thin: ' + ', '.join(f"{r['build']} {r['gameMin']} game-min" for r in thin) + ')') if thin else ''
     bad = []
     if a['fpsLow1'] < b['fpsLow1'] - 5: bad.append(f"1% low fps {b['fpsLow1']} -> {a['fpsLow1']}")
     if a['fpsMed'] < b['fpsMed'] - 3: bad.append(f"median fps {b['fpsMed']} -> {a['fpsMed']}")
@@ -98,8 +105,8 @@ for d in sorted({r['device'] for r in TR}):
     if fa is not None and fb is not None and min(fa, fb) < max(fa, fb) / 2 and abs(fa - fb) >= 20:
         fnote = f" (focus differs: {fb}% vs {fa}% of matches ended focused — slow s/h not comparable)"
     if bad:
-        rc_lines.append(f"- **REGRESSION** {d}: build {b['build']} -> {a['build']}: " + '; '.join(bad) + fnote); J['regressions'].append({'device': d, 'from': b['build'], 'to': a['build'], 'what': bad, 'focusNote': fnote.strip(' ()') or None})
-    else: rc_lines.append(f"- OK {d}: build {b['build']} -> {a['build']} (fps low {b['fpsLow1']}->{a['fpsLow1']}, stuck/h {b['stuckPerHour']}->{a['stuckPerHour']}, phys/h {b['physPerHour']}->{a['physPerHour']})" + fnote)
+        rc_lines.append(f"- **REGRESSION** {d}: build {b['build']} -> {a['build']}: " + '; '.join(bad) + fnote + skip); J['regressions'].append({'device': d, 'from': b['build'], 'to': a['build'], 'what': bad, 'focusNote': fnote.strip(' ()') or None})
+    else: rc_lines.append(f"- OK {d}: build {b['build']} -> {a['build']} (fps low {b['fpsLow1']}->{a['fpsLow1']}, stuck/h {b['stuckPerHour']}->{a['stuckPerHour']}, phys/h {b['physPerHour']}->{a['physPerHour']})" + fnote + skip)
 L.extend(rc_lines or ['- not enough data yet'])
 L.append('')
 causes = collections.Counter()

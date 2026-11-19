@@ -225,6 +225,24 @@ def main():
     tr6 = json.load(open(os.path.join(out6, 'trend.json')))['perf'] if r.returncode == 0 else []
     ok(sorted((x['device'], x['build'], x.get('focusedPct')) for x in tr6) == [('Chromebook', 114, 33), ('Chromebook', 118, 100), ('MacBook', 117, 100), ('MacBook', 118, 67)], 'A11 trend.json carries focusedPct per device/build — got: ' + str([(x['device'], x['build'], x.get('focusedPct')) for x in tr6]))
 
+    # A12: the Regression check's baseline is the newest earlier build with 30+ game-min, not just the previous build. Mac 118 had 5 matches
+    # (12 game-min) and flagged 118 -> 124 although 124 was in line with 104-118 pooled. Here MacBook 118 is one 5-minute match with no slow time.
+    def gm(i, build, game, slow):
+        return dict(MATCH, id=f'g{build}-{i}', sid='g1', build=build, device=MB, game=game, start=f'2026-11-19T{10 + i:02d}:00:00.000Z',
+                    fps=dict(MATCH['fps'], med=60, p5=58, low1=53), slow=dict(MATCH['slow'], secs=slow),
+                    env={'throttledS': 0, 'hiddenS': 0, 'unfocusedS': 0, 'focusedNow': True})
+    gx = [gm(i, '114', 1200, 100) for i in range(3)] + [gm(0, '118', 300, 0)] + [gm(i, '124', 1200, 100) for i in range(3)]
+    arch7 = tempfile.mkdtemp(prefix='sd-arch-'); out7 = tempfile.mkdtemp(prefix='sd-out-')
+    with open(os.path.join(arch7, 'fixture-playlog.txt'), 'w') as f:
+        for x in [SESSION] + gx: f.write(json.dumps(x) + '\n')
+    r = subprocess.run([sys.executable, os.path.join(HERE, 'analyze.py'), arch7, out7], capture_output=True, text=True)
+    md7 = open(os.path.join(out7, 'report-latest.md')).read() if r.returncode == 0 else ''
+    rc7 = md7.split('### Regression check')[-1].split('\n\n')[1] if '### Regression check' in md7 else ''
+    l7 = next((l for l in rc7.split('\n') if 'MacBook' in l), '')
+    print('     ' + l7)
+    ok('REGRESSION' not in l7 and 'build 114 -> 124' in l7, 'A12 MacBook compares 124 with 114 (30+ game-min), not the thin 118 — got: ' + l7 + r.stderr[-300:])
+    ok('skipped as too thin: 118 5.0 game-min' in l7, 'A12 the line says 118 was skipped as too thin — got: ' + l7)
+
     print('FAILED ' + str(len(fails)) if fails else 'ALL PASS')
     return 1 if fails else 0
 
