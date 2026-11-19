@@ -59,6 +59,7 @@ quick() {
   t talk 900 "TALK PASS"
   t b70 900 "B70 PASS"
   t hudscore 600 "HUDSCORE PASS"
+  t hpbar 900 "HPBAR PASS"
   t duck 600 "DUCK PASS"
   t soggy 600 "SOGGY PASS"
   t groundbeef 600 "GROUNDBEEF PASS"
