@@ -201,6 +201,30 @@ def main():
     rj5 = json.load(open(os.path.join(out5, 'report-latest.json'))) if r.returncode == 0 else {}
     ok(((rj5.get('autoplayHealth') or {}).get('MacBook', {}).get('heal') or {}).get('reloads') == {'memory': 1, 'refresh': 1, 'gpu': 1, 'stall': 1}, 'A10 report-latest.json carries the heal counts — got: ' + str(rj5.get('autoplayHealth')))
 
+    # A11: focus share in the Regression check — Builds 114-122 dropped the slow moments of a visible but unfocused window, so the Chromebook's
+    # 114 -> 118 'slow s/h 583 -> 3280' compared a mostly unfocused build (16 of 54 matches ended focused) with a focused one (31 of 33).
+    # The line must say the focus differs and slow s/h is not comparable; similar focus (and old records without focusedNow) add no note.
+    CB = 'Chromebook · 4 cores'
+    def fm(i, build, focused, slow, dev=CB):
+        return dict(MATCH, id=f'f{build}-{i}-{dev[:3]}', sid='f1', build=build, device=dev, game=1200, start=f'2026-11-18T{10 + i:02d}:00:00.000Z',
+                    fps=dict(MATCH['fps'], med=20, p5=15, low1=12), slow=dict(MATCH['slow'], secs=slow),
+                    env={'throttledS': 0, 'hiddenS': 0, 'unfocusedS': 0 if focused else 1100, 'focusedNow': focused})
+    fx = [fm(i, '114', i < 1, 194.4) for i in range(3)] + [fm(i, '118', True, 1093.4) for i in range(3)]  # 33% vs 100% focused: 583 -> 3280 slow s/h
+    fx += [fm(i, '117', True, 100, MB) for i in range(3)] + [fm(i, '118', i < 2, 400, MB) for i in range(3)]  # 100% vs 67%: no note
+    arch6 = tempfile.mkdtemp(prefix='sd-arch-'); out6 = tempfile.mkdtemp(prefix='sd-out-')
+    with open(os.path.join(arch6, 'fixture-playlog.txt'), 'w') as f:
+        for x in [SESSION] + fx: f.write(json.dumps(x) + '\n')
+    r = subprocess.run([sys.executable, os.path.join(HERE, 'analyze.py'), arch6, out6], capture_output=True, text=True)
+    md6 = open(os.path.join(out6, 'report-latest.md')).read() if r.returncode == 0 else ''
+    rc = md6.split('### Regression check')[-1].split('\n\n')[1] if '### Regression check' in md6 else ''
+    cbl = next((l for l in rc.split('\n') if 'Chromebook' in l), ''); mbl = next((l for l in rc.split('\n') if 'MacBook' in l), '')
+    print('     ' + cbl); print('     ' + mbl)
+    ok('slow s/h 583.2 -> 3280.2' in cbl and cbl.endswith('(focus differs: 33% vs 100% of matches ended focused — slow s/h not comparable)'), 'A11 Chromebook 114 -> 118: the REGRESSION line says the focused share differs — got: ' + cbl + r.stderr[-300:])
+    ok('REGRESSION' in mbl and 'focus differs' not in mbl, 'A11 MacBook 117 -> 118 (100% vs 67% focused): no focus note — got: ' + mbl)
+    ok('focus differs' not in md.split('### Regression check')[-1].split('###')[0], 'A11 records without focusedNow add no focus note')
+    tr6 = json.load(open(os.path.join(out6, 'trend.json')))['perf'] if r.returncode == 0 else []
+    ok(sorted((x['device'], x['build'], x.get('focusedPct')) for x in tr6) == [('Chromebook', 114, 33), ('Chromebook', 118, 100), ('MacBook', 117, 100), ('MacBook', 118, 67)], 'A11 trend.json carries focusedPct per device/build — got: ' + str([(x['device'], x['build'], x.get('focusedPct')) for x in tr6]))
+
     print('FAILED ' + str(len(fails)) if fails else 'ALL PASS')
     return 1 if fails else 0
 

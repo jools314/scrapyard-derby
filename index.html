@@ -10965,7 +10965,7 @@ function updatePerfHud(realDt) {
 const TABENV = { visible: !document.hidden, focused: document.hasFocus(), throttled: false, frozen: false, graceUntil: 0, lastTick: performance.now(), drift: 0, gaps: 0,
   secs: { hidden: 0, unfocused: 0, throttled: 0 }, battery: null, lastAcc: performance.now(),
   get suspect() { return !this.visible || this.throttled || this.frozen || performance.now() < this.graceUntil; },
-  mark(why) { this.graceUntil = performance.now() + 2500; if (typeof PLAYLOG !== 'undefined' && PLAYLOG.ev) try { PLAYLOG.ev('env', why); } catch (e) {} },
+  mark(why, noGrace) { if (!noGrace) this.graceUntil = performance.now() + 2500; if (typeof PLAYLOG !== 'undefined' && PLAYLOG.ev) try { PLAYLOG.ev('env', why); } catch (e) {} },
   acc() { const now = performance.now(), d = (now - this.lastAcc) / 1000; this.lastAcc = now; if (d > 5) return; if (!this.visible) this.secs.hidden += d; else if (!this.focused) this.secs.unfocused += d; if (this.throttled) this.secs.throttled += d; },
   frame(rawDt) { this.acc(); if (this.visible && rawDt > 1) { this.gaps++; this.mark('frame gap ' + Math.round(rawDt * 1000) + ' ms while visible (window covered, display asleep or throttled)'); } },
   summary() { const r = (x) => Math.round(x); return { hiddenS: r(this.secs.hidden), unfocusedS: r(this.secs.unfocused), throttledS: r(this.secs.throttled), gaps: this.gaps, focusedNow: this.focused, battery: this.battery }; } };
@@ -10973,8 +10973,8 @@ setInterval(() => { // a 250 ms timer: if it arrives a second or more late, the 
   const now = performance.now(), late = now - TABENV.lastTick - 250; TABENV.lastTick = now; TABENV.drift = late;
   const th = late > 700; if (th !== TABENV.throttled) { TABENV.throttled = th; TABENV.acc(); if (th) TABENV.mark('timers throttled (' + Math.round(late) + ' ms late)'); else TABENV.mark('timers back to normal'); } }, 250);
 document.addEventListener('visibilitychange', () => { TABENV.acc(); TABENV.visible = !document.hidden; TABENV.mark(document.hidden ? 'tab hidden' : 'tab visible again'); });
-window.addEventListener('blur', () => { TABENV.acc(); TABENV.focused = false; TABENV.mark('window lost focus'); });
-window.addEventListener('focus', () => { TABENV.acc(); TABENV.focused = true; TABENV.mark('window focused'); });
+window.addEventListener('blur', () => { TABENV.acc(); TABENV.focused = false; TABENV.mark('window lost focus', true); }); // (no grace: Chrome doesn't throttle a visible window that merely lost focus, so its frames and slow moments are real)
+window.addEventListener('focus', () => { TABENV.acc(); TABENV.focused = true; TABENV.mark('window focused', true); });
 document.addEventListener('freeze', () => { TABENV.frozen = true; TABENV.mark('page frozen by the browser'); });
 document.addEventListener('resume', () => { TABENV.frozen = false; TABENV.mark('page resumed'); });
 try { navigator.getBattery?.().then((b) => { const up = () => { TABENV.battery = { charging: b.charging, level: Math.round(b.level * 100) }; }; up(); b.addEventListener('chargingchange', () => { up(); TABENV.mark(b.charging ? 'plugged in' : 'on battery (the OS may slow the CPU/GPU)'); }); b.addEventListener('levelchange', up); }).catch(() => {}); } catch (e) {}
@@ -12163,7 +12163,7 @@ Object.assign(PLAYLOG, {
     const m = this.m; if (!m || !x) return;
     if (m.inc.length < 30) m.inc.push({ t: Math.round(game.time), secs: x.secs, fps: x.fps, worst: x.worst, why: x.verdict, parts: x.parts, q: x.q, cars: x.cars, particles: x.particles, fires: x.fires, booms: x.booms, mem: x.mem,
       calls: x.calls, tris: x.tris ?? PERFREP.tris, sim: x.sim, draw: x.draw, wait: x.wait, res: x.res, // (draw calls/triangles + the sim/draw/wait split: the analyser needs them to attribute slow moments, and the gates budget draw calls)
-      worstF: x.worstF ? x.worstF.ms + ' ms: ' + String(x.worstF.parts).slice(0, 160) : '', before: (x.before || []).slice(0, 6).join(' · ').slice(0, 200) });
+      worstF: x.worstF ? x.worstF.ms + ' ms: ' + String(x.worstF.parts).slice(0, 160) : '', before: (x.before || []).slice(0, 6).join(' · ').slice(0, 200), focus: x.focus === false ? false : undefined });
     this.ev('slow', `${x.secs}s at ${x.fps} fps, worst ${x.worst} ms`); this.soon('slow moment');
   },
   net(who, what) {
@@ -12416,10 +12416,12 @@ Object.assign(AUTO, {
 // what the rest of the game reports also lands in the play log (each wrapped: the log must never break the game)
 { const push0 = ERRS.push; ERRS.push = function (...a) { try { for (const x of a) PLAYLOG.err(x); } catch (e) {} return push0.apply(this, a); }; }
 PHYS.log.push = function (...a) { try { for (const x of a) PLAYLOG.phys(x); } catch (e) {} const r = Array.prototype.push.apply(this, a); if (this.length > 150) this.splice(0, 50); return r; }; // (the log stopped at 200 entries: keep it rolling)
-PERFREP.incidents.push = function (...a) { for (const x of a) { x.env = TABENV.suspect ? 'browser throttling (hidden/unfocused/covered/battery)' : 'foreground'; } const real = a.filter((x) => x.env === 'foreground');
+PERFREP.incidents.push = function (...a) { for (const x of a) { x.env = TABENV.suspect ? 'browser throttling (hidden/covered/battery)' : 'foreground'; x.focus = document.hasFocus(); } const real = a.filter((x) => x.env === 'foreground');
   // wait 2 s before logging it as a game problem: a Mac dimming its screen to sleep throttles the page to ~10 fps for seconds, and
-  // only then reports focus lost / tab hidden (Build 111's one 'slow moment', 8.1 s at 10 fps, ended the instant the tab hid)
-  for (const x of real) setTimeout(() => { if (TABENV.suspect || document.hidden || !document.hasFocus()) { x.env = 'browser throttling (hidden right after)'; return; } try { PLAYLOG.slow(x); } catch (e) {} }, 2000);
+  // only then reports focus lost / tab hidden (Build 111's one 'slow moment', 8.1 s at 10 fps, ended the instant the tab hid). Only a hidden or
+  // throttled tab drops it: a visible window that merely lost focus is not throttled by Chrome, so its slow moments are real (Build 114 dropped
+  // them too, and the mostly-unfocused Chromebook logged 583 slow s/h on 114 against 3280 focused on 118). focus: false marks them for the analyser.
+  for (const x of real) setTimeout(() => { if (TABENV.suspect || document.hidden) { x.env = 'browser throttling (hidden right after)'; return; } x.focus = x.focus && document.hasFocus(); try { PLAYLOG.slow(x); } catch (e) {} }, 2000);
   return Array.prototype.push.apply(this, a); }; // throttled-tab slowdowns are shown, but not logged as game problems
 { const i0 = NETLOG.incident; NETLOG.incident = function (who, what) { try { PLAYLOG.net(who, what); } catch (e) {} return i0.call(this, who, what); }; }
 // Why did the page stop? (An autoplay laptop went silent mid-match twice with nothing in the log to say whether the lid closed, the

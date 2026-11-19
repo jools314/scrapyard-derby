@@ -70,11 +70,13 @@ for d in sorted({dev_name(m) for m in real}):
         res = collections.Counter((m.get('q') or {}).get('res') for m in xs).most_common(1)[0][0]
         thr = sum((m.get('env') or {}).get('throttledS', 0) + (m.get('env') or {}).get('hiddenS', 0) for m in xs) if any(m.get('env') for m in xs) else '–'
         ins = inside_rate(xs)
+        fo = [m['env']['focusedNow'] for m in xs if isinstance(m.get('env'), dict) and isinstance(m['env'].get('focusedNow'), bool)]
+        focp = round(100 * sum(fo) / len(fo)) if fo else None # % of matches that ended with the window focused (an unfocused visible window isn't throttled, but Builds 114-122 dropped its slow moments)
         L.append(f"| {d} | {b} | {len(xs)} | {round(mn)} | {md('med')} | {md('p5')} | {md('low1')} | {max(m['fps']['worstMs'] for m in xs)} | {res}% | {round(slow / mn * 60, 1)} | {round(stk / mn * 60)} | {round(ph / mn * 60)} | {thr} | {'–' if ins is None else ins} |")
         J['trend'][f'{d}/{b}'] = {'low1': md('low1'), 'med': md('med')}
         TR.append({'device': d, 'build': int(b or 0), 'matches': len(xs), 'gameMin': round(mn, 1), 'fpsMed': md('med'), 'fpsP5': md('p5'), 'fpsLow1': md('low1'),
                    'worstMs': max(m['fps']['worstMs'] for m in xs), 'resPct': res, 'slowSecPerHour': round(slow / mn * 60, 1), 'stuckPerHour': round(stk / mn * 60, 1),
-                   'physPerHour': round(ph / mn * 60, 1), 'throttledSec': thr if thr != '–' else None, 'insidePerHour': ins})
+                   'physPerHour': round(ph / mn * 60, 1), 'throttledSec': thr if thr != '–' else None, 'insidePerHour': ins, 'focusedPct': focp})
 L.append('')
 # --- regression check (thresholds from QUALITY-GATES.md section 3): newest build vs the one before it, per device, once it has >= 30 game-minutes
 L.append('### Regression check (newest build vs previous, per device)\n')
@@ -90,9 +92,14 @@ for d in sorted({r['device'] for r in TR}):
     if a['slowSecPerHour'] > b['slowSecPerHour'] * 1.5 + 2: bad.append(f"slow s/h {b['slowSecPerHour']} -> {a['slowSecPerHour']}")
     if a['stuckPerHour'] > b['stuckPerHour'] * 1.25 + 2: bad.append(f"stuck/h {b['stuckPerHour']} -> {a['stuckPerHour']}")
     if a['physPerHour'] > b['physPerHour'] * 1.25 + 5: bad.append(f"physics catches/h {b['physPerHour']} -> {a['physPerHour']}")
+    # Builds 114-122 dropped every slow moment of a visible but unfocused window, so slow s/h between two builds whose focused share differs a lot
+    # measures focus, not the game (Chromebook 114 -> 118: 30% vs 94% of matches ended focused, slow s/h 583 -> 3280, fps the same)
+    fa, fb = a.get('focusedPct'), b.get('focusedPct'); fnote = ''
+    if fa is not None and fb is not None and min(fa, fb) < max(fa, fb) / 2 and abs(fa - fb) >= 20:
+        fnote = f" (focus differs: {fb}% vs {fa}% of matches ended focused — slow s/h not comparable)"
     if bad:
-        rc_lines.append(f"- **REGRESSION** {d}: build {b['build']} -> {a['build']}: " + '; '.join(bad)); J['regressions'].append({'device': d, 'from': b['build'], 'to': a['build'], 'what': bad})
-    else: rc_lines.append(f"- OK {d}: build {b['build']} -> {a['build']} (fps low {b['fpsLow1']}->{a['fpsLow1']}, stuck/h {b['stuckPerHour']}->{a['stuckPerHour']}, phys/h {b['physPerHour']}->{a['physPerHour']})")
+        rc_lines.append(f"- **REGRESSION** {d}: build {b['build']} -> {a['build']}: " + '; '.join(bad) + fnote); J['regressions'].append({'device': d, 'from': b['build'], 'to': a['build'], 'what': bad, 'focusNote': fnote.strip(' ()') or None})
+    else: rc_lines.append(f"- OK {d}: build {b['build']} -> {a['build']} (fps low {b['fpsLow1']}->{a['fpsLow1']}, stuck/h {b['stuckPerHour']}->{a['stuckPerHour']}, phys/h {b['physPerHour']}->{a['physPerHour']})" + fnote)
 L.extend(rc_lines or ['- not enough data yet'])
 L.append('')
 causes = collections.Counter()
