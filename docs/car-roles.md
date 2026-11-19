@@ -30,10 +30,10 @@ Each car's own driver has a personality that comes from the car (its `style`), a
 | chaos | Sandflea | tight drifting orbits round its prey (a ring of fire), flames only when the car is in the jet, takes the kickers |
 | vulture | Spider | its own perch-and-pounce tactics (spiderTactics) |
 | trapper | Mixer, Tanker | gets ahead of a car on its line (never toward a wall) and leads it on: concrete lobbed where a moving car is going and a trail for tailgaters (Mixer); fuel for tailgaters, lit once they're in it and the tanker is clear (Tanker) |
-| brawler | Cruiser | (an older style that fits it: Sheriff Buck) goes straight at fast cars; the stop-stick drops itself for tailgaters, the shotgun fires only under 22 m; now and then gets out ahead of a chaser to lead it over the stick |
+| brawler | Cruiser | (an older style that fits it: Sheriff Buck) goes straight at fast cars, as before; the stop-stick drops itself for tailgaters, the shotgun fires only under 26 m |
 | dragger | Tow truck, Forklift | picks off hurt and light cars and delivers them to the crusher or the ball |
 | gunner | Hellbender | holds 10-34 m facing its target (or just rams: it hunts as often), minigun at range on cars (not bulls), backs off when crowded |
-| sniper | Tiger | orbits at 24-50 m and shells (the turret leads); once the barrel is bent it stops firing and crushes |
-| runup | Camper | (an older style that fits it) backs up and charges: a rolling wrecking ball that hunts heavies; lobs propane only at 12-50 m, never on its own nose |
+| sniper | Tiger | circles at 14-34 m and shells (the turret leads), and as often goes in to crush; it doesn't run from a fast car that closes in (that's how its barrel gets bent); once the barrel is bent it stops firing and crushes |
+| runup | Camper | (an older style that fits it) backs up and charges: a rolling wrecking ball that picks on the middling trucks (not the giants); lobs propane at whoever is ahead at 10-55 m, never on its own nose |
 | rescuer | Fire truck | goes for burning cars, leaking tankers and fire users, hoses them from 9-22 m; anything not burning it just rams; rolls light cars that come close |
 | bully | Dozer, Big Bertha, Combine | shoves its prey into the nearest hazard (wrecking ball, crusher mouth, fire pit): gets on the far side, then drives straight through it, backs off and rams again if it jams; with no hazard near, the Dozer comes round to blade a car in the side; Bertha drops boulders on tailgaters; the Combine mostly hunts head-on with its reel and never reels heavy steel |

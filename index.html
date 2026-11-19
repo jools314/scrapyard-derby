@@ -6755,7 +6755,8 @@ class Car {
       this.kiteBand = dist < r0 ? -1 : dist > r1 ? 1 : 0;
       if (this.mode === 'rescue' && !(t.burnT > 0 || t.leakT > 0 || t.onFire || t.T.special === 'flame')) this.kiteBand = 1; // nothing to put out: 8 tonnes of fire truck just rams it
       if (AI.face && this.kiteBand <= 0 && (Math.abs(p.x) > A - 16 || Math.abs(p.z) > A - 16)) this.kiteBand = 1; // backed up to a wall: no more backing off or turning on the spot there, go at it
-      if (!AI.face && this.kiteBand <= 0) { const a = Math.atan2(p.z - tp.z, p.x - tp.x) + this.flankSide * 0.55, R = clamp(dist + (this.kiteBand < 0 ? 12 : 0), r0 + 2, r1 - 3); aim.set(tp.x + Math.cos(a) * R, 0, tp.z + Math.sin(a) * R); }
+      // (closeOk: the Tiger doesn't run from a car that closes in: fast cars bending its barrel is its weak spot)
+      if (!AI.face && this.kiteBand <= 0) { const a = Math.atan2(p.z - tp.z, p.x - tp.x) + this.flankSide * 0.55, R = clamp(dist + (this.kiteBand < 0 && !AI.closeOk ? 12 : 0), r0 + 2, r1 - 3); aim.set(tp.x + Math.cos(a) * R, 0, tp.z + Math.sin(a) * R); }
       if (!AI.face && Math.abs(aim.x) > A - 20) aim.x = Math.sign(aim.x) * (A - 20); if (!AI.face && Math.abs(aim.z) > A - 20) aim.z = Math.sign(aim.z) * (A - 20);
     } else if (this.mode === 'pin') { // shove it into the nearest hazard (not a wall: that's just two stuck cars): get on the far side, then drive straight through it
       let hx = 0, hz = 0, hd = 45, have = false;
@@ -6801,7 +6802,7 @@ class Car {
   aiWantsFire(t, dist) { // each special at the right moment (docs/car-roles.md), not at random
     const b = this.body, sp = this.T.special, l = b.pointToLocalFrame(t.body.position, AI_V), ahead = l.x > 0 && Math.abs(l.z) < Math.max(2.5, l.x * 0.6);
     switch (sp) {
-      case 'spikes': return ahead && dist < 22; // the shotgun: close, where the pellets all land (the stop-stick drops itself for tailgaters)
+      case 'spikes': return ahead && dist < 26; // the shotgun: close-ish, where the pellets still land (it reaches 42 m) (the stop-stick drops itself for tailgaters)
       case 'flame': return l.x > 0.5 && l.x < 10.5 && Math.abs(l.z) < 1.3 + l.x * 0.3; // only when it's in the jet
       case 'water': { const ft = frontTarget(this, 30, 0.75); if (!ft) return false; const fd = ft.body.position.distanceTo(b.position); // hose fires and fire-starters; roll light cars; shove anything close
         return ft.burnT > 0 || ft.leakT > 0 || ft.onFire || ft.T.special === 'flame' || (ft.body.mass < 2200 && fd < 18) || fd < 11; }
@@ -6810,7 +6811,7 @@ class Car {
       case 'dump': { const c = this.aiTail(28); return !!c && (c.body.velocity.x * this.fwd.x + c.body.velocity.z * this.fwd.z) > -1; } // boulders on a tailgater
       case 'blade': if (this.bladeRaised) return (l.x > 0 && dist < 5.5) || simTime - (this.bladeRaisedT || 0) > 2.5; // slam it down on whatever is under it
         return ahead && dist < 7.5 && (Math.abs(t.fwd.x * this.fwd.x + t.fwd.z * this.fwd.z) < 0.6 || t.body.mass < 3000); // into its side (or under anything light): flip it
-      case 'bomb': return l.x > 0 && Math.abs(Math.atan2(l.z, l.x)) < 0.5 && dist > 12 && dist < 50; // lob it from range, never on our own nose
+      case 'bomb': { if (l.x > 0 && Math.abs(Math.atan2(l.z, l.x)) < 0.6 && dist > 10 && dist < 55) return true; const ft = frontTarget(this, 55, 0.6); return !!ft && ft.body.position.distanceTo(b.position) > 10; } // lob it from range at whoever is ahead, never on our own nose
       case 'rockets': { const lk = frontTarget(this, 90, 0.45); return !!lk && dist > 12 && (lk === t || lk.body.mass > 4000); }
       case 'minigun': return !!this.mgTarget && !!this.mgTarget.parts && dist < 52; // cars at range, not bulls
       case 'lift': return this.carry ? this.carry.t > 2.4 && (!this.delivery || this.delivery.gaveUp) : forkReady(this);
@@ -6840,7 +6841,7 @@ class Car {
     if (this.wrecked) { ctrl.throttle = 0; ctrl.steer = 0; ctrl.nitro = false; return; }
     const b = this.body;
     const style = this.persona ? this.persona.style : 'brawler', FL = STYLE_FLAVOUR[style] || STYLE_FLAVOUR.vulture, caution = FL.caution;
-    if (this.aiType !== this.type) { this.aiType = this.type; this.ai = CAR_AI[this.type] || null; this.evT = 0; this.evFrom = null; this.fireChk = 0; } // the car's own way of fighting (docs/car-roles.md)
+    if (this.aiType !== this.type) { this.aiType = this.type; this.ai = CAR_AI[this.type] || null; this.evT = 0; this.evFrom = null; this.fireChk = 0; this.flankSide = this.flankSide || 1; } // the car's own way of fighting (docs/car-roles.md)
     const AI = this.ai;
     this.retarget -= dt;
     if (!this.target || this.target.wrecked || this.retarget <= 0) {
@@ -7013,7 +7014,7 @@ class Car {
     if (throttle > 0 && Math.abs(this.speed) < 1.2) this.stuckTimer += dt; else this.stuckTimer = 0;
     if (this.stuckTimer > 1.4) { this.reverseTimer = 1.4; this.stuckTimer = 0; if (AI && HOME_TACTICS.has(this.mode)) { if (simTime - (this.unstuckAt || -99) < 8) { this.mode = 'hunt'; this.modeT = 3; } this.unstuckAt = simTime; } } // stuck twice in its own tactic: give it up for now
     if (this.reverseTimer > 0) { this.reverseTimer -= dt; throttle = -1; steer = -steer; }
-    if (AI && throttle < -0.3 && this.reverseTimer <= 0 && Math.abs(this.speed) < 1) { if ((this.revStuck = (this.revStuck || 0) + dt) > 1.6) { this.revStuck = 0; this.fwdTimer = 1.2; } } else this.revStuck = 0; // backing into something: drive out forwards instead
+    if (AI && throttle < -0.3 && this.reverseTimer <= 0 && this.mode !== 'backup' && Math.abs(this.speed) < 1) { if ((this.revStuck = (this.revStuck || 0) + dt) > 1.6) { this.revStuck = 0; this.fwdTimer = 1.2; } } else this.revStuck = 0; // backing into something: drive out forwards instead
     if (this.fwdTimer > 0) { this.fwdTimer -= dt; if (this.mode === 'backup' || this.mode === 'kite' || this.mode === 'rescue') { this.mode = 'hunt'; this.modeT = 2; } }
     if (this.T.special && !this.specialCd && AI && (this.fireChk -= dt) <= 0) { this.fireChk = 0.1; if (this.aiWantsFire(t, dist)) ctrl.fire = true; } // each gadget at its moment
     else if (this.T.special && !this.specialCd && !AI && Math.random() < 0.12) { // AI weapon use: every driver knows their gadget
@@ -7842,7 +7843,7 @@ const PLAN_WEIGHTS = { // relative odds of each tactic per personality
 Object.assign(PLAN_WEIGHTS, {
   striker: { hitrun: 5, flank: 3, circle: 1.5, hunt: 0.5, ambush: 0.5 }, // Viper: hit and run
   hunter:  { flank: 3, hunt: 3, hitrun: 2, runup: 1 },                    // Outrider: harpoon the light ones and yank them into the walls
-  sniper:  { kite: 6, flank: 1, ambush: 1 },                              // Tiger: stand off and shell
+  sniper:  { kite: 2.5, hunt: 2.5, flank: 1, ambush: 1 },                // Tiger: stand off and shell, then go and crush
   gunner:  { kite: 3, hunt: 3, circle: 1.5, runup: 1.5 },                 // Hellbender: minigun at range, then the 700 hp truck
   bully:   { pin: 5, hunt: 3, runup: 1.5 },                               // Dozer, Bertha, Combine: bulldoze and pin
   trapper: { trap: 4, hunt: 1.5, ambush: 1.5, kite: 1, flank: 1 },       // Mixer, Tanker: lead them into concrete or fuel
@@ -7852,28 +7853,28 @@ Object.assign(PLAN_WEIGHTS, {
 const HOME_TACTICS = new Set(['hitrun', 'kite', 'pin', 'trap', 'rescue']); // a car's own tactic may come up twice running
 // caution: how early it backs off (evading a charging heavy, keeping its range); stand: never runs; focus: goes for you first
 const STYLE_FLAVOUR = { brawler: { caution: 0.6, stand: 1, focus: 1 }, runup: { caution: 0.9 }, vulture: { caution: 1 }, chaos: { caution: 0.8 }, coward: { caution: 1.6 },
-  striker: { caution: 1.2 }, hunter: { caution: 0.9 }, sniper: { caution: 1.3 }, gunner: { caution: 1 }, bully: { caution: 0.4, stand: 1, focus: 1 }, trapper: { caution: 1.1 }, dragger: { caution: 0.9 }, rescuer: { caution: 0.9 } };
+  striker: { caution: 1.2 }, hunter: { caution: 0.9, focus: 1 }, sniper: { caution: 1.3 }, gunner: { caution: 1 }, bully: { caution: 0.4, stand: 1, focus: 1 }, trapper: { caution: 1.1 }, dragger: { caution: 0.9 }, rescuer: { caution: 0.9 } };
 const LIGHT_W = { flank: 1.4, circle: 1.3, hitrun: 1.3, hunt: 0.7, runup: 0.6 }, HEAVY_W = { hunt: 1.3, runup: 1.3, pin: 1.4, flank: 0.6, circle: 0.6 }, RANGED_W = { kite: 1.5, runup: 0.5, hunt: 0.6 };
 const HEAVIES = ['dozer', 'bertha', 'combine', 'tiger', 'mixer', 'tanker', 'firetruck', 'camper'], LIGHTS = ['viper', 'sandflea', 'outrider', 'cruiser', 'spider', 'forklift'];
 // Per car: its tactic (home), range band in metres, prey it hunts, counters it keeps away from, evade (light: sidestep charging heavies, x caution),
 // face (aims with the nose: in its band it turns to face the target and backs off if crowded), jump (uses the kickers), circleR (orbit radius).
 const CAR_AI = {
   viper:      { home: 'hitrun', w: LIGHT_W, range: [20, 70], evade: 1.2, jump: 1, prey: HEAVIES, avoid: ['cruiser', 'firetruck'] },
-  outrider:   { home: 'flank', w: LIGHT_W, range: [12, 40], evade: 1, prey: ['viper', 'sandflea', 'cruiser', 'spider', 'forklift', 'towtruck'], avoid: ['dozer', 'bertha', 'combine', 'tiger'] },
+  outrider:   { home: 'flank', w: LIGHT_W, range: [12, 40], evade: 1, prey: ['viper', 'sandflea', 'spider', 'forklift', 'towtruck'], avoid: ['dozer', 'bertha', 'combine', 'tiger'] },
   sandflea:   { home: 'circle', w: LIGHT_W, range: [4, 12], evade: 1.1, jump: 1, circleR: 10, prey: ['tanker', 'camper'], avoid: ['firetruck', 'combine'] },
   spider:     { home: 'ambush', w: {}, range: [6, 28], prey: [], avoid: [] }, // (its own spiderTactics do the rest)
-  cruiser:    { home: 'trap', w: LIGHT_W, range: [6, 14], evade: 0.9, face: 1, prey: ['viper', 'outrider', 'sandflea'], avoid: ['dozer', 'bertha'] },
-  forklift:   { home: 'hunt', w: LIGHT_W, range: [0, 9], evade: 0.8, weak: 1, prey: ['viper', 'sandflea', 'outrider', 'cruiser', 'spider'], avoid: ['dozer', 'bertha', 'combine'] },
-  towtruck:   { home: 'hunt', w: {}, range: [0, 22], weak: 1, prey: ['viper', 'sandflea', 'outrider', 'cruiser', 'forklift', 'spider'], avoid: ['viper', 'outrider'] },
-  hellbender: { home: 'kite', w: { kite: 1.1 }, range: [10, 34], face: 1, prey: ['viper', 'sandflea', 'outrider', 'cruiser', 'spider', 'forklift'], avoid: ['tiger', 'firetruck'] },
-  tiger:      { home: 'kite', w: RANGED_W, range: [24, 50], prey: ['bertha', 'combine', 'mixer', 'tanker', 'firetruck', 'camper', 'towtruck', 'hellbender'], avoid: ['viper', 'sandflea', 'outrider', 'dozer'] },
-  camper:     { home: 'hunt', w: {}, range: [16, 40], prey: ['dozer', 'bertha', 'combine', 'tiger', 'mixer', 'firetruck', 'tanker'], avoid: ['sandflea', 'hellbender'] },
+  cruiser:    { home: 'hunt', w: {}, range: [6, 26], prey: ['viper', 'outrider', 'sandflea'], avoid: ['dozer', 'bertha'] }, // a brawler cop: straight at the fast cars, the stick and the shotgun do the rest
+  forklift:   { home: 'hunt', w: LIGHT_W, range: [0, 9], evade: 0.8, weak: 1, prey: ['viper', 'sandflea', 'outrider', 'spider'], avoid: ['dozer', 'bertha', 'combine'] },
+  towtruck:   { home: 'hunt', w: {}, range: [0, 22], weak: 1, prey: ['viper', 'sandflea', 'outrider', 'forklift', 'spider'], avoid: ['viper', 'outrider'] },
+  hellbender: { home: 'kite', w: { kite: 1.1 }, range: [10, 34], face: 1, prey: ['viper', 'sandflea', 'outrider', 'spider', 'forklift'], avoid: ['tiger', 'firetruck'] },
+  tiger:      { home: 'kite', w: { kite: 1 }, range: [14, 34], closeOk: 1, prey: ['bertha', 'combine', 'mixer', 'tanker', 'firetruck', 'camper', 'towtruck', 'hellbender'], avoid: ['viper', 'sandflea', 'outrider', 'dozer'] },
+  camper:     { home: 'hunt', w: {}, range: [10, 55], prey: ['mixer', 'firetruck', 'tanker', 'towtruck', 'forklift'], avoid: ['sandflea', 'hellbender', 'dozer', 'bertha'] }, // propane on the middling trucks; the giants just shrug off an RV
   firetruck:  { home: 'rescue', w: { kite: 1.2, runup: 0.7 }, range: [9, 22], face: 1, fire: 1, prey: ['sandflea', 'tanker', 'hellbender', 'viper', 'outrider', 'spider'], avoid: ['towtruck'] },
-  mixer:      { home: 'trap', w: HEAVY_W, range: [10, 24], face: 1, prey: ['viper', 'outrider', 'sandflea', 'cruiser'], avoid: ['viper', 'tiger'] },
+  mixer:      { home: 'trap', w: HEAVY_W, range: [10, 24], face: 1, prey: ['viper', 'outrider', 'sandflea'], avoid: ['viper', 'tiger'] },
   tanker:     { home: 'trap', w: { trap: 0.6, hunt: 1.4, runup: 1.3, pin: 1, flank: 0.6, circle: 0.6 }, can: ['pin'], range: [10, 30], prey: [], avoid: ['sandflea', 'hellbender', 'tiger'] },
   dozer:      { home: 'pin', w: HEAVY_W, range: [0, 8], side: 1, prey: [], avoid: [] }, // anything in front of the blade
   bertha:     { home: 'pin', w: HEAVY_W, range: [0, 10], prey: ['tiger', 'dozer', 'combine', 'mixer', 'firetruck', 'tanker', 'camper'], avoid: ['hellbender'] },
-  combine:    { home: 'hunt', w: { hunt: 1.6, pin: 0.5, flank: 0.6, circle: 0.6 }, can: ['pin'], range: [0, 14], prey: ['viper', 'sandflea', 'outrider', 'cruiser', 'forklift', 'spider'], avoid: ['sandflea', 'tiger'] },
+  combine:    { home: 'hunt', w: { hunt: 1.6, pin: 0.5, flank: 0.6, circle: 0.6 }, can: ['pin'], range: [0, 14], prey: ['viper', 'sandflea', 'outrider', 'forklift', 'spider'], avoid: ['sandflea', 'tiger'] },
 };
 for (const P of Object.values(CAR_AI)) { P.can = new Set(P.can || (P.w === LIGHT_W ? ['hitrun'] : P.w === RANGED_W ? ['kite'] : P.w === HEAVY_W ? ['pin'] : [])); P.prey = new Set(P.prey); P.avoid = new Set([...P.avoid].filter((k) => !P.prey.has(k))); }
 const AI_PLANS = new Map(); // style|type -> [[tactic, weight]...], built once (no allocations at plan time)
