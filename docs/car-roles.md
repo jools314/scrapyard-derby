@@ -19,3 +19,21 @@ Principle (from the user): every car is strong at something and has ONE visible 
 | Camper | propane bombs | PROPANE TANKS: fire → it explodes | Sandflea, Hellbender | heavies with propane |
 | Forklift | lift & toss | FORKS UP = TOP-HEAVY: tips over from side hits | any side ram, Dozer | light cars, wrecks |
 | Tow truck | drags victims to the crusher | slow & exposed while towing | Viper, Outrider hit it mid-tow | damaged/light cars |
+
+## How each car's AI drives (CAR_AI and the driver styles in index.html)
+Each car's own driver has a personality that comes from the car (its `style`), and the car has a profile (`CAR_AI`): its own tactic, a range band, the prey above (hunted first) and the counters above (kept clear of). The five older styles (brawler, runup, vulture, chaos, coward) stay for the extra drivers and flavour any car they drive: a coward Viper still evades earlier and more often than a brawler Viper (`STYLE_FLAVOUR.caution`).
+
+| style | cars | in play |
+|---|---|---|
+| striker | Viper | hit and run: darts at a heavy's back corner, hits, peels away (over a kicker when one is ahead); rockets from range; sidesteps heavies coming at it nose-first |
+| hunter | Outrider | flanks light cars, harpoons them at 8-40 m and yanks them toward the wrecking ball, fire pit or a wall |
+| chaos | Sandflea | tight drifting orbits round its prey (a ring of fire), flames only when the car is in the jet, takes the kickers |
+| vulture | Spider | its own perch-and-pounce tactics (spiderTactics) |
+| trapper | Mixer, Tanker | gets ahead of a car on its line (never toward a wall) and leads it on: concrete lobbed where a moving car is going and a trail for tailgaters (Mixer); fuel for tailgaters, lit once they're in it and the tanker is clear (Tanker) |
+| brawler | Cruiser | (an older style that fits it: Sheriff Buck) goes straight at fast cars; the stop-stick drops itself for tailgaters, the shotgun fires only under 22 m; now and then gets out ahead of a chaser to lead it over the stick |
+| dragger | Tow truck, Forklift | picks off hurt and light cars and delivers them to the crusher or the ball |
+| gunner | Hellbender | holds 10-34 m facing its target (or just rams: it hunts as often), minigun at range on cars (not bulls), backs off when crowded |
+| sniper | Tiger | orbits at 24-50 m and shells (the turret leads); once the barrel is bent it stops firing and crushes |
+| runup | Camper | (an older style that fits it) backs up and charges: a rolling wrecking ball that hunts heavies; lobs propane only at 12-50 m, never on its own nose |
+| rescuer | Fire truck | goes for burning cars, leaking tankers and fire users, hoses them from 9-22 m; anything not burning it just rams; rolls light cars that come close |
+| bully | Dozer, Big Bertha, Combine | shoves its prey into the nearest hazard (wrecking ball, crusher mouth, fire pit): gets on the far side, then drives straight through it, backs off and rams again if it jams; with no hazard near, the Dozer comes round to blade a car in the side; Bertha drops boulders on tailgaters; the Combine mostly hunts head-on with its reel and never reels heavy steel |
