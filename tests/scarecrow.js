@@ -96,7 +96,7 @@ const { open } = require('./harness');
       P.addEventListener = function (t, f) { if (t === 'dispose') live.add(this); return a.call(this, t, f); }; P.removeEventListener = function (t, f) { if (t === 'dispose') live.delete(this); return rm.call(this, t, f); }; }
     const fr = async (k) => { for (let i = 0; i < k; i++) await sleep(30); };
     const inScene = () => { const s = new Set(); D.scene.traverse((o) => { if (o.geometry) s.add(o.geometry); }); return s; };
-    const count = () => ({ bodies: D.world.bodies.filter((b) => !b.prop).length, cons: D.world.constraints.length, limbs: D.world.bodies.filter((b) => b.prop && b.prop.scare && b !== b.prop.body).length, stale: D.world.bodies.filter((b) => b.prop && !D.props.includes(b.prop)).length });
+    const count = () => ({ bodies: D.world.bodies.filter((b) => !b.prop).length, cons: D.world.constraints.length, limbs: D.world.bodies.filter((b) => b.prop && b.prop.scare && b !== b.prop.body).length, stale: D.world.bodies.filter((b) => b.prop && !D.props.includes(b.prop)).length, active: D.SCARE.filter((s) => s.active).length, down: D.SCARE.filter((s) => !s.up).map((s) => (s.by ? s.by.name : 'no car') + ' ' + Math.round(Math.min(...D.BULLS.map((bl) => bl.body.position.distanceTo(s.pr.body.position)))) + ' m from a bull') });
     const flingAll = async () => { for (const s of D.SCARE) { D.wakeProp(s.pr); s.pr.body.wakeUp(); s.pr.body.velocity.set(5, 5, 2); } const w0 = performance.now(); while (!D.SCARE.some((s) => s.active) && performance.now() - w0 < 30000) await sleep(30); await waitG(0.1); }; // (the first frames after rendering is back on can be slow: shaders compile)
     const fresh = async () => { D.startMatch(); const w0 = performance.now(); while (!(D.game.countdown <= 0 && D.game.time > 1.5) && performance.now() - w0 < 120000) await sleep(50); };
     await fresh(); const base0 = count(); const base = new Set(live);
@@ -105,7 +105,7 @@ const { open } = require('./harness');
     return { base0, rows, orphans, orphanGeo, what, scare: D.SCARE.length }; })()`);
   console.log('  leak: ' + JSON.stringify(leak));
   ok(leak.rows.every((r) => r.mid.limbs > 0), 'rag dolls were flying at each restart (' + leak.rows.map((r) => r.mid.limbs).join(', ') + ' limb bodies)');
-  ok(leak.rows.every((r) => Math.abs(r.after.bodies - leak.base0.bodies) === 0 && r.after.cons === leak.base0.cons && r.after.limbs === 0 && r.after.stale === 0), `3 restarts: non-prop bodies ${leak.base0.bodies} -> ${leak.rows.map((r) => r.after.bodies)}, joints ${leak.base0.cons} -> ${leak.rows.map((r) => r.after.cons)}, no limb or stale prop bodies left`);
+  ok(leak.rows.every((r) => r.after.bodies === leak.base0.bodies && r.after.limbs === r.after.active * 5 && r.after.cons === r.after.limbs && r.after.stale === 0), `3 restarts: non-prop bodies ${leak.base0.bodies} -> ${leak.rows.map((r) => r.after.bodies)}, joints ${leak.rows.map((r) => r.after.cons)} = 5 per rag doll active in the fresh yard (${leak.rows.map((r) => r.after.active)}), no stale prop bodies`);
   ok(leak.orphanGeo === 0, `3 restarts leave no orphaned geometries (${leak.orphanGeo}; ${leak.orphans - leak.orphanGeo} textures from elsewhere, memleak.js budgets those)`);
 
   const pe = errors.filter((e) => e.startsWith('pageerror') || (e.startsWith('error') && !e.includes('ERR_FAILED')));
