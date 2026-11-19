@@ -215,6 +215,13 @@
   .ntag .net { display: none; width: 13px; height: 13px; }
   .ntag.bad .net { display: inline-block; }
   .ntag.bad { border-color: rgba(255, 120, 80, 0.55); }
+  .hpb { position: absolute; left: 0; top: 0; width: 56px; height: 9px; margin-left: -28px; transform-origin: 50% 0; border-radius: 6px; background: rgba(15, 12, 10, 0.7); box-shadow: 0 0 0 1.5px rgba(255,255,255,0.75), 0 1px 3px rgba(0,0,0,0.5); overflow: hidden; will-change: transform, opacity; } /* a car you're hurting: its health, the chunk you just took off drains away */
+  .hpb[hidden] { display: none; }
+  .hpb i { position: absolute; left: 0; top: 0; width: 100%; height: 100%; transform-origin: 0 50%; }
+  .hpb .lag { background: #fff2b8; }
+  .hpb .cur { background: #5fd84a; }
+  .hpb.mid .cur { background: #ffc22e; }
+  .hpb.low .cur { background: #ff4b2e; }
   .threat i { position: absolute; left: -14px; top: -14px; width: 0; height: 0; border-left: 14px solid transparent; border-right: 14px solid transparent; border-bottom: 26px solid var(--c, #f1e8da); filter: drop-shadow(0 2px 0 rgba(0,0,0,.6)); transform-origin: 14px 14px; }
   .threat b { position: absolute; left: -10px; top: 16px; width: 20px; text-align: center; font: 400 16px var(--display); color: var(--danger); text-shadow: 0 2px 0 #000; }
   .threat.charge i { animation: blink 0.35s steps(2) infinite; }
@@ -6575,6 +6582,7 @@ class Car {
     dmg = Math.min(dmg, this.health);
     if (this === player && dmg >= 0.5) { HITLOG.push([+simTime.toFixed(2), +dmg.toFixed(1), Math.round(this.health), this._hitWhat || (by ? by.T.name + ' ' + by.name : this.onFire ? 'fire / blast' : 'blast'), zone || '', +(dv || 0).toFixed(1), Math.round(this.body.velocity.length())]); if (HITLOG.length > 40) HITLOG.shift(); } // (bug report: what hit you)
     this.health -= dmg; if (PLAYLOG.m) PLAYLOG.dmg(this, dmg, by);
+    if (dmg > 0 && player && this !== player && (by ? by === player : this.lastAttacker === player && simTime - this.lastAttackTime < 1)) HPBAR.hit(this, this.health + dmg); // (a shove still counts for whoever shoved)
     if (zone && this.zones[zone] !== undefined) {
       const before = this.zones[zone];
       this.zones[zone] = Math.min(100, this.zones[zone] + dmg * 2.2);
@@ -7250,7 +7258,7 @@ function updateHUD(dt) {
   // weak devices (the two lowest quality levels): the speedometer and the off-screen threat arrows redraw ~20 times a second, not every
   // frame. On a 4x-throttled CPU they were ~4.5% of the frame (Build 101); 20 Hz looks the same for a needle and edge arrows.
   { const now = performance.now(); if (QUALITY.level < 6 || now - (HUDLITE.t || 0) >= 48) { HUDLITE.t = now; drawGauge(); updateThreats(); } }
-  updateTags();
+  updateTags(); HPBAR.update(dt);
   if (player.T.special) { // special weapon cooldown
     const W = WEAPONS[player.T.special], cd = player.specialCd || 0;
     if (player.T.special === 'minigun') { const a = player.mgAmmo ?? W.ammo; hudWidth($('gunFill'), (player.mgReload > 0 ? (1 - player.mgReload / 4) * 100 : a / W.ammo * 100).toFixed(0) + '%'); hudTxt($('gunState'), player.mgReload > 0 ? 'RELOADING' : player.mgOn ? `${Math.round(a)} ROUNDS` : `MINIGUN ${Math.round(a)}`); }
@@ -8853,6 +8861,53 @@ function updateTags() {
   }
   for (const [c, e] of tagEls) if (!seen.has(c)) { if (!cars.includes(c)) { e.remove(); tagEls.delete(c); } else e.hidden = true; }
 }
+// Health bars over the cars YOU are hurting (owner: "a little bar above the car ... so you can see if you're doing any damage"). Any hit the
+// game credits to you (weapon, ram, fire, gadget) shows the car's health, the chunk you just took off in pale yellow draining after a
+// moment; it fades ~3 s after your last hit. At most 3 (the most recently hurt), never your own car, never a wreck. A fixed pool of DOM
+// bars in the tag layer: written with transforms only, sizes cached (no layout reads in the frame); the jumbotron and VR never see them.
+const HPBAR = { N: 3, SHOW: 3, FADE: 0.5, slots: [], W: 0, H: 0,
+  init() { for (let i = 0; i < this.N; i++) { const e = document.createElement('div'); e.className = 'hpb'; e.hidden = true; e.innerHTML = '<i class="lag"></i><i class="cur"></i>'; tagHost.appendChild(e);
+      this.slots.push({ e, lag: e.firstChild, cur: e.lastChild, car: null, f: 1, lagF: 1, hitT: -99, chunkT: -99, holdT: -99, wf: -1, wl: -1, wx: -1e9, wy: -1e9, ws: -1, wo: -1, band: '', vis: false, d: 0, px: 0, py: 0, sc: 1, op: 1 }); }
+    const sz = () => { this.W = tagHost.clientWidth; this.H = tagHost.clientHeight; }; sz();
+    if (typeof ResizeObserver !== 'undefined') new ResizeObserver(sz).observe(tagHost); else window.addEventListener('resize', sz); },
+  hit(c, before) { // c just lost health to the local player; before = its health before the hit
+    if (!c || c === player || c.isPlayer || !this.slots.length) return;
+    let s = null; for (const o of this.slots) if (o.car === c) { s = o; break; }
+    if (!s) { for (const o of this.slots) if (!o.car) { s = o; break; } }
+    if (!s) { s = this.slots[0]; for (const o of this.slots) if (o.hitT < s.hitT) s = o; } // all busy: the one you hurt longest ago makes room
+    const b = clamp(before / 100, 0, 1);
+    if (s.car !== c || s.lagF - b < 0.01) s.chunkT = simTime; // a fresh chunk (the last one has drained)
+    if (s.car !== c) { s.car = c; s.lagF = b; } else if (b > s.lagF) s.lagF = b;
+    s.hitT = simTime; s.holdT = Math.min(simTime + 0.5, s.chunkT + 1.2); // (a stream of hits, minigun or fire, still drains after ~1 s)
+  },
+  free(s) { s.car = null; if (!s.e.hidden) s.e.hidden = true; },
+  update(dt) {
+    const on = game.state === 'playing' && player && !player.wrecked && !renderer.xr.isPresenting, S = this.slots;
+    for (const s of S) {
+      s.vis = false; const c = s.car; if (!c) continue;
+      const age = simTime - s.hitT;
+      if (!on || c.wrecked || age > this.SHOW + this.FADE || !cars.includes(c)) { this.free(s); continue; }
+      const f = clamp(c.health / 100, 0, 1); s.f = f;
+      if (s.lagF < f) s.lagF = f; else if (simTime > s.holdT) { s.lagF = f + (s.lagF - f) * Math.exp(-dt * 5); if (s.lagF - f < 0.004) s.lagF = f; }
+      const p = c.body.position; tv3.set(p.x, p.y + (c.T.H || 1.6) + 1.2, p.z).project(camera);
+      if (tv3.z > 1 || Math.abs(tv3.x) > 1.05 || Math.abs(tv3.y) > 1.05) { if (!s.e.hidden) s.e.hidden = true; continue; } // off screen (or behind you)
+      s.vis = true; s.d = player.body.position.distanceTo(p); s.px = Math.round((tv3.x + 1) / 2 * this.W); s.py = Math.round((1 - tv3.y) / 2 * this.H); s.sc = Math.round(clamp(1.25 - s.d / 80, 0.7, 1.1) * 20) / 20;
+      s.op = age > this.SHOW ? Math.round((1 - (age - this.SHOW) / this.FADE) * 20) / 20 : 1;
+    }
+    for (let k = 0; k < 2; k++) for (const a of S) for (const b of S) { // two cars one behind the other: the farther one's bar steps up instead of covering the nearer one's
+      if (a === b || !a.vis || !b.vis || a.d > b.d || Math.abs(a.px - b.px) >= 60 || Math.abs(a.py - b.py) >= 13) continue;
+      b.py = a.py - 13; }
+    for (const s of S) { if (!s.vis) continue;
+      if (s.px !== s.wx || s.py !== s.wy || s.sc !== s.ws) { s.wx = s.px; s.wy = s.py; s.ws = s.sc; s.e.style.transform = `translate(${s.px}px,${s.py}px) scale(${s.sc})`; }
+      if (s.op !== s.wo) { s.wo = s.op; s.e.style.opacity = s.op; }
+      const f = s.f, fq = Math.round(f * 200) / 200, lq = Math.round(s.lagF * 200) / 200;
+      if (fq !== s.wf) { s.wf = fq; s.cur.style.transform = `scaleX(${fq})`; const band = f < 0.25 ? 'low' : f < 0.5 ? 'mid' : ''; if (band !== s.band) { if (s.band) s.e.classList.remove(s.band); if (band) s.e.classList.add(band); s.band = band; } }
+      if (lq !== s.wl) { s.wl = lq; s.lag.style.transform = `scaleX(${lq})`; }
+      if (s.e.hidden) s.e.hidden = false;
+    }
+  },
+};
+HPBAR.init();
 function updateThreats() {
   const W = threatHost.clientWidth, H = threatHost.clientHeight;
   const live = game.state === 'playing' && player && !player.wrecked;
@@ -12808,6 +12863,6 @@ try { BOOT.parallel = !!renderer.getContext().getExtension('KHR_parallel_shader_
 } catch (e) { bootYard('error'); startLoop('error'); }
 window.__derby.BOOT = BOOT; window.__derby.HITLOG = HITLOG; Object.defineProperty(window.__derby, 'camMode', { get: () => camMode }); window.__derby.MEMGUARD = MEMGUARD; window.__derby.GPULIVE = GPULIVE;
 window.__derby.setCarAlight = (c, by) => setCarAlight(c, by); window.__derby.dropBoulder = (c) => dropBoulder(c); window.__derby.sprites = sprites; window.__derby.IDLE = IDLE; window.__derby.TALK = TALK; window.__derby.DROP = DROP; window.__derby.SCORE = SCORE; window.__derby.UPDATE = UPDATE; window.__derby.TABENV = TABENV; window.__derby.PERFREP = PERFREP; window.__derby.LIFE = LIFE; window.__derby.HEAL = HEAL; // (test hooks)
-window.__derby.VR = VR; window.__derby.XRS = XRS; window.__derby.composer = composer;
+window.__derby.HPBAR = HPBAR; window.__derby.VR = VR; window.__derby.XRS = XRS; window.__derby.composer = composer;
 window.__derby.VCLIP = VCLIP; window.__derby.TOURIST = TOURIST; window.__derby.ROAST_BY = ROAST_BY; window.__derby.ROAST_PAIR = ROAST_PAIR; window.__derby.SHAZZA = SHAZZA; window.__derby.CAR_CAST = CAR_CAST; window.__derby.ANNOUNCER = ANNOUNCER; window.__derby.COP = COP; window.__derby.megaphone = megaphone; window.__derby.hornLine = hornLine;
 </script>
