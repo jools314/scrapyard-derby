@@ -60,26 +60,31 @@
 //  - the game never started on this page (crashed or stuck loading), or
 //  - the game's own updater has had 12 minutes and the page is autoplaying or has had no input for 10 minutes.
 // It also retries a page whose game never started at all (up to 3 times, 5 min apart), in case the CDN had a hiccup.
+// "Never started" counts only visible time (vis): a hidden tab can't draw a frame, and a sleeping machine's clock jumps (the
+// owner's Mac, asleep on battery with the tab hidden, reloaded its page at 00:40 and 00:50 for nothing).
 (function () {
   var M = document.querySelector('meta[name=derby-build]'), MY = M ? +M.content : 0, K = window.__wdFast || 1, now = function () { return Date.now(); };
   if (!(/github\.io$/.test(location.hostname) || window.__updTest) || !MY) return;
   var W = window.__wd = { my: MY, checks: 0, newer: 0, at: 0, log: [] }, t0 = now(), lastInput = now();
   ['pointerdown', 'keydown', 'touchstart'].forEach(function (e) { addEventListener(e, function () { lastInput = now(); }, true); });
+  var vis = 0, last = t0, shown = !document.hidden; // visible ms since load; a gap over 1 min between 10 s ticks = asleep: not counted
+  var tick = function () { var t = now(), d = t - last; last = t; if (shown && d > 0 && d < 60000 / K) vis += d; shown = !document.hidden; };
+  setInterval(tick, 10000 / K);
   var auto = function () { var D = window.__derby; return /[?&]autoplay=1/.test(location.search) || !!(D && D.AUTO && D.AUTO.on); };
   var booted = function () { var D = window.__derby; return !!(D && D.BOOT && D.BOOT.frame); };
   var go = function (why, v) { W.log.push(why); try { var q = new URLSearchParams(location.search); if (v) q.set('v', v); if (auto()) q.set('autoplay', '1'); q.set('wd', String(now() % 1e6));
     (window.__wdReload || function (u) { location.replace(u); })(location.pathname + '?' + q); } catch (e) {} };
-  var check = function () { W.checks++; if (booted()) { try { sessionStorage.removeItem('derby-wd-retry'); } catch (e) {} }
+  var check = function () { W.checks++; tick(); if (booted()) { try { sessionStorage.removeItem('derby-wd-retry'); } catch (e) {} }
     (window.__wdFetch || fetch)('version.txt?u=' + now(), { cache: 'no-store' }).then(function (r) { return r.ok ? r.text() : ''; }).then(function (t) {
       var n = parseInt(t, 10);
       if (n > MY) { if (!W.newer) W.at = now(); W.newer = n;
-        if (!booted() && now() - t0 > 60000 / K) return go('game never started here; build ' + n + ' is out', n);
+        if (!booted() && (tick(), vis > 60000 / K)) return go('game never started here; build ' + n + ' is out', n);
         if (now() - W.at > 12 * 60000 / K && (auto() || now() - lastInput > 10 * 60000 / K)) return go('in-game update did not happen in 12 min: going to build ' + n, n); }
-      else if (!booted() && now() - t0 > 5 * 60000 / K) { var k = 0; try { k = +sessionStorage.getItem('derby-wd-retry') || 0; sessionStorage.setItem('derby-wd-retry', String(k + 1)); } catch (e) { k = 9; }
+      else if (!booted() && (tick(), vis > 5 * 60000 / K)) { var k = 0; try { k = +sessionStorage.getItem('derby-wd-retry') || 0; sessionStorage.setItem('derby-wd-retry', String(k + 1)); } catch (e) { k = 9; }
         if (k < 3) go('game never started in 5 min: retry ' + (k + 1)); }
     }).catch(function () {}); };
   setTimeout(check, 20000 / K); setInterval(check, 4 * 60000 / K);
-  document.addEventListener('visibilitychange', function () { if (!document.hidden) setTimeout(check, 3000 / K); });
+  document.addEventListener('visibilitychange', function () { tick(); if (!document.hidden) setTimeout(check, 3000 / K); });
 })();
 </script>
 <style>
