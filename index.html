@@ -3011,17 +3011,19 @@ const WEAPONS = {
   },
   web: { label: 'WEB', cd: 6, dur: 3.2, // Anansi's steel web: a cable that pins a car to the ground for ~3 s; up to 3 in quick succession (one per press), then a cooldown (owner, 11-19)
     start(car) {
-      { const near = spiderCloseTarget(car) || frontTarget(car, 6, 0.9); if (near && !near.wrecked) { // up close (or riding a roof) the fangs and the laser cutter, not the web (owner, Build 106 / 11-19)
+      const rodeOn = spiderRideWeb(car); // riding a car that isn't held (it landed there by accident): F webs that car down first (owner, 11-19), then F is the laser
+      if (!rodeOn) { const near = spiderCloseTarget(car) || frontTarget(car, 6, 0.9); if (near && !near.wrecked) { // up close (or riding a roof) the fangs and the laser cutter, not the web (owner, Build 106 / 11-19)
         spiderBite(car, near); car.laserT = LASER.dur; car.laserRip = 0.3; car.laserHit = near; car.specialCd = LASER.dur + LASER.cool; car.laserReadyAt = simTime + LASER.dur + LASER.cool; car.laserPin = false; car.specialT = 0; car.webShots = 0;
         sfx.at(car.body.position).laserOn(wv(car)); if (PLAYLOG.m) { const V = PLAYLOG.V(car.type); V.lasers = (V.lasers || 0) + 1; } spiderLine(car, 'laser', near); return; } }
       const n = car.webShots = (car.webShots || 0) + 1, last = n >= WEB_BURST.n; car.webBurstT = WEB_BURST.window; // (a shot of the burst: the next one is ready in a moment, the last one starts the cooldown)
       car.specialCd = last ? WEAPONS.web.cd : WEB_BURST.gap; if (last) car.webShots = 0;
-      const t = webPick(car);
+      const t = rodeOn || webPick(car);
       if (!t) { car.specialCd = Math.max(car.specialCd, 0.8); car.specialT = 0.35; if (car.web && car.web.t) webKeep(car); car.web = { t: null, miss: car.body.pointToWorldFrame(new CANNON.Vec3(14, 0, 0)) }; car.web.miss.y = 0.05; webLine(car); if (car.isPlayer) toast('MISSED · NOTHING IN FRONT', 'bad'); sfx.at(car.body.position).zing(wv(car) * 0.6); return; }
       const tp = t.body.position; webPin(t); t.webAt = { x: tp.x, z: tp.z }; t.webBy = car; t.lastAttacker = car; t.lastAttackTime = simTime; t.body.wakeUp();
       if (car.web && car.web.t && car.web.t !== t) webKeep(car); // (the last one stays drawn while it is still stuck)
       car.web = { t, at: { x: tp.x, z: tp.z } }; webLine(car);
-      const bound = spiderBind(car, t); if (bound) car.web.mode = bound; // tied to another car, or stuck to the nearest wall/container (owner, Build 106)
+      if (rodeOn) { car.rideWeb = t; car.rideWebAt = t.webSince; } // (webbed from its roof: held, so it can't shake the spider off; the laser stays the ordinary one)
+      const bound = rodeOn ? null : spiderBind(car, t); if (bound) car.web.mode = bound; // (the car it rides is held where it is: no tie, no wall) // tied to another car, or stuck to the nearest wall/container (owner, Build 106)
       if (!car.isPlayer && !car.remote && bound !== 'tie' && t.webbedT > 1.5 && Math.random() < WEB_PULL.ai) car.comboAt = simTime + rand(0.4, 1.1); // the AI's combo, sometimes: web, reel itself in along the thread, laser from the roof
       t.applyDamage(4 * S.damage * t.T.armor, car, 'top', null, 0); sparks(t.body.position, 12);
       if (PLAYLOG.m) { const V = PLAYLOG.V(car.type); V.webs = (V.webs || 0) + 1; }
@@ -4113,7 +4115,12 @@ let _spider = null;
 const LEAP_VY = 16.6; // the spider's leap: ~8.6 m up and ~2.1 s in the air (owner, 11-19: "jump a little bit more"; 15.3 was ~7.3 m, 11.5 was ~4 m)
 const LASER_SVG = '<svg viewBox="0 0 32 32" width="1em" height="1em" aria-hidden="true"><g fill="currentColor"><rect x="3" y="5" width="13" height="8" rx="2"/><rect x="15" y="7" width="4" height="4"/></g><path d="M18 9 L29 27" stroke="#ff4a1a" stroke-width="3" stroke-linecap="round"/><g stroke="#ffd04a" stroke-width="2" stroke-linecap="round"><path d="M29 27 L24 28"/><path d="M29 27 L31 22"/><path d="M29 27 L26 23"/></g></svg>'; // a cutting head with a red beam and sparks (no emoji reads as one)
 const LEAP_AIM = { on: true, range: 30, cone: 0.62, maxDv: 13, home: 6 }; // the leap's aim-assist: a car in front (one coming at you first) within reach, and at most 13 m/s off the leap you asked for; in the air it steers at up to 6 m/s per second
-const _la = { x: 0, z: 0, tx: 0, tz: 0, tf: 0 };
+const _la = { x: 0, z: 0, tx: 0, tz: 0, tf: 0 }, _rl = { tx: 0, tz: 0 };
+function roofLead(t, tf, out) { // where t's roof will be in tf s: a car the web holds stays at its hold (a wall web drags it to the wall); a free one is led along its curve
+  const q = t.body.position, a = t.webAt; if (t.webbedT > tf + 0.1 && a) { const dx = a.x - q.x, dz = a.z - q.z, dl = Math.hypot(dx, dz), k = dl > 0.01 ? Math.min(dl, 9 * tf) / dl : 0; out.tx = q.x + dx * k; out.tz = q.z + dz * k; return out; }
+  const w = t.body.velocity, an = t.webbedT > 0 ? 0 : t.body.angularVelocity.y * tf / 2, kc = Math.abs(an) > 1e-3 ? Math.sin(an) / an : 1, ca = Math.cos(an) * kc, sa = Math.sin(an) * kc, hold = t.webbedT > 0 ? Math.max(0, tf - t.webbedT) : tf; // (held for part of the way: it only moves once it's free)
+  out.tx = q.x + (w.x * ca + w.z * sa) * hold; out.tz = q.z + (-w.x * sa + w.z * ca) * hold; return out;
+}
 function leapRoofY(t) { return t.body.position.y + HULL_Y0 + t.T.H + t.T.cabin.h + 2; } // where an aimed leap meets its car: the body ~2 m over the roof, the legs reaching down to grab it
 function leapAimAt(car, t, out) { // the take-off velocity (x, z) that brings the spider down on t's roof, leading its motion (round its curve when it turns); null if no leap reaches that high
   const p = car.body.position, q = t.body.position, w = t.body.velocity, dh = leapRoofY(t) - p.y, disc = LEAP_VY * LEAP_VY - 2 * S.gravity * dh; if (disc < 0) return null;
@@ -4129,6 +4136,18 @@ function leapAssist(car, ux, uz) { // the player's leap: a car to land on? In fr
     const closing = -(c.body.velocity.x * dx + c.body.velocity.z * dz) / d, s = Math.hypot(_la.x - ux, _la.z - uz) + d * 0.15 - clamp(closing, 0, 15) * 0.6;
     if (s < bs && car.leapClear(_la.tx, _la.tz)) { bs = s; best = c; } }
   return best;
+}
+const LEAP_TOP = { range: 24, maxDv: 6, minTop: 1.0 }, _lt = { x: 0, z: 0, tx: 0, tz: 0, y: 0, e: 0 }; // the leap's aim-assist onto things (owner, 11-19: "better at jumping on top of things"): a container top or a big prop in front, at most 6 m/s off the leap you asked for
+function leapTopTry(car, tx, tz, top, ux, uz, fx, fz) { // one top: keep it in _lt if it beats the best so far
+  const p = car.body.position, dx = tx - p.x, dz = tz - p.z, d = Math.hypot(dx, dz); if (d < 3 || d > LEAP_TOP.range || (dx * fx + dz * fz) / d < Math.cos(LEAP_AIM.cone)) return;
+  const dh = top + (car.ride || 1.7) - p.y, disc = LEAP_VY * LEAP_VY - 2 * S.gravity * dh; if (disc < 0) return; const tf = (LEAP_VY + Math.sqrt(disc)) / S.gravity, vx = dx / tf, vz = dz / tf, e = Math.hypot(vx - ux, vz - uz);
+  if (e < _lt.e) { _lt.e = e; _lt.x = vx; _lt.z = vz; _lt.tx = tx; _lt.tz = tz; _lt.y = top; }
+}
+function leapTopAssist(car, ux, uz) { // true (and the take-off velocity in _lt) if a leap pressed as (ux, uz) nearly lands on top of something to stand on: then it does
+  if (!LEAP_AIM.on || game.state !== 'playing') return false; const fh = Math.hypot(car.fwd.x, car.fwd.z) || 1, fx = car.fwd.x / fh, fz = car.fwd.z / fh; _lt.e = LEAP_TOP.maxDv;
+  for (const P of PERCHES) leapTopTry(car, P.x, P.z, P.y, ux, uz, fx, fz);
+  for (const pr of props) { const b = pr.body; if (b.mass < 380 || b.collisionFilterGroup === LIGHT) continue; if (b.aabbNeedsUpdate) b.updateAABB(); const top = b.aabb.upperBound.y; if (top >= LEAP_TOP.minTop) leapTopTry(car, b.position.x, b.position.z, top, ux, uz, fx, fz); } // (the big ones its feet stand on: wrecked-car shells, dumpsters)
+  return _lt.e < LEAP_TOP.maxDv;
 }
 function spiderReach(car, t) { // is t's body where the laser cutter on car's front leg can cut it? (no allocations: called every step while it spins)
   const K = car.T.size || 1; _wP.set(1.75 * K, -0.1 * K, 0.5 * K); car.body.pointToWorldFrame(_wP, _wL); t.body.pointToLocalFrame(_wL, _wP);
@@ -4151,9 +4170,15 @@ function SPIDER() { // shared by every spider, made once: one pipe material, two
   const arm = new THREE.BoxGeometry(0.5, 0.09, 0.09); arm.userData.shared = true;
   const beam = mergeGeometries([new THREE.CylinderGeometry(0.035, 0.035, 1, 6, 1, true), new THREE.CylinderGeometry(0.11, 0.07, 1, 8, 1, true)], false).translate(0, 0.5, 0); beam.userData.shared = true; // a hot core inside a soft sheath, base at 0, 1 m long (scaled to reach); one mesh, one draw
   const beamMat = new THREE.MeshBasicMaterial({ color: 0xff3a10, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.85, side: THREE.DoubleSide }); beamMat.color.setRGB(2.6, 0.55, 0.12); // (above white: the bloom makes it glow; the same shader as the sparks)
-  return (_spider = { A, B, pipe, fem, tib, cap, web, nozzle, arm, beam, beamMat, skin: new THREE.MeshStandardMaterial({ color: 0x4a2c1a, roughness: 0.7 }), zero: new THREE.Matrix4().makeScale(0, 0, 0) });
+  const teeth = []; for (let i = 0; i < 14; i++) { const a = i / 14 * Math.PI * 2; teeth.push(new THREE.BoxGeometry(0.13, 0.06, 0.1).rotateY(-a + 0.5).translate(Math.cos(a) * 0.6, 0, Math.sin(a) * 0.6)); }
+  const saw = mergeGeometries([new THREE.CylinderGeometry(0.58, 0.58, 0.04, 28), new THREE.CylinderGeometry(0.16, 0.16, 0.14, 12), ...teeth], false); saw.userData.shared = true; // the grip saw: a big toothed disc on a hub (one draw), out only while it rides a roof (owner, 11-19)
+  const sawArm = mergeGeometries([new THREE.BoxGeometry(0.16, 0.9, 0.16).translate(0, -0.45, 0).rotateZ(0.35), new THREE.CylinderGeometry(0.12, 0.12, 0.5, 10).rotateX(Math.PI / 2).translate(0.29, -0.8, 0)], false); sawArm.userData.shared = true;
+  const claw = mergeGeometries([new THREE.BoxGeometry(0.15, 0.78, 0.15).translate(0, -0.39, 0).rotateZ(0.45).rotateX(-0.25), new THREE.ConeGeometry(0.1, 0.6, 6).rotateX(-1.98).translate(0.33, -0.78, -0.08), new THREE.SphereGeometry(0.13, 8, 6)], false); claw.userData.shared = true; // a mandible claw: down and out, then a hook back in under the roof's edge
+  return (_spider = { A, B, pipe, fem, tib, cap, web, nozzle, arm, beam, beamMat, saw, sawArm, claw, skin: new THREE.MeshStandardMaterial({ color: 0x4a2c1a, roughness: 0.7 }), zero: new THREE.Matrix4().makeScale(0, 0, 0) });
 }
 const _wf = new CANNON.Vec3(), _wt = new CANNON.Vec3(), _wr = new CANNON.RaycastResult(), _wF = new CANNON.Vec3(), _wR = new CANNON.Vec3(), _wQ = new CANNON.Quaternion(), _wA = new CANNON.Vec3(), _wL = new CANNON.Vec3(), _wP = new CANNON.Vec3();
+const _gq = new CANNON.Vec3(), _gq2 = new CANNON.Vec3(), _gcq = new CANNON.Quaternion(); // (the legs' grip on a ridden car, the pull's steering: scratch, no allocations)
+function localOf(body, p, out) { p.vsub(body.position, out); return body.quaternion.conjugate(_gcq).vmult(out, out); } // body.pointToLocalFrame without its new Quaternion (cannon allocates one per call)
 const _nz = (x, top) => (Number.isNaN(x) ? top : x); // (a feeler that found nothing counts as the highest one)
 const _walkRay = { skipBackfaces: true, collisionFilterMask: ~LIGHT }; // feet stand on the ground, scenery, heavy props and cars (not on debris or crates)
 const _lq = new THREE.Quaternion(), _lqi = new THREE.Quaternion(), _lh = new THREE.Vector3(), _lk = new THREE.Vector3(), _lf = new THREE.Vector3(), _ld = new THREE.Vector3(), _lp = new THREE.Vector3(), _lo = new THREE.Vector3(), _lm = new THREE.Matrix4(), _lY = new THREE.Vector3(0, 1, 0), _lS = new THREE.Vector3(1, 1, 1), _lqq = new THREE.Quaternion();
@@ -4168,15 +4193,16 @@ function webLine(car) { // the steel webs: per web one cable from the spinneret 
   for (; n < WEB_V * 3; n++) P.setXYZ(n, a.x, a.y, a.z); // (unused cables collapse to a point)
   P.needsUpdate = true; L.visible = true;
 }
-const LEAPMARK = { m: null, t: 0, c: null };
+const LEAPMARK = { m: null, t: 0, c: null, top: false, tx: 0, ty: 0, tz: 0 };
 function leapMarkFrame(dt) { // the player's leap target: a soft ring on the roof the next leap would land on (and, in the air, the one it is steering for). One mesh, the sparks' shader
   const pl = player; let c = null;
   if (pl && pl.T.walker && !pl.wrecked && !pl.latch && game.state === 'playing' && !game.paused) {
     if (pl.leapAim) c = pl.leapAim;
-    else { if ((LEAPMARK.t -= dt) <= 0) { LEAPMARK.t = 0.15; let k = null; if (pl.contacts > 0 && (pl.legsLeft ?? 8) >= 6 && pl.canLeap()) { const v = pl.body.velocity, fh = Math.hypot(pl.fwd.x, pl.fwd.z) || 1, push = clamp(22 - (pl.speed || 0), 0, 7); k = (pl.legsLeft ?? 8) >= 6 && webPullAim(pl) ? webTether(pl) : leapAssist(pl, v.x + pl.fwd.x / fh * push, v.z + pl.fwd.z / fh * push); } LEAPMARK.c = k; } c = LEAPMARK.c; }
+    else { if ((LEAPMARK.t -= dt) <= 0) { LEAPMARK.t = 0.15; let k = null; if (pl.contacts > 0 && (pl.legsLeft ?? 8) >= 6 && pl.canLeap()) { const v = pl.body.velocity, fh = Math.hypot(pl.fwd.x, pl.fwd.z) || 1, push = clamp(22 - (pl.speed || 0), 0, 7); k = (pl.legsLeft ?? 8) >= 6 && webPullAim(pl) ? webTether(pl) : leapAssist(pl, v.x + pl.fwd.x / fh * push, v.z + pl.fwd.z / fh * push); LEAPMARK.top = !k && leapTopAssist(pl, v.x + pl.fwd.x / fh * push, v.z + pl.fwd.z / fh * push); if (LEAPMARK.top) { LEAPMARK.tx = _lt.tx; LEAPMARK.ty = _lt.y; LEAPMARK.tz = _lt.tz; } } else LEAPMARK.top = false; LEAPMARK.c = k; } c = LEAPMARK.c; }
     if (c && (c.wrecked || !cars.includes(c))) c = null; }
-  let M = LEAPMARK.m; if (!c) { if (M && M.visible) M.visible = false; return; }
+  const top = !c && LEAPMARK.top && pl && pl.T.walker && !pl.wrecked && game.state === 'playing' && !pl.leapAim && !pl.latch && pl.contacts > 0; let M = LEAPMARK.m; if (!c && !top) { if (M && M.visible) M.visible = false; return; }
   if (!M) { const g = new THREE.RingGeometry(0.78, 1, 28).rotateX(-Math.PI / 2); g.userData.shared = true; const mat = new THREE.MeshBasicMaterial({ color: 0x7dff9a, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.55 }); M = LEAPMARK.m = new THREE.Mesh(g, mat); M.frustumCulled = false; M.renderOrder = 4; scene.add(M); }
+  if (top) { const r = 1.3 * (1 + Math.sin(clock * 9) * 0.07); M.position.set(LEAPMARK.tx, LEAPMARK.ty + 0.08, LEAPMARK.tz); M.scale.set(r, 1, r); M.material.opacity = 0.4; M.visible = true; return; } // (a container or prop top it would land on)
   const q = c.body.position, r = Math.max(c.T.L, c.T.W) * 0.5 * (1 + Math.sin(clock * 9) * 0.07) * (pl.leapAim ? 0.8 : 1);
   M.position.set(q.x, q.y + HULL_Y0 + c.T.H + c.T.cabin.h + 0.12, q.z); M.scale.set(r, 1, r); M.material.opacity = pl.leapAim ? 0.8 : 0.45; M.visible = true;
 }
@@ -4203,15 +4229,17 @@ function webPin(t) { const base = webHoldFor(t);
   if (simTime < (t.webFree || 0)) return; // (just torn free)
   t.webbedT = t.webHold0 = Math.min(base, WEB_HOLD.max); t.webSince = simTime; }
 function webTether(car) { const w = car.web; return w && w.t && w.mode !== 'tie' && w.t.webbedT > 0 && !w.t.wrecked && cars.includes(w.t) ? w.t : null; } // the car on the end of the spider's web line, still held to the ground
-const WEB_PULL = { range: 40, vMax: 26, vEnd: -5, ai: 0.45 }; // J with a held car on the line: the spider reels itself in along the thread, a fast flat yank (not the high leap) that lands it on the roof; the AI does it after ~45% of its pins
+const LATCH_CRASH = 8; // the ridden car takes a crash this hard (m/s of velocity change; a wall: the impact speed): the rider is thrown off
+const WEB_PULL = { range: 40, vMax: 18, vEnd: -5, ai: 0.45, home: 22, over: 1.2 }; // J with a held car on the line: the spider reels itself in along the thread, a fast flat yank (not the high leap) that lands it on the roof; the AI does it after ~45% of its pins
 const _wpa = { x: 0, z: 0, vy: 0, tf: 0 };
 function webPullAim(car) { // the thread-pull: the take-off velocity that brings the spider down on its held car's roof (into _wpa), or null
   const t = webTether(car); if (!t || t.latchedBy || t.ghost || t.up.y < 0.6 || (car.noLatch && car.noLatch.c === t && simTime < car.noLatch.until)) return null;
   const p = car.body.position, q = t.body.position, w = t.body.velocity, d = Math.hypot(q.x - p.x, q.z - p.z); if (d < 2 || d > WEB_PULL.range) return null;
   const g = S.gravity, dh = leapRoofY(t) - p.y, disc = WEB_PULL.vEnd * WEB_PULL.vEnd + 2 * g * dh, tf = Math.max(0.45, disc > 0 ? (-WEB_PULL.vEnd + Math.sqrt(disc)) / g : 0, d / WEB_PULL.vMax); // (down onto the roof at ~5 m/s or faster: the legs catch it there)
-  _wpa.tf = tf; _wpa.vy = (dh + 0.5 * g * tf * tf) / tf; _wpa.x = (q.x + w.x * tf - p.x) / tf; _wpa.z = (q.z + w.z * tf - p.z) / tf; return t;
+  roofLead(t, tf, _rl); _wpa.tf = tf; _wpa.vy = (dh + 0.5 * g * tf * tf) / tf; _wpa.x = (_rl.tx - p.x) / tf; _wpa.z = (_rl.tz - p.z) / tf; return t;
 }
-function spiderPinLaser(car) { return !!(car.latch && car.latch.c.webbedT > 0 && !car.latch.c.wrecked); } // riding a car the web holds down: the laser comes out big, straight down
+function spiderRideWeb(car) { const L = car.latch, t = L && L.c; return t && !t.wrecked && !(t.webbedT > 0) && simTime >= (t.webFree || 0) && !(car.laserT > 0) ? t : null; } // riding a car that isn't held: F webs it down (the strands round it), then F is the laser
+function spiderPinLaser(car) { const c = car.latch && car.latch.c; return !!(c && c.webbedT > 0 && !c.wrecked && !(car.rideWeb === c && car.rideWebAt === c.webSince)); } // (a hold it spun from the roof itself only holds the car: the big beam is the thread-pull combo's reward) // riding a car the web holds down: the laser comes out big, straight down
 function spiderPinLaserReady(car) { return car.T.walker && spiderPinLaser(car) && !(car.laserT > 0) && simTime >= (car.laserReadyAt || 0); } // (the combo's reward: the laser is ready whenever its own cooldown is, even while the web's recharges)
 function webKeep(car) { const w = car.web; if (!w || !w.t || !(w.t.webbedT > 0)) return; const O = car.webOld || (car.webOld = []); O.push(w); if (O.length > 2) O.shift(); } // a burst: the previous web stays drawn while it holds
 const WEB_BURST = { n: 3, gap: 0.3, window: 2.5 }; // up to 3 webs, one per press, at most 0.3 s apart; the burst ends after its 3rd shot or 2.5 s after the last, then the cooldown
@@ -5853,6 +5881,10 @@ class Car {
     add(new THREE.SphereGeometry(0.12, 10, 8), SP.skin, 0.5, 0.52, 0); add(new THREE.CylinderGeometry(0.115, 0.125, 0.09, 10), SP.cap, 0.5, 0.62, 0); add(new THREE.BoxGeometry(0.16, 0.18, 0.3), SP.cap, 0.5, 0.36, 0);
     // head: eight eyes (the two big ones are the headlights), mandible claws, the cable spool that throws the web
     { const arm = add(SP.arm, M.steel, 1.2, -0.08, 0.42); arm.rotation.y = -0.3; this.laserHead = add(SP.nozzle, M.chrome, 1.45, -0.08, 0.5); this.laserHead.rotation.z = -0.5; } // the laser cutter on its right fang (owner, 11-19: "maybe make it a laser"), aimed forward and down
+    { const gt = this.gripTool = new THREE.Group(); gt.visible = false; gt.position.set(1.05, -0.3, 0); root.add(gt); // riding a roof: a big saw on an arm comes down into it and two mandible claws hook its edge (three draws, only then)
+      const arm = new THREE.Mesh(SP.sawArm, D2.dark); arm.castShadow = true; gt.add(arm); const piv = new THREE.Group(); piv.position.set(0.32, -0.8, 0); piv.rotation.x = Math.PI / 2; gt.add(piv);
+      this.gripSaw = new THREE.Mesh(SP.saw, M.chrome); this.gripSaw.castShadow = true; piv.add(this.gripSaw);
+      this.gripClaws = [-1, 1].map((sd) => { const m = new THREE.Mesh(SP.claw, M.steel); m.position.set(0.15, 0.05, sd * 0.46); m.scale.set(1.25, 1.25, 1.25 * sd); m.castShadow = true; gt.add(m); return m; }); }
     const head = add(new THREE.BoxGeometry(0.5, 0.36, 0.7), this.paint, 1.05, 0.12, 0); this.deform.push({ mesh: head, orig: head.geometry.attributes.position.array.slice() });
     for (const s of [-1, 1]) { const e = add(new THREE.SphereGeometry(0.11, 10, 8), M.lamp, 1.3, 0.2, s * 0.17); this.lampMeshes.push(e); }
     for (const [y, z] of [[0.3, 0.07], [0.3, -0.07], [0.06, 0.3], [0.06, -0.3], [0.24, 0.29], [0.24, -0.29]]) add(new THREE.SphereGeometry(0.05, 8, 6), this.tailMat, 1.29, y, z);
@@ -5902,9 +5934,9 @@ class Car {
       world.raycastClosest(_wf, _wt, _walkRay, _wr);
       if (_wr.hasHit && _wr.body !== b && !(this.stretchT > 0 && _wr.body.car)) { H[k] = _wr.hitPointWorld.y; hits++; if (H[k] > top) { top = H[k]; under = _wr.body; } } else H[k] = NaN; // (legs up to let a car pass under: its roof is not ground to stand on)
     }
-    if (this.leapAim && this.airT > 0.35 && v.y < -2 && MP.role !== 'guest') { // an aimed leap coming down over its car: anywhere over the roof counts (its legs reach that far), not only a car right under the belly's feeler
-      const c = this.leapAim; c.body.pointToLocalFrame(b.position, _wL); const roof = HULL_Y0 + c.T.H + c.T.cabin.h;
-      if (Math.abs(_wL.x) < c.T.L / 2 + 0.5 && Math.abs(_wL.z) < c.T.W / 2 + 0.5 && _wL.y > roof + 0.2 && _wL.y < roof + 3.4) { _wP.set(_wL.x, roof, _wL.z); c.body.pointToWorldFrame(_wP, _wF); this._roofY = _wF.y; this.pounce(c, -v.y); this._roofY = null; if (this.latch) return; } }
+    if (this.leapAim && (this.pullLeap ? this.airT > 0.12 && v.y < 1 : this.airT > 0.35 && v.y < -2) && MP.role !== 'guest') { // an aimed leap coming down over its car: anywhere over the roof counts (its legs reach that far), not only a car right under the belly's feeler
+      const c = this.leapAim, pl = this.pullLeap, mg = pl ? 0.9 : 0.5; c.body.pointToLocalFrame(b.position, _wL); const roof = HULL_Y0 + c.T.H + c.T.cabin.h; // (a thread-pull: anywhere over the roof, a little lower too)
+      if (Math.abs(_wL.x) < c.T.L / 2 + mg && Math.abs(_wL.z) < c.T.W / 2 + mg && _wL.y > roof + (pl ? -0.3 : 0.2) && _wL.y < roof + 3.4) { _wP.set(_wL.x, roof, _wL.z); c.body.pointToWorldFrame(_wP, _wF); this._roofY = _wF.y; this.pounce(c, -v.y); this._roofY = null; if (this.latch) return; } }
     if (this.airT > 0.35 && v.y < -3 && MP.role !== 'guest') { // coming down from a leap: is there a car right under its belly? (a car can fit between its legs, where the feelers miss it)
       _wf.set(b.position.x, b.position.y - 1.5 * K, b.position.z); _wt.set(b.position.x, b.position.y - 2.5 * K, b.position.z); /* (from just under its own leg cage) */ _wr.reset(); world.raycastClosest(_wf, _wt, _walkRay, _wr);
       const c = _wr.hasHit && _wr.body !== b && _wr.body.car; if (c && c !== this && !c.wrecked) { this._roofY = _wr.hitPointWorld.y; this.pounce(c, -v.y); this._roofY = null; if (this.latch) return; } }
@@ -5923,16 +5955,17 @@ class Car {
       if (kL === 1 && (this.isPlayer || this.remote || this.leapWhy === 'pull') && (pull = webPullAim(this))) { v.x = _wpa.x; v.z = _wpa.z; tgt = pull; this.pullT = simTime; this.leapWhy = 'pulled'; sfx.at(b.position).zing(wv(this)); if (PLAYLOG.m) { const V = PLAYLOG.V(this.type); V.pulls = (V.pulls || 0) + 1; } } // a car held on the web line: reel in along the thread onto its roof
       else if (aim && simTime - aim.t < 0.4 && kL === 1) { v.x = aim.x; v.z = aim.z; tgt = aim.c || null; } // (an AI pounce is aimed: no faster than the leap itself)
       else if ((this.isPlayer || this.remote) && kL === 1 && (tgt = leapAssist(this, v.x + fx * push, v.z + fz * push)) && leapAimAt(this, tgt, _la)) { v.x = _la.x; v.z = _la.z; } // the player's aim-assist: a car in front within reach, it lands on its roof
+      else if ((this.isPlayer || this.remote) && kL === 1 && leapTopAssist(this, v.x + fx * push, v.z + fz * push)) { tgt = null; v.x = _lt.x; v.z = _lt.z; } // ...else the top of a container or a big prop it nearly reaches anyway
       else { tgt = null; v.x += fx * push; v.z += fz * push; }
-      this.leapAim = tgt; if (this.leapWhy === 'pull') this.leapWhy = 'pull-lost'; // (the AI's pull found no line any more: an ordinary leap)
+      this.leapAim = tgt; this.pullLeap = !!pull; if (this.leapWhy === 'pull') this.leapWhy = 'pull-lost'; // (the AI's pull found no line any more: an ordinary leap)
       if (pull) v.y = _wpa.vy; else v.y = Math.max(v.y, LEAP_VY * kL); /* (not on top of the bounce from the last landing: every leap is the same height) */ this.airT = 0.01;
-      { const tf = 2 * v.y / S.gravity, lim = A - 8; for (const ax of ['x', 'z']) { const land = b.position[ax] + v[ax] * tf; if (Math.abs(land) > lim) v[ax] = Math.abs(b.position[ax]) >= lim ? Math.min(0, v[ax] * Math.sign(b.position[ax])) * Math.sign(b.position[ax]) : (Math.sign(land) * lim - b.position[ax]) / tf; } } /* (it always comes down inside the yard, 8 m from the wall) */ { const s0 = _pv.get(b); if (s0) s0.v.copy(v); _vmax = Math.max(_vmax, v.length()); } // (a leap inside the physics step is meant: the solver-kick net must not undo it)
+      { const tf = 2 * v.y / S.gravity, lim = tgt ? A - 3 : A - 8; for (const ax of ['x', 'z']) { const land = b.position[ax] + v[ax] * tf; if (Math.abs(land) > lim) v[ax] = Math.abs(b.position[ax]) >= lim ? Math.min(0, v[ax] * Math.sign(b.position[ax])) * Math.sign(b.position[ax]) : (Math.sign(land) * lim - b.position[ax]) / tf; } } /* (it always comes down inside the yard, 8 m from the wall) */ { const s0 = _pv.get(b); if (s0) s0.v.copy(v); _vmax = Math.max(_vmax, v.length()); } // (a leap inside the physics step is meant: the solver-kick net must not undo it)
       if (this.isPlayer) sfx.jump(); for (let i = 0; i < 8; i++) emit('dust', b.position.x + rand(-1.5, 1.5), 0.2, b.position.z + rand(-1.5, 1.5), rand(-2, 2), 0.6, rand(-2, 2), 0.8, 0.8);
       if (PLAYLOG.m) { const V = PLAYLOG.V(this.type); V.leaps = (V.leaps || 0) + 1; } }
     const wi = this.vehicle.wheelInfos; for (let i = 0; i < wi.length; i++) wi[i].isInContact = grounded && !this.wheelLost[i];
     const qi = b.quaternion.conjugate(_wQ), wl = qi.vmult(b.angularVelocity, _wA);
     if (grounded) {
-      if (this.airT > 0.35 && v.y < -3 && under && under.car && under.car !== this && !under.car.wrecked) this.pounce(under.car, -v.y); // dropped onto a car from above
+      if (under && under.car && under.car !== this && !under.car.wrecked && ((this.airT > 0.35 && v.y < -3) || (this.leapAim === under.car && this.airT > 0.1))) this.pounce(under.car, Math.max(3, -v.y)); // dropped onto a car from above (or its feet found the top of the car it leapt at: a tall bed, a turret)
       if (this.airT > 1.2 && this === player) sfx.thump(0.7, m); // the thud of a big landing
       this.leapT = 0; if (this.airT > 0.2) this.leapAim = null; // (the legs have caught the landing: the leap is over, so a bounce doesn't make them let go again)
       this.airT = 0;
@@ -5992,11 +6025,17 @@ class Car {
     if (this.webbedT <= 0) { this.webAt = null; this.webBy = null; this.webFree = simTime + WEB_HOLD.free; } // (torn free: for a moment the next web can't hold it)
   }
   leapHome(dt) { // in the air on an aimed leap: steer gently at where the car's roof will be when it comes down (a car that brakes or swerves mid-leap is still met; at most LEAP_AIM.home m/s each second)
-    const t = this.leapAim, b = this.body, v = b.velocity; if (t.wrecked || t.latchedBy || !cars.includes(t) || MP.role === 'guest') { this.leapAim = null; return; }
-    const yL = leapRoofY(t), h = b.position.y - yL, disc = v.y * v.y + 2 * S.gravity * h; if (disc < 0 || (v.y < 0 && h < 0)) { this.leapAim = null; return; }
-    const tr = (v.y + Math.sqrt(disc)) / S.gravity; if (tr < 0.1) return;
-    const q = t.body.position, w = t.body.velocity, ex = (q.x + w.x * tr - b.position.x) / tr - v.x, ez = (q.z + w.z * tr - b.position.z) / tr - v.z, e = Math.hypot(ex, ez); if (e > 14) { this.leapAim = null; return; } // (way off: it was never going to make it)
-    const k = Math.min(1, LEAP_AIM.home * dt / (e || 1)); v.x += ex * k; v.z += ez * k;
+    // a thread-pull steers hard (it's on a line) at a point just over the roof and is never faster across than it needs to be; over the roof, either one stops drifting and drops onto it (owner, 11-19: "it hops over the vehicle and misses")
+    const t = this.leapAim, b = this.body, v = b.velocity, pull = this.pullLeap; if (t.wrecked || t.latchedBy || !cars.includes(t) || MP.role === 'guest') { this.leapAim = null; return; }
+    const q = t.body.position, w = t.body.velocity, T = t.T; localOf(t.body, b.position, _wL); const roof = HULL_Y0 + T.H + T.cabin.h;
+    if (Math.abs(_wL.x) < T.L / 2 + 0.3 && Math.abs(_wL.z) < T.W / 2 + 0.3 && _wL.y > roof && _wL.y < roof + 6) { // over the roof: its legs reach for it (match the car, drift to the middle)
+      const k = Math.min(1, dt * (pull ? 14 : 8)); v.x += (w.x + (q.x - b.position.x) * 1.5 - v.x) * k; v.z += (w.z + (q.z - b.position.z) * 1.5 - v.z) * k; return; }
+    const h = b.position.y - (pull ? q.y + roof + WEB_PULL.over : leapRoofY(t)), disc = v.y * v.y + 2 * S.gravity * h;
+    let tr; if (disc < 0 || (v.y < 0 && h < 0)) { if (!pull) { this.leapAim = null; return; } tr = 0.15; } else tr = Math.max(0.15, (v.y + Math.sqrt(disc)) / S.gravity); // (a pull below its aim point still reels straight in)
+    if (tr < 0.1) return; roofLead(t, tr, _rl);
+    let ex = (_rl.tx - b.position.x) / tr - v.x, ez = (_rl.tz - b.position.z) / tr - v.z; const e = Math.hypot(ex, ez); if (e > 14 && !pull) { this.leapAim = null; return; } // (way off: it was never going to make it)
+    const k = Math.min(1, (pull ? WEB_PULL.home : LEAP_AIM.home) * dt / (e || 1)); v.x += ex * k; v.z += ez * k;
+    if (pull) { const rx = v.x - w.x, rz = v.z - w.z, rv = Math.hypot(rx, rz), cap = WEB_PULL.vMax + 2; if (rv > cap) { v.x = w.x + rx * cap / rv; v.z = w.z + rz * cap / rv; } } // (never faster across than the line reels)
   }
   canLeap() { return this.leapCd <= 0 && (this.landT ?? 9) >= 0.15 && !this.wrecked && !this.craned && !this.carriedBy && (this.legsLeft ?? 8) >= 4; }
   leapClear(lx, lz) { // AI: would a leap now (or one aimed at lx,lz) come down inside the yard, with nothing tall (a wall, a stack) in the way?
@@ -6014,7 +6053,7 @@ class Car {
       else if (!this.isPlayer && c.body.mass >= 1800 && closing > 7 && d < 16 && this.canLeap() && this.leapClear()) { this.jumpBuf = 0.35; this.leapWhy = 'dodge'; } } // anything bigger: the AI leaps over it
   }
   pounce(c, vy) { // dropped from above onto a car's roof
-    if (simTime - (this.pounceT ?? -9) < 1.5 || MP.role === 'guest' || game.state !== 'playing') return; this.pounceT = simTime;
+    if ((simTime - (this.pounceT ?? -9) < 1.5 && c !== this.leapAim) || MP.role === 'guest' || game.state !== 'playing') return; this.pounceT = simTime; // (a leap or a thread-pull aimed at this car always gets to grab it: it used to bounce off when it had pounced on something in the last 1.5 s)
     const roof = new THREE.Vector3(0, HULL_Y0 + c.T.H + c.T.cabin.h, 0);
     const hit = Math.min(vy, 12); c.applyDamage((10 + hit * 2) * S.damage * c.T.armor, this, 'top', roof, hit); c.dent(roof, { x: 0, y: 1, z: 0 }, 10 + hit * 2);
     sparks(c.body.position, 25); if (player) sfx.at(c.body.position).crash(wv(this), 10 + hit);
@@ -6050,6 +6089,7 @@ class Car {
     // but keep turning hard (~2.5 rad/s) for ~2-3 s (a heavy: sooner), roll the car, jump it or wreck it, and it goes. The shake fades again when the car calms down.
     L.shake = Math.max(0, L.shake - dt * 0.4) + Math.max(0, Math.abs(cb.angularVelocity.y) - 1.3) * dt * (cb.mass >= 5000 ? 1.5 : 1);
     L.air = c.contacts === 0 ? L.air + dt : 0;
+    if (L.crash > LATCH_CRASH && !this.wrecked) { this.unlatch('crash'); return false; } L.crash = 0; // (owner, 11-19: "it should fall off if the car crashes hard")
     if (this.ctrl.jump) { this.jumpBuf = 0.35; this.ctrl.jump = false; } this.jumpBuf = (this.jumpBuf || 0) - dt;
     const gone = this.wrecked || this.craned || this.carriedBy || c.wrecked || !cars.includes(c), flip = c.up.y < 0.55, hop = !c.T.walker && L.air > 0.45; // (a bump has it in the air for a moment; a real jump or a ramp for longer)
     if (gone || flip || hop || L.shake > 2 || L.t <= 0 || (this.jumpBuf > 0 && this.legsLeft >= 4)) { this.unlatch(gone ? 'gone' : flip ? 'flip' : hop ? 'jump' : L.shake > 2 ? 'shake' : L.t <= 0 ? 'time' : 'leap'); return false; }
@@ -6129,7 +6169,11 @@ class Car {
     const b = this.body, p = b.position, q = b.quaternion, v = b.velocity, SP = SPIDER(), K = this.T.size || 1;
     if (this.ghost) { // a remote spider: no physics here, so read standing and leg count off the snapshot
       const legs = this.nW - this.wheelLost.filter(Boolean).length; this.ride = (this.wrecked ? 0.5 : 1.2 + 0.25 * clamp((legs - 4) / 4, 0, 1)) * (this.T.size || 1); this.canClimb = legs >= 6;
-      this.contacts = !this.wrecked && Math.abs(v.y) < 4 ? 4 : 0; }
+      this.contacts = !this.wrecked && Math.abs(v.y) < 4 && !this.netFlail ? 4 : 0; }
+    let rc = this.latch && !this.latch.c.wrecked ? this.latch.c : null; // the car it rides (a guest: the one right under it, from the riding flag)
+    if (!rc && this.ghost && this.netLatched) { if (!((this._rcT -= dt) > 0)) { this._rcT = 0.25; this._rc = null; let bd = 3; for (const c of cars) { if (c === this || c.wrecked) continue; const dd = Math.hypot(c.body.position.x - p.x, c.body.position.z - p.z); if (dd < bd && c.body.position.y < p.y) { bd = dd; this._rc = c; } } } rc = this._rc; }
+    { const G = this.gripTool; if (G) { const on = !!rc && !this.wrecked; if (G.visible !== on) G.visible = on; // the grip tool: the saw spins (fast while the laser cuts), the claws pinch
+      if (on) { const cut = this.laserT > 0 || (this.ghost && this.netLaser); this.gripSaw.rotation.y = (this.gripSaw.rotation.y + dt * (cut ? 32 : 12)) % 628; const pin = 0.12 + Math.sin(clock * (cut ? 14 : 5)) * (cut ? 0.12 : 0.05); this.gripClaws[0].rotation.x = -pin; this.gripClaws[1].rotation.x = pin; } } }
     const cam = camera.position, d = Math.hypot(cam.x - p.x, cam.z - p.z);
     this.legDt = (this.legDt || 0) + dt; this.legFrame = (this.legFrame || 0) + 1;
     if (d > 125 && this.legInit) return; // too far to see legs (carLOD hides them): no work at all
@@ -6139,12 +6183,25 @@ class Car {
     const stride = (0.45 + Math.min(0.7, hv * 0.05)) * K, swingT = clamp(0.3 - hv * 0.013, 0.11, 0.3), lift = (0.25 + Math.min(0.3, hv * 0.02)) * K;
     _lq.set(q.x, q.y, q.z, q.w); _lqi.copy(_lq).invert();
     let swingA = 0, swingB = 0; for (const l of L) if (l.t >= 0) { if (l.grp) swingB++; else swingA++; }
-    const A = SP.A, B = SP.B;
+    const A = SP.A, B = SP.B, flail = !this.wrecked && !!(this.craned || this.carriedBy || (this.ghost && this.netFlail)); // (hanging off the crane's magnet or a fork: the legs kick)
     for (const l of L) {
       if (this.wheelLost[l.i]) { if (hv > 2 && Math.random() < ldt * 2.5) { _lh.copy(l.hip).multiplyScalar(K).applyQuaternion(_lq).add(p); sparks(_lh, 2); } continue; } // a sparking stump
       _ld.copy(l.rest).multiplyScalar(K).applyQuaternion(_lq); const ix = p.x + _ld.x + v.x * 0.12, iz = p.z + _ld.z + v.z * 0.12;
       if (!l.foot || !this.legInit) { (l.foot || (l.foot = new THREE.Vector3())).set(ix, this.groundAt(ix, iz, l.k), iz); l.t = -1; }
-      if (!grounded) { const k = Math.min(1, ldt * 6); l.foot.x += (ix - l.foot.x) * k; l.foot.z += (iz - l.foot.z) * k; l.foot.y += (p.y - ride * (this.wrecked ? 0.45 : 0.8) - l.foot.y) * k; l.t = -1; }
+      if (!rc) l.rc = null;
+      if (rc) { // riding a roof: each leg reaches down and clamps onto the hull's nearest side or end, below the roof line (owner, 11-19: "hold on with its legs")
+        const T = rc.T, cb = rc.body, hl = T.L / 2, hw = T.W / 2; _ld.add(p); localOf(cb, _gq.set(_ld.x, _ld.y, _ld.z), _gq2); const ex = Math.abs(_gq2.x) - hl, ez = Math.abs(_gq2.z) - hw;
+        let gx, gz; if (ez >= ex) { gz = (_gq2.z < 0 ? -1 : 1) * (hw + 0.04); gx = clamp(_gq2.x, -hl + 0.2, hl - 0.2); } else { gx = (_gq2.x < 0 ? -1 : 1) * (hl + 0.04); gz = clamp(_gq2.z, -hw + 0.2, hw - 0.2); }
+        let gy = HULL_Y0 + T.H * 0.5 + (this.laserT > 0 || this.netLaser ? Math.sin(clock * 11 + l.i * 1.3) * 0.05 : 0); const Gp = l.grip || (l.grip = new THREE.Vector3());
+        _lh.copy(l.hip).multiplyScalar(K).applyQuaternion(_lq).add(p); localOf(cb, _gq.set(_lh.x, _lh.y, _lh.z), _gq); const R = (A + B) * K * 0.96, side = ez >= ex; // (the hip, in the car's frame)
+        if ((gx - _gq.x) ** 2 + (gy - _gq.y) ** 2 + (gz - _gq.z) ** 2 > R * R) { const x1 = side ? clamp(_gq.x, -hl + 0.2, hl - 0.2) : gx, z1 = side ? gz : clamp(_gq.z, -hw + 0.2, hw - 0.2), y1 = HULL_Y0 + T.H - 0.08; let lo = 0, hi = 1; // out of reach: up the side toward the hull's top edge and along it toward the hip (bisection, no allocations)
+          for (let it = 0; it < 5; it++) { const m = (lo + hi) / 2, xx = lerp(gx, x1, m), yy = lerp(gy, y1, m), zz = lerp(gz, z1, m); if ((xx - _gq.x) ** 2 + (yy - _gq.y) ** 2 + (zz - _gq.z) ** 2 > R * R) lo = m; else hi = m; }
+          gx = lerp(gx, x1, hi); gy = lerp(gy, y1, hi); gz = lerp(gz, z1, hi); }
+        if (l.rc !== rc) { l.rc = rc; localOf(cb, _gq.set(l.foot.x, l.foot.y, l.foot.z), _gq2); Gp.set(_gq2.x, _gq2.y, _gq2.z); } // (from where the foot was: it swings in)
+        const k = Math.min(1, ldt * 10); Gp.x += (gx - Gp.x) * k; Gp.y += (gy - Gp.y) * k; Gp.z += (gz - Gp.z) * k; cb.pointToWorldFrame(_gq.set(Gp.x, Gp.y, Gp.z), _gq2); l.foot.set(_gq2.x, _gq2.y, _gq2.z); l.t = -1; }
+      else if (!grounded) { const k = Math.min(1, ldt * (flail ? 12 : 6)); let tx = ix, ty = p.y - ride * (this.wrecked ? 0.45 : 0.8), tz = iz;
+        if (!this.wrecked) { const amp = (flail ? 0.8 : 0.3) * K, ph = clock * (flail ? 11 : 6) + l.i * 2.1 + (l.grp ? Math.PI : 0), dl = Math.hypot(_ld.x, _ld.z) || 1, rad = Math.sin(ph) * amp; tx += _ld.x / dl * rad; tz += _ld.z / dl * rad; ty += Math.cos(ph * 1.3) * amp * (flail ? 1.1 : 0.6); } // kicking (lifted) or paddling (in a leap): never a frozen pose
+        l.foot.x += (tx - l.foot.x) * k; l.foot.z += (tz - l.foot.z) * k; l.foot.y += (ty - l.foot.y) * k; l.t = -1; }
       else if (l.t < 0) {
         const dx = l.foot.x - ix, dz = l.foot.z - iz, f2 = dx * dx + dz * dz, dy = l.foot.y - (p.y - ride);
         if (f2 > 16) { l.foot.set(ix, this.groundAt(ix, iz, l.k), iz); continue; } // teleported (respawn, crane): just stand
@@ -6433,6 +6490,8 @@ class Car {
   /* ---------- damage ---------- */
   onCollide(e) {
     const c = e.contact, other = e.body;
+    if (this.leapAim && other.car === this.leapAim && !this.latch && this.airT > 0.1 && MP.role !== 'guest') { const t = other.car; localOf(t.body, this.body.position, _wL); // an aimed leap or thread-pull touching its car up top (the turret, the cab, a tall bed): it grabs on there
+      if (_wL.y > HULL_Y0 + t.T.H + t.T.cabin.h + 0.3) { this._roofY = null; this.pounce(t, Math.max(3, -this.body.velocity.y)); if (this.latch) return; } }
     let vImp = Math.abs(c.getImpactVelocityAlongNormal());
     // At high speed bodies overlap deeply before the first contact and its normal can come out sideways:
     // for moving objects also measure the closing speed along the line between their centres
@@ -6465,6 +6524,7 @@ class Car {
 
     // Which face took the hit
     const zone = zoneOf(nl);
+    { const rd = this.latchedBy; if (rd && rd.latch && rd.latch.c === this && other !== rd.body && MP.role !== 'guest' && !(Mo === 0 && Math.abs(n.y) > 0.6 && vImp < 14)) rd.latch.crash = Math.max(rd.latch.crash || 0, Mo === 0 ? vImp : dv); } // a hard crash on the car a spider rides: it's thrown off (latchStep)
     if (this.T.walker && otherCar && !this.wrecked && MP.role !== 'guest' && zone !== 'bottom' && simTime - (this.legSnapT ?? -9) > 0.35) { // the weak spot: a heavy ram (or a very fast one) snaps a leg off
       const hard = dv * (Mo >= 3000 ? 1.5 : 0.85);
       if (hard > 10.5) { this.legSnapT = simTime; this.snapNearestLeg(model, otherCar); if (hard > 18 && !this.wrecked) this.snapNearestLeg(model, otherCar); }
@@ -7272,7 +7332,7 @@ function updateHUD(dt) {
     if (player.T.special === 'minigun') { const a = player.mgAmmo ?? W.ammo; hudWidth($('gunFill'), (player.mgReload > 0 ? (1 - player.mgReload / 4) * 100 : a / W.ammo * 100).toFixed(0) + '%'); hudTxt($('gunState'), player.mgReload > 0 ? 'RELOADING' : player.mgOn ? `${Math.round(a)} ROUNDS` : `MINIGUN ${Math.round(a)}`); }
     else { hudWidth($('gunFill'), (clamp(1 - cd / W.cd, 0, 1) * 100).toFixed(0) + '%'); // (the spider's laser cools a little longer than its web)
     hudTxt($('gunState'), player.laserT > 0 ? 'LASER CUTTING' : player.T.walker && player.webShots > 0 ? `WEB ×${WEB_BURST.n - player.webShots}` : player.specialT > 0 ? 'ACTIVE' : cd > 0 ? (player.T.walker && player.fireMode === 'laser' ? 'LASER COOLING' : 'RECHARGING') : player.T.walker ? (player.fireMode === 'laser' ? 'LASER' : `WEB ×${WEB_BURST.n}`) : W.label); }
-    if (player.T.walker && (HUDLITE.spT = (HUDLITE.spT || 0) - dt) <= 0) { HUDLITE.spT = 0.15; const m = spiderCloseTarget(player) ? 'laser' : 'web'; // the FIRE button shows what F does right now: up close (or on a roof) the laser, otherwise the web
+    if (player.T.walker && (HUDLITE.spT = (HUDLITE.spT || 0) - dt) <= 0) { HUDLITE.spT = 0.15; const m = spiderCloseTarget(player) && !spiderRideWeb(player) ? 'laser' : 'web'; // the FIRE button shows what F does right now: up close (or on a roof) the laser, otherwise the web
       if (m !== player.fireMode) { player.fireMode = m; if (m === 'laser') $('fireIco').innerHTML = LASER_SVG; else $('fireIco').textContent = '🕸️'; $('fireLab').textContent = m === 'laser' ? 'Laser' : 'Web'; }
       player.webAim = m === 'web' && game.state === 'playing' && (cd <= 0 || player.webShots > 0) ? webPick(player) : null; } // (who the next web goes for: shown with the reticle)
     const rt = $('reticle'), lockT = game.state !== 'playing' ? null : player.T.special === 'rockets' ? frontTarget(player, 110, 0.6) : player.T.walker && player.webAim && !player.webAim.wrecked ? player.webAim : null; // the Viper's rockets lock on: show who they'll chase (and the spider's web: who it will catch)
@@ -10677,7 +10737,7 @@ const MP = {
     const r = (v, k = 100) => Math.round(v * k);
     const cs = cars.map((c) => { const b = c.body, p = b.position, q = b.quaternion, v = b.velocity, z = c.zones;
       return [r(p.x), r(p.y), r(p.z), r(q.x, 1e4), r(q.y, 1e4), r(q.z, 1e4), r(q.w, 1e4), r(v.x, 10), r(v.y, 10), r(v.z, 10), Math.round(c.health),
-        (c.wrecked ? 1 : 0) | (c.boosting ? 2 : 0) | (c.braking ? 4 : 0) | (c.sirenOn ? 8 : 0) | (c.turretGone ? 16 : 0) | (c.burnT > 0 ? 32 : 0) | (c.webbedT > 0 ? 64 : 0) | (c.latch ? 1024 : 0) | (c.laserT > 0 ? 2048 : 0) | (c.laserT > 0 && c.laserPin ? 4096 : 0) | (c.webbedT > 0 ? Math.max(1, Math.min(3, Math.ceil(webLeft(c) * 3))) << 13 : 0),
+        (c.wrecked ? 1 : 0) | (c.boosting ? 2 : 0) | (c.braking ? 4 : 0) | (c.sirenOn ? 8 : 0) | (c.turretGone ? 16 : 0) | (c.burnT > 0 ? 32 : 0) | (c.webbedT > 0 ? 64 : 0) | (c.latch ? 1024 : 0) | (c.laserT > 0 ? 2048 : 0) | (c.laserT > 0 && c.laserPin ? 4096 : 0) | (c.T.walker && (c.craned || c.carriedBy) ? 131072 : 0) | (c.webbedT > 0 ? Math.max(1, Math.min(3, Math.ceil(webLeft(c) * 3))) << 13 : 0),
         [z.front, z.rear, z.left, z.right, z.top].map((x) => Math.round(x)).join('.'),
         c.parts.reduce((a, pt, i) => (pt.detached ? a.concat(i) : a), []), c.wheelLost.reduce((a, l, i) => a | (l ? 1 << i : 0), 0),
         r(c.rpm || 0, 0.01), r(c.steerVal || 0), r(c.turretYaw || 0), r(c.forkH || 0), c.kills || 0]; });
@@ -10849,7 +10909,7 @@ const MP = {
       for (const pi of B[13] || []) if (c.parts[pi] && !c.parts[pi].detached) c.detach(c.parts[pi], null);
       for (let w = 0; w < c.nW; w++) if ((B[14] >> w) & 1 && !c.wheelLost[w]) c.loseWheel(w, null); else if (c.T.walker && !((B[14] >> w) & 1) && c.wheelLost[w] && !c.wrecked) c.refitWheel(w); // (a repaired spider grows its leg back here too)
       c.netWebbed = !!(B[11] & 64); // caught in a web: the spider draws the cable
-      c.netLatched = !!(B[11] & 1024); c.netLaser = !!(B[11] & 2048); c.netLaserPin = !!(B[11] & 4096); c.netWebQ = (B[11] >> 13) & 3; // a spider riding a roof, its laser cutting (beam and sparks), the big downward beam on a webbed-down car, and how much of a web's hold is left (thirds: its strands let go)
+      c.netLatched = !!(B[11] & 1024); c.netLaser = !!(B[11] & 2048); c.netLaserPin = !!(B[11] & 4096); c.netFlail = !!(B[11] & 131072); c.netWebQ = (B[11] >> 13) & 3; // a spider riding a roof, its laser cutting (beam and sparks), the big downward beam on a webbed-down car, and how much of a web's hold is left (thirds: its strands let go)
       c.health = B[10];
       if ((B[11] & 1) && !c.wrecked) c.wreck();
       if ((B[11] & 16) && c.T.gun && !c.turretGone) c.blowBarrel();

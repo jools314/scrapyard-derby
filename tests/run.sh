@@ -91,6 +91,7 @@ quick() {
   t spider2 900 "SPIDER2 PASS"
   t spider3 900 "SPIDER3 PASS"
   t physfix 600 "PHYSFIX PASS"
+  t spider4 900 "SPIDER4 PASS"
 }
 release() {
   quick
