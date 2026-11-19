@@ -893,9 +893,10 @@ const CAR_TYPES = {
 // Its "wheels" are its legs: wheelBase = the 8 hips (front pair first, even = left), wheelLost = a leg snapped off. Fewer legs: slower, limps; under 6 it can't climb; under 4 it's a wreck.
 CAR_TYPES.spider = { walker: true, special: 'web', noPlant: true, handling: { steer: 1.2, rate: 1.4, spring: 1, damp: 1, rear: 1, drag: 1.1, roll: 0.5 }, size: 1.18, name: 'Spider-Walker', blurb: 'Anansi\'s eight-legged scrap spider. Scuttles fast, climbs onto containers and walls, drops onto cars. F fires a steel web that pins the car in front for 3 s. Up close F bites (poison) and fires up an angle grinder that cuts panels off; a web hit near another car ties the two together, near a wall it sticks the car to it; J leaps 7 m, and a landing on a roof rides the car until it shakes you off. Heavy rams snap its legs: every leg lost makes it slower.', style: 'spider', mass: 2100, L: 2.4, W: 1.7, H: 0.6, wheelR: 0.3, wheelW: 0.2, wb: 1.5, axles: [0.75, 0.25, -0.25, -0.75], track: 1.44, power: 1.0, grip: 1.1, armor: 0.85, cabin: { l: 0.9, h: 0.45, w: 0.95, x: 0.7 }, color: 0x7a5232, redline: 5200, idle: 900, cyl: 2 };
 // Lucas's hovercraft (owner's son, 2026-11-19): no wheels at all. Four lift rays hold an air cushion under a rubber skirt (hoverStep), a big fan at the back
-// pushes, and almost nothing grips sideways, so it drifts. A ring of spinning saw blades round the skirt cuts whoever touches it (none at the fan end: hit it
-// from behind). F hops it on a burst of lift; in the air F drops a bomb on the car below or ahead. Its "wheels" are the four lift rays (nothing to lose).
-CAR_TYPES.hover = { hover: true, iconic: true, special: 'hopbomb', noPlant: true, noWheelLoss: true, handling: { steer: 1, rate: 1, spring: 1, damp: 1, rear: 1, drag: 0.85, roll: 0.5 }, name: 'Buzzsaw Hover', blurb: 'Typhoon Tomoko\'s hovercraft: floats on an air cushion, so it is fast, light and drifts round every corner (Space drops the skirt to brake and swing round). Concrete, oil and mud can\'t touch it. A ring of spinning saws cuts anyone who rams it, except at the big fan on the back. F hops it into the air; F again up there drops a bomb on whoever is below.', style: 'hover', mass: 1150, L: 4.6, W: 2.9, H: 0.55, wheelR: 0.3, wheelW: 0.2, wb: 3.0, axles: [1.5, -1.5], track: 2.0, power: 0.95, grip: 0.3, armor: 1.05, cabin: { l: 1.5, h: 0.62, w: 1.3, x: 0.45 }, color: 0x17b3bd, redline: 9000, idle: 2600, cyl: 8 };
+// pushes, and almost nothing grips sideways, so it drifts. Spinning saw blades down both sides cut whoever touches them (none on the nose or at the fan: hit it
+// from behind). F throws cartoon bombs (lobbed ahead, dropped behind); J boosts it ~5 m up for a few seconds, and from up there a bomb drops on the car below.
+// Its "wheels" are the four lift rays (nothing to lose).
+CAR_TYPES.hover = { hover: true, iconic: true, special: 'hoverbomb', noPlant: true, noWheelLoss: true, handling: { steer: 1, rate: 1, spring: 1, damp: 1, rear: 1, drag: 0.85, roll: 0.5 }, name: 'Buzzsaw Hover', blurb: 'Typhoon Tomoko\'s hovercraft: floats on an air cushion, so it is fast, light and drifts round every corner (Space drops the skirt to brake and swing round). Concrete, oil and mud can\'t touch it. Spinning saws down both sides cut anyone who rams or rubs it; the big fan on the back is its weak spot. F throws a cartoon bomb: lobbed at the car ahead or dropped on one chasing you. J boosts it up high for a few seconds: drop a bomb on whoever is below.', style: 'hover', mass: 1150, L: 4.6, W: 2.9, H: 0.55, wheelR: 0.3, wheelW: 0.2, wb: 3.0, axles: [1.5, -1.5], track: 2.0, power: 0.95, grip: 0.3, armor: 1.05, cabin: { l: 1.5, h: 0.62, w: 1.3, x: 0.45 }, color: 0x17b3bd, redline: 9000, idle: 2600, cyl: 8 };
 
 const S = {};
 const STORE_KEY = 'scrapyard-derby-settings-v9';
@@ -3011,9 +3012,8 @@ const WEAPONS = {
     tick(car) { const w = car.web; if (!w) return; if (w.t && (w.t.wrecked || !cars.includes(w.t))) { car.web = null; webLine(car); return; } webLine(car); },
     end(car) { const w = car.web; if (w && w.t && w.t.webBy === car) { w.t.webbedT = 0; w.t.webAt = null; } car.web = null; webLine(car); },
   },
-  hopbomb: { label: 'HOP', cd: 0.3, dur: 0, // the Buzzsaw Hover: on the cushion F hops it into the air; up there F drops a bomb on the car under the marker (4 s to reload)
+  hoverbomb: { label: 'BOMBS', cd: 0.3, dur: 0, // the Buzzsaw Hover: F throws a cartoon bomb: lobbed at the car ahead, dropped behind on a chaser, or (boosted up) dropped on the car below (3 s to reload)
     start(car) {
-      if (!car.hovAir) { car.hopReq = 0.35; return; }
       if (car.bombCd > 0) { if (car.isPlayer) toast('BOMB RELOADING', 'bad'); return; }
       car.bombCd = HOVER.bombCd; dropHoverBomb(car); if (!car.isPlayer && Math.random() < 0.5) barks.say(car, 'fire', true);
     },
@@ -4169,8 +4169,9 @@ function spiderWebShot(car) { // AI: web whatever is running in front, or anythi
 }
 // ---------- the Buzzsaw Hover's kit (Lucas's hovercraft) ----------
 // rx/rz: the four lift rays at the skirt's corners (body frame). They start at `top` (above the hull floor: a ramp's face can rise over the skirt) and
-// look `reach` down; the cushion holds the skirt `gap` off whatever is under it. A hop is a burst of lift (vy), then cooldowns for the hop and the bomb.
-const HOVER = { rx: 1.75, rz: 1.05, top: 0.6, reach: 2.7, gap: 0.42, hopVy: 11.5, hopCd: 1.3, bombCd: 4, bombScale: 0.9 };
+// look `reach` down; the cushion holds the skirt `gap` off whatever is under it. The boost (J) raises that aim by up to boostH along a smooth rise / hold / fall curve.
+// sawX/sawZ: the side saws (three down each flank, radius sawR).
+const HOVER = { rx: 1.75, rz: 1.05, top: 0.6, reach: 2.7, gap: 0.42, boostH: 4.2, boostRise: 1.4, boostHold: 1.6, boostFall: 1.3, boostCd: 1.5, bombCd: 3, bombScale: 0.9, sawR: 0.6, sawZ: 1.75, sawX: [1.15, 0.05, -1.0] };
 const _hoverRay = { skipBackfaces: true, collisionFilterMask: ~(LIGHT | CARG), callback: _noop }; // the cushion rides on the ground, scenery and heavy props; never on crates, debris or other cars
 const _hm = new THREE.Matrix4(), _hq = new THREE.Quaternion(), _hv = new THREE.Vector3(), _hs = new THREE.Vector3(1, 1, 1), _hY = new THREE.Vector3(0, 1, 0);
 let _hoverKit = null;
@@ -4180,12 +4181,12 @@ function HOVERKIT() { // shared by every hovercraft, made once: the skirt, the s
   const shared = (g) => { g.userData.shared = true; return g; }, flat = (g) => (g.index ? g.toNonIndexed() : g);
   const tint = (g, r, gg, b) => { g = flat(g); const n = g.attributes.position.count, c = new Float32Array(n * 3); for (let i = 0; i < n; i++) { c[i * 3] = r; c[i * 3 + 1] = gg; c[i * 3 + 2] = b; } g.setAttribute('color', new THREE.BufferAttribute(c, 3)); return g; };
   // a saw blade lying flat: a steel disc with 18 raked teeth, a red warning band across it (so you SEE it spin) and a dark hub; one draw for all ten (vertex colours)
-  const R = 0.5, r0 = R * 0.84, N = 18, sh = new THREE.Shape();
+  const R = HOVER.sawR, r0 = R * 0.84, N = 20, sh = new THREE.Shape();
   for (let i = 0; i < N; i++) { const a0 = i / N * Math.PI * 2, a1 = (i + 0.62) / N * Math.PI * 2; if (i === 0) sh.moveTo(Math.cos(a0) * r0, Math.sin(a0) * r0); else sh.lineTo(Math.cos(a0) * r0, Math.sin(a0) * r0); sh.lineTo(Math.cos(a1) * R, Math.sin(a1) * R); sh.lineTo(Math.cos(a1 + 0.02) * r0, Math.sin(a1 + 0.02) * r0); }
   const disc = new THREE.ExtrudeGeometry(sh, { depth: 0.05, bevelEnabled: false, curveSegments: 1 }); disc.rotateX(-Math.PI / 2); disc.translate(0, -0.025, 0);
   const saw = mergeGeometries([tint(disc, 0.72, 0.7, 0.68), tint(new THREE.BoxGeometry(r0 * 1.9, 0.06, 0.15), 0.9, 0.1, 0.06), tint(new THREE.CylinderGeometry(0.1, 0.1, 0.09, 10), 0.12, 0.11, 0.1)].map((g) => { g.deleteAttribute('uv'); return g; }), false);
-  // ten blades round the skirt: nose, corners and flanks. None at the back: that is where the fan is (hit it from behind)
-  const sawSpots = [[2.2, 0.6], [2.2, -0.6], [1.6, 1.3], [1.6, -1.3], [0.6, 1.6], [0.6, -1.6], [-0.45, 1.6], [-0.45, -1.6], [-1.35, 1.42], [-1.35, -1.42]].map(([x, z], i) => ({ x, y: HULL_Y0 + 0.2, z, dir: i % 2 ? 1 : -1, ph: i * 0.7 }));
+  // six big blades, three down each side, on arms out past the skirt and tipped outwards so you see them spin. None on the nose or at the back (the fan: hit it from behind)
+  const sawSpots = HOVER.sawX.flatMap((x, i) => [-1, 1].map((sd) => ({ x, y: HULL_Y0 + 0.28, z: sd * HOVER.sawZ, dir: sd, ph: i * 1.1 + (sd > 0 ? 0.5 : 0), tq: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), sd * 0.3) })));
   // the skirt: a fat black rubber ring, bulging out round the deck
   const skirt = new THREE.ExtrudeGeometry(roundRectShape(2.12, 1.38, 0.9), { depth: 0.12, bevelEnabled: true, bevelThickness: 0.14, bevelSize: 0.12, bevelSegments: 3, curveSegments: 6 }); skirt.rotateX(-Math.PI / 2); skirt.translate(0, -0.06, 0);
   // the fan: four paddle blades and a spinner, turning on the duct's axis (x); a tall rudder (two of them steer)
@@ -4199,31 +4200,40 @@ function HOVERKIT() { // shared by every hovercraft, made once: the skirt, the s
     markMat: new THREE.MeshBasicMaterial({ color: 0xff3a1a, transparent: true, opacity: 0.85, depthWrite: false, side: THREE.DoubleSide }),
     lantern: sm({ color: 0xd8281e, emissive: 0x9a1408, emissiveIntensity: 0.7, roughness: 0.6 }), white: sm({ color: 0xf2efe8, roughness: 0.5 }), pink: sm({ color: 0xff4f9a, roughness: 0.45, metalness: 0.2 }) });
 }
-// Where a bomb dropped right now would land: aimed at the car (below, ahead, or where it is heading) that needs the smallest nudge to hit, leading it
-// by its speed. The nudge is capped at 13 m/s: out of reach, it just drops. No allocations (every frame while airborne, for the marker).
+// Where a bomb thrown right now would land. Low on the cushion it is lobbed: at a car ahead (up to 30 m), or dropped out the back onto a car chasing
+// close behind. Boosted up it drops onto a car below (or ahead). It picks the car that needs the smallest throw (its own target first), leads it by its
+// speed, and with nobody in reach it is lobbed ~12 m ahead (or, boosted up, just dropped). No allocations (every frame, for the marker).
 function hoverAim(car) {
-  const b = car.body, p = b.position, v = b.velocity, g = S.gravity, A0 = car._aim || (car._aim = { t: null, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, tf: 0 });
-  const y0 = p.y - 0.6, vy = Math.min(v.y, 0) - 2; let best = null, bn = 13;
+  const b = car.body, p = b.position, v = b.velocity, g = S.gravity, A0 = car._aim || (car._aim = { t: null, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, tf: 0, up: false });
+  const fl = Math.hypot(car.fwd.x, car.fwd.z) || 1, fx = car.fwd.x / fl, fz = car.fwd.z / fl, up = (car.liftH || 0) > 1.5 || !!car.hovAir;
+  const y0 = up ? p.y - 0.6 : p.y + 0.9, vyD = Math.min(v.y, 0) - 2; let best = null, bs = 1e9;
   for (const c of cars) { if (c === car || c.wrecked) continue; const q = c.body.position, dx = q.x - p.x, dz = q.z - p.z, dh = Math.hypot(dx, dz);
-    if (dh > 34 || q.y > y0 - 0.3 || (dh > 5 && (dx * car.fwd.x + dz * car.fwd.z) / dh < 0.25 && dx * v.x + dz * v.z <= 0)) continue;
-    const ty = q.y + 0.5, tf = (vy + Math.sqrt(vy * vy + 2 * g * Math.max(0.2, y0 - ty))) / g;
+    if (dh > 30) continue; const ca = dh > 0.1 ? (dx * fx + dz * fz) / dh : 1, ty = q.y + 0.4;
+    const below = up && dh < 9 && q.y < y0 - 1, ahead = ca > 0.6 && dh > 4, behind = ca < -0.6 && dh > 5 && dh < 16;
+    if (!below && !ahead && !behind) continue;
+    let vy, tf; if (up && y0 - ty > 1) { vy = vyD; tf = (vy + Math.sqrt(vy * vy + 2 * g * (y0 - ty))) / g; } // boosted up: it drops
+    else { tf = clamp(0.5 + dh / 18, 0.55, 1.9); vy = (ty - y0) / tf + 0.5 * g * tf; } // on the cushion: a lob
     const nx = (q.x + c.body.velocity.x * tf - p.x) / tf - v.x, nz = (q.z + c.body.velocity.z * tf - p.z) / tf - v.z, n = Math.hypot(nx, nz);
-    if (n < bn) { bn = n; best = c; A0.tf = tf; A0.vx = nx; A0.vz = nz; A0.y = ty; } }
-  if (!best) { A0.vx = A0.vz = 0; A0.y = 0.15; A0.tf = (vy + Math.sqrt(vy * vy + 2 * g * Math.max(0.2, y0 - 0.15))) / g; }
-  A0.t = best; A0.vy = vy; A0.x = p.x + (v.x + A0.vx) * A0.tf; A0.z = p.z + (v.z + A0.vz) * A0.tf; return A0;
+    if (n > (up ? 14 : 22)) continue;
+    const sc = n + (behind ? 4 : 0) - (c === car.target ? 5 : 0);
+    if (sc < bs) { bs = sc; best = c; A0.tf = tf; A0.vx = nx; A0.vz = nz; A0.vy = vy; A0.y = ty; } }
+  if (!best) { if (up) { A0.vx = A0.vz = 0; A0.vy = vyD; } else { A0.vx = fx * 12; A0.vz = fz * 12; A0.vy = 0; }
+    A0.y = 0.15; A0.tf = up ? (vyD + Math.sqrt(vyD * vyD + 2 * g * Math.max(0.2, y0 - 0.15))) / g : 1; if (!up) A0.vy = (0.15 - y0) / A0.tf + 0.5 * g * A0.tf; }
+  A0.t = best; A0.up = up; A0.y0 = y0; A0.x = p.x + (v.x + A0.vx) * A0.tf; A0.z = p.z + (v.z + A0.vz) * A0.tf; return A0;
 }
-function dropHoverBomb(car) { // a round black cartoon bomb with a lit fuse, out of the hatch under the deck: it falls on whoever the marker is on and goes off on impact
-  const K = HOVERKIT(), A0 = hoverAim(car), p = car.body.position, v = car.body.velocity, mesh = new THREE.Mesh(K.bomb, K.bombMat); mesh.castShadow = true; mesh.position.set(p.x, p.y - 0.6, p.z); scene.add(mesh);
-  shells.push({ pos: new THREE.Vector3(p.x, p.y - 0.6, p.z), vel: new THREE.Vector3(v.x + A0.vx, A0.vy, v.z + A0.vz), owner: car, life: 4, mesh, hbomb: true, scale: HOVER.bombScale, spin: rand(3, 6) });
+function dropHoverBomb(car) { // a round black cartoon bomb with a lit fuse: tossed off the deck (or out of the hatch under it, boosted up); it goes off where it lands
+  const K = HOVERKIT(), A0 = hoverAim(car), p = car.body.position, v = car.body.velocity, mesh = new THREE.Mesh(K.bomb, K.bombMat); mesh.castShadow = true; mesh.position.set(p.x, A0.y0, p.z); scene.add(mesh);
+  shells.push({ pos: new THREE.Vector3(p.x, A0.y0, p.z), vel: new THREE.Vector3(v.x + A0.vx, A0.vy, v.z + A0.vz), owner: car, life: 4, mesh, hbomb: true, scale: HOVER.bombScale, spin: rand(3, 6) });
   sfx.at(p).noiseHit('lowpass', 700, 1.2, 0.35 * wv(car), 0.15); sfx.at(p).clank(wv(car) * 0.5); // the hatch clunks open
   if (PLAYLOG.m) { const V = PLAYLOG.V(car.type); V.bombs = (V.bombs || 0) + 1; }
   if (game.state === 'playing') { if (car.isPlayer) toast(A0.t ? `BOMBS AWAY · ${A0.t.name}` : 'BOMBS AWAY'); else if (A0.t && A0.t.isPlayer) toast(`${car.name} IS BOMBING YOU!`, 'bad'); }
 }
-function hoverMarker(car) { // the aim marker: a red ring on the car the bomb will hit (or on the ground where it will land); only while airborne with a bomb ready
-  const show = !car.wrecked && car.hovAir && !(car.bombCd > 0) && game.state === 'playing' && car.airT > 0.12 && (car.isPlayer || !!(player && car.body.position.distanceTo(player.body.position) < 90));
+function hoverMarker(car) { // the aim marker: a red ring on the car the bomb will hit (boosted up, on the ground where it will land too); only with a bomb ready
+  let show = !car.wrecked && !(car.bombCd > 0) && game.state === 'playing' && (car.isPlayer || !!(player && car.body.position.distanceTo(player.body.position) < 90));
+  const A0 = show ? hoverAim(car) : null; if (A0 && !A0.t && !A0.up) show = false;
   let m = car.marker; if (!show) { if (m) m.visible = false; return; }
   if (!m) { const K = HOVERKIT(); m = car.marker = new THREE.Mesh(K.mark, K.markMat); m.renderOrder = 2; m.frustumCulled = false; scene.add(m); }
-  const A0 = hoverAim(car); m.visible = true; m.position.set(A0.x, A0.y + 0.05, A0.z); m.rotation.y = simTime * 2.5; m.scale.setScalar(A0.t ? 1.2 + Math.sin(simTime * 14) * 0.08 : 0.8);
+  m.visible = true; m.position.set(A0.x, A0.y + 0.05, A0.z); m.rotation.y = simTime * 2.5; m.scale.setScalar(A0.t ? 1.2 + Math.sin(simTime * 14) * 0.08 : 0.8);
 }
 // Materials that differ only in colour, roughness, metalness and glow share one draw: those move into the vertices (colour, pbr, emi)
 // and a folded material reads them back per pixel, so every pixel comes out the same. Only plain MeshStandardMaterials nothing changes
@@ -4287,6 +4297,7 @@ class Car {
     if (T.style === 'tank') for (const sd of [-1, 1]) b.addShape(chamferBox(T.L * 0.48, 0.42, 0.3, 0.12, 0.02, 0.5), new CANNON.Vec3(0, -0.36, sd * T.track / 2)); // tracks
     if (T.dozer) b.addShape(this.bladeShape = new CANNON.Box(new CANNON.Vec3(0.2, 0.68, T.W * 0.56)), new CANNON.Vec3(T.L / 2 + 0.55, HULL_Y0 + 0.83, 0)); // the blade is solid steel: it pushes, it doesn't sink into what it hits
     if (T.walker) b.addShape(new CANNON.Box(new CANNON.Vec3(1.25 * K, 0.35 * K, 1.2 * K)), new CANNON.Vec3(0, -0.85 * K, 0)); // the leg cage: low cars hit the legs, not thin air under the body
+    if (T.hover) for (const sd of [-1, 1]) b.addShape(new CANNON.Box(new CANNON.Vec3(1.55, 0.22, 0.45)), new CANNON.Vec3(0.05, HULL_Y0 + 0.28, sd * (HOVER.sawZ + 0.05))); // the side saws stick out past the hull: a car rubbing the flank meets the blades
     this.baseOffsets = b.shapeOffsets.map((o) => o.clone());
     b.position.set(x, T.walker ? 2.2 * K : 1.6, z);
     b.quaternion.setFromAxisAngle(AX_Y, yaw);
@@ -5607,7 +5618,7 @@ class Car {
 
     // Hydraulic jump: impulse through the centre of mass, mostly world-up, so it never adds spin
     this.jumpCd -= dt;
-    if (!this.T.walker && !this.T.hover) { // (a walker's J is its own leap, in walkStep: Build 106; a hovercraft's is its hop, in hoverStep)
+    if (!this.T.walker && !this.T.hover) { // (a walker's J is its own leap, in walkStep: Build 106; a hovercraft's is its boost, in hoverStep)
     if (this.ctrl.jump) { this.jumpBuf = 0.35; this.ctrl.jump = false; } // buffered so a wheel bouncing off the ground doesn't eat the press
     this.jumpBuf -= dt;
     if (this.jumpBuf > 0 && this.jumpCd <= 0 && this.contacts >= 2 && !this.wrecked && S.jumpStrength > 0) {
@@ -5970,11 +5981,11 @@ class Car {
       const lan = new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 10), K.lantern); lan.scale.set(1, 1.3, 1); lan.position.set(0, 1.12, 0); lg.add(lan);
       for (const y of [0.8, 1.44]) { const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.06, 10), M.black); cap.position.y = y; lg.add(cap); }
       part(lg, 'top', 45, 0); }
-    // the saw ring: ten blades on one instanced draw, spun in hoverFrame
+    // the side saws: six blades on one instanced draw, spun in hoverFrame
     const IM = this.sawIM = new THREE.InstancedMesh(K.saw, K.sawMat, K.sawSpots.length); IM.instanceMatrix.setUsage(THREE.DynamicDrawUsage); IM.castShadow = true;
-    IM.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 0, 0), 3.2); IM.userData.lodR = 0.7; // (beyond ~120 m the blades aren't drawn)
-    this.sawSpots = K.sawSpots; for (let i = 0; i < K.sawSpots.length; i++) { const s = K.sawSpots[i]; _hv.set(s.x, s.y, s.z); _hm.compose(_hv, _hq.identity(), _hs); IM.setMatrixAt(i, _hm); }
-    for (const s of K.sawSpots) add(new THREE.BoxGeometry(0.3, 0.06, 0.08), M.steel, s.x * 0.86, s.y + 0.06, s.z * 0.86).rotation.y = -Math.atan2(s.z, s.x); // the arms the blades spin on
+    IM.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 0, 0), 3.0); IM.userData.lodR = 0.7; // (beyond ~120 m the blades aren't drawn)
+    this.sawSpots = K.sawSpots; for (let i = 0; i < K.sawSpots.length; i++) { const s = K.sawSpots[i]; _hv.set(s.x, s.y, s.z); _hm.compose(_hv, s.tq, _hs); IM.setMatrixAt(i, _hm); }
+    for (const s of K.sawSpots) { add(new THREE.BoxGeometry(0.12, 0.1, 0.55), M.steel, s.x, s.y + 0.02, s.z * 0.84); add(new THREE.CylinderGeometry(0.1, 0.12, 0.2, 10), DET.hazard, s.x, s.y + 0.12, s.z); } // the arms the blades spin on, with hazard-striped motor caps
     root.add(IM);
     this.looks = { saws: K.sawSpots.length, fan: 1, skirt: 1, lantern: 1 };
   }
@@ -5986,35 +5997,39 @@ class Car {
     const thr = this.wrecked ? 0 : this.ctrl.throttle;
     this.boosting = !this.wrecked && this.ctrl.nitro && this.nitro > 0.01 && thr > 0;
     if (this.boosting) this.nitro = Math.max(0, this.nitro - dt * 0.3);
-    this.hopCd = Math.max(0, (this.hopCd || 0) - dt); this.hopT = Math.max(0, (this.hopT || 0) - dt);
-    if (this.ctrl.jump) { this.hopReq = 0.35; this.ctrl.jump = false; } this.hopReq = Math.max(0, (this.hopReq || 0) - dt);
+    this.boostCd = Math.max(0, (this.boostCd || 0) - dt);
+    if (this.ctrl.jump) { this.boostReq = 0.35; this.ctrl.jump = false; } this.boostReq = Math.max(0, (this.boostReq || 0) - dt);
     const fan = this.fanK = 1 - clamp((this.zones.rear - 25) / 75, 0, 1) * 0.45; // THE WEAK SPOT: rear hits smash the fan, and a smashed fan pushes less
     const held = !!(this.craned || this.carriedBy || this.towedBy);
     // the cushion: each corner is a stiff, well-damped spring holding the skirt HOVER.gap off whatever is under it (and catching a landing from up to ~1.6 m)
-    const lift = !this.wrecked && !held && !(this.hopT > 0) && up.y > 0.25, gap = HOVER.gap + (this.stuckA > 1 ? 0.45 : 0); // (wedged on something: it puffs the skirt up and slides off)
+    const lift = !this.wrecked && !held && up.y > 0.25;
+    // J: THE BOOST. The fans roar and the cushion swells: it hovers up ~5 m over a second, hangs there, then settles back down onto its skirt.
+    // The cushion just aims higher (a soft, damped spring that follows a smooth height curve): it floats up, it never jumps.
+    if (this.boostReq > 0 && lift && this.contacts > 0 && this.boostCd <= 0 && !(this.boostT >= 0)) { this.boostReq = 0; this.boostT = 0; this.boostVy = 0;
+      if (this.isPlayer) sfx.jump(); sfx.at(b.position).noiseHit('lowpass', 260, 1, 0.5 * wv(this), 0.6); // a big rising whoosh of air
+      for (let i = 0; i < 12; i++) { const a = i / 12 * 6.283; emit('dust', b.position.x + Math.cos(a) * 2.2, 0.2, b.position.z + Math.sin(a) * 1.6, Math.cos(a) * 6, rand(0.5, 1.5), Math.sin(a) * 6, 0.8, 0.9); }
+      if (PLAYLOG.m) { const V = PLAYLOG.V(this.type); V.boosts = (V.boosts || 0) + 1; } }
+    const H = HOVER, h0 = this.liftH || 0; let h = 0;
+    if (this.boostT >= 0) { const t = this.boostT += dt, sm = (x) => { x = clamp(x, 0, 1); return x * x * (3 - 2 * x); };
+      h = H.boostH * (t < H.boostRise ? sm(t / H.boostRise) : 1 - sm((t - H.boostRise - H.boostHold) / H.boostFall));
+      if (t > H.boostRise + H.boostHold + H.boostFall || !lift) { this.boostT = -1; this.boostCd = H.boostCd; h = 0; } }
+    this.liftH = h; const hv0 = dt > 0 ? (h - h0) / dt : 0; // how fast the cushion's aim is rising (fed forward, so it follows the curve without lagging)
+    const soft = h > 0.05, gap = HOVER.gap + h + (this.stuckA > 1 ? 0.45 : 0); // (wedged on something: it puffs the skirt up and slides off)
     let hits = 0; const wi = this.vehicle.wheelInfos;
     for (let k = 0; k < 4; k++) {
       const lx = (k < 2 ? 1 : -1) * HOVER.rx, lz = (k % 2 ? 1 : -1) * HOVER.rz;
-      _wP.set(lx, HOVER.top, lz); b.pointToWorldFrame(_wP, _wf); _wP.y = HOVER.top - HOVER.reach; b.pointToWorldFrame(_wP, _wt); _wr.reset();
+      _wP.set(lx, HOVER.top, lz); b.pointToWorldFrame(_wP, _wf); _wP.y = HOVER.top - HOVER.reach - h; b.pointToWorldFrame(_wP, _wt); _wr.reset();
       world.raycastClosest(_wf, _wt, _hoverRay, _wr);
       const d = _wr.hasHit && _wr.body !== b ? _wr.distance - (HOVER.top - HULL_Y0) : 99; // the gap under the skirt at this corner
       wi[k].isInContact = d < gap + 0.5; if (wi[k].isInContact) hits++;
       if (!lift || d > gap + 1.2) continue;
       _wP.set(lx, HULL_Y0, lz); b.vectorToWorldFrame(_wP, _wL); // the corner, from the centre of mass (world axes)
       const vu = (v.x + w.y * _wL.z - w.z * _wL.y) * up.x + (v.y + w.z * _wL.x - w.x * _wL.z) * up.y + (v.z + w.x * _wL.y - w.y * _wL.x) * up.z; // how fast that corner moves along up
-      const f = m / 4 * clamp(g + (gap - d) * 60 - vu * 10, 0, g * 7);
+      const f = soft ? m / 4 * clamp(g + (gap - d) * 14 - (vu - hv0) * 7.5, 0, g * 2.2) : m / 4 * clamp(g + (gap - d) * 60 - vu * 10, 0, g * 7); // (boosting: soft and smooth, it floats; on the cushion: stiff)
       _wF.set(up.x * f, up.y * f, up.z * f); b.applyForce(_wF, _wL);
     }
-    this.contacts = hits; const grounded = hits > 0 && lift; this.hovAir = hits === 0;
-    // F (or J) on the cushion: a burst of lift, a hop of ~4 m and ~1.4 s in the air (up there F drops a bomb: WEAPONS.hopbomb)
-    if (this.hopReq > 0 && grounded && this.hopCd <= 0) {
-      this.hopReq = 0; this.hopCd = HOVER.hopCd; this.hopT = 0.3; v.y = Math.max(v.y, HOVER.hopVy); this.airT = 0.01;
-      { const tf = 2 * v.y / g, lim = A - 8; for (const ax of ['x', 'z']) { const land = b.position[ax] + v[ax] * tf; if (Math.abs(land) > lim) v[ax] = Math.abs(b.position[ax]) >= lim ? Math.min(0, v[ax] * Math.sign(b.position[ax])) * Math.sign(b.position[ax]) : (Math.sign(land) * lim - b.position[ax]) / tf; } } // (it always comes down inside the yard)
-      { const s0 = _pv.get(b); if (s0) s0.v.copy(v); _vmax = Math.max(_vmax, v.length()); } // (a hop inside the physics step is meant: the solver-kick net must not undo it)
-      if (this.isPlayer) sfx.jump(); sfx.at(b.position).noiseHit('lowpass', 260, 1, 0.5 * wv(this), 0.35); // a big whump of air
-      for (let i = 0; i < 12; i++) { const a = i / 12 * 6.283; emit('dust', b.position.x + Math.cos(a) * 2.2, 0.2, b.position.z + Math.sin(a) * 1.6, Math.cos(a) * 6, rand(0.5, 1.5), Math.sin(a) * 6, 0.8, 0.9); }
-      if (PLAYLOG.m) { const V = PLAYLOG.V(this.type); V.hops = (V.hops || 0) + 1; }
-    }
+    this.contacts = hits; const grounded = hits > 0 && lift; this.hovAir = hits === 0; this.hovUp = h > 1.5;
+    if (soft) { const lim = A - 6, P = b.position; _wF.set(Math.abs(P.x) > lim && P.x * v.x > 0 ? -Math.sign(P.x) * m * 14 : 0, 0, Math.abs(P.z) > lim && P.z * v.z > 0 ? -Math.sign(P.z) * m * 14 : 0); if (_wF.x || _wF.z) b.applyForce(_wF); } // (boosted up by the wall: the fans push it back into the yard, never onto the wall top)
     // the fan: thrust along the nose (uphill too), a soft top speed, a long glide when you let go; sideways, only a little grip: it drifts
     const hb = !!this.ctrl.handbrake && !this.wrecked, brake = !!this.ctrl.brake && !this.wrecked, push = grounded ? 1 : 0.25; // (the fan still pushes in the air, a little)
     const vMax = 29 * fan * (this.boosting ? 1.3 : 1) * (1 - this.engineDmg * 0.3);
@@ -6023,8 +6038,10 @@ class Car {
     else if (thr < 0) aF = speed > 1 ? thr * 9 : thr * 6.5 * fan * clamp(1 - (speed / 10) ** 2, -0.6, 1);
     else aF = -speed * 0.3;
     if (brake) aF = -clamp(speed * 1.6, -10, 10);
-    let kLat = 0.8 + 1.6 * clamp(1 - hv / 5, 0, 1); // low but not zero: at speed the slide lasts ~1.2 s; parked, it settles
-    if (grounded && (hb || brake)) { kLat = 3.4; aF = -clamp(speed * 1.5, -14, 14); this.skirtDown = hv > 2; } else this.skirtDown = false; // Space drops the skirt onto the dirt: it scrubs off speed and bites sideways
+    // sideways grip: very little while you steer (big drifts), more once you let go of the stick, so the slide dies out and it runs straight again (a kid can always catch it)
+    this.latK = lerp(this.latK ?? 1, this.ctrl.steer && !this.wrecked ? 0.55 : 2.2, clamp(dt * 4, 0, 1));
+    let kLat = this.latK + 1.6 * clamp(1 - hv / 5, 0, 1); // parked, it settles
+    if (grounded && !soft && (hb || brake)) { kLat = 3.4; aF = -clamp(speed * 1.5, -14, 14); this.skirtDown = hv > 2; } else this.skirtDown = false; // Space drops the skirt onto the dirt: it scrubs off speed and bites sideways
     if (!grounded) kLat = 0.05;
     _wF.set((this.fwd.x * aF * push - rx * vr * kLat) * m, this.fwd.y * aF * push * m, (this.fwd.z * aF * push - rz * vr * kLat) * m); b.applyForce(_wF);
     // steering: slow to turn (the nose comes round lazily, the slide carries on), quicker with the skirt down; in the air the rudders still bite a little
@@ -6044,16 +6061,16 @@ class Car {
     if (this.douse > 0) this.douse -= dt;
     if (this.wet > 0) this.wet = Math.max(0, this.wet - dt * 0.45);
     this.inWater = hits > 0 && !!puddleAt(b.position.x, b.position.z, 'water', 0.3);
-    this.rpm = lerp(this.rpm, lerp(T.idle, T.redline, clamp(Math.abs(thr) * 0.6 + sp / 40, 0, 1)), clamp(dt * 6, 0, 1)); this.gear = 1;
+    this.rpm = lerp(this.rpm, lerp(T.idle, T.redline, clamp(Math.abs(thr) * 0.6 + sp / 40 + (soft ? 0.45 : 0), 0, 1)), clamp(dt * 6, 0, 1)); this.gear = 1; // (boosting: the fans scream)
     this.braking = !this.wrecked && (hb || brake || (thr !== 0 && Math.sign(thr) !== Math.sign(speed) && sp > 1));
     if (grounded) this.airT = 0; else this.airT = (this.airT || 0) + dt;
     const s3 = v.length(); if (s3 > 0.1) { const kd = -S.airDrag * T.handling.drag * s3; _wF.set(v.x * kd, v.y * kd, v.z * kd); b.applyForce(_wF); }
   }
   hoverFrame(dt) { // the saws spin, the fan turns, the rudders follow the stick, spray boils out from under the skirt (pooled particles; only near the camera)
     const b = this.body, p = b.position, cp = camera.position, near = (p.x - cp.x) ** 2 + (p.z - cp.z) ** 2 < 90 * 90, live = !this.wrecked;
-    const air = this.ghost ? !!this.netAir : !!this.hovAir, skirt = this.ghost ? !!this.netSkirt : !!this.skirtDown;
+    const air = this.ghost ? !!this.netAir : !!(this.hovAir || this.hovUp), skirt = this.ghost ? !!this.netSkirt : !!this.skirtDown;
     this.sawA = (this.sawA || 0) + dt * (live ? 34 : 0);
-    if (near && live && this.sawIM) { const S0 = this.sawSpots, IM = this.sawIM; for (let i = 0; i < S0.length; i++) { const s = S0[i]; _hq.setFromAxisAngle(_hY, this.sawA * s.dir + s.ph); _hv.set(s.x, s.y, s.z); _hm.compose(_hv, _hq, _hs); IM.setMatrixAt(i, _hm); } IM.instanceMatrix.needsUpdate = true; }
+    if (near && live && this.sawIM) { const S0 = this.sawSpots, IM = this.sawIM; for (let i = 0; i < S0.length; i++) { const s = S0[i]; _hq.setFromAxisAngle(_hY, this.sawA * s.dir + s.ph).premultiply(s.tq); _hv.set(s.x, s.y, s.z); _hm.compose(_hv, _hq, _hs); IM.setMatrixAt(i, _hm); } IM.instanceMatrix.needsUpdate = true; }
     const fk = this.fanK ?? 1;
     if (this.fanRotor) { const R = this.fanRotor; R.rotation.x += dt * (live ? 10 + this.rpm / this.T.redline * 45 : 0); R.rotation.z = fk < 0.9 ? Math.sin(clock * 31) * (1 - fk) * 0.5 : 0; } // a bent fan wobbles
     if (this.rudders) { this.rudA = lerp(this.rudA || 0, -this.steerVal * 1.1, clamp(dt * 8, 0, 1)); for (const r of this.rudders) r.rotation.y = this.rudA; }
@@ -6063,9 +6080,10 @@ class Car {
       const a = Math.random() * 6.283, ca = Math.cos(a), sa = Math.sin(a); _wP.set(ca * 2.2, HULL_Y0 - 0.2, sa * 1.45); b.pointToWorldFrame(_wP, _wL);
       emit(this.inWater ? 'steam' : 'dust', _wL.x, Math.max(0.15, _wL.y), _wL.z, (_wL.x - p.x) * 1.4 + b.velocity.x * 0.3, rand(0.3, 1.1), (_wL.z - p.z) * 1.4 + b.velocity.z * 0.3, rand(0.5, 0.9), rand(0.5, 0.9));
     }
+    if (!this.ghost && this.hovUp && Math.random() < dt * (QUALITY.lite ? 6 : 16)) { const a = Math.random() * 6.283, gy = Math.max(0.15, p.y - this.liftH - 0.9); emit('dust', p.x + Math.cos(a) * 1.5, gy, p.z + Math.sin(a) * 1.5, Math.cos(a) * 7, rand(0.2, 0.8), Math.sin(a) * 7, rand(0.7, 1.1), rand(0.7, 1.1)); } // boosted up: the downdraft blasts a ring of dust off the ground
     if (skirt && Math.random() < 0.6) { const a = Math.random() * 6.283; _wP.set(Math.cos(a) * 2.1, HULL_Y0 - 0.35, Math.sin(a) * 1.35); b.pointToWorldFrame(_wP, _wL); emit('spark', _wL.x, Math.max(0.06, _wL.y), _wL.z, -b.velocity.x * 0.3 + rand(-1.5, 1.5), rand(0.5, 2), -b.velocity.z * 0.3 + rand(-1.5, 1.5), rand(0.2, 0.4), rand(0.05, 0.09)); } // the skirt's steel wear-strip on the dirt
   }
-  hoverTactics(dt, t, dist, aim, throttle, steer) { // AI: drift lines (point the nose where the SLIDE must go, not at the target), hop-bombs from above, keeps off the walls
+  hoverTactics(dt, t, dist, aim, throttle, steer) { // AI: drift lines (point the nose where the SLIDE must go, not at the target), bombs and boosts, keeps off the walls
     const b = this.body, p = b.position, v = b.velocity, hv = Math.hypot(v.x, v.z); this.hoverHB = false;
     if (this.reverseTimer > 0 || this.mode === 'backup') return { throttle, steer };
     if (throttle < 0) throttle = 0.5; // (no braking for the turn or backing round: it swings its nose and drifts)
@@ -6081,13 +6099,22 @@ class Car {
     const f = this.fwd, fl = Math.hypot(f.x, f.z) || 1, fx = f.x / fl, fz = f.z / fl, ang = Math.atan2(fx * hz - fz * hx, fx * hx + fz * hz); // (+ = to the right)
     steer = clamp(-ang * 1.8, -1, 1); if (Math.abs(ang) > 1.4) throttle = Math.min(throttle, 0.35); // nose way off: let it swing round before pushing
     if (this.mode === 'flee' || this.mode === 'ambush') this.hoverHB = false;
-    // hop and bomb: hop when the target is a hop's flight ahead, then let go the bomb as soon as the marker is on it
-    if (MP.role !== 'guest' && game.state === 'playing' && game.countdown <= 0 && !this.wrecked && !(this.bombCd > 0)) {
-      const tp = t.body.position, ahead = ((tp.x - p.x) * fx + (tp.z - p.z) * fz) / (dist || 1);
-      if (!this.hovAir && !(this.hopCd > 0) && dist > 5 && dist < 7 + hv * 0.75 && ahead > 0.55 && tp.y < p.y + 1.5 && Math.random() < dt * 6 * (0.5 + S.aiSkill)) this.ctrl.fire = true;
-      else if (this.hovAir && this.airT > 0.25) { const A0 = hoverAim(this); if (A0.t && (Math.hypot(A0.vx, A0.vz) < 9 || this.airT > 0.9)) this.ctrl.fire = true; }
+    // bombs and the boost. Bombs: lob one when the marker sits on a car 6-26 m ahead (its target, or anyone the throw is easy on), drop one on a car chasing
+    // close behind, and boosted up drop one on whoever is underneath. Boost: float up over a car it is closing on (then bomb it from above), or over a car
+    // charging straight at it (the rammer passes underneath); and to get off anything it is wedged on.
+    if (MP.role !== 'guest' && game.state === 'playing' && game.countdown <= 0 && !this.wrecked) {
+      const sk = 0.5 + S.aiSkill;
+      if (!(this.bombCd > 0)) { const A0 = hoverAim(this), c = A0.t;
+        if (c) { const q = c.body.position, d = Math.hypot(q.x - p.x, q.z - p.z), easy = Math.hypot(A0.vx, A0.vz) < (A0.up ? 9 : 16);
+          if (easy && (A0.up ? (this.liftH > 3 || d < 4) : d > 6 && d < 26 && (c === t || d < 15)) && Math.random() < dt * 3 * sk) this.ctrl.fire = true; } }
+      if (!(this.boostCd > 0) && !(this.boostT >= 0) && this.contacts > 0) {
+        const tp = t.body.position, ahead = ((tp.x - p.x) * fx + (tp.z - p.z) * fz) / (dist || 1), tv = t.body.velocity, closing = -((tv.x - v.x) * (tp.x - p.x) + (tv.z - v.z) * (tp.z - p.z)) / (dist || 1);
+        if (dist > 6 && dist < 16 && ahead > 0.6 && closing > 4 && !(this.bombCd > 2) && Math.random() < dt * 2 * sk) this.ctrl.jump = true; // over the top of it, bomb ready
+        else for (const c of cars) { if (c === this || c.wrecked || c.body.mass < 1500) continue; const q = c.body.position, cv = c.body.velocity, dx = p.x - q.x, dz = p.z - q.z, d = Math.hypot(dx, dz);
+          if (d > 4 && d < 11 && (cv.x * dx + cv.z * dz) / d > 9 && Math.random() < dt * 4 * sk) { this.ctrl.jump = true; break; } } // a car charging at it: float up and let it pass underneath
+      }
     }
-    if (!this.hovAir && !(this.hopCd > 0) && hv < 1.5 && Math.abs(throttle) > 0.3 && (this.stuckA || 0) > 1.2) this.ctrl.jump = true; // still wedged: hop out
+    if (!(this.boostT >= 0) && !(this.boostCd > 0) && hv < 1.5 && Math.abs(throttle) > 0.3 && (this.stuckA || 0) > 1.2) this.ctrl.jump = true; // still wedged: boost up off it
     return { throttle, steer };
   }
   poisonStep(dt) { // ~1.5 health a second for 8 s, a drunken weave, green drips
@@ -6553,12 +6580,12 @@ class Car {
       const hard = dv * (Mo >= 3000 ? 1.5 : 0.85);
       if (hard > 10.5) { this.legSnapT = simTime; this.snapNearestLeg(model, otherCar); if (hard > 18 && !this.wrecked) this.snapNearestLeg(model, otherCar); }
     }
-    // THE SAW RING (the Buzzsaw Hover): a car that touches the spinning blades gets cut and thrown off, and the light hovercraft bounces away the other way.
+    // THE SIDE SAWS (the Buzzsaw Hover): a car that touches the spinning blades on its flanks gets cut and thrown off, and the light hovercraft bounces away the other way.
     // The blades soak up most of the hit, so the hovercraft takes less damage than usual. None at the back: hit it from behind, at the fan.
-    const sawHit = !!(this.T.hover && otherCar && !this.wrecked && zone !== 'bottom' && zone !== 'top' && nl.x > -0.55);
+    const sawHit = !!(this.T.hover && otherCar && !this.wrecked && Math.abs(nl.z) > 0.45 && nl.x > -0.6 && Math.abs(nl.y) < 0.75); // (the saws are on its sides: a nose bump or a hit at the fan is just a bump)
     if (sawHit && MP.role !== 'guest' && !otherCar.wrecked) {
       const ob = otherCar.body, cut = (5 + vImp * 0.9) * S.damage * otherCar.T.armor, theirs = zoneOf(ob.quaternion.conjugate().vmult(n.negate()));
-      otherCar._hitWhat = 'saw ring ' + this.name; otherCar.applyDamage(cut, this, theirs, null, 0); otherCar._hitWhat = null;
+      otherCar._hitWhat = 'side saws ' + this.name; otherCar.applyDamage(cut, this, theirs, null, 0); otherCar._hitWhat = null;
       const kk = Math.min(8, 3 + vImp * 0.35) * (ob.mass > 6000 ? 0.3 : ob.mass > 3000 ? 0.6 : 1); // thrown off the blades (a truck only rocks)
       ob.velocity.x += n.x * kk; ob.velocity.z += n.z * kk; ob.velocity.y += Math.min(2.5, kk * 0.3); ob.angularVelocity.y += rand(-1, 1) * kk * 0.15; ob.wakeUp();
       const sk = Math.min(7, (2 + vImp * 0.3) * clamp(ob.mass / m, 0.6, 2)); this.body.velocity.x -= n.x * sk; this.body.velocity.z -= n.z * sk; // and the hovercraft skates away
@@ -7366,8 +7393,7 @@ function updateHUD(dt) {
   if (player.T.special) { // special weapon cooldown
     const W = WEAPONS[player.T.special], cd = player.specialCd || 0;
     if (player.T.special === 'minigun') { const a = player.mgAmmo ?? W.ammo; hudWidth($('gunFill'), (player.mgReload > 0 ? (1 - player.mgReload / 4) * 100 : a / W.ammo * 100).toFixed(0) + '%'); hudTxt($('gunState'), player.mgReload > 0 ? 'RELOADING' : player.mgOn ? `${Math.round(a)} ROUNDS` : `MINIGUN ${Math.round(a)}`); }
-    else if (player.T.hover) { const bc = player.bombCd || 0; hudWidth($('gunFill'), ((1 - bc / HOVER.bombCd) * 100).toFixed(0) + '%'); hudTxt($('gunState'), bc > 0 ? 'RELOADING' : player.hovAir ? 'DROP BOMB!' : 'HOP');
-      const m = player.hovAir ? 'bomb' : 'hop'; if (m !== player.fireMode) { player.fireMode = m; $('fireIco').textContent = m === 'bomb' ? '💣' : '⏫'; $('fireLab').textContent = m === 'bomb' ? 'Bomb' : 'Hop'; } }
+    else if (player.T.hover) { const bc = player.bombCd || 0; hudWidth($('gunFill'), ((1 - bc / HOVER.bombCd) * 100).toFixed(0) + '%'); hudTxt($('gunState'), bc > 0 ? 'RELOADING' : player.hovUp ? 'DROP!' : 'BOMB'); }
     else { hudWidth($('gunFill'), ((1 - cd / W.cd) * 100).toFixed(0) + '%');
     hudTxt($('gunState'), player.grindT > 0 ? 'GRINDING' : player.specialT > 0 ? 'ACTIVE' : cd > 0 ? 'RECHARGING' : player.T.walker ? (player.fireMode === 'grind' ? 'GRINDER' : 'WEB') : W.label); }
     if (player.T.walker && (HUDLITE.spT = (HUDLITE.spT || 0) - dt) <= 0) { HUDLITE.spT = 0.2; const m = spiderCloseTarget(player) ? 'grind' : 'web'; // the FIRE button shows what F does right now: up close the grinder, otherwise the web
@@ -7798,7 +7824,7 @@ CAR_CAST.hover = { nick: 'Typhoon Tomoko', hand: 0.75, style: 'vulture', from: '
     gloat: ["Meccha sugoi! Typhoon Tomoko, drift queen of Osaka!", "Ookini, ookini! Thank you for being my target!", "Another order delivered! One bomb, extra hot!"],
     air: ["Wheee! Takoyaki from the sky!", "Bombs away! Look up, look up!", "I'm flying! The whole skirt is in the air!"],
     taunt: ["Can you catch the wind? No? Then you can't catch Tomoko!", "You turn like a fridge on roller skates!", "Come closer! My saws are hungry!"],
-    fire: ["Hop! And... drop!", "Special delivery from above!", "Itadakimasu! Ha ha!"],
+    fire: ["Catch! Hot takoyaki bomb, fresh from the pan!", "Special delivery from above!", "Itadakimasu! Ha ha!"],
     charge: ["Ikuzo! Full fan, full saws!", "Drift mode! Out of my way!"],
     flee: ["Abunai! Typhoon Tomoko is blowing away!", "I'm not running! I'm drifting in the other direction!"],
     crash: ["Nande yanen?! Who parked a wall here?", "Akan! I drifted a little bit too much!"],
@@ -9423,9 +9449,9 @@ function aimHintFor(type) { if (!canAim(CAR_TYPES[type])) return; let n = 0; try
 function setControlsFor(type) {
   document.body.classList.toggle('has-gun', !!(CAR_TYPES[type].gun || CAR_TYPES[type].pour || CAR_TYPES[type].special));
   { const T0 = CAR_TYPES[type]; // the controls strip and the touch FIRE button follow your car
-    const act = T0.gun ? 'fire 3-round burst' : T0.pour ? (T0.pour === 'fuel' ? 'dump fuel' : 'pour concrete') : ({ reel: 'reel on / off', dump: 'dump boulders', blade: 'raise / slam blade', lift: 'lift / toss', tow: 'hook / release (back up first)', minigun: 'minigun', rockets: 'rocket salvo', water: 'water cannon', harpoon: 'harpoon', flame: 'flamethrower', bomb: 'propane bomb', spikes: 'shotgun · Z stop stick', oil: 'oil slick', ram: 'rocket ram', web: 'web the car in front · up close: bite + grinder', hopbomb: 'hop · in the air: drop a bomb' })[T0.special];
+    const act = T0.gun ? 'fire 3-round burst' : T0.pour ? (T0.pour === 'fuel' ? 'dump fuel' : 'pour concrete') : ({ reel: 'reel on / off', dump: 'dump boulders', blade: 'raise / slam blade', lift: 'lift / toss', tow: 'hook / release (back up first)', minigun: 'minigun', rockets: 'rocket salvo', water: 'water cannon', harpoon: 'harpoon', flame: 'flamethrower', bomb: 'propane bomb', spikes: 'shotgun · Z stop stick', oil: 'oil slick', ram: 'rocket ram', web: 'web the car in front · up close: bite + grinder', hoverbomb: 'throw a bomb (at the car ahead, behind or below)' })[T0.special];
     const kb = (k, t, cls) => `<span${cls ? ' class="sp"' : ''}><b>${k}</b> ${t}</span>`;
-    const parts = [kb('W A S D', 'drive'), kb('Space', 'handbrake'), kb('Shift', 'nitro'), kb('J', 'jump')];
+    const parts = [kb('W A S D', 'drive'), kb('Space', 'handbrake'), kb('Shift', 'nitro'), kb('J', T0.hover ? 'boost up' : 'jump')];
     if (act) parts.push(kb('F', act, true));
     if (T0.wheelie) parts.push(kb('V', 'wheelie', true));
     if (T0.police || T0.siren) parts.push(kb('G', 'siren'));
@@ -9437,7 +9463,7 @@ function setControlsFor(type) {
       minigun: '<svg viewBox="0 0 48 32" width="1.25em" height="1em" aria-hidden="true"><g fill="currentColor"><rect x="3" y="8" width="26" height="3.2" rx="1.2"/><rect x="3" y="12.6" width="26" height="3.2" rx="1.2"/><rect x="3" y="17.2" width="26" height="3.2" rx="1.2"/><rect x="8" y="6" width="3" height="16.6" rx="1"/><rect x="18" y="6" width="3" height="16.6" rx="1"/><rect x="28" y="5" width="13" height="18" rx="3"/><rect x="33" y="22" width="5" height="8" rx="1.5"/><rect x="41" y="10" width="5" height="4" rx="1"/></g></svg>',
       shotgun: '<svg viewBox="0 0 48 32" width="1.25em" height="1em" aria-hidden="true"><g fill="currentColor"><rect x="2" y="10" width="28" height="3" rx="1.2"/><rect x="2" y="14" width="28" height="3" rx="1.2"/><rect x="12" y="17.5" width="10" height="4" rx="1.5"/><rect x="28" y="9" width="9" height="11" rx="2"/><path d="M36 10 L47 13 L47 23 L41 23 L36 19 Z"/><rect x="31" y="19" width="3" height="5" rx="1"/></g></svg>',
       cannon: '<svg viewBox="0 0 48 32" width="1.25em" height="1em" aria-hidden="true"><g fill="currentColor"><rect x="4" y="7" width="4" height="18" rx="1"/><rect x="8" y="9" width="20" height="14" rx="1.5"/><path d="M28 9 Q44 10 46 16 Q44 22 28 23 Z"/><rect x="22" y="9" width="2.5" height="14" fill="rgba(0,0,0,0.35)"/></g></svg>' };
-    const ICON = { reel: ['🌾', 'Reel'], dump: ['🪨', 'Boulders'], blade: ['🚜', 'Blade'], harpoon: ['🔱', 'Harpoon'], oil: ['🛢️', 'Oil'], spikes: [SVG.shotgun, 'Shotgun'], flame: ['🔥', 'Flames'], bomb: ['💣', 'Propane'], water: ['💧', 'Water'], minigun: [SVG.minigun, 'Minigun'], rockets: ['🚀', 'Rockets'], lift: ['⬆️', 'Lift'], tow: ['🪝', 'Hook'], ram: ['🚀', 'Ram'], web: ['🕸️', 'Web'], hopbomb: ['⏫', 'Hop'] };
+    const ICON = { reel: ['🌾', 'Reel'], dump: ['🪨', 'Boulders'], blade: ['🚜', 'Blade'], harpoon: ['🔱', 'Harpoon'], oil: ['🛢️', 'Oil'], spikes: [SVG.shotgun, 'Shotgun'], flame: ['🔥', 'Flames'], bomb: ['💣', 'Propane'], water: ['💧', 'Water'], minigun: [SVG.minigun, 'Minigun'], rockets: ['🚀', 'Rockets'], lift: ['⬆️', 'Lift'], tow: ['🪝', 'Hook'], ram: ['🚀', 'Ram'], web: ['🕸️', 'Web'], hoverbomb: ['💣', 'Bombs'] };
     const [ic, lb] = T0.gun ? [SVG.cannon, 'Cannon'] : T0.pour ? (T0.pour === 'fuel' ? ['⛽', 'Fuel'] : ['🧱', 'Concrete']) : ICON[T0.special] || ['💥', 'Fire'];
     if (ic.startsWith('<svg')) $('fireIco').innerHTML = ic; else $('fireIco').textContent = ic; $('fireLab').textContent = lb;
     document.body.classList.toggle('has-siren', !!(T0.police || T0.siren));
@@ -10749,7 +10775,7 @@ const MP = {
     const r = (v, k = 100) => Math.round(v * k);
     const cs = cars.map((c) => { const b = c.body, p = b.position, q = b.quaternion, v = b.velocity, z = c.zones;
       return [r(p.x), r(p.y), r(p.z), r(q.x, 1e4), r(q.y, 1e4), r(q.z, 1e4), r(q.w, 1e4), r(v.x, 10), r(v.y, 10), r(v.z, 10), Math.round(c.health),
-        (c.wrecked ? 1 : 0) | (c.boosting ? 2 : 0) | (c.braking ? 4 : 0) | (c.sirenOn ? 8 : 0) | (c.turretGone ? 16 : 0) | (c.burnT > 0 ? 32 : 0) | (c.webbedT > 0 ? 64 : 0) | (c.latch ? 1024 : 0) | (c.grindT > 0 ? 2048 : 0) | (c.hovAir ? 4096 : 0) | (c.skirtDown ? 8192 : 0), // (128/256/512 are kept for the Steam Elephant's branch)
+        (c.wrecked ? 1 : 0) | (c.boosting ? 2 : 0) | (c.braking ? 4 : 0) | (c.sirenOn ? 8 : 0) | (c.turretGone ? 16 : 0) | (c.burnT > 0 ? 32 : 0) | (c.webbedT > 0 ? 64 : 0) | (c.latch ? 1024 : 0) | (c.grindT > 0 ? 2048 : 0) | (c.hovAir || c.hovUp ? 4096 : 0) | (c.skirtDown ? 8192 : 0), // (128/256/512 are kept for the Steam Elephant's branch)
         [z.front, z.rear, z.left, z.right, z.top].map((x) => Math.round(x)).join('.'),
         c.parts.reduce((a, pt, i) => (pt.detached ? a.concat(i) : a), []), c.wheelLost.reduce((a, l, i) => a | (l ? 1 << i : 0), 0),
         r(c.rpm || 0, 0.01), r(c.steerVal || 0), r(c.turretYaw || 0), r(c.forkH || 0), c.kills || 0]; });
@@ -12911,7 +12937,7 @@ const IDLE = { ms: 3 * 60 * 1000, last: performance.now(), on: !/[?&]noidle=1\b/
   } };
 for (const ev of ['keydown', 'pointerdown', 'pointermove', 'wheel', 'touchstart', 'touchmove']) addEventListener(ev, (e) => { if (e.isTrusted || window.__idleTest) IDLE.poke(); }, { capture: true, passive: true });
 setInterval(() => IDLE.check(), 5000);
-window.__derby = { GP, PICK, cyclePick: (d) => cyclePick(d), setPick: (c) => setPick(c, false), canAim, frontTarget: (c, r, k) => frontTarget(c, r, k), AUTO, PLAYLOG, INSIDE, BOULDERS, get mapShapes() { return mapShapes; }, respawnCar: (o, t) => respawnCar(o, t), PHYS, cockpitEye: (c) => cockpitEye(c), wakeProp: (pr) => wakeProp(pr), addConcrete: (x, z, r, k) => addConcrete(x, z, r, k), igniteProp: (pr, t) => igniteProp(pr, t), cookBull: (bl, by, dt) => cookBull(bl, by, dt), hoseBull: (car, bl, p, f, dt) => hoseBull(car, bl, p, f, dt), DUCKS, goldConeReveal: (pr) => goldConeReveal(pr), sadTromboneKind: (t) => sadTromboneKind(t), honkBack: (car) => honkBack(car), smashBurger: (bl, how) => smashBurger(bl, how), bladeSlam: (car) => bladeSlam(car), wearBunHat: (bl) => wearBunHat(bl), bunHatRoll: (bl) => bunHatRoll(bl), shakeOff: (bl) => shakeOff(bl), harvestProp: (car, pr) => harvestProp(car, pr), baleMsgRoll: () => baleMsgRoll(), BALE_MSGS, updateSigns: (dt) => updateSigns(dt), SIGN_PROPS, tankerBoom: (p, c) => tankerBoom(p, c), CAR_TYPES, sfx, CANNON, barks, PERF, shells, NETLOG, nearHostAdd: () => nearHostAdd(), nearJoin: () => nearJoin(), JUMBO, BALL, BOLLARDS, GASQ, updateArenaPub: (dt) => updateArena(dt), CRUSHER, crushNow: () => crushNow(), applyNight: () => applyNight(), FIREWORKS, ARENA, CROWD, MP, QUALITY, applyQuality: (i) => applyQuality(i), MERGED, camera, updatePropActivity: (dt) => updatePropActivity(dt), renderer, scene, spawnFree: (x, z, r) => spawnFree(x, z, r), BULLS, updateBulls: (dt) => updateBulls(dt), updateShells, tilt, setTilt, get CRANE() { return CRANE; }, updateCrane: (dt) => updateCrane(dt), CONCRETE, THREE, craters, shells, pickups, barks, PERSONAS, TUNE, game, cars, S, world, CAR_TYPES, sfx, touch, drawGauge, get player() { return player; }, keys, startMatch, selectCar, setValue, debris, props, platformOf, get simTime() { return simTime; }, set simTime(v) { simTime = v; } }; // console tinkering + tests
+window.__derby = { HOVER, GP, PICK, cyclePick: (d) => cyclePick(d), setPick: (c) => setPick(c, false), canAim, frontTarget: (c, r, k) => frontTarget(c, r, k), AUTO, PLAYLOG, INSIDE, BOULDERS, get mapShapes() { return mapShapes; }, respawnCar: (o, t) => respawnCar(o, t), PHYS, cockpitEye: (c) => cockpitEye(c), wakeProp: (pr) => wakeProp(pr), addConcrete: (x, z, r, k) => addConcrete(x, z, r, k), igniteProp: (pr, t) => igniteProp(pr, t), cookBull: (bl, by, dt) => cookBull(bl, by, dt), hoseBull: (car, bl, p, f, dt) => hoseBull(car, bl, p, f, dt), DUCKS, goldConeReveal: (pr) => goldConeReveal(pr), sadTromboneKind: (t) => sadTromboneKind(t), honkBack: (car) => honkBack(car), smashBurger: (bl, how) => smashBurger(bl, how), bladeSlam: (car) => bladeSlam(car), wearBunHat: (bl) => wearBunHat(bl), bunHatRoll: (bl) => bunHatRoll(bl), shakeOff: (bl) => shakeOff(bl), harvestProp: (car, pr) => harvestProp(car, pr), baleMsgRoll: () => baleMsgRoll(), BALE_MSGS, updateSigns: (dt) => updateSigns(dt), SIGN_PROPS, tankerBoom: (p, c) => tankerBoom(p, c), CAR_TYPES, sfx, CANNON, barks, PERF, shells, NETLOG, nearHostAdd: () => nearHostAdd(), nearJoin: () => nearJoin(), JUMBO, BALL, BOLLARDS, GASQ, updateArenaPub: (dt) => updateArena(dt), CRUSHER, crushNow: () => crushNow(), applyNight: () => applyNight(), FIREWORKS, ARENA, CROWD, MP, QUALITY, applyQuality: (i) => applyQuality(i), MERGED, camera, updatePropActivity: (dt) => updatePropActivity(dt), renderer, scene, spawnFree: (x, z, r) => spawnFree(x, z, r), BULLS, updateBulls: (dt) => updateBulls(dt), updateShells, tilt, setTilt, get CRANE() { return CRANE; }, updateCrane: (dt) => updateCrane(dt), CONCRETE, THREE, craters, shells, pickups, barks, PERSONAS, TUNE, game, cars, S, world, CAR_TYPES, sfx, touch, drawGauge, get player() { return player; }, keys, startMatch, selectCar, setValue, debris, props, platformOf, get simTime() { return simTime; }, set simTime(v) { simTime = v; } }; // console tinkering + tests
 // Startup. Before Build 100 the first frame compiled every shader in one blocking step; Builds 100-108 compiled the menu scene off the
 // main thread first (KHR_parallel_shader_compile) but drew nothing until all of it was done, or 8 s had passed: a Chromebook's cold
 // start sat 16 s before its first frame. Now the first frame draws the sky behind the menu straight away (one small program), the

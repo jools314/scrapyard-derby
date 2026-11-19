@@ -1,7 +1,7 @@
 // Iconic looks (owner: "make the RV look more like the one in Breaking Bad... the mining trucks yellow"). An iconic vehicle always
 // wears its own paint, even when the AI drives it or it respawns (the AI used to give it a random colour); the RV has the brown and
 // tan side bands and dark side windows; Big Bertha is mining-truck yellow with pink mudflaps. Fails on Build 106 (no `iconic`).
-// The Buzzsaw Hover (Lucas's hovercraft) reads at a glance: teal deck, black rubber skirt, a ring of saw blades, a caged fan, a red paper lantern.
+// The Buzzsaw Hover (Lucas's hovercraft) reads at a glance: teal deck, black rubber skirt, saw blades down both sides, a caged fan, a red paper lantern.
 const { open } = require('./harness');
 (async () => {
   const { browser, page, errors } = await open({ viewport: { width: 640, height: 400 } });
@@ -25,7 +25,7 @@ const { open } = require('./harness');
   ok(r.berthaYellow && r.pinkFlaps >= 2, `Big Bertha is mining yellow with pink mudflaps (${r.pinkFlaps})`);
   ok(r.oldTow, 'the tow truck is a rusty old wrecker');
   ok(r.stripes >= 6 && r.camo >= 10, `the Outrider has twin racing stripes (${r.stripes}) and the Tiger wears camouflage (${r.camo})`);
-  ok(r.icon.includes('hover') && r.hover.teal && r.hover.saws >= 8 && r.hover.fan && r.hover.skirt && r.hover.lantern, `the Buzzsaw Hover is teal on a black skirt, with ${r.hover.saws} saw blades, a caged fan and a red lantern`);
+  ok(r.icon.includes('hover') && r.hover.teal && r.hover.saws >= 6 && r.hover.fan && r.hover.skirt && r.hover.lantern, `the Buzzsaw Hover is teal on a black skirt, with ${r.hover.saws} saw blades, a caged fan and a red lantern`);
   const pe = errors.filter((e) => e.startsWith('pageerror')); ok(!pe.length, 'no page errors ' + pe.slice(0, 2).join(' | '));
   console.log(fails.length ? 'LOOKS FAIL' : 'LOOKS PASS'); await browser.close(); process.exit(fails.length ? 1 : 0);
 })();

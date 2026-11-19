@@ -108,4 +108,4 @@ The game needs room to breathe, in sound, on screen and in the arena.
 | Camper | propane bombs | propane tanks explode in fire | Sandflea, Hellbender | heavies |
 | Forklift | lift and toss | forks up = top-heavy, tips over | side rams, Dozer | light cars, wrecks into hazards |
 | Tow truck | drags victims into the crusher, wrecking ball and fire pit | slow and exposed while towing | Viper, Outrider mid-tow | damaged and light cars |
-| Buzzsaw Hover | speed, drifting, saw ring, hop-bombs | exposed fan at the back (no saws there): rear hits slow it; light, easily shoved | Fire truck water; Viper and Outrider from behind | slow heavies from the air, cars that ram the saws |
+| Buzzsaw Hover | speed, drifting, side saws, cartoon bombs (lobbed ahead, dropped behind, or from a 5 m boost) | exposed fan at the back (no saws there): rear hits slow it; light, easily shoved | Fire truck water; Viper and Outrider from behind | slow heavies (bombed, they can't catch it), cars that ram or rub the side saws |
