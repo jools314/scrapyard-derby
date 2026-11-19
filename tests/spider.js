@@ -44,12 +44,12 @@ const { open } = require('./harness');
     T.go(0); await wt(2.5); const p = c.body.position; return { y0: +y0.toFixed(2), y: +p.y.toFixed(2), x: +p.x.toFixed(1), z: +p.z.toFixed(1), up: +c.up.y.toFixed(2), frontFoot: +c.legs[0].foot.y.toFixed(2) }; });
   ok('climbs onto the container (body ~1.45 m above its 2.6 m top) and stays there', climb.y > 3.6 && climb.y < 4.6 && Math.abs(climb.x - 92) < 1.3 && Math.abs(climb.z + 110) < 6 && climb.up > 0.9 && climb.frontFoot > 2.3, climb);
 
-  // 4. the web pins the car in front for ~3 s, however hard it pushes
+  // 4. the web pins the car in front for ~3-4 s (Build 128: 4 s on light cars), however hard it pushes; 'lets go' is measured once the hold has ended
   const web = await page.evaluate(async () => { const { D, wt } = T; const c = await T.spider(-60, 75, 0); const ai = await T.ai('outrider'); T.park(ai, -46, 75, 0); await wt(0.5);
     c.specialCd = 0; c.ctrl.fire = true; await wt(0.1); ai.ctrl.throttle = 1; const p0 = ai.body.position.clone(); let vmax = 0; const t0 = D.game.time;
     while (D.game.time - t0 < 2.6) { await T.sleep(20); vmax = Math.max(vmax, Math.hypot(ai.body.velocity.x, ai.body.velocity.z)); }
     const held = ai.body.position.vsub(p0).length(), webbed = ai.webbedT > 0, line = !!(c.webLine && c.webLine.visible);
-    await wt(1.4); const p1 = ai.body.position.clone(); await wt(1.5); const after = ai.body.position.vsub(p1).length(); ai.ctrl.throttle = 0;
+    { const t1 = D.game.time; while (ai.webbedT > 0 && D.game.time - t1 < 4) await T.sleep(20); } await wt(0.3); const p1 = ai.body.position.clone(); await wt(1.5); const after = ai.body.position.vsub(p1).length(); ai.ctrl.throttle = 0;
     return { webbed, line, held: +held.toFixed(2), vmax: +vmax.toFixed(2), freedAfter: +after.toFixed(1), cd: +c.specialCd.toFixed(1) }; });
   ok('web pins the car in front: ~0 speed for ~3 s with the throttle down', web.webbed && web.line && web.held < 1.0 && web.vmax < 1.5, web);
   ok('...then it lets go (the car drives off) and the web is on cooldown', web.freedAfter > 4 && web.cd > 0, web);
