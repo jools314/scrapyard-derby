@@ -17,6 +17,7 @@ const { open } = require('./harness');
     D.S.aiCount = 4; D.S.autoGfx = false; D.selectCar('outrider'); document.getElementById('btnStart').click();
     while (!(D.game.state === 'playing' && D.game.countdown <= 0)) await sleep(100);
     for (const bl of D.BULLS) bl.body.position.set(-130, 1.3, -130 + bl.id * 4);
+    for (const c of D.cars.filter((c) => c !== D.player && c.T.jet)) D.respawnCar(c, 'viper'); // (an AI Jet would launch Ann, a new car with a live brain: this part is about the water alone)
     const ais = D.cars.filter((c) => c !== D.player); for (const c of ais) { c.think = () => { c.ctrl.throttle = 0; c.ctrl.steer = 0; c.ctrl.fire = false; c.ctrl.handbrake = true; }; }
     out.never = D.TSU.state === 'idle' && D.TSU.level === 0;
     // dry-land speed: full throttle on the open south lane for 3 s
