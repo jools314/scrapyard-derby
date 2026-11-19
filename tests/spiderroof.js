@@ -28,15 +28,15 @@ const seed = () => { let a = 20261118; Math.random = () => { a |= 0; a = (a + 0x
       while (D.simTime - s1 < 2) { if (sp.latch && sp.latch.c === a) rode = D.simTime - s1; await sleep(16); }
       const onTop = sp.body.position.y - a.body.position.y;
       out.ride = { got, rode: +rode.toFixed(2), clawed: +(h1 - a.health).toFixed(1), onTop: +onTop.toFixed(2), viperY: +a.body.position.y.toFixed(2), viperUp: +a.up.y.toFixed(2) };
-      // 3) the Viper swerves hard: the spider is slung off and lands on its feet
-      const s2 = D.simTime; let off = null; while (D.simTime - s2 < 2.5) { if (!sp.latch) { off = +(D.simTime - s2).toFixed(2); break; } a.body.angularVelocity.y = 3.2; await sleep(16); }
+      // 3) the Viper keeps spinning hard: the spider is slung off and lands on its feet (since 11-19 one hard swerve isn't enough: spider2.js)
+      const s2 = D.simTime; let off = null; while (D.simTime - s2 < 4) { if (!sp.latch) { off = +(D.simTime - s2).toFixed(2); break; } a.body.angularVelocity.y = 3.5; await sleep(16); }
       a.body.angularVelocity.set(0, 0, 0); await sleep(2000);
       out.shake = { off, why: sp.unlatchWhy || null, up: +sp.up.y.toFixed(2), wrecked: sp.wrecked, y: +sp.body.position.y.toFixed(2) }; }
-    // 4) up close, F: the angle grinder cuts into a parked Hellbender for ~2.5 s and rips a panel off; then it has to cool down
+    // 4) up close, F: the laser cutter (the angle grinder until 11-19) cuts into a parked Hellbender for 3 s and cuts panels off; then it has to cool down
     { if (sp.latch) sp.unlatch('gone'); place(a, 90, 90); place(b, 0, -60, Math.PI); b.health = 100; place(sp, -5.6, -60, 0); await until(() => false, 1.2); /* (its front feelers just clear of the nose: closer, and it climbs onto the hood) */ const h0 = b.health, p0 = b.parts.filter((q) => q.detached).length;
-      const at = [+sp.body.position.x.toFixed(2), +sp.body.position.y.toFixed(2), +sp.body.position.z.toFixed(2), +b.body.position.x.toFixed(2), +b.body.position.z.toFixed(2), +sp.fwd.x.toFixed(2), !!sp.latch]; sp.specialCd = 0; sp.ctrl.fire = true; await until(() => sp.grindT > 0, 0.3); const grinding = sp.grindT > 0; await until(() => !(sp.grindT > 0), 4); /* (until it stops: on an overloaded machine the physics can fall behind game time) */
+      const at = [+sp.body.position.x.toFixed(2), +sp.body.position.y.toFixed(2), +sp.body.position.z.toFixed(2), +b.body.position.x.toFixed(2), +b.body.position.z.toFixed(2), +sp.fwd.x.toFixed(2), !!sp.latch]; sp.specialCd = 0; sp.ctrl.fire = true; await until(() => sp.laserT > 0, 0.3); const grinding = sp.laserT > 0; await until(() => !(sp.laserT > 0), 4); /* (until it stops: on an overloaded machine the physics can fall behind game time) */
       const lost = +(h0 - b.health).toFixed(1), ripped = b.parts.filter((q) => q.detached).length - p0, cd = +(sp.specialCd || 0).toFixed(1);
-      sp.ctrl.fire = true; await until(() => false, 0.2); const again = sp.grindT > 0;
+      sp.ctrl.fire = true; await until(() => false, 0.2); const again = sp.laserT > 0;
       out.grind = { at, grinding, lost, ripped, cd, again, label: document.getElementById('fireLab') && document.getElementById('fireLab').textContent }; }
     out.kicks = kicks() - k0; return out; });
   console.log('  ' + JSON.stringify(r));
@@ -46,9 +46,9 @@ const seed = () => { let a = 20261118; Math.random = () => { a |= 0; a = (a + 0x
   ok(L.up > 0.9 && Math.abs(L.standY - L.y0) < 0.25, `lands on its feet after a big leap (up ${L.up}, standing at ${L.standY} m, was ${L.y0} m)`);
   ok(R.got !== null && R.rode > 1.5 && R.onTop > 1, `a leap onto a car's roof grabs on and rides it (grabbed after ${R.got} s, rode ${R.rode} s, ${R.onTop} m above it)`);
   ok(R.clawed >= 3 && R.viperUp > 0.9, `riding the roof it claws the car (${R.clawed} health in 2 s) without launching it (Viper up ${R.viperUp}, y ${R.viperY})`);
-  ok(Sh.off !== null && Sh.off < 1.5 && Sh.why === 'shake' && !Sh.wrecked && Sh.up > 0.8, `a hard swerve shakes it off (${Sh.off} s, ${Sh.why}) and it lands on its feet (up ${Sh.up})`);
-  ok(G.grinding && G.lost >= 14 && G.ripped >= 1, `up close F fires up the angle grinder: cuts ${G.lost} health and ${G.ripped} panel(s) off a Hellbender`);
-  ok(G.cd > 0 && !G.again, `the grinder has to cool down (${G.cd} s left; second press: ${G.again ? 'ran again' : 'nothing'})`);
+  ok(Sh.off !== null && Sh.off < 3 && Sh.why === 'shake' && !Sh.wrecked && Sh.up > 0.8, `spinning hard shakes it off (${Sh.off} s, ${Sh.why}) and it lands on its feet (up ${Sh.up})`);
+  ok(G.grinding && G.lost >= 14 && G.ripped >= 1 && G.label === 'Laser', `up close F fires the laser cutter: cuts ${G.lost} health and ${G.ripped} panel(s) off a Hellbender (button: ${G.label})`);
+  ok(G.cd > 0 && !G.again, `the laser has to cool down (${G.cd} s left; second press: ${G.again ? 'ran again' : 'nothing'})`);
   ok(r.kicks === 0, `0 solver kicks undone on the spider (${r.kicks})`);
   const pe = errors.filter((e) => e.startsWith('pageerror') || /frame error/.test(e)); ok(!pe.length, 'no page or frame errors ' + pe.slice(0, 2).join(' | '));
   console.log(fails.length ? 'SPIDERROOF FAIL' : 'SPIDERROOF PASS'); await browser.close(); process.exit(fails.length ? 1 : 0);
