@@ -22,3 +22,21 @@ Principle (from the user): every car is strong at something and has ONE visible 
 | Buzzsaw Hover | speed, big drifts, spinning saws down both sides, cartoon bombs (lobbed at the car ahead, dropped on a chaser, or dropped from a ~5 m boost onto the car below); hovers low over concrete, oil and mud | EXPOSED FAN at the back (no saws there): rear hits bend it → it pushes less, smokes and wobbles; so light that every hit and hose shoves it | Fire truck water blasts it across the yard; fast cars hit the fan from behind (Viper, Outrider) | slow heavies (bombed from above, they can't catch it), anyone who rams or rubs the side saws |
 | Jet (Captain Goldtooth) | laser minigun on the roof; in a tsunami Ann the speedboat launches off the bed | BATTERY RING on the turret dims as it drains, flashes red while it recharges (2.5 s locked out); water from the Fire truck shorts the laser | Fire truck (water shorts it), fast flankers once the battery is flat (Viper, Outrider) | the Cruiser (plunder: its cash), light cars from range |
 | Ann (tsunami only) | very fast and drifty on water, bow laser, auto broadside cannons, J dives under and comes up zapping whoever is above | out of the water she can only scoot; light hull | heavies she can't get under, anything on high ground | slow cars wading in the flood |
+
+## How each car's AI drives (CAR_AI and the driver styles in index.html)
+Each car's own driver has a personality that comes from the car (its `style`), and the car has a profile (`CAR_AI`): its own tactic, a range band, the prey above (hunted first) and the counters above (kept clear of). The five older styles (brawler, runup, vulture, chaos, coward) stay for the extra drivers and flavour any car they drive: a coward Viper still evades earlier and more often than a brawler Viper (`STYLE_FLAVOUR.caution`).
+
+| style | cars | in play |
+|---|---|---|
+| striker | Viper | hit and run: darts at a heavy's back corner, hits, peels away (over a kicker when one is ahead); rockets from range; sidesteps heavies coming at it nose-first |
+| hunter | Outrider | flanks light cars, harpoons them at 8-40 m and yanks them toward the wrecking ball, fire pit or a wall |
+| chaos | Sandflea | tight drifting orbits round its prey (a ring of fire), flames only when the car is in the jet, takes the kickers |
+| vulture | Spider | its own perch-and-pounce tactics (spiderTactics) |
+| trapper | Mixer, Tanker | gets ahead of a car on its line (never toward a wall) and leads it on: concrete lobbed where a moving car is going and a trail for tailgaters (Mixer); fuel for tailgaters, lit once they're in it and the tanker is clear (Tanker) |
+| brawler | Cruiser | (an older style that fits it: Sheriff Buck) goes straight at fast cars; the stop-stick drops itself for tailgaters, the shotgun fires only under 22 m; now and then gets out ahead of a chaser to lead it over the stick |
+| dragger | Tow truck, Forklift | picks off hurt and light cars and delivers them to the crusher or the ball |
+| gunner | Hellbender | holds 10-34 m facing its target (or just rams: it hunts as often), minigun at range on cars (not bulls), backs off when crowded |
+| sniper | Tiger | orbits at 24-50 m and shells (the turret leads); once the barrel is bent it stops firing and crushes |
+| runup | Camper | (an older style that fits it) backs up and charges: a rolling wrecking ball that hunts heavies; lobs propane only at 12-50 m, never on its own nose |
+| rescuer | Fire truck | goes for burning cars, leaking tankers and fire users, hoses them from 9-22 m; anything not burning it just rams; rolls light cars that come close |
+| bully | Dozer, Big Bertha, Combine | shoves its prey into the nearest hazard (wrecking ball, crusher mouth, fire pit): gets on the far side, then drives straight through it, backs off and rams again if it jams; with no hazard near, the Dozer comes round to blade a car in the side; Bertha drops boulders on tailgaters; the Combine mostly hunts head-on with its reel and never reels heavy steel |
