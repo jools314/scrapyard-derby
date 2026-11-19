@@ -2524,11 +2524,12 @@ function frontObject(car, range, cone) { // nearest bull or shootable prop ahead
   for (const pr of props) { const o = pr.body; if (!(o.gas || o.mass === 90 || o.propKind === 'rubber') || pr.dormant && !props.includes(pr)) continue; const l = b.pointToLocalFrame(o.position); if (l.x > 2 && Math.abs(l.z) < l.x * cone && l.x < bd) { bd = l.x; best = { body: o }; } }
   return best;
 }
+function rideLinked(a, b) { return !!((a.latch && a.latch.c === b) || (b.latch && b.latch.c === a)); } // a spider riding b's roof (or b riding a's): the two move as one, so no weapon or tether may join them (a harpoon between them turned the roof latch into a lift: Build 129, Outrider launched to vy 32)
 function frontTarget(car, range, cone) { // nearest car ahead inside a cone (a human's picked target first, when it is inside this weapon's reach)
-  const pk = pickFor(car); if (pk) { const l = car.body.pointToLocalFrame(pk.body.position), d = Math.hypot(l.x, l.z); if (l.x > 0 && d < range && Math.abs(Math.atan2(l.z, l.x)) < cone) return pk; }
+  const pk = pickFor(car); if (pk && !rideLinked(car, pk)) { const l = car.body.pointToLocalFrame(pk.body.position), d = Math.hypot(l.x, l.z); if (l.x > 0 && d < range && Math.abs(Math.atan2(l.z, l.x)) < cone) return pk; }
   let best = null, bd = range;
   for (const c of cars) {
-    if (c === car || c.wrecked) continue;
+    if (c === car || c.wrecked || rideLinked(car, c)) continue; // (not the spider riding our own roof)
     const l = car.body.pointToLocalFrame(c.body.position), d = Math.hypot(l.x, l.z);
     if (l.x > 0 && d < bd && Math.abs(Math.atan2(l.z, l.x)) < cone) { bd = d; best = c; }
   }
@@ -2719,11 +2720,11 @@ function fireRocket(car, k) {
 }
 function forkReady(car) { // AI: is a liftable car sitting on the tines?
   const b = car.body;
-  return cars.some((c) => { if (c === car || c.T.skid || c.body.mass > 4200) return false; const l = b.pointToLocalFrame(c.body.position), fx = l.x + car.comShift - car.T.L / 2; return fx > -0.3 && fx < 2.4 + c.T.W * 0.5 && Math.abs(l.z) < 1.4 && Math.abs(l.y) < 1.4; });
+  return cars.some((c) => { if (c === car || c.T.skid || c.body.mass > 4200 || rideLinked(car, c)) return false; const l = b.pointToLocalFrame(c.body.position), fx = l.x + car.comShift - car.T.L / 2; return fx > -0.3 && fx < 2.4 + c.T.W * 0.5 && Math.abs(l.z) < 1.4 && Math.abs(l.y) < 1.4; });
 }
 function towable(car) { // AI: anything right behind the hook?
   const b = car.body, rear = -car.T.L / 2;
-  return cars.some((c) => { if (c === car || c.T.skid) return false; const l = b.pointToLocalFrame(c.body.position), x = l.x + car.comShift; return x < rear + 0.5 && rear - x - Math.min(c.T.L, c.T.W) * 0.5 < 3 && Math.abs(l.z) < 2; });
+  return cars.some((c) => { if (c === car || c.T.skid || rideLinked(car, c)) return false; const l = b.pointToLocalFrame(c.body.position), x = l.x + car.comShift; return x < rear + 0.5 && rear - x - Math.min(c.T.L, c.T.W) * 0.5 < 3 && Math.abs(l.z) < 2; });
 }
 function towRelease(car, whip) { // unhook; at speed the truck whips the load sideways
   const k = car.tow; if (!k) return;
@@ -2886,7 +2887,7 @@ const WEAPONS = {
       if (car.tow) { towRelease(car, true); return; }
       const b = car.body, rear = -car.T.L / 2; let best = null, bd = 3.4;
       for (const c of cars) {
-        if (c === car) continue;
+        if (c === car || rideLinked(car, c)) continue; // (not a spider riding the truck's own roof)
         const l = b.pointToLocalFrame(c.body.position), x = l.x + car.comShift;
         if (x > rear + 0.5 || Math.abs(l.z) > 2 || Math.abs(l.y) > 2) continue;
         const gap = rear - x - Math.min(c.T.L, c.T.W) * 0.5; // bumper to nearest end
@@ -2924,7 +2925,7 @@ const WEAPONS = {
       if (car.carry) { liftRelease(car, true); return; }
       const b = car.body; let best = null, bd = 9;
       for (const c of cars) {
-        if (c === car) continue;
+        if (c === car || rideLinked(car, c)) continue; // (not a spider riding the forklift's own roof)
         const l = b.pointToLocalFrame(c.body.position), fx = l.x + car.comShift - car.T.L / 2;
         if (fx > -0.3 && fx < 2.4 + c.T.W * 0.5 && Math.abs(l.z) < 1.4 && l.y > -1.2 && l.y < 1.4 && fx < bd) { bd = fx; best = c; }
       }
@@ -4234,7 +4235,7 @@ function webPick(car) { // who the web goes for: the car you picked (Tab / the t
 PMAT.poison = new THREE.MeshBasicMaterial({ color: 0x7dff3a });
 const TIES = [];
 function spiderBind(car, t) { // after a web hit: tie t to the nearest other car within 10 m, else stick it to scenery within 8 m, else (null) the plain ground pin
-  let mate = null, md = 10; for (const c of cars) { if (c === car || c === t || c.wrecked || c.ghost) continue; const d = c.body.position.distanceTo(t.body.position); if (d < md) { md = d; mate = c; } }
+  let mate = null, md = 10; for (const c of cars) { if (c === car || c === t || c.wrecked || c.ghost || rideLinked(c, t)) continue; const d = c.body.position.distanceTo(t.body.position); if (d < md) { md = d; mate = c; } }
   if (mate && !TIES.some((x) => x.a === t || x.b === t || x.a === mate || x.b === mate)) {
     t.webbedT = 0; t.webAt = null; const L = new THREE.LineSegments(new THREE.BufferGeometry(), SPIDER().web); L.geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3)); L.frustumCulled = false; scene.add(L);
     TIES.push({ a: t, b: mate, t: 4, by: car, line: L }); mate.lastAttacker = car; mate.lastAttackTime = simTime;
@@ -6030,7 +6031,7 @@ class Car {
     const b = this.body, cb = c.body, l = cb.pointToLocalFrame(b.position), K = this.T.size || 1;
     l.x = clamp(l.x, -c.T.L / 2, c.T.L / 2); l.z = clamp(l.z, -c.T.W / 2, c.T.W / 2); l.y = (this._roofY != null ? cb.pointToLocalFrame(new CANNON.Vec3(b.position.x, this._roofY, b.position.z)).y : Math.max(l.y - this.ride, HULL_Y0 + c.T.H + c.T.cabin.h)) + this.ride * 0.85; // (crouched on the roof, not in it)
     const q = cb.quaternion.conjugate().mult(b.quaternion);
-    this.latch = { c, t: cb.mass >= 5000 ? 6 : 10, shake: 0, air: 0, off: l, q, claw: 0 }; c.latchedBy = this; b.collisionResponse = false; this.leapAim = null; // (it follows the roof exactly: no contact pushes either of them)
+    this.latch = { c, t: cb.mass >= 5000 ? 6 : 10, shake: 0, air: 0, off: l, q, claw: 0 }; c.latchedBy = this; b.collisionResponse = false; this.leapAim = null; this.cutTethers(c); // (it follows the roof exactly: no contact pushes either of them)
     this.laserT = this.laserT || 0;
     spiderLine(this, 'roof', c);
     if (this.isPlayer) toast(`RIDING ${c.name}!`, 'cool'); else if (c.isPlayer) toast('🕷️ ON YOUR ROOF! SWERVE!', 'bad');
@@ -6039,6 +6040,9 @@ class Car {
       if (MP.role === 'solo') game.slowmo = Math.max(game.slowmo, 0.55); sfx.noiseHit('bandpass', 520, 0.6, 0.4, 0.7, true); }
     if (PLAYLOG.m) { const V = PLAYLOG.V(this.type); V.rides = (V.rides || 0) + 1; }
     return true;
+  }
+  cutTethers(c) { // a tether between rider and ridden (say a harpoon that reeled the spider in, and it grabbed the roof) goes: the latch overwrites the rider's half of its pull every step, so it would lift the car by its own bootstraps (Build 129)
+    if (c.cable && c.cable.t === this) WEAPONS.harpoon.end(c); if (this.cable && this.cable.t === c) WEAPONS.harpoon.end(this); if (c.tow && c.tow.c === this) towRelease(c, false); if (this.tow && this.tow.c === c) towRelease(this, false);
   }
   latchStep(dt) { // riding a roof; false when it lets go this step (then it walks, or leaps, as usual)
     const L = this.latch, c = L.c, b = this.body, cb = c.body; L.t -= dt;
@@ -6049,6 +6053,7 @@ class Car {
     if (this.ctrl.jump) { this.jumpBuf = 0.35; this.ctrl.jump = false; } this.jumpBuf = (this.jumpBuf || 0) - dt;
     const gone = this.wrecked || this.craned || this.carriedBy || c.wrecked || !cars.includes(c), flip = c.up.y < 0.55, hop = !c.T.walker && L.air > 0.45; // (a bump has it in the air for a moment; a real jump or a ramp for longer)
     if (gone || flip || hop || L.shake > 2 || L.t <= 0 || (this.jumpBuf > 0 && this.legsLeft >= 4)) { this.unlatch(gone ? 'gone' : flip ? 'flip' : hop ? 'jump' : L.shake > 2 ? 'shake' : L.t <= 0 ? 'time' : 'leap'); return false; }
+    this.cutTethers(c);
     cb.pointToWorldFrame(L.off, _wL); b.position.copy(_wL); _wL.vsub(cb.position, _wR); cb.angularVelocity.cross(_wR, _wA); cb.velocity.vadd(_wA, b.velocity); // the roof point's own velocity
     cb.quaternion.mult(L.q, b.quaternion); b.angularVelocity.copy(cb.angularVelocity); { const s0 = _pv.get(b); if (s0) { s0.v.copy(b.velocity); s0.w.copy(b.angularVelocity); } }
     _wF.set(0, b.mass * S.gravity, 0); b.applyForce(_wF); // (held up by its legs, not by the roof)
@@ -7146,14 +7151,17 @@ const HITLOG = []; // every hit on your car: [time, damage, health left, what hi
 // Solver blow-ups: when bodies are forced deep into each other the solver can shoot them out at rocket speed (this is how you end up in the sky).
 // A crash can stop a car dead, but it can't make anything faster than the fastest thing that went into it: if a car or bull leaves a physics step
 // faster than that (or suddenly spinning far faster), it gets the velocity it had before the step back.
+const GUARD_UNDOS = 3; // undos in a row per body before the guard gives up and only caps the speed (Build 129 logs: 120-150 in a row on one body)
 const _pv = new WeakMap(); let _vmax = 0; // (weak: a Map here, since Build 46, kept every car and bull that ever lived reachable, meshes, geometry arrays and all: the long-autoplay heap leak, ~15 MB a match in tests/heapleak.js)
 { const _is = world.internalStep.bind(world); world.internalStep = (dt) => { _snapV(); _is(dt); }; } // (cannon's 'preStep' event fires after the contact solver, too late to see the kick)
 function _snapV() { _vmax = 0; const rec = (b) => { const s = _pv.get(b) || { v: new CANNON.Vec3(), w: new CANNON.Vec3() }; s.v.copy(b.velocity); s.w.copy(b.angularVelocity); _pv.set(b, s); _vmax = Math.max(_vmax, b.velocity.length()); };
   for (const c of cars) if (!c.ghost) rec(c.body); for (const bl of BULLS) rec(bl.body); }
 world.addEventListener('postStep', () => {
   const allowed = _vmax * 1.15 + 6;
-  const guard = (b, who) => { const s = _pv.get(b); if (!s) return; const sp = b.velocity.length(), sp0 = s.v.length(), dw = Math.abs(b.angularVelocity.length() - s.w.length());
-    if ((sp > allowed && sp > sp0 + 8) || dw > 15) { PHYS.blowups++; if (PHYS.log.length < 200) PHYS.log.push({ t: +simTime.toFixed(2), kind: 'solver kick undone', who, speed: Math.round(sp), was: Math.round(sp0), spin: Math.round(b.angularVelocity.length()), x: Math.round(b.position.x), y: +b.position.y.toFixed(1), z: Math.round(b.position.z) }); b.velocity.copy(s.v); b.angularVelocity.copy(s.w); } };
+  const guard = (b, who) => { const s = _pv.get(b); if (!s) return; const sp = b.velocity.length(), sp0 = s.v.length(), ws = b.angularVelocity.length(), ws0 = s.w.length();
+    if (!((sp > allowed && sp > sp0 + 8) || ws - ws0 > 15)) { s.n = 0; return; } // (a sudden rise only: a contact that stops a spin is no kick, and undoing it restored the spin every step, Build 129)
+    if ((s.n = (s.n || 0) + 1) > GUARD_UNDOS) { const cap = Math.min(allowed, sp0 + 8); if (sp > cap) b.velocity.scale(cap / sp, b.velocity); if (ws > ws0 + 15) b.angularVelocity.scale((ws0 + 15) / ws, b.angularVelocity); return; } // (still kicked after 3 undos in a row: something keeps pushing it, an overlap or a contact; take the solver's word, capped, instead of restoring it forever)
+    PHYS.blowups++; if (PHYS.log.length < 200) PHYS.log.push({ t: +simTime.toFixed(2), kind: 'solver kick undone', who, speed: Math.round(sp), was: Math.round(sp0), spin: Math.round(ws), x: Math.round(b.position.x), y: +b.position.y.toFixed(1), z: Math.round(b.position.z) }); b.velocity.copy(s.v); b.angularVelocity.copy(s.w); };
   for (const c of cars) if (!c.ghost) guard(c.body, c.T.name); for (const bl of BULLS) guard(bl.body, 'bull');
   for (const c of cars) { const b = c.body; if (c.ghost || b.position.y > -2.5) continue; // fell through the floor (a deep hit can push a body through it): lift it back out
     if (PHYS.log.length < 200) PHYS.log.push({ t: +simTime.toFixed(2), kind: 'fell through floor, lifted back', who: c.T.name, x: Math.round(b.position.x), y: +b.position.y.toFixed(1), z: Math.round(b.position.z) });
