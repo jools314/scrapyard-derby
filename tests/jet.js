@@ -3,7 +3,7 @@
 //  - in a forced tsunami Ann launches off the bed and the player is in Ann; the truck is left empty, floating, Ann gone from its bed;
 //  - Ann on the water is much faster than a car in the flood (at least 2x);
 //  - J dives (cars pass over her), and she comes up zapping the car above; her cannons fire a broadside at a car alongside by themselves;
-//  - a hard hit on the Cruiser drops cash bundles, and driving over one grabs it (+score);
+//  - a hard hit on the Cruiser drops cash bundles, and driving over one grabs it: the first robbery pays +100 a bundle, robbing them again (a later drop) +1,000 a bundle;
 //  - after the drain the player is back in a drivable Jet with Ann on the bed.
 const { open } = require('./harness');
 (async () => {
@@ -46,8 +46,9 @@ const { open } = require('./harness');
     { const t0 = D.game.time; while (D.game.time - t0 < 2) { maxSh = Math.max(maxSh, D.shells.length); await sleep(20); } } out.broadside = maxSh - sh0;
     // 6. plunder: knock the cops' cash loose (a fresh Cruiser), drive over it
     let cop = D.respawnCar(ai, 'cruiser'); park(cop); await wt(0.3); put(cop, -20, 100, 0); await wt(0.6);
-    D.dropCash(cop, ann); await wt(1.5); const bundle = D.CASH.b.find((k) => k.on); out.cash = !!bundle;
-    if (bundle) { const s0 = D.game.score; put(ann, bundle.x, bundle.z, 0); ann.body.position.y = 1.5; await wt(0.8); out.grabbed = D.CASH.grabbed; out.plunderScore = D.game.score - s0; }
+    const pays = [], as0 = D.game.addScore; D.game.addScore = function (n, l) { if (l && /PLUNDER|ROBBED/.test(l)) pays.push(n); return as0.call(this, n, l); }; // (each bundle's pay, apart from any other points)
+    const rob = async () => { D.dropCash(cop, ann); await wt(1.5); const b = D.CASH.b.find((k) => k.on); if (!b) return null; const n0 = pays.length; put(ann, b.x, b.z, 0); ann.body.position.y = 1.5; await wt(0.8); for (const k of D.CASH.b) k.on = false; put(ann, 40, 60, 0); ann.body.position.y = 1.4; await wt(0.3); return pays.slice(n0); }; // (left-over bundles cleared: each robbery's pay is its own)
+    out.rob1 = await rob(); out.cash = !!out.rob1; out.grabbed = D.CASH.grabbed; out.rob2 = await rob(); out.rob3 = await rob(); D.game.addScore = as0;
     // 7. the drain: back in Jet, Ann on the bed, and it drives
     await until(() => D.TSU.state === 'idle', 90); await wt(1);
     const j = D.player; out.back = j.type === 'jet' && j.isPlayer && !j.wrecked && j.annAboard === true && !!j.annOnBed.visible && D.TSU.hulks.length === 0; out.sameTruck = j === jet0; out.reb = D.TSU.log.filter((e) => e.ev === 'reboard');
@@ -61,7 +62,8 @@ const { open } = require('./harness');
   ok(r.diving && (r.mask & 4) === 0, 'J dives: under the water, cars pass over her');
   ok(r.surfaced && r.upHits >= 1 && r.diveDmg >= 8, `she comes up zapping the car above (${r.diveDmg} damage)`);
   ok(r.broadside >= 3, `her cannons fire a broadside at a car alongside (${r.broadside} cannonballs)`);
-  ok(r.cash && r.grabbed >= 1 && r.plunderScore >= 100, `the Cruiser drops cash, driving over it grabs it (+${r.plunderScore})`);
+  ok(r.cash && r.grabbed >= 1 && r.rob1.length >= 1 && r.rob1.every((v) => v === 100), `the Cruiser drops cash, driving over it grabs it: the first robbery pays ${JSON.stringify(r.rob1)} (100 a bundle)`);
+  ok(r.rob2 && r.rob2.length >= 1 && r.rob2.every((v) => v === 1000) && r.rob3 && r.rob3.length >= 1 && r.rob3.every((v) => v === 1000), `robbing the cops again pays 1,000 a bundle: second robbery ${JSON.stringify(r.rob2)}, third ${JSON.stringify(r.rob3)}`);
   ok(r.back && r.driveAfter > 6, `after the drain the player is back in a drivable Jet with Ann on board (drove ${r.driveAfter} m) ${JSON.stringify(r.reb)}`);
   const pe = errors.filter((e) => !e.includes('ERR_FAILED')); ok(!pe.length, 'no page errors ' + pe.slice(0, 3).join(' | '));
   console.log(fails.length ? 'JET FAIL' : 'JET PASS'); await browser.close(); process.exit(fails.length ? 1 : 0);
