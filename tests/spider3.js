@@ -54,7 +54,7 @@ const seed = () => { let a = 20261120; Math.random = () => { a |= 0; a = (a + 0x
     // ...the same 1.5 s from a Hellbender's roof that isn't webbed down (the ordinary laser)
     { reset(); away(); place(b, 0, 40, 0); b.health = 100; place(sp, -8, 40, 0); await until(() => false, 1.2); const tf = 2.1, q = b.body.position, p = sp.body.position;
       sp.leapVel = { x: (q.x - p.x) / tf, z: (q.z - p.z) / tf, t: D.simTime }; sp.ctrl.jump = true; const m = (await until(() => sp.latch && sp.latch.c === b, 3)) !== null; const L = { mounted: m, wmax: 0, lost: 0 };
-      if (m) { b.health = 100; sp.specialCd = 0; const h0 = b.health; sp.ctrl.fire = true; await until(() => sp.laserT > 0, 0.3); await until(() => { const M = sp.laserBeam; if (M && M.visible) L.wmax = Math.max(L.wmax, M.scale.x); return false; }, 1.5); L.lost = +(h0 - b.health).toFixed(1); }
+      if (m) { b.health = 100; sp.specialCd = 0; b.webFree = D.simTime + 9; /* (since spider4 F on a car it rides that isn't held webs it first: this one has just torn free, so F is the ordinary laser) */ const h0 = b.health; sp.ctrl.fire = true; await until(() => sp.laserT > 0, 0.3); await until(() => { const M = sp.laserBeam; if (M && M.visible) L.wmax = Math.max(L.wmax, M.scale.x); return false; }, 1.5); L.lost = +(h0 - b.health).toFixed(1); }
       out.plainLaser = L; }
     out.pull30 = await pullTrial(30);
     // ...with no car on the line, J is the ordinary high leap

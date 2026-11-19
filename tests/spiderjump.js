@@ -57,7 +57,7 @@ const seed = () => { let a = 20261117; Math.random = () => { a |= 0; a = (a + 0x
   ok(P.n >= 3 && P.gap !== null && P.gap < 2.6, `player: mashing J leaps again as soon as it lands (${P.n} leaps in 5.2 s, ${P.gap} s apart, ~2.2 s of it in the air since the 8.4 m leap of 11-19; was 2.5 s + 1.9 s)`);
   ok(P.leaps.every((l) => l.y < 2.4), `player: every leap starts from its feet, never mid-air (take-off heights ${P.leaps.map((l) => l.y).join(', ')})`);
   ok(P.rise > 6.5 && P.rise < 9 && P.vmax < 25 && P.kicks === 0 && P.up > 0.8, `player: back-to-back leaps stay sane (rise ${P.rise} m, top speed ${P.vmax} m/s, ${P.kicks} solver kicks, upright ${P.up})`);
-  ok(r.chase.n >= 2 && r.chase.kicks === 0 && !r.chase.wrecked, `AI: hunting a Viper it leaps at it (${r.chase.n} leaps in 16 s: ${r.chase.leaps.map((l) => l.why).join(',')}; ${r.chase.landed} landed on its roof; ${r.chase.kicks} solver kicks)`);
+  ok((r.chase.n >= 2 || (r.chase.n >= 1 && r.chase.landed >= 1)) && r.chase.kicks === 0 /* (since spider4 a pounce that lands webs the car down and rides it up to 10 s: one landed pounce counts) */ && !r.chase.wrecked, `AI: hunting a Viper it leaps at it (${r.chase.n} leaps in 16 s: ${r.chase.leaps.map((l) => l.why).join(',')}; ${r.chase.landed} landed on its roof; ${r.chase.kicks} solver kicks)`);
   ok(r.dodge.n >= 2, `AI: leaps over a medium car charging at it (${r.dodge.n}/3)`);
   ok(!!r.stuck.leapt && !r.stuck.reversedFirst, `AI: wedged in place, it leaps out (${JSON.stringify(r.stuck.leapt)}, backed up first: ${r.stuck.reversedFirst})`);
   const G = r.strong, worst = (k) => Math.max(...G.rams.map((x) => x[k]));
