@@ -7436,11 +7436,111 @@ class Car {
     }
   }
 
+  /* ---------- per-car AI (CAR_AI, docs/car-roles.md): the car's own tactics, on top of the driver's personality ---------- */
+  aiTactic(dt, t, dist, aim, caution) { // sets the aim point for hitrun / peel / kite / rescue / pin / trap
+    const AI = this.ai, b = this.body, p = b.position, tp = t.body.position, tv = t.body.velocity, tf = t.fwd, rx = -tf.z, rz = tf.x;
+    if (this.mode === 'hitrun') { // dart at its back corner, hit, then peel away before it can answer
+      const back = t.T.L * 0.5 + 2; aim.set(tp.x - tf.x * back + rx * this.flankSide * 1.5, 0, tp.z - tf.z * back + rz * this.flankSide * 1.5);
+      if (dist < 4 + t.T.L * 0.5 || (simTime - this.lastHitT < 0.25 && dist < 10)) { this.mode = 'peel'; this.peelT = rand(2, 3) * (0.8 + 0.2 * caution); this.flankSide = -this.flankSide; this.peelRamp = null; }
+    } else if (this.mode === 'peel') { // swoop on past and away; a jumper takes a kicker if one is ahead
+      this.peelT -= dt; const f = this.fwd, dx = p.x - tp.x, dz = p.z - tp.z, d = Math.hypot(dx, dz) || 1;
+      if (AI.jump && this.peelRamp === null) { this.peelRamp = false; for (const r of JUMP_RAMPS) { const fx = r.x - r.dx * 16 - p.x, fz = r.z - r.dz * 16 - p.z, fd = Math.hypot(fx, fz); if (fd < 45 && fd > 6 && (fx * f.x + fz * f.z) / fd > 0.55 && f.x * r.dx + f.z * r.dz > 0.3) { this.peelRamp = r; this.peelT = Math.max(this.peelT, fd / 15 + 2); break; } } }
+      const R = this.peelRamp;
+      if (R) aim.set(R.x + R.dx * 20, 0, R.z + R.dz * 20); // up the kicker and over
+      else { let ax = p.x + (f.x * 0.6 + dx / d * 0.8) * 30, az = p.z + (f.z * 0.6 + dz / d * 0.8) * 30; if (Math.abs(ax) > A - 25) ax = Math.sign(ax) * (A - 25); if (Math.abs(az) > A - 25) az = Math.sign(az) * (A - 25); aim.set(ax, 0, az); }
+      if (this.peelT <= 0) { this.mode = this.lastPlan === 'hitrun' && this.modeT > 0 ? 'hitrun' : 'hunt'; if (this.mode === 'hunt') this.modeT = Math.max(this.modeT, 1.5); }
+    } else if (this.mode === 'kite' || this.mode === 'rescue') { // hold the range band: orbit with a turret, or face it and back off with a nose gun
+      const r0 = AI.range[0] * (0.75 + 0.25 * caution), r1 = Math.max(r0 + 8, AI.range[1]);
+      this.kiteBand = dist < r0 ? -1 : dist > r1 ? 1 : 0;
+      if (this.mode === 'rescue' && !(t.burnT > 0 || t.leakT > 0 || t.onFire || t.T.special === 'flame')) this.kiteBand = 1; // nothing to put out: 8 tonnes of fire truck just rams it
+      if (AI.face && this.kiteBand <= 0 && (Math.abs(p.x) > A - 16 || Math.abs(p.z) > A - 16)) this.kiteBand = 1; // backed up to a wall: no more backing off or turning on the spot there, go at it
+      if (!AI.face && this.kiteBand <= 0) { const a = Math.atan2(p.z - tp.z, p.x - tp.x) + this.flankSide * 0.55, R = clamp(dist + (this.kiteBand < 0 ? 12 : 0), r0 + 2, r1 - 3); aim.set(tp.x + Math.cos(a) * R, 0, tp.z + Math.sin(a) * R); }
+      if (!AI.face && Math.abs(aim.x) > A - 20) aim.x = Math.sign(aim.x) * (A - 20); if (!AI.face && Math.abs(aim.z) > A - 20) aim.z = Math.sign(aim.z) * (A - 20);
+    } else if (this.mode === 'pin') { // shove it into the nearest hazard (not a wall: that's just two stuck cars): get on the far side, then drive straight through it
+      let hx = 0, hz = 0, hd = 45, have = false;
+      for (const H of PIN_SPOTS) { const d = Math.hypot(H.x - tp.x, H.z - tp.z); if (d < hd) { hd = d; hx = H.x; hz = H.z; have = true; } }
+      const bx = p.x - tp.x, bz = p.z - tp.z;
+      if (have) { const ux = (hx - tp.x) / (hd || 1), uz = (hz - tp.z) / (hd || 1), behind = -(bx * ux + bz * uz) / (dist || 1);
+        if (behind > 0.55 || (dist < 7 && behind > 0)) { aim.set(clamp(tp.x + ux * 8, 6 - A, A - 6), 0, clamp(tp.z + uz * 8, 6 - A, A - 6)); this.pinGo = dist < 30; } // lined up: through it, into the hazard
+        else if (behind < -0.2) { const sd = (bx * -uz + bz * ux) >= 0 ? 1 : -1; aim.set(clamp(tp.x - uz * sd * 14, 8 - A, A - 8), 0, clamp(tp.z + ux * sd * 14, 8 - A, A - 8)); this.pinGo = false; } // wrong side: swing round it
+        else { aim.set(clamp(tp.x - ux * 12, 8 - A, A - 8), 0, clamp(tp.z - uz * 12, 8 - A, A - 8)); this.pinGo = false; }
+      } else if (AI.side) { // the Dozer: blade into its side
+        const sd = (bx * rx + bz * rz) >= 0 ? 1 : -1, side = Math.abs(bx * rx + bz * rz) / (dist || 1);
+        if (side >= 0.7 && dist < 26 && -(bx * this.fwd.x + bz * this.fwd.z) / (dist || 1) > 0.85 && !(this.pinLock > simTime)) this.pinLock = simTime + 3; // lined up on its flank: commit (a dozer can't turn in tight, so it never circles in)
+        if (this.pinLock > simTime) this.pinGo = true; else { aim.set(tp.x + rx * sd * 18 + tv.x * 0.8, 0, tp.z + rz * sd * 18 + tv.z * 0.8); this.pinGo = false; }
+      } else this.pinGo = false;
+    } else if (this.mode === 'trap') { // get out ahead of it on its line, then lead it on into what we drop (concrete, fuel, the stop-stick)
+      const sp = Math.hypot(tv.x, tv.z); let hx = sp > 3 ? tv.x / sp : tf.x, hz = sp > 3 ? tv.z / sp : tf.z; const along = (p.x - tp.x) * hx + (p.z - tp.z) * hz;
+      if (Math.abs(p.x) > A - 45 && hx * p.x > 0) hx = -hx; if (Math.abs(p.z) > A - 45 && hz * p.z > 0) hz = -hz; // never lead it into a wall: turn along it
+      let ax, az;
+      if (along > 6 && dist < 40) { ax = p.x + hx * 28 + Math.sin(simTime * 0.7 + this.number) * 6 * hz; az = p.z + hz * 28 - Math.sin(simTime * 0.7 + this.number) * 6 * hx; } // in front: lead it
+      else { ax = tp.x + hx * (14 + sp * 1.2); az = tp.z + hz * (14 + sp * 1.2); } // cut across its path, ahead of it
+      if (Math.abs(ax) > A - 22) ax = Math.sign(ax) * (A - 22); if (Math.abs(az) > A - 22) az = Math.sign(az) * (A - 22);
+      aim.set(ax, 0, az);
+    }
+  }
+  aiEvade(dt, aim, caution) { // a heavy coming at us nose-first: sidestep out of its line (checked a few times a second)
+    const b = this.body, p = b.position;
+    if ((this.evT -= dt) <= 0) { this.evT = 0.15; this.evFrom = null; const R = 24 * this.ai.evade * caution;
+      for (const k of cars) { if (k === this || k.wrecked || k.body.mass < 4000 || k.carry || k.tow) continue;
+        const kp = k.body.position, dx = p.x - kp.x, dz = p.z - kp.z, d = Math.hypot(dx, dz) || 1; if (d > R) continue;
+        const kv = k.body.velocity, close = (kv.x * dx + kv.z * dz) / d, face = (k.fwd.x * dx + k.fwd.z * dz) / d; // (its own speed at us: a parked heavy is just something to hit in the back)
+        if (close > 2.5 && face > 0.85 - 0.1 * caution) { this.evFrom = k; break; } } }
+    const k = this.evFrom; if (!k || k.wrecked) return false;
+    const kp = k.body.position, kf = k.fwd, krx = -kf.z, krz = kf.x, sd = ((p.x - kp.x) * krx + (p.z - kp.z) * krz) >= 0 ? 1 : -1;
+    let ax = p.x + krx * sd * 20 + kf.x * 8, az = p.z + krz * sd * 20 + kf.z * 8; if (Math.abs(ax) > A - 15) ax = p.x - krx * sd * 20; if (Math.abs(az) > A - 15) az = p.z - krz * sd * 20;
+    aim.set(ax, 0, az); if (!this.evSaid || simTime - this.evSaid > 8) { this.evSaid = simTime; if (Math.random() < 0.3) barks.say(this, 'flee'); }
+    return true;
+  }
+  aiTail(range) { // someone on our tail?
+    const b = this.body, L = this.T.L / 2;
+    for (const c of cars) { if (c === this || c.wrecked) continue; const q = b.pointToLocalFrame(c.body.position, AI_V); if (q.x < -L && q.x > -range && Math.abs(q.z) < 7 + -q.x * 0.15) return c; }
+    return null;
+  }
+  aiWantsFire(t, dist) { // each special at the right moment (docs/car-roles.md), not at random
+    const b = this.body, sp = this.T.special, l = b.pointToLocalFrame(t.body.position, AI_V), ahead = l.x > 0 && Math.abs(l.z) < Math.max(2.5, l.x * 0.6);
+    switch (sp) {
+      case 'spikes': return ahead && dist < 22; // the shotgun: close, where the pellets all land (the stop-stick drops itself for tailgaters)
+      case 'flame': return l.x > 0.5 && l.x < 10.5 && Math.abs(l.z) < 1.3 + l.x * 0.3; // only when it's in the jet
+      case 'water': { const ft = frontTarget(this, 30, 0.75); if (!ft) return false; const fd = ft.body.position.distanceTo(b.position); // hose fires and fire-starters; roll light cars; shove anything close
+        return ft.burnT > 0 || ft.leakT > 0 || ft.onFire || ft.T.special === 'flame' || (ft.body.mass < 2200 && fd < 18) || fd < 11; }
+      case 'harpoon': { if (ahead && dist > 8 && dist < 40 && t.body.mass < 9000) return true; const ft = frontTarget(this, 40, 0.4); return !!ft && ft.body.mass < 4500; } // yank: harpoon it, then drive away with it (not the giants: they'd yank us)
+      case 'reel': return !this.reelOn && ahead && dist < 16 && !t.T.gun && !t.T.skid; // (the reel jams on heavy steel)
+      case 'dump': { const c = this.aiTail(28); return !!c && (c.body.velocity.x * this.fwd.x + c.body.velocity.z * this.fwd.z) > -1; } // boulders on a tailgater
+      case 'blade': if (this.bladeRaised) return (l.x > 0 && dist < 5.5) || simTime - (this.bladeRaisedT || 0) > 2.5; // slam it down on whatever is under it
+        return ahead && dist < 7.5 && (Math.abs(t.fwd.x * this.fwd.x + t.fwd.z * this.fwd.z) < 0.6 || t.body.mass < 3000); // into its side (or under anything light): flip it
+      case 'bomb': return l.x > 0 && Math.abs(Math.atan2(l.z, l.x)) < 0.5 && dist > 12 && dist < 50; // lob it from range, never on our own nose
+      case 'rockets': { const lk = frontTarget(this, 90, 0.45); return !!lk && dist > 12 && (lk === t || lk.body.mass > 4000); }
+      case 'minigun': return !!this.mgTarget && !!this.mgTarget.parts && dist < 52; // cars at range, not bulls
+      case 'lift': return this.carry ? this.carry.t > 2.4 && (!this.delivery || this.delivery.gaveUp) : forkReady(this);
+      case 'tow': return this.tow ? this.tow.t > 3.5 && Math.abs(this.speed) > 6 && (!this.delivery || this.delivery.gaveUp) : towable(this);
+      case 'web': return spiderWebShot(this);
+      case 'oil': return !!this.aiTail(32);
+      case 'ram': return ahead && dist > 8 && dist < 28;
+    }
+    return false;
+  }
+  aiWantsPour() { // mixer: a concrete bomb where a moving car is going, a trail for a tailgater · tanker: spill for a tailgater, light it once they're in it
+    const b = this.body, p = b.position;
+    if (this.T.pour === true) { if (this.load < 0.4) return false;
+      const ft = frontTarget(this, 26, 0.5); if (ft) return Math.hypot(ft.body.velocity.x, ft.body.velocity.z) > 3 || ft.body.position.distanceTo(p) < 12; // (lobConcrete leads it)
+      return !!this.aiTail(32) || ((this.mode === 'flee' || this.health < 40) && Math.random() < 0.1); }
+    let mine = 0, near = false, hit = false;
+    for (const pd of CONCRETE.list) { if (pd.kind !== 'fuel' || pd.owner !== this || pd.burning || pd.t <= 2) continue; mine++;
+      if ((pd.x - p.x) ** 2 + (pd.z - p.z) ** 2 < 49) { near = true; break; }
+      if (!hit) for (const c of cars) if (c !== this && !c.wrecked && (c.body.position.x - pd.x) ** 2 + (c.body.position.z - pd.z) ** 2 < (pd.r + 1) ** 2) { hit = true; break; } }
+    if (mine) return hit && !near; // somebody's in our fuel and we're clear of it: the match goes out the window
+    return this.load > 0.4 && !!this.aiTail(30);
+  }
+
   /* ---------- opponent driver ---------- */
   think(dt) {
     const ctrl = this.ctrl;
     if (this.wrecked) { ctrl.throttle = 0; ctrl.steer = 0; ctrl.nitro = false; return; }
     const b = this.body;
+    const style = this.persona ? this.persona.style : 'brawler', FL = STYLE_FLAVOUR[style] || STYLE_FLAVOUR.vulture, caution = FL.caution;
+    if (this.aiType !== this.type) { this.aiType = this.type; this.ai = CAR_AI[this.type] || null; this.evT = 0; this.evFrom = null; this.fireChk = 0; } // the car's own way of fighting (docs/car-roles.md)
+    const AI = this.ai;
     this.retarget -= dt;
     if (!this.target || this.target.wrecked || this.retarget <= 0) {
       let best = null, bestScore = Infinity;
@@ -7448,8 +7548,13 @@ class Car {
         if (c === this || c.wrecked) continue;
         if (c.isPlayer && game.state === 'menu') continue; // showroom car is off limits
         let s = c.body.position.distanceTo(b.position);
-        const st = this.persona ? this.persona.style : 'brawler';
-        if (c.isPlayer && game.state === 'playing') s *= game.grace > 0 ? 3 : (st === 'brawler' ? 0.25 : 1 - 0.65 * S.aiSkill); // give you a moment after GO
+        const st = style;
+        if (c.isPlayer && game.state === 'playing') s *= game.grace > 0 ? 3 : (FL.focus ? 0.25 : 1 - 0.65 * S.aiSkill); // give you a moment after GO
+        if (AI) { // prey it bullies, counters it keeps clear of; draggers pick off the hurt; the fire truck goes for fires
+          if (AI.prey.has(c.type)) s *= 0.6; else if (AI.avoid.has(c.type)) s *= 1 + 0.8 * caution;
+          if (AI.weak) s *= 0.45 + c.health / 100 * 0.75;
+          if (AI.fire && (c.burnT > 0 || c.leakT > 0 || c.T.special === 'flame')) s *= 0.35;
+        }
         if (c === this.lastAttacker && simTime - this.lastAttackTime < 5) s *= 0.5; // revenge
         if (st === 'vulture') s *= 0.25 + c.health / 100 * 0.9;           // circles the weakest
         if (st === 'chaos') s *= rand(0.3, 1.7);
@@ -7466,7 +7571,7 @@ class Car {
     const tp = t.body.position, tv = t.body.velocity;
     const dist = tp.distanceTo(b.position);
     const lead = clamp(dist / 40, 0, 1.2);
-    const aim = new CANNON.Vec3(tp.x + tv.x * lead, tp.y, tp.z + tv.z * lead);
+    const aim = (this.aimV || (this.aimV = new CANNON.Vec3())).set(tp.x + tv.x * lead, tp.y, tp.z + tv.z * lead); // (one per car, reused: think runs every frame)
     // Target up on a platform: drive to the foot of its ramp, then up it
     const tPlat = platformOf(tp), myPlat = platformOf(b.position);
     if (tPlat && tPlat !== myPlat) {
@@ -7484,20 +7589,19 @@ class Car {
       aim.set(pt.x, 0, pt.z);
     } else this.rampGoal = null;
 
-    // Plans: every few seconds each driver picks a new tactic, weighted by personality, never the same one twice running
-    const style = this.persona ? this.persona.style : 'brawler';
+    // Plans: every few seconds each driver picks a new tactic, weighted by personality and car, never the same one twice running (a car's own tactic may repeat)
     this.modeT -= dt;
     const pp = player && !player.wrecked && game.state === 'playing' ? player.body.position : null;
     const pDist = pp ? pp.distanceTo(b.position) : 999;
-    const threatened = pp && pDist < 30 && player.body.velocity.vsub(b.velocity).dot(b.position.vsub(pp).unit()) > 6;
-    if ((this.health < 35 && style !== 'brawler' && pDist < 25 && this.mode !== 'flee') || (style === 'coward' && threatened && this.mode !== 'flee' && Math.random() < 0.6 * dt * 10)) {
+    const threatened = pp && pDist < 30 && ((player.body.velocity.x - b.velocity.x) * (b.position.x - pp.x) + (player.body.velocity.z - b.velocity.z) * (b.position.z - pp.z) + (player.body.velocity.y - b.velocity.y) * (b.position.y - pp.y)) / (pDist || 1) > 6; // (no temporary vectors)
+    if ((this.health < 35 && !FL.stand && pDist < 25 && this.mode !== 'flee') || (style === 'coward' && threatened && this.mode !== 'flee' && Math.random() < 0.6 * dt * 10)) {
       this.mode = 'flee'; this.modeT = rand(2.5, 4.5); barks.say(this, 'flee');
     }
-    if (this.modeT <= 0 && this.mode !== 'backup' && this.mode !== 'charge') {
-      const W = PLAN_WEIGHTS[style] || PLAN_WEIGHTS.brawler;
-      const opts = Object.entries(W).filter(([k]) => k !== this.lastPlan && !(k === 'runup' && (tPlat || Math.abs(t.speed) > 8)));
-      let r = Math.random() * opts.reduce((a, [, w]) => a + w, 0), pick = opts[0][0];
-      for (const [k, w] of opts) { if ((r -= w) <= 0) { pick = k; break; } }
+    if (this.modeT <= 0 && this.mode !== 'backup' && this.mode !== 'charge' && this.mode !== 'peel') {
+      const W = aiPlans(style, this.type), no = (k) => (k === this.lastPlan && !HOME_TACTICS.has(k)) || (k === 'runup' && (tPlat || Math.abs(t.speed) > 8));
+      let tot = 0; for (const [k, w] of W) if (!no(k)) tot += w;
+      let r = Math.random() * tot, pick = 'hunt';
+      for (const [k, w] of W) { if (no(k)) continue; pick = k; if ((r -= w) <= 0) break; }
       this.lastPlan = pick; this.mode = pick === 'runup' ? 'backup' : pick; this.modeT = pick === 'runup' ? 2.6 : rand(4, 8);
       this.flankSide = Math.random() < 0.5 ? 1 : -1; this.circleA = Math.atan2(b.position.z - tp.z, b.position.x - tp.x);
     }
@@ -7512,12 +7616,16 @@ class Car {
     } else if (this.mode === 'flank' && !tPlat) { // swing out to the target's side, then T-bone it
       const fx = tp.x + tRight.x * 14 * this.flankSide, fz = tp.z + tRight.z * 14 * this.flankSide;
       if (Math.hypot(fx - b.position.x, fz - b.position.z) > 9 && dist > 12) aim.set(fx, 0, fz); else { this.mode = 'hunt'; this.modeT = 3; }
-    } else if (this.mode === 'circle' && !tPlat) { // orbit, then dive in
-      this.circleA += dt * 0.9;
-      if (this.modeT > 2) aim.set(tp.x + Math.cos(this.circleA) * 24, 0, tp.z + Math.sin(this.circleA) * 24);
+    } else if (this.mode === 'circle' && !tPlat) { // orbit, then dive in (the Sandflea orbits tight and drifts: a ring of fire)
+      const cr = AI && AI.circleR || 24; this.circleA += dt * 0.9 * 24 / cr;
+      if (this.modeT > 2) aim.set(tp.x + Math.cos(this.circleA) * cr, 0, tp.z + Math.sin(this.circleA) * cr);
       else if (this.modeT > 1.9) barks.say(this, 'charge');
     } else if (this.mode === 'ambush') { // sit still facing the target, then launch when it comes close
       if (dist < 38 || this.modeT <= 0) { this.mode = 'charge'; this.modeT = 4; barks.say(this, 'charge'); }
+    } else if (AI && !tPlat && this.mode !== 'backup' && this.mode !== 'charge') this.aiTactic(dt, t, dist, aim, caution);
+    this.pinGo = this.pinGo && this.mode === 'pin';
+    if (AI && AI.evade && !tPlat && t.body.mass > 4000 && (this.mode === 'hunt' || this.mode === 'charge')) { // a light car never goes at a heavy's nose: its back corner
+      const fx = (b.position.x - tp.x) * tf.x + (b.position.z - tp.z) * tf.z; if (fx > -t.T.L * 0.3) { const back = t.T.L * 0.5 + 3, sd = ((b.position.x - tp.x) * tRight.x + (b.position.z - tp.z) * tRight.z) >= 0 ? 1 : -1; aim.set(tp.x - tf.x * back + tRight.x * sd * 4, 0, tp.z - tf.z * back + tRight.z * sd * 4); }
     }
     if (this.mode === 'backup') {
       if (this.modeT <= 0 || dist > 42) { this.mode = 'charge'; this.modeT = 4; barks.say(this, 'charge'); }
@@ -7546,6 +7654,13 @@ class Car {
       let best = null, bd = 70;
       for (const pk of pickups) if (pk.kind === 'repair' && pk.respawn <= 0 && pk.y < 3) { const d = Math.hypot(pk.x - b.position.x, pk.z - b.position.z); if (d < bd) { bd = d; best = pk; } }
       if (best) aim.set(best.x, 0, best.z);
+    }
+    this.evading = !!(AI && AI.evade && this.mode !== 'flee' && !this.carry && this.aiEvade(dt, aim, caution)); // light cars sidestep a heavy coming at them
+    const hooked = this.cable && this.cable.t && this.cable.t.parts && !this.cable.t.wrecked ? this.cable.t : null;
+    if (hooked && this.mode !== 'flee') { // harpooned: yank it off its line and toward a wall or hazard (the wrecking ball, the fire pit), whipping round
+      const cp = hooked.body.position, dx = b.position.x - cp.x, dz = b.position.z - cp.z, d = Math.hypot(dx, dz) || 1, F = ARENA.firePit;
+      let hx = BALL.px, hz = BALL.pz; if (Math.hypot((F.x0 + F.x1) / 2 - b.position.x, F.z - b.position.z) < Math.hypot(hx - b.position.x, hz - b.position.z)) { hx = (F.x0 + F.x1) / 2; hz = F.z; }
+      if (Math.hypot(hx - b.position.x, hz - b.position.z) < 60) aim.set(hx, 0, hz); else aim.set(b.position.x + dx / d * 25 - dz / d * this.flankSide * 18, 0, b.position.z + dz / d * 25 + dx / d * this.flankSide * 18);
     }
     // Forklift with a car on its forks, tow truck with one on the hook: deliver it to the crusher or under the wrecking ball
     const load = this.carry ? this.carry.c : this.tow ? this.tow.c : null;
@@ -7579,12 +7694,12 @@ class Car {
       this.avoidT = 0.12; this.avoid = 0; this.blocked = false;
       const look = 7 + Math.abs(this.speed) * 0.7;
       let hits = 0;
-      for (const s of [-1, 1]) {
-        const from = b.pointToWorldFrame(new CANNON.Vec3(this.T.L / 2 + 0.6 - this.comShift, 0.3, s * this.T.W * 0.4));
+      for (let s = -1; s <= 1; s += 2) { // (the ray's points and result are reused: no garbage per feeler)
+        const from = b.pointToWorldFrame(AI_V.set(this.T.L / 2 + 0.6 - this.comShift, 0.3, s * this.T.W * 0.4), AI_FROM);
         const dir = this.fwd;
-        const to = new CANNON.Vec3(from.x + dir.x * look, from.y + dir.y * look, from.z + dir.z * look);
-        const res = new CANNON.RaycastResult();
-        if (world.raycastClosest(from, to, { skipBackfaces: true }, res) && res.body && res.body.isObstacle) {
+        const to = AI_TO.set(from.x + dir.x * look, from.y + dir.y * look, from.z + dir.z * look);
+        const res = AI_RES; res.reset();
+        if (world.raycastClosest(from, to, AI_RAYOPT, res) && res.body && res.body.isObstacle) {
           const k = 1 - res.distance / look;
           this.avoid += -s * k * 1.6; hits++;
           if (res.distance < 4) this.blocked = true;
@@ -7596,20 +7711,25 @@ class Car {
     if (this.blocked && this.speed < 5) { this.reverseTimer = Math.max(this.reverseTimer, 1.0); }
 
     if (throttle > 0 && Math.abs(this.speed) < 1.2) this.stuckTimer += dt; else this.stuckTimer = 0;
-    if (this.stuckTimer > 1.4) { this.reverseTimer = 1.4; this.stuckTimer = 0; }
+    if (this.stuckTimer > 1.4) { this.reverseTimer = 1.4; this.stuckTimer = 0; if (AI && HOME_TACTICS.has(this.mode)) { if (simTime - (this.unstuckAt || -99) < 8) { this.mode = 'hunt'; this.modeT = 3; } this.unstuckAt = simTime; } } // stuck twice in its own tactic: give it up for now
     if (this.reverseTimer > 0) { this.reverseTimer -= dt; throttle = -1; steer = -steer; }
-    if (this.T.special && !this.specialCd && Math.random() < 0.12) { // AI weapon use: every driver knows their gadget
+    if (AI && throttle < -0.3 && this.reverseTimer <= 0 && Math.abs(this.speed) < 1) { if ((this.revStuck = (this.revStuck || 0) + dt) > 1.6) { this.revStuck = 0; this.fwdTimer = 1.2; } } else this.revStuck = 0; // backing into something: drive out forwards instead
+    if (this.fwdTimer > 0) { this.fwdTimer -= dt; if (this.mode === 'backup' || this.mode === 'kite' || this.mode === 'rescue') { this.mode = 'hunt'; this.modeT = 2; } }
+    if (this.T.special && !this.specialCd && AI && (this.fireChk -= dt) <= 0) { this.fireChk = 0.1; if (this.aiWantsFire(t, dist)) ctrl.fire = true; } // each gadget at its moment
+    else if (this.T.special && !this.specialCd && !AI && Math.random() < 0.12) { // AI weapon use: every driver knows their gadget
       const sp = this.T.special, l = b.pointToLocalFrame(t.body.position), ahead = l.x > 0 && Math.abs(l.z) < Math.max(2.5, l.x * 0.6);
       const behind = cars.some((c) => c !== this && !c.wrecked && (() => { const q = b.pointToLocalFrame(c.body.position); return q.x < -this.T.L / 2 && q.x > -32 && Math.abs(q.z) < 7 + -q.x * 0.15; })());
       if ((sp === 'harpoon' && ((ahead && dist > 10 && dist < 40) || !!frontTarget(this, 40, 0.4))) || (sp === 'flame' && ahead && dist < 10) || (sp === 'reel' && !this.reelOn && ahead && dist < 18) || (sp === 'dump' && behind) || (sp === 'blade' && ahead && dist < 7.5) || (sp === 'water' && ahead && dist < 22) || (sp === 'ram' && ahead && dist > 8 && dist < 28) || ((sp === 'oil' || sp === 'bomb') && behind && sp !== 'bomb') || (sp === 'spikes' && ahead && dist < 28) || (sp === 'bomb' && ahead && dist > 12 && dist < 50) || (sp === 'lift' && (this.carry ? this.carry.t > 2.4 && (!this.delivery || this.delivery.gaveUp) : forkReady(this))) || (sp === 'tow' && (this.tow ? this.tow.t > 3.5 && Math.abs(this.speed) > 6 && (!this.delivery || this.delivery.gaveUp) : towable(this))) || (sp === 'minigun' && this.mgTarget && dist < 55) || (sp === 'laser' && this.lzTarget && !this.lzLock && (this.lzBat ?? 1) > 0.3 && dist < 60) || (sp === 'rockets' && !!frontTarget(this, 90, 0.45) && dist > 10) || (sp === 'web' && spiderWebShot(this))) ctrl.fire = true;
     }
-    if (this.T.pour && !this.pourT && this.load > 0.4) { // mixer: pour when someone is right behind
+    if (this.T.pour && !this.pourT && AI && (this.pourChk = (this.pourChk || 0) - dt) <= 0) { this.pourChk = 0.12; if (this.aiWantsPour()) ctrl.fire = true; }
+    else if (this.T.pour && !this.pourT && !AI && this.load > 0.4) { // mixer: pour when someone is right behind
       for (const c of cars) { if (c === this || c.wrecked) continue; const l = b.pointToLocalFrame(c.body.position); if (l.x < -this.T.L / 2 && l.x > -38 && Math.abs(l.z) < 9 && Math.random() < 0.08) { ctrl.fire = true; break; } }
       if (!ctrl.fire && (this.mode === 'flee' || this.health < 40) && Math.random() < 0.02) ctrl.fire = true; // leave a trail when running
       if (!ctrl.fire && Math.random() < 0.01 && cars.some((c) => c !== this && !c.wrecked && c.body.position.distanceTo(b.position) < 22 && b.pointToLocalFrame(c.body.position).x < 0)) ctrl.fire = true; // someone close on our tail
     }
-    if (this.T.gun && !this.gunBlown && this.mode !== 'charge' && this.mode !== 'flee' && !(this.barrelBend > 0.4 && Math.random() < 0.7)) { // tanks hang back and shoot
-      if (dist < 20) throttle = -0.7; else if (dist < 55) throttle = Math.min(throttle, 0.25);
+    if (this.T.gun && AI && this.barrelBend > 0.22 && this.mode === 'kite') { this.mode = 'hunt'; this.modeT = rand(4, 7); } // bent barrel: firing would blow it up, so it's crushing only now
+    if (this.T.gun && !this.gunBlown && this.mode !== 'charge' && this.mode !== 'flee' && !(AI ? this.barrelBend > 0.22 : this.barrelBend > 0.4 && Math.random() < 0.7)) { // tanks hang back and shoot
+      if (this.mode === 'kite') {} else if (dist < 20) throttle = -0.7; else if (dist < 55) throttle = Math.min(throttle, 0.25); // (kiting holds its own range)
       if (dist < 85 && dist > 7 && this.aimErr < 0.06 && this.reload <= 0 && !this.burst && Math.random() < 0.1 * (0.5 + S.aiSkill)) ctrl.fire = true;
     }
     if (this.T.special === 'lift' && !this.carry && dist < 9 && Math.abs(angle) < 0.6) throttle = Math.min(throttle, 0.45);
@@ -7617,6 +7737,14 @@ class Car {
     if (this.mode === 'backup') { throttle = -1; steer = -clamp(angle * 1.8, -1, 1) * 0.6; } // reverse straight back, keeping the target in front
     if (this.mode === 'charge') { throttle = 1; this.reverseTimer = 0; ctrl.wheelie = !!this.T.wheelie && this.speed < 14 && Math.random() < 0.5; } else ctrl.wheelie = false;
     if (this.mode === 'ambush') { throttle = Math.abs(angle) > 0.3 ? 0.4 : 0; steer = clamp(angle * 2, -1, 1); if (Math.abs(angle) < 0.3) ctrl.brake = true; } else ctrl.brake = false;
+    if (this.pinGo && Math.abs(this.speed) < 1.5) { if ((this.pinJam = (this.pinJam || 0) + dt) > 1.5) { this.pinJam = 0; this.pinGo = false; this.mode = 'backup'; this.modeT = 1.2; } } else this.pinJam = 0; // pinned it (or hit a wall): back off and ram again
+    if ((this.evading || this.pinGo || hooked) && this.reverseTimer <= 0) throttle = 1; // (never over a stuck car's reverse)
+    else if (AI && AI.face && (this.mode === 'kite' || this.mode === 'rescue') && !tPlat && this.reverseTimer <= 0) { // nose-aimed weapons: face it in the band, back off (still facing) when crowded
+      if (this.kiteBand < 0) { throttle = -0.85; steer = -clamp(angle * 1.8, -1, 1) * 0.6;
+        if (Math.abs(this.speed) < 1) { if ((this.kiteJam = (this.kiteJam || 0) + dt) > 1.2) { this.kiteJam = 0; this.mode = 'peel'; this.peelT = 2.5; } } else this.kiteJam = 0; } // backed into something: drive out instead
+      else if (this.kiteBand === 0) throttle = Math.abs(angle) > 0.35 ? 0.45 : 0.1;
+    }
+    if (this.fwdTimer > 0 && throttle < 0.5) { throttle = 1; steer = clamp(angle * 1.8, -1, 1); }
     if (this.wet > 0.3) { steer = clamp(steer + Math.sin(simTime * 3 + this.number) * this.wet * 0.9, -1, 1); if (this.wet > 0.6) throttle = Math.min(throttle, 0.5); } // can't see through the spray
     if (this.gentle) throttle = clamp(throttle, -0.5, Math.abs(this.speed) > 7 ? 0.25 : 0.6); // a car on the forks: no racing
     if (this.reverseTo) { // backing up to a point: steer by where it is behind us
@@ -7634,7 +7762,7 @@ class Car {
     ctrl.throttle = throttle; ctrl.steer = steer; ctrl.pitch = 0;
     ctrl.handbrake = this.T.hover ? !!this.hoverHB && S.aiSkill > 0.3 : Math.abs(angle) > 1.2 && this.speed > 14 && S.aiSkill > 0.4;
     if (this.latchedBy && this.latchedBy.latch && this.latchedBy.latch.c === this) { ctrl.throttle = 1; ctrl.steer = Math.sin(simTime * 3.2 + this.number) > 0 ? 1 : -1; ctrl.handbrake = false; if (this.body.mass < 3000 && this.contacts >= 3 && Math.random() < 0.003) ctrl.jump = true; } // a spider on the roof: swerve hard to sling it off (and now and then jump: a jump throws it; rarer since 11-19, the spider holds on better)
-    ctrl.nitro = (this.mode === 'charge' && Math.abs(angle) < 0.35) || this.mode === 'flee' || (Math.abs(angle) < 0.2 && dist > 35 && this.nitro > 0.35 && S.aiSkill > 0.3);
+    ctrl.nitro = (this.mode === 'charge' && Math.abs(angle) < 0.35) || this.mode === 'flee' || this.evading || (this.mode === 'peel' && Math.abs(angle) < 0.5) || (this.pinGo && Math.abs(angle) < 0.3) || (Math.abs(angle) < 0.2 && dist > 35 && this.nitro > 0.35 && S.aiSkill > 0.3);
     if (this.persona && this.persona.style === 'chaos' && this.body.mass < 3000 && this.contacts >= 3 && Math.random() < 0.002) ctrl.jump = true;
     if (S.aiSkill > 0.4 && this.body.mass < 3000 && dist < 14 && Math.abs(angle) < 0.25 && Math.random() < 0.004 * S.aiSkill) ctrl.jump = true;
     if (t.isPlayer && dist < 60 && Math.random() < 0.004) barks.say(this, 'taunt');
@@ -8439,7 +8567,7 @@ const CAR_CAST = {
       charge: ['B|Hold on to something!', 'Full throttle. No mercy.'],
       flee: ['B|Mr. White, we gotta bounce!', 'Tactical withdrawal. It\'s just good chemistry.'],
     } },
-  tiger: { nick: 'Oberst Klaus', hand: 0.75, style: 'runup', from: 'Polite panzer commander', lang: 'de-DE', pitch: 0.92, rate: 0.92, color: '#7b7a52',
+  tiger: { nick: 'Oberst Klaus', hand: 0.75, style: 'sniper', from: 'Polite panzer commander', lang: 'de-DE', pitch: 0.92, rate: 0.92, color: '#7b7a52',
     words: { ex: ['Achtung', 'Wunderbar', 'Jawohl', 'Ach so', 'Natürlich'], insult: ['my little strudel', 'Herr Pancake', 'my dear rabbit'], kin: ['mutti', 'tank crew'], thing: ['glass of milk', 'apple strudel', 'monocle'], boast: ['Ooh, that\'s a bingo!', 'Precision, as always.'], voice: ['Anna', 'Markus', 'Yannick', 'Helena', 'Google Deutsch'] },
     lines: {
       start: ['Shall we begin? I do love a little hunt.', 'Please, make yourselves comfortable. This will not take long.', 'A glass of milk first, then we demolish.'],
@@ -8455,7 +8583,7 @@ const CAR_CAST = {
       charge: ['Panzer, forward!', 'Make way for eleven tonnes of manners!'],
       flee: ['A strategic pause, nothing more.', 'I am not retreating. I am advancing elsewhere.'],
     } },
-  firetruck: { nick: 'Captain McCaffrey', hand: 0.7, style: 'brawler', from: 'Captain Maeve McCaffrey, a Dublin-born Chicago fire captain', lang: 'en-IE', pitch: 1.1, rate: 1.0, color: '#d33a2c',
+  firetruck: { nick: 'Captain McCaffrey', hand: 0.7, style: 'rescuer', from: 'Captain Maeve McCaffrey, a Dublin-born Chicago fire captain', lang: 'en-IE', pitch: 1.1, rate: 1.0, color: '#d33a2c',
     words: { ex: ['Holy smoke', 'Jaysus', 'Hold the line', 'Mother of God'], insult: ['probie', 'you firebug', 'you hot-head'], kin: ['brother', 'old man', 'Engine 17'], thing: ['helmet', 'hose', 'axe'], boast: ['Fire\'s out. So are you.', 'Hosed!'], voice: ['Moira', 'Karen', 'Google UK English Female', 'Samantha'] },
     lines: {
       start: ['You go, we go. Let\'s ride, Engine 17!', 'Somebody\'s gonna get burned today. Not on my watch.', 'Suit up. It\'s a big one.'],
@@ -8471,7 +8599,7 @@ const CAR_CAST = {
       charge: ['Clear the road, we\'re rolling!', 'Sirens on! Make a hole!'],
       flee: ['Back it up, back it up!', 'Fall back and regroup!'],
     } },
-  tanker: { nick: 'Uncle Bogdan', hand: 0.7, style: 'brawler', from: 'Uncle Bogdan, an over-the-moon village trucker from little Kartoshkovo, very proud of his tanker Lyudmila (and his goat)', lang: 'ro-RO', pitch: 0.8, rate: 1.05, color: '#a7452c',
+  tanker: { nick: 'Uncle Bogdan', hand: 0.7, style: 'trapper', from: 'Uncle Bogdan, an over-the-moon village trucker from little Kartoshkovo, very proud of his tanker Lyudmila (and his goat)', lang: 'ro-RO', pitch: 0.8, rate: 1.05, color: '#a7452c',
     words: { ex: ['Opa', 'Oy-oy-oy', 'Da, da', 'Bravo'], insult: ['you sad cabbage', 'you little turnip', 'you goat-face', 'you rusty samovar'], kin: ['goat Princess Olga', 'cousin Vasko', 'whole village'], thing: ['lucky potato', 'CB radio', 'goat'], boast: ["Very nice! I like!", "Uncle Bogdan is number one!"], voice: ['Ioana', 'Google română', 'Milena'] },
     lines: {
       start: ["Hello! Uncle Bogdan is here! I drive four days from Kartoshkovo. One road. Many goats.", "Opa! Very nice yard! In my village, this is where we park for weddings.", "My tanker Lyudmila is full of fuel and also a little bit of soup. Do not ask."],
@@ -8487,7 +8615,7 @@ const CAR_CAST = {
       charge: ["Lyudmila, go! Go like potato rolling down the hill!", "Make room! Uncle Bogdan is coming with big hug!"],
       flee: ["Bye bye! I go find my goat!", "Lyudmila says no. When Lyudmila says no, we go."],
     } },
-  hellbender: { nick: 'Ragnar Rustbeard', hand: 0.75, style: 'brawler', from: 'Ragnar Rustbeard, a bellowing Viking raider who calls his monster truck a longship', lang: 'nb-NO', pitch: 0.55, rate: 0.9, color: '#3a3a3e',
+  hellbender: { nick: 'Ragnar Rustbeard', hand: 0.75, style: 'gunner', from: 'Ragnar Rustbeard, a bellowing Viking raider who calls his monster truck a longship', lang: 'nb-NO', pitch: 0.55, rate: 0.9, color: '#3a3a3e',
     words: { ex: ["By Odin's beard", 'Skål', 'Hah', "Thor's hammer"], insult: ['you soggy herring', 'you milk-drinker', 'you oarless sprat', "you troll's toenail"], kin: ['shield-brothers', 'the gods of Asgard', 'mother Brunhilda'], thing: ['horned helmet', 'longship', 'mead horn'], boast: ['TO VALHALLA!', 'Ragnar fears NOTHING!'], voice: ['Henrik', 'Nora', 'Google norsk'] },
     lines: {
       start: ["HAH! Ragnar Rustbeard has landed! Hide your sheep and your hubcaps!", "My longship has wheels now! The gods are confused, but Ragnar is happy!", "Today is a GLORIOUS day to smash things!"],
@@ -8535,7 +8663,7 @@ const CAR_CAST = {
       charge: ["Charge! For the clan!", "Here I come, ye bampot!"],
       flee: ["Tactical retreat! Tae the hills!", "Och, I'll be back wi' ma cousins!"],
     } },
-  viper: { nick: 'Dom', hand: 0.7, style: 'runup', from: 'a Mexican street racer who lives for la familia', lang: 'es-MX', pitch: 0.6, rate: 0.88, color: '#c02a2a',
+  viper: { nick: 'Dom', hand: 0.7, style: 'striker', from: 'a Mexican street racer who lives for la familia', lang: 'es-MX', pitch: 0.6, rate: 0.88, color: '#c02a2a',
     words: { ex: ['Órale', 'Familia', 'Ándale', 'Nah'], insult: ['buster', 'two-bit racer', 'kid'], kin: ['family', 'crew', 'sister'], thing: ['NOS', 'Charger', 'cold beer'], boast: ['That\'s for family.', 'Ride or die.'], voice: ['Paulina', 'Juan', 'Google español de Estados Unidos'] },
     lines: {
       start: ['I live my life a quarter mile at a time.', 'This ain\'t about the cars. It\'s about family.', 'You almost had me? You never had me.'],
@@ -8551,7 +8679,7 @@ const CAR_CAST = {
       charge: ['Let\'s ride.', 'Quarter mile. Go.'],
       flee: ['Not this race.', 'Live to race tomorrow.'],
     } },
-  towtruck: { nick: 'Cletus', hand: 0.7, style: 'vulture', from: 'Backwoods tow-truck man', lang: 'en-US', pitch: 1.05, rate: 1.05, color: '#d27a2a',
+  towtruck: { nick: 'Cletus', hand: 0.7, style: 'dragger', from: 'Backwoods tow-truck man', lang: 'en-US', pitch: 1.05, rate: 1.05, color: '#d27a2a',
     words: { ex: ['Dadgum', 'Hoo-wee', 'Lordy', 'Shoot'], insult: ['city slicker', 'ya hubcap', 'ya lugnut'], kin: ['mama', 'cousin Jimmy Earl', 'hound dog Rufus'], thing: ['hook', 'chew', 'banjo'], boast: ['Git-r-done!', 'Hooked like a catfish!'], voice: ['Fred', 'Google US English'] },
     lines: {
       start: ['Hoo-wee! Ever\'body here\'s gonna need a tow!', 'Bless your hearts. Y\'all are scrap.', 'Let\'s git-r-done!'],
@@ -8567,7 +8695,7 @@ const CAR_CAST = {
       charge: ['Yee-haw!', 'Hold onto yer hats!'],
       flee: ['Feet don\'t fail me now!', 'Nope! Gone fishin\'!'],
     } },
-  forklift: { nick: 'King Arthur', hand: 0.85, style: 'vulture', from: 'King of the Britons, seeking the Holy Grail (by forklift)', lang: 'en-GB', pitch: 0.95, rate: 0.95, color: '#e2b51c',
+  forklift: { nick: 'King Arthur', hand: 0.85, style: 'dragger', from: 'King of the Britons, seeking the Holy Grail (by forklift)', lang: 'en-GB', pitch: 0.95, rate: 0.95, color: '#e2b51c',
     duo: { nick: 'Black Knight', lang: 'en-GB', pitch: 0.6, rate: 0.9, words: { voice: ['Daniel', 'Arthur', 'Google UK English Male'] } },
     trio: { nick: 'French Taunter', lang: 'fr-FR', pitch: 1.15, rate: 1.05, words: { voice: ['Thomas', 'Amélie', 'Google français'] } },
     words: { ex: ['By the grace of God', 'Ni', 'Run away', 'Most noble'], insult: ['you silly person', 'you empty-headed animal', 'you scruffy peasant'], kin: ['Sir Robin', 'Patsy', 'the Knights of the Round Table'], thing: ['coconuts', 'shrubbery', 'Holy Hand Grenade'], boast: ['And there was much rejoicing.', 'It is a silly place. But it is ours.'], voice: ['Daniel', 'Arthur', 'Google UK English Male'] },
@@ -8585,7 +8713,7 @@ const CAR_CAST = {
       charge: ['Charge! For the Grail!', 'Camelot!', 'Onward, Patsy! Clop faster!'],
       flee: ['Run away! Run away!', 'Brave Sir Robin ran away...', 'We shall use... a tactical retreat!'],
     } },
-  combine: { nick: 'Papa Jacques', hand: 0.75, style: 'vulture', from: 'a theatrical French farmer, outraged at everyone trampling his crops', lang: 'fr-FR', pitch: 0.95, rate: 1.0, color: '#2f8a3c',
+  combine: { nick: 'Papa Jacques', hand: 0.75, style: 'bully', from: 'a theatrical French farmer, outraged at everyone trampling his crops', lang: 'fr-FR', pitch: 0.95, rate: 1.0, color: '#2f8a3c',
     words: { ex: ['Sacré bleu', 'Zut alors', 'Oh là là', 'Mon dieu', 'Allez'], insult: ['you trampler of carrots', 'espèce de cornichon', 'you soggy croissant', 'you city pigeon'], kin: ['my Brigitte', 'my prize pig Gaston', 'the cows of Normandy'], thing: ['my baguette', 'my beautiful carrots', 'my wheat'], boast: ['C\'est magnifique!', 'Voilà! A perfect harvest!'], voice: ['Thomas', 'Amélie', 'Google français'] },
     lines: {
       start: ['Bonjour, vandals. Today I harvest you.', 'Allez, allez! Get off my field!', 'Oh là là, look at all these hooligans on my crops.'],
@@ -8601,7 +8729,7 @@ const CAR_CAST = {
       charge: ['Charge! Through the sunflowers!', 'Make way for the harvest, imbéciles!'],
       flee: ['I go! I go! The cheese is burning!', 'Retreat to the barn! Vite, vite!'],
     } },
-  bertha: { nick: 'Big Bertha', hand: 0.65, style: 'brawler', from: 'a Southern grandma who drives a 300-ton mine truck', lang: 'en-US', pitch: 1.0, rate: 0.95, color: '#e0607a',
+  bertha: { nick: 'Big Bertha', hand: 0.65, style: 'bully', from: 'a Southern grandma who drives a 300-ton mine truck', lang: 'en-US', pitch: 1.0, rate: 0.95, color: '#e0607a',
     words: { ex: ['Well butter my biscuit', 'Lord have mercy', 'Sweet tea and sunshine', 'Oh, sugar'], insult: ['sweetie', 'sugar plum', 'little critter', 'darlin\''], kin: ['my grandbabies', 'my late husband Earl', 'the church ladies'], thing: ['peach cobbler', 'a hard hat', 'my reading glasses'], boast: ['Bless your heart!', 'That there\'s called a haul, sugar.'], voice: ['Samantha', 'Karen', 'Victoria', 'Google US English'] },
     lines: {
       start: ['Alright, darlin\'s, Grandma\'s here to haul some trash.', 'Two hundred tons of payload and a thermos of coffee. Let\'s go.', 'Y\'all mind the big pink truck now.'],
@@ -8617,7 +8745,7 @@ const CAR_CAST = {
       charge: ['Grandma\'s comin\' through!', 'Out of the way, sweetie!'],
       flee: ['Grandma needs her nap.', 'Back to the quarry!'],
     } },
-  dozer: { nick: 'Bulldozer Bob', hand: 0.7, style: 'brawler', from: 'a West Texas oilfield crew', lang: 'en-US', pitch: 0.7, rate: 0.92, color: '#e8b010',
+  dozer: { nick: 'Bulldozer Bob', hand: 0.7, style: 'bully', from: 'a West Texas oilfield crew', lang: 'en-US', pitch: 0.7, rate: 0.92, color: '#e8b010',
     words: { ex: ['Well shoot', 'Lord have mercy', 'Hoo-wee', 'Dadgum'], insult: ['you tin can', 'you speed bump', 'you lawn ornament', 'you little hubcap'], kin: ['my mama', 'Uncle Earl', 'my ex-wife'], thing: ['brisket', 'diesel', 'a pothole'], boast: ['Hoo-wee!', 'That there is called grading.'], voice: ['Ralph', 'Fred', 'Google US English'] },
     lines: {
       start: ['Alright, y\'all are on my job site now.', 'Fourteen tonnes of diesel and bad attitude. Let\'s level this yard.', 'Hard hats on. Not that it\'ll help.'],
@@ -8633,7 +8761,7 @@ const CAR_CAST = {
       charge: ['Clear the road!', 'Dozer comin\' through!'],
       flee: ['Takin\' my union break.', 'Gotta go check on the backhoe.'],
     } },
-  mixer: { nick: 'Tony Cement', hand: 0.7, style: 'brawler', from: 'New Jersey "waste management"', lang: 'en-US', pitch: 0.75, rate: 1.0, color: '#d0a030',
+  mixer: { nick: 'Tony Cement', hand: 0.7, style: 'trapper', from: 'New Jersey "waste management"', lang: 'en-US', pitch: 0.75, rate: 1.0, color: '#d0a030',
     words: { ex: ['Fuhgeddaboudit', 'Madonna mia', 'Ay', 'Capisce', 'Basta'], insult: ['ya mook', 'ya gavone', 'ya stunad'], kin: ['ma', 'cousin Paulie', 'uncle Junior'], thing: ['gabagool', 'cement shoes', 'tracksuit'], boast: ['Fuhgeddaboudit!', 'You\'re sleepin\' with the rebar now.'], voice: ['Fred', 'Ralph', 'Google US English'] },
     lines: {
       start: ['I\'m in waste management. Today you\'re the waste.', 'Nobody leaves till I say so.', 'Somebody order cement shoes?'],
@@ -8902,6 +9030,57 @@ const PLAN_WEIGHTS = { // relative odds of each tactic per personality
   chaos:   { hunt: 2, flank: 2, runup: 2, circle: 2, ambush: 1 },
   coward:  { ambush: 3, flank: 3, circle: 2, hunt: 1, runup: 1 },
 };
+// Personalities that come from the car (docs/car-roles.md): each car's own driver fights the way that car should. The five above stay for the extras.
+//   hitrun: dart at the back corner, hit, peel away · kite: hold a range band and shoot · pin: shove the target into a hazard or a wall (or T-bone its side)
+//   trap: get ahead of it on its path and let it run into what you drop · rescue: go for burning cars and fire users, hose them from range
+Object.assign(PLAN_WEIGHTS, {
+  striker: { hitrun: 5, flank: 3, circle: 1.5, hunt: 0.5, ambush: 0.5 }, // Viper: hit and run
+  hunter:  { flank: 3, hunt: 3, hitrun: 2, runup: 1 },                    // Outrider: harpoon the light ones and yank them into the walls
+  sniper:  { kite: 6, flank: 1, ambush: 1 },                              // Tiger: stand off and shell
+  gunner:  { kite: 3, hunt: 3, circle: 1.5, runup: 1.5 },                 // Hellbender: minigun at range, then the 700 hp truck
+  bully:   { pin: 5, hunt: 3, runup: 1.5 },                               // Dozer, Bertha, Combine: bulldoze and pin
+  trapper: { trap: 4, hunt: 1.5, ambush: 1.5, kite: 1, flank: 1 },       // Mixer, Tanker: lead them into concrete or fuel
+  dragger: { hunt: 4, flank: 2, ambush: 1 },                              // Tow truck, Forklift: pick off the weak and deliver them
+  rescuer: { rescue: 4, hunt: 2, flank: 1, kite: 1 },                     // Fire truck: hose the fires and the fire-starters
+});
+const HOME_TACTICS = new Set(['hitrun', 'kite', 'pin', 'trap', 'rescue']); // a car's own tactic may come up twice running
+// caution: how early it backs off (evading a charging heavy, keeping its range); stand: never runs; focus: goes for you first
+const STYLE_FLAVOUR = { brawler: { caution: 0.6, stand: 1, focus: 1 }, runup: { caution: 0.9 }, vulture: { caution: 1 }, chaos: { caution: 0.8 }, coward: { caution: 1.6 },
+  striker: { caution: 1.2 }, hunter: { caution: 0.9 }, sniper: { caution: 1.3 }, gunner: { caution: 1 }, bully: { caution: 0.4, stand: 1, focus: 1 }, trapper: { caution: 1.1 }, dragger: { caution: 0.9 }, rescuer: { caution: 0.9 } };
+const LIGHT_W = { flank: 1.4, circle: 1.3, hitrun: 1.3, hunt: 0.7, runup: 0.6 }, HEAVY_W = { hunt: 1.3, runup: 1.3, pin: 1.4, flank: 0.6, circle: 0.6 }, RANGED_W = { kite: 1.5, runup: 0.5, hunt: 0.6 };
+const HEAVIES = ['dozer', 'bertha', 'combine', 'tiger', 'mixer', 'tanker', 'firetruck', 'camper'], LIGHTS = ['viper', 'sandflea', 'outrider', 'cruiser', 'spider', 'forklift'];
+// Per car: its tactic (home), range band in metres, prey it hunts, counters it keeps away from, evade (light: sidestep charging heavies, x caution),
+// face (aims with the nose: in its band it turns to face the target and backs off if crowded), jump (uses the kickers), circleR (orbit radius).
+const CAR_AI = {
+  viper:      { home: 'hitrun', w: LIGHT_W, range: [20, 70], evade: 1.2, jump: 1, prey: HEAVIES, avoid: ['cruiser', 'firetruck'] },
+  outrider:   { home: 'flank', w: LIGHT_W, range: [12, 40], evade: 1, prey: ['viper', 'sandflea', 'cruiser', 'spider', 'forklift', 'towtruck'], avoid: ['dozer', 'bertha', 'combine', 'tiger'] },
+  sandflea:   { home: 'circle', w: LIGHT_W, range: [4, 12], evade: 1.1, jump: 1, circleR: 10, prey: ['tanker', 'camper'], avoid: ['firetruck', 'combine'] },
+  spider:     { home: 'ambush', w: {}, range: [6, 28], prey: [], avoid: [] }, // (its own spiderTactics do the rest)
+  cruiser:    { home: 'trap', w: LIGHT_W, range: [6, 14], evade: 0.9, face: 1, prey: ['viper', 'outrider', 'sandflea'], avoid: ['dozer', 'bertha'] },
+  forklift:   { home: 'hunt', w: LIGHT_W, range: [0, 9], evade: 0.8, weak: 1, prey: ['viper', 'sandflea', 'outrider', 'cruiser', 'spider'], avoid: ['dozer', 'bertha', 'combine'] },
+  towtruck:   { home: 'hunt', w: {}, range: [0, 22], weak: 1, prey: ['viper', 'sandflea', 'outrider', 'cruiser', 'forklift', 'spider'], avoid: ['viper', 'outrider'] },
+  hellbender: { home: 'kite', w: { kite: 1.1 }, range: [10, 34], face: 1, prey: ['viper', 'sandflea', 'outrider', 'cruiser', 'spider', 'forklift'], avoid: ['tiger', 'firetruck'] },
+  tiger:      { home: 'kite', w: RANGED_W, range: [24, 50], prey: ['bertha', 'combine', 'mixer', 'tanker', 'firetruck', 'camper', 'towtruck', 'hellbender'], avoid: ['viper', 'sandflea', 'outrider', 'dozer'] },
+  camper:     { home: 'hunt', w: {}, range: [16, 40], prey: ['dozer', 'bertha', 'combine', 'tiger', 'mixer', 'firetruck', 'tanker'], avoid: ['sandflea', 'hellbender'] },
+  firetruck:  { home: 'rescue', w: { kite: 1.2, runup: 0.7 }, range: [9, 22], face: 1, fire: 1, prey: ['sandflea', 'tanker', 'hellbender', 'viper', 'outrider', 'spider'], avoid: ['towtruck'] },
+  mixer:      { home: 'trap', w: HEAVY_W, range: [10, 24], face: 1, prey: ['viper', 'outrider', 'sandflea', 'cruiser'], avoid: ['viper', 'tiger'] },
+  tanker:     { home: 'trap', w: { trap: 0.6, hunt: 1.4, runup: 1.3, pin: 1, flank: 0.6, circle: 0.6 }, can: ['pin'], range: [10, 30], prey: [], avoid: ['sandflea', 'hellbender', 'tiger'] },
+  dozer:      { home: 'pin', w: HEAVY_W, range: [0, 8], side: 1, prey: [], avoid: [] }, // anything in front of the blade
+  bertha:     { home: 'pin', w: HEAVY_W, range: [0, 10], prey: ['tiger', 'dozer', 'combine', 'mixer', 'firetruck', 'tanker', 'camper'], avoid: ['hellbender'] },
+  combine:    { home: 'hunt', w: { hunt: 1.6, pin: 0.5, flank: 0.6, circle: 0.6 }, can: ['pin'], range: [0, 14], prey: ['viper', 'sandflea', 'outrider', 'cruiser', 'forklift', 'spider'], avoid: ['sandflea', 'tiger'] },
+};
+for (const P of Object.values(CAR_AI)) { P.can = new Set(P.can || (P.w === LIGHT_W ? ['hitrun'] : P.w === RANGED_W ? ['kite'] : P.w === HEAVY_W ? ['pin'] : [])); P.prey = new Set(P.prey); P.avoid = new Set([...P.avoid].filter((k) => !P.prey.has(k))); }
+const AI_PLANS = new Map(); // style|type -> [[tactic, weight]...], built once (no allocations at plan time)
+function aiPlans(style, type) {
+  const key = style + '|' + type; let out = AI_PLANS.get(key); if (out) return out;
+  const W = { ...(PLAN_WEIGHTS[style] || PLAN_WEIGHTS.brawler) }, P = CAR_AI[type];
+  if (P) { for (const k in W) W[k] *= P.w[k] ?? 1; if (!(P.home in W)) W[P.home] = 2; } // a brawler Viper still hits and runs now and then
+  for (const k of HOME_TACTICS) if (W[k] && !(P && (P.home === k || P.can.has(k)))) delete W[k]; // each needs its kit (a sniper's kite in a dozer would just stand there)
+  out = Object.entries(W); AI_PLANS.set(key, out); return out;
+}
+const PIN_SPOTS = [{ x: BALL.px, z: BALL.pz }, { x: CRUSHER.x + CRUSHER.hx + 3, z: CRUSHER.z }, { x: (ARENA.firePit.x0 + ARENA.firePit.x1) / 2, z: ARENA.firePit.z }]; // heavies shove their prey into these
+const AI_V = new CANNON.Vec3(), AI_FROM = new CANNON.Vec3(), AI_TO = new CANNON.Vec3(), AI_RES = new CANNON.RaycastResult(), AI_RAYOPT = { skipBackfaces: true }; // scratch for the AI's local-frame checks
+const JUMP_RAMPS = [{ x: 0, z: 96, dx: 0, dz: -1 }, { x: 0, z: -96, dx: 0, dz: 1 }, { x: 25, z: -100, dx: 1, dz: 0 }]; // the two big kickers and the fire-pit jump (centre, uphill direction)
 const COP = { nick: 'Sheriff Buck', from: 'Sheriff Dolly Mae Buck, a loud Deep South county sheriff', style: 'brawler', lang: 'en-US', pitch: 1.1, rate: 1.0, color: '#2f6fd0',
   words: { ex: ['Freeze', 'Hold it right there', 'Dagnabbit', 'Ten-four'], insult: ['punk', 'scofflaw', 'hotshot', 'perp'], kin: ['deputy', 'captain', 'donut guy'], thing: ['badge', 'donut', 'clipboard', 'sunglasses'], boast: ['You have the right to remain wrecked!', 'Case closed!'], voice: ['Samantha', 'Victoria', 'Google US English'] },
   lines: {
