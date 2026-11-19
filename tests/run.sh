@@ -95,6 +95,7 @@ quick() {
   t physfix 600 "PHYSFIX PASS"
   t hovercraft 1500 "HOVERCRAFT PASS"
   t hovernet 60 "HOVERNET PASS"
+  t spider4 900 "SPIDER4 PASS"
 }
 release() {
   quick
