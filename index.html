@@ -7461,17 +7461,22 @@ class Car {
 }
 
 /* ---------------- TSUNAMI (Victor's idea): now and then a wave comes over the north wall and floods the yard for ~35 s ----------------
-   Rare (about one match in three, never in the first 70 s, at most once a match), with a fair warning: a siren, the commentators, and the
+   Rare (about one match in three, never in the first 70 s; in elimination at most once a match), with a fair warning: a siren, the commentators, and the
    wave rising over the far wall for 8 s before it comes. The water stands 1.45 m deep: ramps, the crusher deck, container tops and the
    mesas stay dry. Cars float a little (bob), drag through it slowly and lose grip, but water alone never hurts anyone. Fires go out,
    puddles wash away, light props float. Jet's driver takes to Ann the speedboat; when it drains, they get back in the truck.
-   One water plane (a cheap wave shader; flat, no waves, on weak devices) and one foam crest: 2 draw calls, only while it lasts. */
-const TSU = { state: 'idle', t: 0, at: Infinity, level: 0, front: -A - 8, crest: 0, done: false, hulks: [], ghosts: [], floaters: new Set(), LEVEL: 1.45, WARN: 8, SURGE: 7, FLOOD: 34, DRAIN: 7, log: [], sirenT: 0, mesh: null, foam: null, lite: null, splashT: 0 };
+   One water plane (a cheap wave shader; flat, no waves, on weak devices) and one foam crest: 2 draw calls, only while it lasts.
+   Respawn matches never end by themselves, so there it comes back now and then at about the same rate (Victor): the first roll is a fresh
+   match's (35%, at 70-220 s); after that every 3 minutes of play (one ordinary match: autoplay's is 180 s) gets the same 35% roll, and never
+   sooner than 4 minutes after the last wave drained. On average that's a wave every ~12 minutes of play, start to start, and two are always
+   at least ~5 minutes apart (4 min dry plus the ~1 min the wave lasts); a fresh 3-minute match gets one ~26% of the time (one in four or so). */
+const TSU = { state: 'idle', t: 0, at: Infinity, level: 0, front: -A - 8, crest: 0, done: false, hulks: [], ghosts: [], floaters: new Set(), LEVEL: 1.45, WARN: 8, SURGE: 7, FLOOD: 34, DRAIN: 7, P: 0.35, WIN: 180, GAP: 240, win: 220, next: 0, log: [], sirenT: 0, mesh: null, foam: null, lite: null, splashT: 0 };
 const _tzF = new CANNON.Vec3(), _tzZ = new CANNON.Vec3(), _tzR = new CANNON.RaycastResult(), _tzA = new CANNON.Vec3(), _tzB = new CANNON.Vec3(), _tzRay = { skipBackfaces: true, collisionFilterMask: ~(LIGHT | CARG) };
 function tsuWet() { return TSU.level > 0.3; }
 function tsuFiresOut() { return TSU.state === 'surge' || TSU.state === 'flood' || TSU.state === 'drain'; } // the fire pit and the fire drums stay out until the yard is dry again
 function waterAt(x, z) { return TSU.level > 0 && (TSU.state !== 'surge' || z < TSU.front) ? TSU.level : 0; } // behind the wave front the water stands; ahead of it the yard is still dry
-function tsuSchedule() { const q = /[?&]tsunami=(\d+)/.exec(location.search); TSU.at = q ? +q[1] : Math.random() < 0.35 ? rand(70, 220) : Infinity; } // (?tsunami=N: at N s, for autoplay checks)
+function tsuSchedule() { const q = /[?&]tsunami=(\d+)/.exec(location.search); TSU.at = q ? +q[1] : Math.random() < 0.35 ? rand(70, 220) : Infinity; TSU.win = 220; TSU.next = 0; } // (?tsunami=N: at N s, for autoplay checks)
+function tsuReroll() { const T = TSU, s = Math.max(T.win, T.next); T.at = Math.random() < T.P ? s + rand(0, T.WIN) : Infinity; T.win = s + T.WIN; } // respawn mode: the next 3-minute window's roll
 function tsuWaterMesh() { // made the first time it's needed, and kept: a match restart reuses it
   const lite = QUALITY.level >= 6, seg = lite ? 1 : 56;
   if (TSU.mesh && TSU.lite === lite) return TSU.mesh;
@@ -7517,13 +7522,13 @@ function tsuReset() { // a new match: no water, no empty trucks floating about, 
 function updateTsunami(dt) {
   const T = TSU;
   if (MP.role !== 'guest') {
-    if (T.state === 'idle') { if (!T.done && game.state === 'playing' && game.countdown <= 0 && game.time >= T.at) startTsunami(); }
+    if (T.state === 'idle') { if (!T.done && game.state === 'playing' && game.countdown <= 0 && game.time >= T.at && game.time >= T.next) startTsunami(); else if (GAME_MODE === 'respawn' && game.state === 'playing' && game.time >= T.win) tsuReroll(); }
     else {
       T.t -= dt;
       if (T.state === 'warn') { T.crest = clamp(1 - T.t / 4, 0, 1) * 6; if (T.t <= 0) { T.state = 'surge'; T.t = T.SURGE; T.front = -A - 6; T.level = T.LEVEL; T.log.push({ t: +game.time.toFixed(1), ev: 'surge' }); barks.announce('tsunamiHit', {}, true); tsuWakeProps(); } }
       else if (T.state === 'surge') { T.front += (2 * A + 14) / T.SURGE * dt; T.crest = lerp(6, 1.6, clamp((T.front + A) / (2 * A), 0, 1)); if (T.front >= A + 8) { T.state = 'flood'; T.t = T.FLOOD; T.crest = 0; T.log.push({ t: +game.time.toFixed(1), ev: 'flood' }); } }
       else if (T.state === 'flood') { T.level = T.LEVEL + Math.sin(clock * 0.7) * 0.06; if (T.t <= 0) { T.state = 'drain'; T.t = T.DRAIN; T.log.push({ t: +game.time.toFixed(1), ev: 'drain' }); barks.announce('tsunamiOver', {}, true); } }
-      else if (T.state === 'drain') { T.level = T.LEVEL * clamp(T.t / T.DRAIN, 0, 1); if (T.t <= 0) { T.state = 'idle'; T.done = true; T.level = 0; T.log.push({ t: +game.time.toFixed(1), ev: 'dry' }); tsuReboardAll(); } }
+      else if (T.state === 'drain') { T.level = T.LEVEL * clamp(T.t / T.DRAIN, 0, 1); if (T.t <= 0) { T.state = 'idle'; T.done = GAME_MODE !== 'respawn'; T.next = game.time + T.GAP; T.at = Infinity; T.win = game.time; T.level = 0; T.log.push({ t: +game.time.toFixed(1), ev: 'dry' }); tsuReboardAll(); } }
       if (T.state === 'surge' || T.state === 'flood') tsuJets();
     }
   }

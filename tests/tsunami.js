@@ -3,7 +3,10 @@
 //  - cars in the flood are slowed (full throttle: under 60% of their dry-land speed) but can still drive (> 1.5 m/s), and water alone hurts nobody;
 //  - a burning car, a burning fuel puddle and a burning crate all go out; puddles wash away;
 //  - no solver-kick storm (physics safety-net catches during the flood stay under 8);
-//  - it drains (level back to 0, at most once a match), and three restarts with a tsunami each leave no geometries, textures, bodies or empty trucks behind;
+//  - it drains (level back to 0), and does not come straight back (at most once a match in elimination, not within 4 min in respawn);
+//  - a long respawn match (90 game-minutes, the clock jumped ahead while the yard is dry) gets more than one, each starting >= 240 s after the last
+//    one drained; the same in elimination gets exactly the one;
+//  - three restarts with a tsunami each leave no geometries, textures, bodies or empty trucks behind;
 //  - perf at the lowest quality (q7, 8 opponents, damage off so nothing piles up between the two windows): the water itself at most 2 draw calls; the whole frame's draw calls during the flood within +10% of the same match before it, the flood's own physics under 0.5 ms a step, contacts within 1.6x + 25 and awake bodies +30,
 //    and a loose wall-clock guard (3x + 2 ms a step: timing on a shared machine swings with other jobs). Frame time is printed, by eye only.
 // Hooks: __derby.startTsunami(fast) forces one (fast = 2 s warning), ?tsunami=N in the URL schedules one at N s.
@@ -45,7 +48,7 @@ const { open } = require('./harness');
     out.blowFlood = D.PHYS.blowups - blow0; out.blowLog = D.PHYS.log.slice(-4);
     await until(() => D.TSU.state === 'idle', 20); out.dry = D.TSU.state === 'idle' && D.TSU.level === 0; out.done = D.TSU.done;
     out.dmg = ais.map((c, i) => +(h0[i] - c.health).toFixed(1)); out.wrecked = ais.filter((c) => c.wrecked).length; out.tlog = D.TSU.log.slice();
-    await wt(1); D.TSU.at = 0; await wt(1); out.onceOnly = D.TSU.state === 'idle'; // (it has been: no second one this match)
+    await wt(1); D.TSU.at = 0; await wt(1); out.onceOnly = D.TSU.state === 'idle'; out.next = +(D.TSU.next - D.game.time).toFixed(0); // (it has been: not straight back)
     // three restarts, each with a (short) tsunami: nothing piles up
     const mem = [];
     for (let k = 0; k < 4; k++) { D.game.state = 'menu'; D.startMatch(); while (!(D.game.state === 'playing' && D.game.countdown <= 0)) await sleep(100);
@@ -64,9 +67,24 @@ const { open } = require('./harness');
   ok(r.burnBefore && !r.burnAfter && !r.pudBurning && r.crateLit && !r.crateAfter, 'fires go out: a burning car, burning fuel and a burning crate');
   ok(r.oilGone, 'the oil puddle washes away');
   ok(r.blowFlood < 8, `no solver-kick storm (${r.blowFlood} catches) ${JSON.stringify(r.blowLog)}`);
-  ok(r.drainSeen && r.dry && r.done && r.onceOnly, 'it drains, and does not come back in the same match ' + JSON.stringify(r.tlog));
+  ok(r.drainSeen && r.dry && !r.done && r.onceOnly && r.next >= 230, `it drains, and does not come straight back (respawn: the next one no sooner than ${r.next} s from now) ` + JSON.stringify(r.tlog));
   const m = r.mem, last = m[m.length - 1], first = m[1];
   ok(last.geo <= first.geo + 12 && last.tex <= first.tex + 2 && last.other <= first.other + 2 && m.every((x) => x.hulks === 0 && x.ghosts === 0 && x.floaters === 0 && x.carBodies === x.cars), 'no leaks over 3 restarts (GPU geometries and textures, non-prop bodies, empty trucks, floaters) ' + JSON.stringify(m));
+  // a long match: 90 game-minutes, the clock jumped 5 s at a time while the yard is dry (short waves: 2 s warning, 3 s surge, flood and drain), respawn then elimination
+  const lm = await page.evaluate(async () => { const D = __derby, sleep = (ms) => new Promise((r) => setTimeout(r, ms)), T = D.TSU, keep = { WARN: T.WARN, SURGE: T.SURGE, FLOOD: T.FLOOD, DRAIN: T.DRAIN }, dmg0 = D.S.damage; D.S.damage = 0;
+    const long = async (mode) => { document.querySelector(`.modes .mode[data-mode="${mode}"]`).click(); D.game.state = 'menu'; D.startMatch(); while (!(D.game.state === 'playing' && D.game.countdown <= 0)) await sleep(100);
+      for (const c of D.cars.filter((c) => c !== D.player && c.T.jet)) D.respawnCar(c, 'viper'); for (const c of D.cars) if (c !== D.player) c.think = () => { c.ctrl.throttle = 0; c.ctrl.steer = 0; c.ctrl.fire = false; c.ctrl.handbrake = true; };
+      Object.assign(T, { WARN: 2, SURGE: 3, FLOOD: 3, DRAIN: 3 }); T.at = 80; T.win = Math.max(T.win, 80); /* (the first one for sure, so elimination has one to not repeat) */ const w0 = performance.now();
+      while (D.game.time < 5400 && D.game.state === 'playing' && performance.now() - w0 < 420000) { if (T.state === 'idle') D.game.time += 5; await sleep(40); }
+      while (T.state !== 'idle' && performance.now() - w0 < 460000) await sleep(40);
+      const L = T.log.slice(), warns = L.filter((e) => e.ev === 'warn').map((e) => e.t), drys = L.filter((e) => e.ev === 'dry').map((e) => e.t), gaps = warns.slice(1).map((w, i) => +(w - drys[i]).toFixed(0));
+      return { mode, gt: Math.round(D.game.time), st: D.game.state, n: warns.length, warns: warns.map(Math.round), gaps }; };
+    const resp = await long('respawn'), elim = await long('elim'); document.querySelector('.modes .mode[data-mode="respawn"]').click(); Object.assign(T, keep); D.S.damage = dmg0;
+    return { resp, elim }; });
+  console.log('long match: ' + JSON.stringify(lm));
+  const R = lm.resp, E = lm.elim;
+  ok(R.gt >= 5400 && R.n >= 2 && R.gaps.every((g) => g >= 240), `a long respawn match gets more than one tsunami: ${R.n} in ${Math.round(R.gt / 60)} game-minutes (one every ${(R.gt / 60 / Math.max(1, R.n)).toFixed(1)} min), each >= 240 s after the last drained (gaps ${JSON.stringify(R.gaps)} s)`);
+  ok(E.gt >= 5400 && E.n === 1, `elimination keeps it to the one a match (${E.n} in ${Math.round(E.gt / 60)} game-minutes)`);
   // perf at the lowest quality, 8 opponents, the same match before and during the flood (rendering on)
   const p = await page.evaluate(async () => { window.__noRender = false; const D = __derby, sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     D.S.aiCount = 8; D.S.autoGfx = false; D.applyQuality(7); const dmg0 = D.S.damage; D.S.damage = 0; /* (no panels coming off: a match piles up debris and loose parts as it goes, which would bias a before/after comparison) */ D.game.state = 'menu'; D.startMatch(); while (!(D.game.state === 'playing' && D.game.countdown <= 0)) await sleep(100); D.applyQuality(7); await sleep(1500);
