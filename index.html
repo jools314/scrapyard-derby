@@ -904,6 +904,11 @@ CAR_TYPES.spider = { walker: true, special: 'web', noPlant: true, handling: { st
 // from behind). F throws cartoon bombs (lobbed ahead, dropped behind); J boosts it ~5 m up for a few seconds, and from up there a bomb drops on the car below.
 // Its "wheels" are the four lift rays (nothing to lose).
 CAR_TYPES.hover = { hover: true, iconic: true, special: 'hoverbomb', noPlant: true, noWheelLoss: true, handling: { steer: 1, rate: 1, spring: 1, damp: 1, rear: 1, drag: 0.85, roll: 0.5 }, name: 'Buzzsaw Hover', blurb: 'Typhoon Tomoko\'s hovercraft: floats on an air cushion, so it is fast, light and drifts round every corner (Space drops the skirt to brake and swing round). Concrete, oil and mud can\'t touch it. Spinning saws down both sides cut anyone who rams or rubs it; the big fan on the back is its weak spot. F throws a cartoon bomb: lobbed at the car ahead or dropped on one chasing you. J boosts it up high for a few seconds: drop a bomb on whoever is below.', style: 'hover', mass: 1150, L: 4.6, W: 2.9, H: 0.55, wheelR: 0.3, wheelW: 0.2, wb: 3.0, axles: [1.5, -1.5], track: 2.0, power: 0.95, grip: 0.3, armor: 1.05, cabin: { l: 1.5, h: 0.62, w: 1.3, x: 0.45 }, color: 0x17b3bd, redline: 9000, idle: 2600, cyl: 8 };
+// Jet, Captain Goldtooth's golden pirate truck (Victor's idea): a laser minigun on the cab roof and Ann, a golden speedboat, strapped in the bed.
+// When the tsunami comes, Ann launches off the bed and the driver takes the boat; Jet is left floating, empty. Ann is not in the garage
+// (non-enumerable: the picker, the AI's respawn choices and every loop over CAR_TYPES skip it), only the tsunami puts you in her.
+CAR_TYPES.jet = { iconic: true, jet: true, special: 'laser', handling: { steer: 0.95, rate: 1.0, spring: 0.95, damp: 1.0, rear: 1.05, drag: 1.1, roll: 0.9 }, frontDrive: 0.4, name: 'Jet', blurb: 'Captain Goldtooth\'s golden pirate truck. Hold F to fire the laser minigun on the roof (its battery ring dims as it drains: water from the fire truck shorts it). Ann the speedboat rides in the bed: when the tsunami comes she launches and you drive the boat.', style: 'pickup', mass: 3000, L: 5.9, W: 2.15, H: 0.8, wheelR: 0.5, wheelW: 0.4, wb: 3.6, track: 1.9, power: 1.5, grip: 1.05, armor: 0.8, cabin: { l: 1.7, h: 0.7, w: 1.9, x: 1.0 }, color: 0xd9a521, redline: 5600, idle: 750, cyl: 4 };
+Object.defineProperty(CAR_TYPES, 'ann', { enumerable: false, value: { boat: true, special: 'laser', hornAs: 'jet', noPlant: true, noWheelLoss: true, handling: { steer: 1.1, rate: 1.3, spring: 1, damp: 1, rear: 1, drag: 0.8, roll: 0.6 }, name: 'Ann', blurb: 'Ann, the golden speedboat: very fast on water, drifty, a laser gun on the bow, cannons that fire a broadside by themselves at anyone alongside. J dives under the water for a moment; she comes up with a laser blast into whatever is above her.', style: 'boat', mass: 1500, L: 4.8, W: 1.9, H: 0.62, wheelR: 0.3, wheelW: 0.2, wb: 2.6, track: 1.5, power: 1.4, grip: 1, armor: 0.9, cabin: { l: 0.9, h: 0.42, w: 1.4, x: 0.35 }, color: 0xd9a521, redline: 7800, idle: 1000, cyl: 4 } });
 
 const S = {};
 const STORE_KEY = 'scrapyard-derby-settings-v9';
@@ -918,7 +923,7 @@ function loadSettings() {
 function saveSettings() { try { localStorage.setItem(STORE_KEY, JSON.stringify(S)); } catch (e) {} }
 loadSettings();
 let playerType = 'outrider';
-try { const t = localStorage.getItem(CAR_KEY); if (t && CAR_TYPES[t]) playerType = t; } catch (e) {}
+try { const t = localStorage.getItem(CAR_KEY); if (t && CAR_TYPES[t] && Object.prototype.propertyIsEnumerable.call(CAR_TYPES, t)) playerType = t; } catch (e) {} // (never the boat: only the tsunami puts you in Ann)
 
 const FIXED = 1 / 60;
 // Handling feel (tuned by measurement: cornering g, sideslip, lane-change recovery)
@@ -2109,13 +2114,13 @@ function updateJumbo(dt) {
 if (S.night) applyNight();
 function updateArena(dt) {
   updateGas(dt); updateBall(dt); updateBollards(dt); updateJumbo(dt); updateSigns(dt);
-  updateCrusher(dt); updateGeysers(dt); updateFireworks(dt); updateWeeds(dt); if ((BOARD.tick = (BOARD.tick || 0) - dt) <= 0) { BOARD.tick = 0.5; updateBoard(); }
-  if (ARENA.coal) { ARENA.coal.emissiveIntensity = 0.5 + Math.sin(clock * 3) * 0.15 + Math.sin(clock * 7.7) * 0.1; const F = ARENA.firePit; if (Math.hypot(camera.position.x - 43, camera.position.z - F.z) < 150) for (let k = 0; k < 3; k++) emit('fire', rand(F.x0, F.x1), 0.2, F.z + rand(-F.hz, F.hz), rand(-0.3, 0.3), rand(2, 4), rand(-0.3, 0.3), rand(0.4, 0.8), rand(0.8, 1.4)); }
+  updateCrusher(dt); updateGeysers(dt); updateFireworks(dt); updateTsunami(dt); floodFrame(dt); updateWeeds(dt); if ((BOARD.tick = (BOARD.tick || 0) - dt) <= 0) { BOARD.tick = 0.5; updateBoard(); }
+  if (ARENA.coal && !tsuFiresOut()) { ARENA.coal.emissiveIntensity = 0.5 + Math.sin(clock * 3) * 0.15 + Math.sin(clock * 7.7) * 0.1; const F = ARENA.firePit; if (Math.hypot(camera.position.x - 43, camera.position.z - F.z) < 150) for (let k = 0; k < 3; k++) emit('fire', rand(F.x0, F.x1), 0.2, F.z + rand(-F.hz, F.hz), rand(-0.3, 0.3), rand(2, 4), rand(-0.3, 0.3), rand(0.4, 0.8), rand(0.8, 1.4)); }
   CROWD.t.value = clock; CROWD.x.value = Math.max(0, CROWD.x.value - dt * 0.25);
   const cam = camera.position;
   // fire barrels: flames, smoke and a flickering glow when you're near
   for (const b of ARENA.barrels) { const d = Math.hypot(b.x - cam.x, b.z - cam.z); b.t += dt;
-    if (d < 130) { if (Math.random() < 0.55) emit('fire', b.x + rand(-0.25, 0.25), 1.25, b.z + rand(-0.25, 0.25), rand(-0.3, 0.3), rand(1.5, 2.6), rand(-0.3, 0.3), rand(0.35, 0.6), rand(0.45, 0.75)); if (Math.random() < 0.08) emit('smoke', b.x, 2.4, b.z, rand(-0.3, 0.3), rand(1, 2), rand(-0.3, 0.3), rand(2, 3), rand(0.5, 0.8)); } }
+    if (d < 130 && !tsuFiresOut()) { if (Math.random() < 0.55) emit('fire', b.x + rand(-0.25, 0.25), 1.25, b.z + rand(-0.25, 0.25), rand(-0.3, 0.3), rand(1.5, 2.6), rand(-0.3, 0.3), rand(0.35, 0.6), rand(0.45, 0.75)); if (Math.random() < 0.08) emit('smoke', b.x, 2.4, b.z, rand(-0.3, 0.3), rand(1, 2), rand(-0.3, 0.3), rand(2, 3), rand(0.5, 0.8)); } }
   // vultures circle; after a wreck they drift over it
   for (const v of ARENA.birds) { const tx = ARENA.lastWreck ? ARENA.lastWreck.x : 0, tz = ARENA.lastWreck ? ARENA.lastWreck.z : 0; v.cx = lerp(v.cx, tx, dt * 0.05); v.cz = lerp(v.cz, tz, dt * 0.05); v.a += v.sp * dt;
     const x = v.cx + Math.cos(v.a) * v.r, z = v.cz + Math.sin(v.a) * v.r; v.g.position.set(x, v.h + Math.sin(clock * 0.5 + v.a) * 2, z); v.g.rotation.y = -v.a + (v.sp > 0 ? -Math.PI / 2 : Math.PI / 2) + Math.PI / 2;
@@ -2659,7 +2664,7 @@ const HORN_LINES = { // what each driver shouts when you lean on the horn (in ch
 };
 function hornLine(car) { // a horn press gets an in-character shout (not every press: kids lean on the horn)
   const now = performance.now(); if (now < (car.hornLineT || 0) || game.state !== 'playing') return; car.hornLineT = now + 4500;
-  const pool = HORN_LINES[car.type]; if (!pool) return; let line = pool[Math.random() * pool.length | 0], P = car.type === 'cruiser' ? COP : CAR_CAST[car.type] || ANNOUNCER;
+  const ht = car.T.hornAs || car.type, pool = HORN_LINES[ht]; if (!pool) return; let line = pool[Math.random() * pool.length | 0], P = ht === 'cruiser' ? COP : CAR_CAST[ht] || ANNOUNCER; // (Ann shouts the Jet's lines)
   if (line.startsWith('T|')) { P = TOURIST; line = line.slice(2); }
   if (!TALK.gate(P, line, car.isPlayer ? 3 : 1)) return;
   barks.show(P, car.baseColor || new THREE.Color(0xffffff), line); barks.speak(P, line, car.body.position);
@@ -2681,6 +2686,7 @@ function spiderLine(car, kind, victim) { // one breath of Anansi; the player's s
 }
 HORN_LINES.hover = ["Abunai! Abunai! Hovercraft coming through!", "Beep beep! Takoyaki delivery! Move it!", "Nande yanen?! Move your car!"];
 HORN_LINES.spider = ["Agoo! Agoo! Spider coming through!", "Ei! Move, move, my legs are in a hurry!", "Ha ha ha! Beep beep, it is Anansi!"];
+HORN_LINES.jet = ["Ahoy! Out o' the way, ye landlubbers!", "Arr! Make way for the golden Jet!", "Yo ho ho! Pirate comin' through!"];
 const MEGA = { // the deputy on the megaphone / police radio
   shoot: ['Pull over! PULL OVER!', 'This is your final warning!', 'Hands where I can see them!', 'Stop resisting!'],
   spikes: ['Deploying spike strip!', 'Stop stick out! Stop stick out!', 'Let\'s see you outrun this!'],
@@ -3113,7 +3119,7 @@ function inFire(car) {
   const p = car.body.position;
   if (p.y > 2.5) return false;
   for (const c of CONCRETE.list) if (c.kind === 'fuel' && c.burning > 0 && !(c.trail && c.owner === car) && (p.x - c.x) ** 2 + (p.z - c.z) ** 2 < (c.r + 1) ** 2) return true; // (not the Sandflea's own fire-drift trail: each patch drops right under its tail, so any hard turn or circle back through it set the buggy alight, unattributed, until it burned to a wreck; a tanker's own lit slick, other cars' trails and flamethrowers still burn it)
-  if (typeof ARENA !== 'undefined' && ARENA.firePit && inFirePit(p)) return true;
+  if (typeof ARENA !== 'undefined' && ARENA.firePit && inFirePit(p) && !tsuFiresOut()) return true; // (the tsunami puts the fire pit out)
   return false;
 }
 // The fuel tanker going up: a fireball, a shockwave racing over the dirt, a smoke column, a lake of burning fuel, chain reactions
@@ -4446,12 +4452,13 @@ class Car {
     if (T.dozer) b.addShape(this.bladeShape = new CANNON.Box(new CANNON.Vec3(0.2, 0.68, T.W * 0.56)), new CANNON.Vec3(T.L / 2 + 0.55, HULL_Y0 + 0.83, 0)); // the blade is solid steel: it pushes, it doesn't sink into what it hits
     if (T.walker) b.addShape(new CANNON.Box(new CANNON.Vec3(1.25 * K, 0.35 * K, 1.2 * K)), new CANNON.Vec3(0, -0.85 * K, 0)); // the leg cage: low cars hit the legs, not thin air under the body
     if (T.hover) for (const sd of [-1, 1]) b.addShape(new CANNON.Box(new CANNON.Vec3(1.55, 0.22, 0.45)), new CANNON.Vec3(0.05, HULL_Y0 + 0.28, sd * (HOVER.sawZ + 0.05))); // the side saws stick out past the hull: a car rubbing the flank meets the blades
+    if (T.jet) b.addShape(this.annShape = new CANNON.Box(new CANNON.Vec3(1.45, 0.38, 0.8)), new CANNON.Vec3(-1.45, HULL_Y0 + T.H + 0.4, 0)); // Ann, strapped in the bed (switched off once she has launched)
     this.baseOffsets = b.shapeOffsets.map((o) => o.clone());
     b.position.set(x, T.walker ? 2.2 * K : 1.6, z);
     b.quaternion.setFromAxisAngle(AX_Y, yaw);
     b.car = this;
 
-    const v = this.vehicle = T.walker ? walkerRig(8, b) : T.hover ? walkerRig(4, b) : new CANNON.RaycastVehicle({ chassisBody: b, indexRightAxis: 2, indexForwardAxis: 0, indexUpAxis: 1 });
+    const v = this.vehicle = T.walker ? walkerRig(8, b) : T.hover || T.boat ? walkerRig(4, b) : new CANNON.RaycastVehicle({ chassisBody: b, indexRightAxis: 2, indexForwardAxis: 0, indexUpAxis: 1 });
     // Wheels come in pairs per axle, front axle first: even index = left (-z), odd = right (+z)
     this.axles = T.axles || [T.wb / 2, -T.wb / 2];
     const rearAvg = this.axles.slice(1).reduce((a, x) => a + x, 0) / (this.axles.length - 1);
@@ -4501,6 +4508,7 @@ class Car {
   buildModel() {
     if (this.T.walker) return this.buildSpider();
     if (this.T.hover) return this.buildHover();
+    if (this.T.boat) return this.buildBoat();
     const T = this.T, C = T.cabin, L = T.L, W = T.W, H = T.H, st = T.style;
     const g = this.group = new THREE.Group();
     const root = this.root = new THREE.Group();
@@ -4639,7 +4647,7 @@ class Car {
       for (const s of [-1, 1]) add(new THREE.BoxGeometry(L * 0.42, 0.45, 0.06), this.paint, -L * 0.27, top + 0.2, s * hullW * 0.47);
       const bar = part(add(new THREE.BoxGeometry(0.1, 0.1, hullW * 0.9), M.chrome, C.x - C.l / 2 - 0.25, top + C.h + 0.05, 0), 'top', 40);
       for (const s of [-1, 1]) add(new THREE.BoxGeometry(0.1, C.h + 0.05, 0.1), M.chrome, 0, -(C.h + 0.05) / 2, s * hullW * 0.43, bar);
-      part(add(new THREE.TorusGeometry(0.3, 0.12, 8, 14), M.tire, -L * 0.3, top + 0.12, 0), 'top', 50).rotation.x = Math.PI / 2;
+      if (!T.jet) part(add(new THREE.TorusGeometry(0.3, 0.12, 8, 14), M.tire, -L * 0.3, top + 0.12, 0), 'top', 50).rotation.x = Math.PI / 2;
     }
     if (st === 'wagon') {
       for (const s of [-1, 1]) add(new THREE.BoxGeometry(L * 0.95, 0.04, 0.02), M.chrome, 0, HULL_Y0 + H * 0.3, s * (hullW / 2 + 0.06));
@@ -4891,6 +4899,7 @@ class Car {
       this.mgEject = new THREE.Object3D(); this.mgEject.position.set(0, 0.05, 0.2); yaw.add(this.mgEject);
       this.mgYaw.position.x = 0; mount.updateMatrix(); this.mgYaw.position.set(0, 0.78, 0);
     }
+    if (T.jet) this.buildJetKit(add, part, { L, W, H, top, hullW, C });
     if (T.special === 'rockets') { // pop-up four-tube pod on the roof
       const pod = new THREE.Group(); pod.position.set(C.x - 0.1, top + C.h + 0.04, 0); root.add(pod); this.rkPod = pod;
       add(new THREE.BoxGeometry(0.1, 0.12, 0.5), M.black, 0, 0.04, 0, pod);
@@ -5359,7 +5368,7 @@ class Car {
 
   // Move the centre of mass fore/aft: everything else shifts the other way in the body frame
   applyBalance() {
-    const d = this.T.walker || this.T.hover ? 0 : this.axleMid + (S.frontWeight / 100 - 0.5 + (this.T.comBias || 0)) * this.T.wb; // (a walker hangs from its hips: no weight balance to shift)
+    const d = this.T.walker || this.T.hover || this.T.boat ? 0 : this.axleMid + (S.frontWeight / 100 - 0.5 + (this.T.comBias || 0)) * this.T.wb; // (a walker hangs from its hips: no weight balance to shift)
     const b = this.body;
     b.shapeOffsets.forEach((o, i) => { o.x = this.baseOffsets[i].x - d; });
     this.vehicle.wheelInfos.forEach((w, i) => { w.chassisConnectionPointLocal.x = this.wheelBase[i][0] - d; });
@@ -5390,6 +5399,7 @@ class Car {
     if (this.poisonT > 0) this.poisonStep(dt); // Anansi's bite
     if (this.T.walker) return this.walkStep(dt);
     if (this.T.hover) return this.hoverStep(dt);
+    if (this.T.boat) return this.boatStep(dt);
     const b = this.body, v = this.vehicle, T = this.T;
     b.quaternion.vmult(AX_X, this.fwd);
     b.quaternion.vmult(AX_Y, this.up);
@@ -5435,7 +5445,7 @@ class Car {
       const thrown = this.trackBroken && this.trackBroken[i % 2]; // tank wheels alternate left/right
       v.applyEngineForce(hb && rear ? 0 : thrown ? 0 : F * share * (this.trackBroken && this.trackBroken[1 - i % 2] ? 0.8 : 1), i);
       v.setBrake(lost ? 0 : hb && rear ? brakeImp * 1.5 * 2 / Math.max(1, this.nW - 2) : brake * 4 / this.nW, i);
-      w.frictionSlip = lost ? 0.3 : S.tireGrip * T.grip * (rear ? TUNE.rearGrip * T.handling.rear : 1) * (hb && rear ? TUNE.hbGrip : 1) * (this.wheelDmg[i] > 55 ? 0.85 : 1) * (Math.abs(speed) < 6 ? 1.6 : 1) * (this.slipT > 0 ? 0.45 : 1); // extra bite at crawling speed; slipT: sprayed by a shaking bull — half grip while it lasts
+      w.frictionSlip = lost ? 0.3 : S.tireGrip * T.grip * (rear ? TUNE.rearGrip * T.handling.rear : 1) * (hb && rear ? TUNE.hbGrip : 1) * (this.wheelDmg[i] > 55 ? 0.85 : 1) * (Math.abs(speed) < 6 ? 1.6 : 1) * (this.slipT > 0 ? 0.45 : 1) * (this.floodK > 0 ? 1 - 0.45 * this.floodK : 1); // extra bite at crawling speed; slipT: sprayed by a shaking bull — half grip while it lasts
       w.rollInfluence = TUNE.rollInfluence * T.handling.roll;
       if (thrown) { v.setBrake(brakeImp * 0.05, i); w.frictionSlip *= 0.12; } // bare road wheels on the dirt: next to no grip
       if (w.isInContact) contacts++;
@@ -5768,7 +5778,7 @@ class Car {
 
     // Hydraulic jump: impulse through the centre of mass, mostly world-up, so it never adds spin
     this.jumpCd -= dt;
-    if (!this.T.walker && !this.T.hover) { // (a walker's J is its own leap, in walkStep: Build 106; a hovercraft's is its boost, in hoverStep)
+    if (!this.T.walker && !this.T.hover && !this.T.boat) { // (a walker's J is its own leap, in walkStep: Build 106; a hovercraft's is its boost, in hoverStep; a boat's J is its dive, in boatStep)
     if (this.ctrl.jump) { this.jumpBuf = 0.35; this.ctrl.jump = false; } // buffered so a wheel bouncing off the ground doesn't eat the press
     this.jumpBuf -= dt;
     if (this.jumpBuf > 0 && this.jumpCd <= 0 && this.contacts >= 2 && !this.wrecked && S.jumpStrength > 0) {
@@ -5896,6 +5906,7 @@ class Car {
     let skid = 0;
     if (T.walker) { this.updateLegs(dt); this.laserFrame(dt); }
     else if (T.hover) this.hoverFrame(dt);
+    else if (T.boat) this.boatFrame(dt);
     else for (let i = 0; i < this.nW; i++) {
       const wi = v.wheelInfos[i], inContact = wi.isInContact;
       v.updateWheelTransform(i);
@@ -6923,14 +6934,14 @@ class Car {
   }
 
   applyDamage(dmg, by, zone, model, dv = 0) {
-    if (this.wrecked) return;
-    if (by && !by.body) by = null; // blasts from scenery (gas cylinders, crane drops) have no driver to credit
+    if (this.wrecked || this.hulk) return; // (an empty Jet floating in the tsunami is scenery: nobody is in it to hurt)
+    if (by && (!by.body || by.hulk)) by = null; // blasts from scenery (gas cylinders, crane drops) have no driver to credit
     if (this.trackHp && (zone === 'left' || zone === 'right') && dmg > 3 && !by) this.hurtTrack(zone === 'left' ? 0 : 1, dmg * 2, by); // blasts beside the tank
     if (this.T.gun && dmg >= 10 && !this.wrecked && simTime - (this.smokeScrT ?? -99) > 18 && MP.role !== 'guest') { this.smokeScrT = simTime; smokeScreen(this); } // a big hit: the Tiger pops smoke
     if (this.T.flimsy && (zone === 'left' || zone === 'right' || zone === 'rear')) { dmg *= 1.6; if (dmg >= 1.5) this.shedJunk(zone, dmg); } // RV walls are plywood and staples: they cave in and spill the contents
     dmg = Math.min(dmg, this.health);
     if (this === player && dmg >= 0.5) { HITLOG.push([+simTime.toFixed(2), +dmg.toFixed(1), Math.round(this.health), this._hitWhat || (by ? by.T.name + ' ' + by.name : this.onFire ? 'fire / blast' : 'blast'), zone || '', +(dv || 0).toFixed(1), Math.round(this.body.velocity.length())]); if (HITLOG.length > 40) HITLOG.shift(); } // (bug report: what hit you)
-    this.health -= dmg; if (PLAYLOG.m) PLAYLOG.dmg(this, dmg, by);
+    this.health -= dmg; if (PLAYLOG.m) PLAYLOG.dmg(this, dmg, by); if (this.T.police && by && dmg >= 6 && MP.role !== 'guest') dropCash(this, by); // a hard hit knocks the cops' cash loose (Victor: plunder!)
     if (dmg > 0 && player && this !== player && (by ? by === player : this.lastAttacker === player && simTime - this.lastAttackTime < 1)) HPBAR.hit(this, this.health + dmg); // (a shove still counts for whoever shoved)
     if (zone && this.zones[zone] !== undefined) {
       const before = this.zones[zone];
@@ -7406,7 +7417,7 @@ class Car {
     if (this.T.special && !this.specialCd && Math.random() < 0.12) { // AI weapon use: every driver knows their gadget
       const sp = this.T.special, l = b.pointToLocalFrame(t.body.position), ahead = l.x > 0 && Math.abs(l.z) < Math.max(2.5, l.x * 0.6);
       const behind = cars.some((c) => c !== this && !c.wrecked && (() => { const q = b.pointToLocalFrame(c.body.position); return q.x < -this.T.L / 2 && q.x > -32 && Math.abs(q.z) < 7 + -q.x * 0.15; })());
-      if ((sp === 'harpoon' && ((ahead && dist > 10 && dist < 40) || !!frontTarget(this, 40, 0.4))) || (sp === 'flame' && ahead && dist < 10) || (sp === 'reel' && !this.reelOn && ahead && dist < 18) || (sp === 'dump' && behind) || (sp === 'blade' && ahead && dist < 7.5) || (sp === 'water' && ahead && dist < 22) || (sp === 'ram' && ahead && dist > 8 && dist < 28) || ((sp === 'oil' || sp === 'bomb') && behind && sp !== 'bomb') || (sp === 'spikes' && ahead && dist < 28) || (sp === 'bomb' && ahead && dist > 12 && dist < 50) || (sp === 'lift' && (this.carry ? this.carry.t > 2.4 && (!this.delivery || this.delivery.gaveUp) : forkReady(this))) || (sp === 'tow' && (this.tow ? this.tow.t > 3.5 && Math.abs(this.speed) > 6 && (!this.delivery || this.delivery.gaveUp) : towable(this))) || (sp === 'minigun' && this.mgTarget && dist < 55) || (sp === 'rockets' && !!frontTarget(this, 90, 0.45) && dist > 10) || (sp === 'web' && spiderWebShot(this))) ctrl.fire = true;
+      if ((sp === 'harpoon' && ((ahead && dist > 10 && dist < 40) || !!frontTarget(this, 40, 0.4))) || (sp === 'flame' && ahead && dist < 10) || (sp === 'reel' && !this.reelOn && ahead && dist < 18) || (sp === 'dump' && behind) || (sp === 'blade' && ahead && dist < 7.5) || (sp === 'water' && ahead && dist < 22) || (sp === 'ram' && ahead && dist > 8 && dist < 28) || ((sp === 'oil' || sp === 'bomb') && behind && sp !== 'bomb') || (sp === 'spikes' && ahead && dist < 28) || (sp === 'bomb' && ahead && dist > 12 && dist < 50) || (sp === 'lift' && (this.carry ? this.carry.t > 2.4 && (!this.delivery || this.delivery.gaveUp) : forkReady(this))) || (sp === 'tow' && (this.tow ? this.tow.t > 3.5 && Math.abs(this.speed) > 6 && (!this.delivery || this.delivery.gaveUp) : towable(this))) || (sp === 'minigun' && this.mgTarget && dist < 55) || (sp === 'laser' && this.lzTarget && !this.lzLock && (this.lzBat ?? 1) > 0.3 && dist < 60) || (sp === 'rockets' && !!frontTarget(this, 90, 0.45) && dist > 10) || (sp === 'web' && spiderWebShot(this))) ctrl.fire = true;
     }
     if (this.T.pour && !this.pourT && this.load > 0.4) { // mixer: pour when someone is right behind
       for (const c of cars) { if (c === this || c.wrecked) continue; const l = b.pointToLocalFrame(c.body.position); if (l.x < -this.T.L / 2 && l.x > -38 && Math.abs(l.z) < 9 && Math.random() < 0.08) { ctrl.fire = true; break; } }
@@ -7431,6 +7442,11 @@ class Car {
     if (this.T.walker && !this.delivery) ({ throttle, steer } = this.spiderTactics(dt, t, dist, throttle, steer));
     if (this.T.walker && !this.delivery) this.spiderLeaps(dt, t, dist, throttle);
     if (this.T.hover) ({ throttle, steer } = this.hoverTactics(dt, t, dist, aim, throttle, steer));
+    if (this.T.boat) { // Ann: full throttle on the water, a dive under whoever is close ahead (and up through them), wide drifts round a target alongside (the cannons do the rest)
+      if (this.afloat && !this.diveCd && !(this.diveT > 0) && dist < 11 && Math.abs(angle) < 0.6 && Math.random() < dt * 2.5) ctrl.jump = true;
+      if (this.afloat) { throttle = Math.max(throttle, 0.85); if (this.reverseTimer > 0) throttle = -1; }
+      if (this.afloat && Math.random() < dt * 0.02) barks.say(this, 'boat');
+    }
     ctrl.throttle = throttle; ctrl.steer = steer; ctrl.pitch = 0;
     ctrl.handbrake = this.T.hover ? !!this.hoverHB && S.aiSkill > 0.3 : Math.abs(angle) > 1.2 && this.speed > 14 && S.aiSkill > 0.4;
     if (this.latchedBy && this.latchedBy.latch && this.latchedBy.latch.c === this) { ctrl.throttle = 1; ctrl.steer = Math.sin(simTime * 3.2 + this.number) > 0 ? 1 : -1; ctrl.handbrake = false; if (this.body.mass < 3000 && this.contacts >= 3 && Math.random() < 0.003) ctrl.jump = true; } // a spider on the roof: swerve hard to sling it off (and now and then jump: a jump throws it; rarer since 11-19, the spider holds on better)
@@ -7442,6 +7458,424 @@ class Car {
     if (this.contacts === 0 && b.position.y > 4 && Math.random() < 0.02) barks.say(this, 'air');
     if (t.isPlayer && dist < 35 && Math.abs(angle) < 0.4 && Math.random() < 0.004 && player && game.state === 'playing') sfx.at(b.position).honk(this.type, clamp(1 - b.position.distanceTo(player.body.position) / 60, 0, 1) * 0.6, rand(0.25, 0.6));
   }
+}
+
+/* ---------------- TSUNAMI (Victor's idea): now and then a wave comes over the north wall and floods the yard for ~35 s ----------------
+   Rare (about one match in three, never in the first 70 s, at most once a match), with a fair warning: a siren, the commentators, and the
+   wave rising over the far wall for 8 s before it comes. The water stands 1.45 m deep: ramps, the crusher deck, container tops and the
+   mesas stay dry. Cars float a little (bob), drag through it slowly and lose grip, but water alone never hurts anyone. Fires go out,
+   puddles wash away, light props float. Jet's driver takes to Ann the speedboat; when it drains, they get back in the truck.
+   One water plane (a cheap wave shader; flat, no waves, on weak devices) and one foam crest: 2 draw calls, only while it lasts. */
+const TSU = { state: 'idle', t: 0, at: Infinity, level: 0, front: -A - 8, crest: 0, done: false, hulks: [], ghosts: [], floaters: new Set(), LEVEL: 1.45, WARN: 8, SURGE: 7, FLOOD: 34, DRAIN: 7, log: [], sirenT: 0, mesh: null, foam: null, lite: null, splashT: 0 };
+const _tzF = new CANNON.Vec3(), _tzZ = new CANNON.Vec3(), _tzR = new CANNON.RaycastResult(), _tzA = new CANNON.Vec3(), _tzB = new CANNON.Vec3(), _tzRay = { skipBackfaces: true, collisionFilterMask: ~(LIGHT | CARG) };
+function tsuWet() { return TSU.level > 0.3; }
+function tsuFiresOut() { return TSU.state === 'surge' || TSU.state === 'flood' || TSU.state === 'drain'; } // the fire pit and the fire drums stay out until the yard is dry again
+function waterAt(x, z) { return TSU.level > 0 && (TSU.state !== 'surge' || z < TSU.front) ? TSU.level : 0; } // behind the wave front the water stands; ahead of it the yard is still dry
+function tsuSchedule() { const q = /[?&]tsunami=(\d+)/.exec(location.search); TSU.at = q ? +q[1] : Math.random() < 0.35 ? rand(70, 220) : Infinity; } // (?tsunami=N: at N s, for autoplay checks)
+function tsuWaterMesh() { // made the first time it's needed, and kept: a match restart reuses it
+  const lite = QUALITY.level >= 6, seg = lite ? 1 : 56;
+  if (TSU.mesh && TSU.lite === lite) return TSU.mesh;
+  if (TSU.mesh) { TSU.mesh.geometry.dispose(); TSU.mesh.geometry = new THREE.PlaneGeometry(2 * A + 40, 2 * A + 40, seg, seg).rotateX(-Math.PI / 2); TSU.mesh.material.uniforms.uLite.value = lite ? 1 : 0; TSU.lite = lite; return TSU.mesh; }
+  const mat = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, fog: true,
+    uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { uT: { value: 0 }, uAmp: { value: 0.18 }, uLite: { value: lite ? 1 : 0 }, uDeep: { value: new THREE.Color(0x134a63) }, uShallow: { value: new THREE.Color(0x2b8197) }, uSky: { value: new THREE.Color(0x9fc2d4) } }]),
+    vertexShader: `uniform float uT, uAmp, uLite; varying vec3 vW;
+      #include <fog_pars_vertex>
+      void main() { vec4 w = modelMatrix * vec4(position, 1.0);
+        if (uLite < 0.5) w.y += (sin(w.x * 0.11 + uT * 1.3) * 0.5 + sin(w.z * 0.07 - uT * 0.9 + w.x * 0.03) * 0.5 + sin((w.x + w.z) * 0.23 + uT * 2.1) * 0.25) * uAmp;
+        vW = w.xyz; vec4 mvPosition = viewMatrix * w; gl_Position = projectionMatrix * mvPosition;
+        #include <fog_vertex>
+      }`,
+    fragmentShader: `uniform float uT, uLite; uniform vec3 uDeep, uShallow, uSky; varying vec3 vW;
+      #include <fog_pars_fragment>
+      void main() { vec3 V = normalize(cameraPosition - vW); float fr = pow(1.0 - clamp(V.y, 0.0, 1.0), 3.0);
+        float r = sin(vW.x * 0.9 + uT * 2.3) * sin(vW.z * 0.8 - uT * 1.7) * (1.0 - uLite);
+        vec3 col = mix(uDeep, uShallow, 0.45 + 0.3 * r); col = mix(col, uSky, fr * 0.3);
+        col += vec3(0.9, 0.95, 1.0) * smoothstep(0.94, 1.0, r) * 0.18;
+        gl_FragColor = vec4(col, 0.82 + fr * 0.12);
+        #include <fog_fragment>
+      }` });
+  const m = TSU.mesh = new THREE.Mesh(new THREE.PlaneGeometry(2 * A + 40, 2 * A + 40, seg, seg).rotateX(-Math.PI / 2), mat); TSU.lite = lite;
+  m.frustumCulled = false; m.renderOrder = 2; m.visible = false; m.userData.keep = true; scene.add(m);
+  const fg = new THREE.CylinderGeometry(1, 1, 2 * A + 30, lite ? 6 : 14, 1, false, 0, Math.PI).rotateZ(Math.PI / 2); // the curling crest: half a tube lying across the yard
+  const f = TSU.foam = new THREE.Mesh(fg, new THREE.MeshStandardMaterial({ color: 0xeef7fa, roughness: 0.6, transparent: true, opacity: 0.92, emissive: 0x2a4048 }));
+  f.frustumCulled = false; f.visible = false; f.userData.keep = true; scene.add(f);
+  return m;
+}
+function startTsunami(fast) { // the host (or a solo game) starts it; guests follow the snapshot
+  if (TSU.state !== 'idle' || game.state !== 'playing') return false;
+  tsuWaterMesh(); TSU.state = 'warn'; TSU.t = fast ? 2 : TSU.WARN; TSU.level = 0; TSU.front = -A - 8; TSU.crest = 0; TSU.sirenT = 0; TSU.n = (TSU.n || 0) + 1; TSU.log.push({ t: +game.time.toFixed(1), ev: 'warn' }); ptag('tsunami warning');
+  if (PLAYLOG.m) PLAYLOG.m.tsunami = (PLAYLOG.m.tsunami || 0) + 1;
+  toast('🌊 TSUNAMI! GET TO HIGH GROUND!', 'bad'); barks.announce('tsunami', {}, true);
+  const pirate = cars.find((c) => c.T.jet && !c.isPlayer && !c.wrecked && c.persona); if (pirate) setTimeout(() => barks.say(pirate, 'tsunami', true), 4200);
+  return true;
+}
+function tsuReset() { // a new match: no water, no empty trucks floating about, a fresh roll for whether one comes
+  for (const h of TSU.hulks) h.dispose(); TSU.hulks.length = 0; tsuGhosts(0); TSU.floaters.clear();
+  TSU.state = 'idle'; TSU.level = 0; TSU.done = false; TSU.saidEject = false; TSU.front = -A - 8; TSU.crest = 0; TSU.log.length = 0; if (TSU.mesh) TSU.mesh.visible = false; if (TSU.foam) TSU.foam.visible = false; tsuSchedule();
+  if (sfx.ctx) sfx.siren(false, 0);
+}
+function updateTsunami(dt) {
+  const T = TSU;
+  if (MP.role !== 'guest') {
+    if (T.state === 'idle') { if (!T.done && game.state === 'playing' && game.countdown <= 0 && game.time >= T.at) startTsunami(); }
+    else {
+      T.t -= dt;
+      if (T.state === 'warn') { T.crest = clamp(1 - T.t / 4, 0, 1) * 6; if (T.t <= 0) { T.state = 'surge'; T.t = T.SURGE; T.front = -A - 6; T.level = T.LEVEL; T.log.push({ t: +game.time.toFixed(1), ev: 'surge' }); barks.announce('tsunamiHit', {}, true); tsuWakeProps(); } }
+      else if (T.state === 'surge') { T.front += (2 * A + 14) / T.SURGE * dt; T.crest = lerp(6, 1.6, clamp((T.front + A) / (2 * A), 0, 1)); if (T.front >= A + 8) { T.state = 'flood'; T.t = T.FLOOD; T.crest = 0; T.log.push({ t: +game.time.toFixed(1), ev: 'flood' }); } }
+      else if (T.state === 'flood') { T.level = T.LEVEL + Math.sin(clock * 0.7) * 0.06; if (T.t <= 0) { T.state = 'drain'; T.t = T.DRAIN; T.log.push({ t: +game.time.toFixed(1), ev: 'drain' }); barks.announce('tsunamiOver', {}, true); } }
+      else if (T.state === 'drain') { T.level = T.LEVEL * clamp(T.t / T.DRAIN, 0, 1); if (T.t <= 0) { T.state = 'idle'; T.done = true; T.level = 0; T.log.push({ t: +game.time.toFixed(1), ev: 'dry' }); tsuReboardAll(); } }
+      if (T.state === 'surge' || T.state === 'flood') tsuJets();
+    }
+  }
+  // everything below runs on every machine (a guest gets state, level and front from the host)
+  const on = T.state !== 'idle', m = T.mesh;
+  if (sfx.ctx && player) { const want = T.state === 'warn' || (T.state === 'surge' && T.t > T.SURGE - 2); if (want !== !!T.sirenOn) { T.sirenOn = want; sfx.siren(want, 1.6); } }
+  for (const h of T.hulks) h.frameUpdate(dt); // the empty Jets wallow (their physics runs in floodStep's pass)
+  if (!m) return;
+  m.visible = on && T.state !== 'warn'; T.foam.visible = on && T.crest > 0.05;
+  if (!on) return;
+  const z0 = -A - 20, z1 = T.state === 'surge' ? Math.min(T.front, A + 20) : A + 20, full = 2 * A + 40;
+  m.scale.z = Math.max(0.001, (z1 - z0) / full); m.position.set(0, T.level, (z0 + z1) / 2); m.material.uniforms.uT.value = clock;
+  if (T.foam.visible) { const zf = T.state === 'warn' ? -A - 3 : T.front, h = T.crest; T.foam.position.set(0, (T.state === 'warn' ? 0 : T.level) + h * 0.15, zf); T.foam.scale.set(1, h, 1.2 + h * 0.4); }
+  // spray along the wave front and over the wall, splashes round anything moving through the water (pooled particles only)
+  T.splashT -= dt; if (T.splashT > 0) return; T.splashT = QUALITY.lite ? 0.09 : 0.045;
+  const cam = camera.position;
+  if (T.state === 'surge' || (T.state === 'warn' && T.crest > 1)) { const zf = T.state === 'warn' ? -A - 2 : T.front, y = (T.state === 'warn' ? 0 : T.level) + T.crest; for (let i = 0; i < (QUALITY.lite ? 3 : 7); i++) { const x = clamp(cam.x + rand(-70, 70), -A, A); emit('steam', x, y * rand(0.6, 1.1), zf + rand(-1, 1), rand(-2, 2), rand(2, 6), rand(4, 12), rand(0.8, 1.6), rand(1.2, 2.6)); } }
+  if (T.level > 0.4) for (const c of cars) { const p = c.body.position, v = c.body.velocity, sp = Math.hypot(v.x, v.z); if (sp < 4 || c.T.boat || waterAt(p.x, p.z) < 0.3 || Math.abs(p.x - cam.x) + Math.abs(p.z - cam.z) > 140) continue; emit('steam', p.x + rand(-1, 1), T.level + 0.1, p.z + rand(-1, 1), -v.x * 0.15 + rand(-1.5, 1.5), rand(1.5, 3.5), -v.z * 0.15 + rand(-1.5, 1.5), rand(0.5, 0.9), rand(0.5, 1.1)); }
+}
+function tsuWakeProps() { // light junk near you floats up as the wave passes (at most 20: each awake prop costs physics)
+  if (!player || TSU.noFloat) return; const p = player.body.position, near = [];
+  for (const pr of props) if (pr.body.mass <= 150 && pr.dormant) near.push(pr);
+  near.sort((a, b) => a.body.position.distanceTo(p) - b.body.position.distanceTo(p));
+  if (!QUALITY.lite) for (const pr of near.slice(0, 20)) wakeProp(pr); // (weak devices: none, see floodStep)
+}
+// every physics step (host / solo): water lifts, slows and rocks what's in it; fires go out
+function floodStep() {
+  if (TSU.level <= 0.05 || MP.role === 'guest') { if (TSU.wasWet) { TSU.wasWet = false; for (const c of cars) c.floodK = 0; for (const h of TSU.hulks) h.floodK = 0; } return; }
+  TSU.wasWet = true; const g = S.gravity, t0 = performance.now();
+  const one = (c) => { if (c.ghost || c.T.boat || c.T.hover || c.T.floats) return; /* (a hovercraft, if one lands, skims over the water: it doesn't wade) */ const b = c.body, p = b.position, wy = waterAt(p.x, p.z);
+    if (wy <= 0.05) { c.floodK = 0; return; }
+    const K = c.T.size || 1, bottom = p.y + HULL_Y0 * K - 0.35, h = (c.T.H + c.T.cabin.h) * K + 0.35, sub = clamp((wy - bottom) / h, 0, 1); c.floodK = sub; if (!sub) return;
+    const m = b.mass, v = b.velocity, bob = Math.sin(simTime * 1.8 + (c.number || 0) * 1.7) * 0.14, drag = 1.7 * sub;
+    _tzF.set(-v.x * m * drag, m * g * (0.7 + bob) * sub - v.y * m * 1.6 * sub, -v.z * m * drag); b.applyForce(_tzF, _tzZ);
+    const w = b.angularVelocity, k = 1 - FIXED * 1.5 * sub; w.x *= k; w.z *= k; // water damps the rolling, so a car doesn't capsize in it
+    if (sub > 0.15) { if (!(c.douse > 1)) c.douse = 1.5; c.burnT = Math.min(c.burnT || 0, 0.01); c.ignite = 0; } };
+  for (const c of cars) one(c); for (const h of TSU.hulks) one(h);
+  if (!TSU.noFloat && !QUALITY.lite) for (const pr of props) { // (weak devices: the junk stays on the floor under the water; floating crates cost a draw and contacts each)
+    if (pr.dormant) continue; const b = pr.body; if (b.mass > 150 || b.type !== CANNON.Body.DYNAMIC || b.sleepState === CANNON.Body.SLEEPING) continue; const p = b.position, wy = waterAt(p.x, p.z), sub = clamp((wy - p.y + 0.35) / 0.7, 0, 1); if (!sub) continue;
+    const m = b.mass, v = b.velocity; _tzF.set(-v.x * m * 1.2 * sub, m * g * 1.3 * sub - v.y * m * 3 * sub, -v.z * m * 1.2 * sub); b.applyForce(_tzF, _tzZ); TSU.floaters.add(pr); } // (no current: it bobs up, settles and falls asleep on the surface, so it costs nothing until something bumps it; floodFrame wakes it when the water goes)
+  TSU.stepMs = (TSU.stepMs || 0) + performance.now() - t0; TSU.steps = (TSU.steps || 0) + 1; // (its own cost, for tests/tsunami.js)
+}
+// per frame (host / solo): fires out and puddles washed away under the water; Jets in the water launch their boats
+function floodFrame(dt) {
+  if (TSU.floaters.size && TSU.state !== 'flood' && TSU.state !== 'surge' && MP.role !== 'guest') for (const pr of TSU.floaters) { const b = pr.body; if (b.sleepState === CANNON.Body.SLEEPING && b.position.y > TSU.level + 0.15) b.wakeUp(); if (TSU.state === 'idle') TSU.floaters.delete(pr); } // the water's going: sleeping floaters come down with it
+  if (TSU.level <= 0.3 || MP.role === 'guest') return;
+  for (const pd of CONCRETE.list) if (!pd.strip && waterAt(pd.x, pd.z) > 0.3) { pd.burning = 0; if (pd.t > 2.5) pd.t = 2.5; } // washed away: they fade out over the next couple of seconds (and nothing under water burns)
+  for (const pr of props) if (pr.fireT > 0 && waterAt(pr.body.position.x, pr.body.position.z) > pr.body.position.y - 0.4) { pr.fireT = 0; emit('steam', pr.body.position.x, pr.body.position.y + 0.5, pr.body.position.z, 0, 2, 0, 1, 0.7); }
+  for (const o of BOULDERS) if (o.fireT > 0 && waterAt(o.body.position.x, o.body.position.z) > 0.3) o.fireT = 0.001;
+}
+function tsuJets() { // a Jet with Ann on board, standing in the water: she launches (on high ground the truck keeps her until it drives in)
+  for (const c of cars.slice()) if (c.T.jet && !c.wrecked && c.annAboard !== false && !c.ghost && (c.floodK || 0) > 0.08) ejectAnn(c);
+}
+function tsuCopy(from, to) { to.remote = from.remote; to.did = from.did || null; to.origType = from.origType || 'jet'; to.persona = from.persona; to.kills = from.kills || 0; to.deaths = from.deaths || 0; to.spawnT = simTime; to.pickT = from.pickT || null; }
+function tsuSwap(old, nc) { // put nc in old's slot: the driver moves over; old stays in the world (the empty truck) or goes (the boat)
+  const i = cars.indexOf(old); cars[i] = nc;
+  for (const c of cars) { if (c.target === old) c.target = null; if (c.lastAttacker === old) c.lastAttacker = null; if (c.pickT === old) c.pickT = nc; if (c.cable && c.cable.t === old) WEAPONS.harpoon.end(c); if (c.tow && c.tow.c === old) towRelease(c); if (c.carry && c.carry.c === old) liftRelease(c); }
+  if (CRANE.held === old) craneRelease(CRANE, false);
+  const te = threatEls.get(old); if (te) { te.remove(); threatEls.delete(old); }
+  if (old === player) { player = nc; setControlsFor(nc.type); sfx.setStyle(MUSIC_FOR[nc.type] || 'rock'); }
+  buildOpponentList(); SCORE.ensure(nc); if (MP.role === 'host') MP.publishRoster(false);
+}
+function ejectAnn(jet) { // ABANDON TRUCK! Ann launches off the bed with a bang and lands in the water; the driver goes with her
+  if (MP.role === 'guest' || cars.indexOf(jet) < 0) return null;
+  const b = jet.body, p = b.pointToWorldFrame(new CANNON.Vec3(-1.45 - jet.comShift, HULL_Y0 + jet.T.H + 1.6, 0)), yaw = Math.atan2(-jet.fwd.z, jet.fwd.x);
+  const ann = new Car({ type: 'ann', name: jet.name, color: CAR_TYPES.ann.color, number: jet.number, isPlayer: jet.isPlayer, x: p.x, z: p.z, yaw });
+  tsuCopy(jet, ann); ann.health = Math.max(60, jet.health); ann.body.position.y = p.y + 0.6;
+  ann.body.velocity.set(b.velocity.x - jet.fwd.x * 5, 9, b.velocity.z - jet.fwd.z * 5); ann.body.angularVelocity.set(0, rand(-1, 1), 0); ann.launchT = 1.5;
+  jet.setAnnAboard(false); jet.hulk = true; jet.isPlayer = false; jet.remote = null; jet.owner = jet.name; jet.ctrl.throttle = 0; jet.ctrl.steer = 0; jet.ctrl.handbrake = true; jet.ctrl.nitro = false; jet.lzOn = false; jet.target = null;
+  TSU.hulks.push(jet); tsuSwap(jet, ann);
+  for (let i = 0; i < 14; i++) emit('smoke', p.x + rand(-1, 1), p.y, p.z + rand(-1, 1), rand(-3, 3), rand(1, 4), rand(-3, 3), rand(0.8, 1.4), rand(0.6, 1.1));
+  if (player) { sfx.at(p).rocketLaunch(wv(ann, 150)); sfx.at(p).hydraulic(wv(ann)); }
+  TSU.log.push({ t: +game.time.toFixed(1), ev: 'eject', who: ann.name });
+  if (game.state === 'playing') { if (ann.isPlayer) toast('🏴‍☠️ ABANDON TRUCK! TO THE BOAT!', 'cool'); if (!ann.isPlayer && !ann.remote) setTimeout(() => barks.say(ann, 'eject', !TSU.saidEject), 300), TSU.saidEject = true; else barks.announce('annLaunch', { a: ann.isPlayer ? 'our hero' : ann.name }, true); }
+  return ann;
+}
+function tsuReboardAll() { // the water is gone: every boat driver goes back to Jet (the empty truck if it's close, otherwise Jet turns up where Ann is beached)
+  for (const c of cars.slice()) if (c.T.boat) reboardJet(c);
+  for (const h of TSU.hulks.splice(0)) { const p = h.body.position; for (let k = 0; k < 10; k++) emit('dust', p.x + rand(-2, 2), 0.5, p.z + rand(-2, 2), rand(-3, 3), rand(1, 3), rand(-3, 3), 1.2, 2.2); h.dispose(); } // nobody came back for it
+}
+function reboardJet(ann) {
+  if (MP.role === 'guest' || cars.indexOf(ann) < 0) return null;
+  const hi = TSU.hulks.findIndex((h) => h.owner === ann.name), ap = ann.body.position, yaw = Math.atan2(-ann.fwd.z, ann.fwd.x);
+  let jet = hi >= 0 ? TSU.hulks.splice(hi, 1)[0] : null, how = 'hop';
+  if (!jet || jet.body.position.distanceTo(ap) > 40 || jet.up.y < 0.5) { // too far to walk (or lying on its side): Jet turns up right where Ann is, with her back on the bed
+    how = 'back'; const sp = findSpawn(ap.x, ap.z);
+    if (jet) { const b = jet.body; b.position.set(sp.x, 1.8, sp.z); b.quaternion.setFromAxisAngle(AX_Y, yaw); b.velocity.set(0, 0, 0); b.angularVelocity.set(0, 0, 0); }
+    else jet = new Car({ type: 'jet', name: ann.name, color: CAR_TYPES.jet.color, number: ann.number, isPlayer: false, x: sp.x, z: sp.z, yaw });
+  }
+  tsuCopy(ann, jet); jet.hulk = false; jet.owner = null; jet.isPlayer = ann.isPlayer; jet.setAnnAboard(true); jet.ctrl.handbrake = false; jet.target = null; jet.flipTimer = 0;
+  const jp = jet.body.position; for (let k = 0; k < 12; k++) emit('dust', jp.x + rand(-2, 2), 0.5, jp.z + rand(-2, 2), rand(-3, 3), rand(1, 3), rand(-3, 3), 1.2, 2.4);
+  tsuSwap(ann, jet); ann.dispose();
+  TSU.log.push({ t: +game.time.toFixed(1), ev: 'reboard', who: jet.name, how });
+  if (game.state === 'playing') { if (jet.isPlayer) toast(how === 'hop' ? '🏴‍☠️ ALL ABOARD! BACK IN JET' : '🏴‍☠️ JET IS BACK, ANN ON BOARD', 'cool'); else if (!jet.remote) setTimeout(() => barks.say(jet, 'reboard', true), 500); }
+  return jet;
+}
+function tsuGhosts(n, data) { // a guest draws the empty Jets from the snapshot
+  while (TSU.ghosts.length > n) TSU.ghosts.pop().dispose();
+  while (TSU.ghosts.length < n) { const g = new Car({ type: 'jet', name: '', color: CAR_TYPES.jet.color, number: 0, isPlayer: false, x: 0, z: 0, yaw: 0 }); g.ghost = true; g.hulk = true; g.body.type = CANNON.Body.KINEMATIC; g.body.updateMassProperties(); g.setAnnAboard(false); TSU.ghosts.push(g); }
+  if (data) TSU.ghosts.forEach((g, i) => { const d = data.slice(i * 7, i * 7 + 7), b = g.body; b.position.set(d[0] / 100, d[1] / 100, d[2] / 100); b.quaternion.set(d[3] / 1e4, d[4] / 1e4, d[5] / 1e4, d[6] / 1e4); b.quaternion.normalize(); b.quaternion.vmult(AX_X, g.fwd); b.quaternion.vmult(AX_Y, g.up); });
+}
+function tsuNet(r) { // what rides on each host snapshot while the tsunami is on
+  const T = TSU; if (T.state === 'idle' && !T.hulks.length) return null;
+  const out = [r(T.level), ['idle', 'warn', 'surge', 'flood', 'drain'].indexOf(T.state), r(T.front, 1), r(T.crest, 10)];
+  for (const h of T.hulks) { const p = h.body.position, q = h.body.quaternion; out.push(r(p.x), r(p.y), r(p.z), r(q.x, 1e4), r(q.y, 1e4), r(q.z, 1e4), r(q.w, 1e4)); }
+  return out;
+}
+function tsuNetIn(ts) { // guest
+  const T = TSU; if (!ts) { if (T.state !== 'idle' || T.ghosts.length) { T.state = 'idle'; T.level = 0; T.crest = 0; tsuGhosts(0); } return; }
+  const st = ['idle', 'warn', 'surge', 'flood', 'drain'][ts[1]] || 'idle'; if (st !== 'idle') tsuWaterMesh();
+  T.state = st; T.level = ts[0] / 100; T.front = ts[2]; T.crest = ts[3] / 10; const n = Math.floor((ts.length - 4) / 7); tsuGhosts(n, ts.slice(4));
+  for (const g of T.ghosts) g.frameUpdate(0.016);
+}
+
+/* ---------------- Jet's laser minigun (and Ann's bow laser): a stream of golden beams, pooled (one instanced draw for every beam in the yard) ---------------- */
+const JLASER = { n: 40, i: 0, im: null, life: new Float32Array(40), live: 0, m: new THREE.Matrix4(), q: new THREE.Quaternion(), s: new THREE.Vector3(), p: new THREE.Vector3(), d: new THREE.Vector3(), x: new THREE.Vector3(1, 0, 0), from: new CANNON.Vec3(), to: new CANNON.Vec3(), res: new CANNON.RaycastResult(), zero: new THREE.Matrix4().makeScale(0, 0, 0) };
+function laserPool() {
+  if (JLASER.im) return JLASER.im;
+  const geo = new THREE.BoxGeometry(1, 0.09, 0.09).translate(0.5, 0, 0), mat = new THREE.MeshBasicMaterial({ color: new THREE.Color(0xffd84a).multiplyScalar(2.6), transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
+  const im = JLASER.im = new THREE.InstancedMesh(geo, mat, JLASER.n); im.instanceMatrix.setUsage(THREE.DynamicDrawUsage); im.frustumCulled = false; im.visible = false; im.userData.keep = true;
+  for (let i = 0; i < JLASER.n; i++) im.setMatrixAt(i, JLASER.zero); scene.add(im); return im;
+}
+function laserBeam(px, py, pz, dx, dy, dz, len) { // one beam, ~0.07 s
+  const L = JLASER, im = laserPool(), i = L.i; L.i = (i + 1) % L.n; L.p.set(px, py, pz); L.d.set(dx, dy, dz); L.q.setFromUnitVectors(L.x, L.d); L.s.set(len, 1, 1); L.m.compose(L.p, L.q, L.s); im.setMatrixAt(i, L.m); im.instanceMatrix.needsUpdate = true;
+  if (!(L.life[i] > 0)) L.live++; L.life[i] = 0.07; im.visible = true;
+}
+function updateLasers(dt) { const L = JLASER; if (!L.live) return; let ch = false; for (let i = 0; i < L.n; i++) if (L.life[i] > 0) { L.life[i] -= dt; if (L.life[i] <= 0) { L.im.setMatrixAt(i, L.zero); L.live--; ch = true; } } if (ch) L.im.instanceMatrix.needsUpdate = true; if (!L.live) L.im.visible = false; }
+function fireLaser(car, visual) { // a beam from the emitter to whatever it hits (a guest only draws it)
+  const mz = car.lzMuzzle; if (!mz) return; mz.updateWorldMatrix(true, false); const L = JLASER;
+  const pos = L.p.setFromMatrixPosition(mz.matrixWorld), dir = L.d.set(1, 0, 0).transformDirection(mz.matrixWorld);
+  const tg = car.lzTarget; if (tg && tg.body && Math.abs((car.lzYawA || 0) - (car.lzWant || 0)) < 0.3) { const tp = tg.body.position; dir.set(tp.x - pos.x, tp.y + 0.3 - pos.y, tp.z - pos.z).normalize(); }
+  dir.x += rand(-0.02, 0.02); dir.y += rand(-0.012, 0.016); dir.z += rand(-0.02, 0.02); dir.normalize();
+  const px = pos.x, py = pos.y, pz = pos.z, dx = dir.x, dy = dir.y, dz = dir.z;
+  L.from.set(px, py, pz); L.to.set(px + dx * 85, py + dy * 85, pz + dz * 85); L.res.reset();
+  const ob = car.body, resp = ob.collisionResponse; ob.collisionResponse = false; world.raycastClosest(L.from, L.to, { skipBackfaces: true, checkCollisionResponse: true }, L.res); ob.collisionResponse = resp;
+  const len = L.res.hasHit ? L.res.distance : 85; laserBeam(px, py, pz, dx, dy, dz, len);
+  if (L.res.hasHit) emit('spark', L.res.hitPointWorld.x, L.res.hitPointWorld.y, L.res.hitPointWorld.z, rand(-3, 3), rand(1, 4), rand(-3, 3), rand(0.12, 0.25), 0.06);
+  if (player && (car.lzSnd = !car.lzSnd)) sfx.at(car.body.position).tone('square', 1900, 520, wv(car, 130) * 0.05, 0.07); // pew (every other beam)
+  if (!visual && MP.role !== 'guest') { const dv = new THREE.Vector3(dx, dy, dz); roundHit(car, L.res, dv, 1.2); if (L.res.body && L.res.body.car && PLAYLOG.m) { const V = PLAYLOG.V(car.type); V.lasers = (V.lasers || 0) + 1; } }
+}
+function laserAim(car, dt) { // the emitter swings onto the car ahead (bulls, gas bottles and drums when nobody's there)
+  if (!car.lzYaw) return; const tg = car.wrecked ? null : frontTarget(car, 80, car.T.boat ? 0.5 : 1.2) || frontObject(car, 45, 0.5); car.lzTarget = tg;
+  let want = 0; if (tg) { const l = car.body.pointToLocalFrame(tg.body.position); want = Math.atan2(-l.z, l.x + car.comShift - car.lzYaw.position.x); if (car.T.boat) want = clamp(want, -0.5, 0.5); }
+  car.lzWant = want; car.lzYawA = (car.lzYawA || 0) + clamp(want - (car.lzYawA || 0), -3.5 * dt, 3.5 * dt); car.lzYaw.rotation.y = car.lzYawA;
+  car.lzSpin = clamp((car.lzSpin || 0) + (car.lzOn ? dt / 0.3 : -dt / 1.2), 0, 1); if (car.lzBarrels) car.lzBarrels.rotation.x += car.lzSpin * dt * 40;
+  if (car.lzRing) { const k = car.lzLock > 0 ? 0.15 + 0.5 * ((clock * 6) % 1 < 0.5 ? 1 : 0) : 0.3 + (car.lzBat ?? 1) * 2.4; car.lzRing.emissiveIntensity = k; car.lzRing.emissive.setHex(car.lzLock > 0 || (car.lzBat ?? 1) < 0.25 ? 0xff3a10 : 0xffc21a); } // the weak spot you can see: the battery ring dims, then flashes red while it recharges
+}
+function broadside(car) { // Ann's cannons: anyone right alongside gets three cartoon cannonballs, no button needed (like the Cruiser's stop-stick)
+  const b = car.body; let side = 0, tg = null, best = 34;
+  for (const c of cars) { if (c === car || c.wrecked) continue; const l = b.pointToLocalFrame(c.body.position); if (Math.abs(l.x) < 5 && Math.abs(l.z) > 4 && Math.abs(l.z) < best) { best = Math.abs(l.z); side = Math.sign(l.z); tg = c; } }
+  if (!tg) return false;
+  const geo = BALLGEO || (BALLGEO = new THREE.SphereGeometry(0.24, 10, 8)), mat = BALLMAT || (BALLMAT = new THREE.MeshStandardMaterial({ color: 0x1a1a1c, roughness: 0.5, metalness: 0.6 })); geo.userData.shared = true;
+  const d = best, rx = -car.fwd.z * side, rz = car.fwd.x * side, t = clamp(d / 30, 0.25, 1.1), vy = 2 + S.gravity * t * 0.5;
+  for (let k = 0; k < 3; k++) { const at = b.pointToWorldFrame(new CANNON.Vec3(0.9 - k * 0.9 - car.comShift, 0.55, side * 1.0)), mesh = new THREE.Mesh(geo, mat); mesh.position.set(at.x, at.y, at.z); scene.add(mesh);
+    const tp = tg.body.position, hx = (tp.x - at.x) / t, hz = (tp.z - at.z) / t;
+    shells.push({ pos: new THREE.Vector3(at.x, at.y, at.z), vel: new THREE.Vector3(hx * 0.9 + rx * 3 + rand(-1, 1), vy + rand(-0.5, 0.5), hz * 0.9 + rz * 3 + rand(-1, 1)), owner: car, life: 3, mesh, scale: 0.4 });
+    for (let i = 0; i < 4; i++) emit('smoke', at.x + rx * 0.5, at.y, at.z + rz * 0.5, rx * rand(2, 5), rand(0.5, 2), rz * rand(2, 5), rand(0.8, 1.4), rand(0.6, 1)); }
+  if (player) sfx.at(b.position).cannon(wv(car, 150) * 0.7);
+  if (car.isPlayer && game.state === 'playing') toast('💥 BROADSIDE!', 'cool'); else if (!car.remote && Math.random() < 0.5) barks.say(car, 'broadside', false, { target: tg.isPlayer ? 'you' : tg.name, car: tg.T.name });
+  return true;
+}
+let BALLGEO = null, BALLMAT = null;
+WEAPONS.laser = { label: 'LASER', cd: 0.15, dur: 0.3, beamsPerSec: 14, // hold to fire; a battery that drains in ~6 s of fire and recharges between bursts (empty: 2.5 s locked out)
+  start(car) { if (car.lzLock > 0) { if (car.isPlayer) toast('LASER RECHARGING', 'bad'); car.specialT = 0; return; } if ((car.wet || 0) > 0.45) { if (car.isPlayer) toast('⚡ LASER SHORTED · TOO WET', 'bad'); car.specialT = 0; for (let i = 0; i < 6; i++) sparks(car.body.position, 2); return; } car.lzOn = true; },
+  held(car) { return car.isPlayer ? keys.has('KeyF') || touch.fire || mouseFire : !!(car.lzTarget && car.lzTarget.body && car.body.position.distanceTo(car.lzTarget.body.position) < 60 && !car.wrecked); },
+  update(car, dt) {
+    if (car.ghost) { laserAim(car, dt); if (car.netLz) { car.lzT = (car.lzT || 0) - dt; while (car.lzT <= 0) { car.lzT += 1 / WEAPONS.laser.beamsPerSec; fireLaser(car, true); } } return; }
+    if (car.lzBat === undefined) car.lzBat = 1; car.lzLock = Math.max(0, (car.lzLock || 0) - dt);
+    if (car.lzOn && (!WEAPONS.laser.held(car) || car.wrecked || car.hulk || game.state !== 'playing' || (car.wet || 0) > 0.45)) car.lzOn = false;
+    if (car.lzOn) { car.specialT = Math.max(car.specialT, 0.2); car.lzBat -= dt / 6; if (car.lzBat <= 0) { car.lzBat = 0; car.lzOn = false; car.lzLock = 2.5; if (car.isPlayer) toast('LASER BATTERY FLAT · RECHARGING', 'bad'); sfx.at(car.body.position).clank(wv(car)); } }
+    else if (!car.lzLock) car.lzBat = Math.min(1, car.lzBat + dt / 4);
+    laserAim(car, dt);
+    if (car.T.boat && MP.role !== 'guest' && !car.wrecked && !(car.diveT > 0) && car.afloat && game.state === 'playing' && game.countdown <= 0) { car.broadCd = (car.broadCd ?? 2) - dt; if (car.broadCd <= 0) car.broadCd = broadside(car) ? 5 : 0.4; }
+  },
+  tick(car, dt) { if (!car.lzOn || car.wrecked) return; car.lzT = (car.lzT || 0) - dt; while (car.lzT <= 0) { car.lzT += 1 / WEAPONS.laser.beamsPerSec; fireLaser(car); } },
+  end(car) {},
+};
+
+/* ---------------- Jet's look: gold trim, the roof laser, Ann strapped in the bed ---------------- */
+let _jetM = null;
+function JETM() { return _jetM || (_jetM = { gold: new THREE.MeshStandardMaterial({ color: 0xffcc3a, roughness: 0.22, metalness: 1, envMapIntensity: 1.4 }), dark: new THREE.MeshStandardMaterial({ color: 0x23262b, roughness: 0.5, metalness: 0.6 }), wood: new THREE.MeshStandardMaterial({ color: 0x6b4426, roughness: 0.85 }), white: new THREE.MeshStandardMaterial({ color: 0xf4efe2, roughness: 0.6 }), strap: new THREE.MeshStandardMaterial({ color: 0x8a2a1a, roughness: 0.9 }),
+  flag: new THREE.MeshStandardMaterial({ map: (() => { const t = canvasTex(128, (g, s) => { g.fillStyle = '#111'; g.fillRect(0, 0, s, s); g.fillStyle = '#f4f1e8'; g.strokeStyle = '#f4f1e8'; g.lineWidth = s * 0.07; g.lineCap = 'round'; // an original skull and crossbones: round skull, two eye holes, crossed bones under it
+    for (const [a, b, c, d] of [[0.25, 0.62, 0.75, 0.9], [0.75, 0.62, 0.25, 0.9]]) { g.beginPath(); g.moveTo(a * s, b * s); g.lineTo(c * s, d * s); g.stroke(); for (const [x, y] of [[a, b], [c, d]]) { g.beginPath(); g.arc(x * s - s * 0.03, y * s, s * 0.04, 0, 7); g.arc(x * s + s * 0.03, y * s, s * 0.04, 0, 7); g.fill(); } }
+    g.beginPath(); g.arc(s * 0.5, s * 0.42, s * 0.2, 0, 7); g.fill(); g.fillRect(s * 0.38, s * 0.5, s * 0.24, s * 0.14); g.fillStyle = '#111'; for (const x of [0.42, 0.58]) { g.beginPath(); g.arc(x * s, s * 0.42, s * 0.055, 0, 7); g.fill(); } g.fillRect(s * 0.47, s * 0.56, s * 0.06, s * 0.08); }); t.colorSpace = THREE.SRGBColorSpace; return t; })(), roughness: 0.9, side: THREE.DoubleSide }),
+  ring: null }); }
+function buildAnnModel(add, parent, paint, small) { // Ann: a golden speedboat, a deep-V hull, a windscreen, a white stripe, the bow laser, two little cannons a side and the flag
+  const M2 = JETM(), g = new THREE.Group(); parent.add(g);
+  const hull = new THREE.CylinderGeometry(0.95, 0.95, 4.6, 12, 4, false, Math.PI, Math.PI).rotateZ(Math.PI / 2); // half a tube, keel down
+  { const a = hull.attributes.position.array; for (let i = 0; i < a.length; i += 3) { const x = a[i], nose = clamp((x - 0.9) / 1.4, 0, 1); a[i + 2] *= 1 - nose * nose * 0.85; a[i + 1] = a[i + 1] * (0.62 - nose * 0.12) + nose * 0.25; } hull.computeVertexNormals(); }
+  add(hull, paint, 0, 0.05, 0, g);
+  add(new THREE.BoxGeometry(4.3, 0.06, 1.72), M2.wood, -0.15, 0.06, 0, g); // the deck
+  for (const s of [-1, 1]) add(new THREE.BoxGeometry(3.6, 0.07, 0.03), M2.white, -0.3, -0.12, s * 0.93, g); // racing stripe
+  add(new THREE.BoxGeometry(4.6, 0.05, 0.05), M2.gold, -0.05, 0.1, 0.9, g); add(new THREE.BoxGeometry(4.6, 0.05, 0.05), M2.gold, -0.05, 0.1, -0.9, g); // gold gunwale trim
+  const ws = add(new THREE.BoxGeometry(0.05, 0.34, 1.3), M.glass, 0.55, 0.26, 0, g); ws.rotation.z = -0.5; // windscreen
+  add(new THREE.BoxGeometry(0.45, 0.32, 0.5), M2.dark, -0.1, 0.24, 0, g); // the seat
+  add(new THREE.BoxGeometry(0.5, 0.55, 0.55), M2.dark, -2.15, 0.12, 0, g); // outboard motor
+  add(new THREE.CylinderGeometry(0.06, 0.06, 0.6, 6), M2.dark, -2.3, -0.3, 0, g);
+  for (const s of [-1, 1]) for (const x of [0.35, -0.75]) { const c = add(new THREE.CylinderGeometry(0.08, 0.11, 0.5, 8), M2.dark, x, 0.17, s * 0.82, g); c.rotation.x = s * Math.PI / 2; } // cannons poking out of the sides
+  const pole = add(new THREE.CylinderGeometry(0.025, 0.025, small ? 0.9 : 1.3, 5), M2.dark, -1.75, small ? 0.55 : 0.75, 0, g);
+  const flag = add(new THREE.PlaneGeometry(0.62, 0.42), M2.flag, -2.06, small ? 0.83 : 1.18, 0, g); flag.castShadow = false;
+  return { g, pole, flag };
+}
+Car.prototype.buildJetKit = function (add, part, { L, W, H, top, hullW, C }) {
+  const M2 = JETM();
+  for (const s of [-1, 1]) { add(new THREE.BoxGeometry(L * 0.96, 0.06, 0.04), M2.gold, 0, HULL_Y0 + H * 0.55, s * (hullW / 2 + 0.02)); add(new THREE.BoxGeometry(0.05, 0.05, hullW * 0.9), M2.gold, L / 2 + 0.05, HULL_Y0 + H * 0.7, 0); } // gold trim
+  // the laser minigun on the cab roof: a gold dome, a yawing head with four emitter barrels that spin up, the battery ring that glows
+  const mount = new THREE.Group(); mount.position.set(C.x - 0.15, top + C.h + 0.02, 0); this.root.add(mount);
+  add(new THREE.CylinderGeometry(0.42, 0.5, 0.18, 14), M2.gold, 0, 0.09, 0, mount);
+  const yaw = new THREE.Group(); yaw.position.set(0, 0.32, 0); mount.add(yaw); this.lzYaw = yaw;
+  this.lzRing = new THREE.MeshStandardMaterial({ color: 0x3a2a10, emissive: 0xffc21a, emissiveIntensity: 2.6, roughness: 0.4 });
+  add(new THREE.TorusGeometry(0.33, 0.05, 6, 16), this.lzRing, 0, -0.1, 0, yaw).rotation.x = Math.PI / 2;
+  add(new THREE.BoxGeometry(0.55, 0.26, 0.4), M2.dark, 0, 0, 0, yaw);
+  const bar = new THREE.Group(); bar.position.set(0.3, 0, 0); yaw.add(bar); this.lzBarrels = bar;
+  for (let k = 0; k < 4; k++) { const a = k / 4 * Math.PI * 2; add(new THREE.CylinderGeometry(0.035, 0.035, 0.9, 6).rotateZ(Math.PI / 2), M2.gold, 0.45, Math.cos(a) * 0.08, Math.sin(a) * 0.08, bar); }
+  add(new THREE.CylinderGeometry(0.11, 0.11, 0.05, 10).rotateZ(Math.PI / 2), M2.dark, 0.88, 0, 0, bar);
+  this.lzMuzzle = new THREE.Object3D(); this.lzMuzzle.position.set(1.25, 0, 0); yaw.add(this.lzMuzzle);
+  // Ann in the bed: strapped down with two red straps, her bow over the cab
+  const holder = new THREE.Group(); holder.position.set(-1.45, top + 0.42, 0); holder.scale.setScalar(0.66); this.root.add(holder); this.annOnBed = holder;
+  const ann = buildAnnModel(add, holder, this.annPaint = new THREE.MeshStandardMaterial({ color: 0xe8b21e, roughness: 0.25, metalness: 0.85, envMapIntensity: 1.3 }), true);
+  for (const x of [0.8, -0.9]) add(new THREE.BoxGeometry(0.12, 0.04, 2.0), M2.strap, x, 0.2, 0, holder);
+  this.annAboard = true; bakeGroup(holder); // (one draw per material for the whole little boat: ~8 instead of ~30)
+};
+function bakeGroup(grp) { // merge every mesh under grp into one mesh per material (they never move on their own)
+  grp.updateMatrixWorld(true); const inv = new THREE.Matrix4().copy(grp.matrixWorld).invert(), by = new Map(), olds = [];
+  grp.traverse((o) => { if (!o.isMesh || Array.isArray(o.material)) return; const g = o.geometry.index ? o.geometry.clone() : o.geometry.clone(); g.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld)); for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(k)) g.deleteAttribute(k); (by.get(o.material) || by.set(o.material, []).get(o.material)).push(g); olds.push(o); });
+  for (const o of olds) { o.parent.remove(o); if (!o.geometry.userData.shared) o.geometry.dispose(); }
+  for (const [mat, gs] of by) { const ng = gs.map((g) => (g.index ? g.toNonIndexed() : g)); const merged = mergeGeometries(ng, false); for (const g of gs) g.dispose(); for (const g of ng) g.dispose(); if (!merged) continue; const m = new THREE.Mesh(merged, mat); m.castShadow = true; m.receiveShadow = true; grp.add(m); }
+}
+Car.prototype.setAnnAboard = function (on) { this.annAboard = on; if (this.annOnBed) this.annOnBed.visible = on; if (this.annShape) this.annShape.collisionResponse = on; };
+
+/* ---------------- Ann the speedboat: no wheels (a walker-style rig), she rides the water surface and planes ---------------- */
+Car.prototype.buildBoat = function () {
+  const T = this.T, g = this.group = new THREE.Group(), root = this.root = new THREE.Group(); g.add(root); scene.add(g);
+  this.paint = new THREE.MeshStandardMaterial({ color: this.baseColor.clone(), roughness: 0.25, metalness: 0.85, envMapIntensity: 1.3 });
+  this.glassMat = M.glass.clone(); this.lampMat = M.lamp; this.lampMeshes = []; this.tailMat = M.tail.clone();
+  this.tailGlow = new THREE.SpriteMaterial({ map: glowTex, color: 0xff2a1a, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.35 });
+  this.parts = []; this.deform = []; this.exhaust = []; this.wheelMeshes = []; this.springs = [];
+  const add = (geo, mat, x, y, z, parent = root) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; parent.add(m); return m; };
+  const part = (mesh, zone, at, side) => { this.parts.push({ mesh, zone, at: at * 0.6, side, detached: false }); return mesh; };
+  const a = buildAnnModel(add, root, this.paint, false); a.g.position.y = HULL_Y0 + 0.1; this.flagMesh = a.flag;
+  // the bow laser (a single emitter that swings a little either side) and a gold bow rail that comes off
+  const yaw = new THREE.Group(); yaw.position.set(1.35, HULL_Y0 + 0.42, 0); root.add(yaw); this.lzYaw = yaw;
+  this.lzRing = new THREE.MeshStandardMaterial({ color: 0x3a2a10, emissive: 0xffc21a, emissiveIntensity: 2.6, roughness: 0.4 });
+  add(new THREE.CylinderGeometry(0.16, 0.2, 0.18, 10), JETM().dark, 0, 0, 0, yaw); add(new THREE.TorusGeometry(0.17, 0.035, 6, 12), this.lzRing, 0, 0.06, 0, yaw).rotation.x = Math.PI / 2;
+  const bar = new THREE.Group(); bar.position.set(0.1, 0.1, 0); yaw.add(bar); this.lzBarrels = bar;
+  for (let k = 0; k < 3; k++) { const an = k / 3 * Math.PI * 2; add(new THREE.CylinderGeometry(0.03, 0.03, 0.7, 6).rotateZ(Math.PI / 2), JETM().gold, 0.35, Math.cos(an) * 0.06, Math.sin(an) * 0.06, bar); }
+  this.lzMuzzle = new THREE.Object3D(); this.lzMuzzle.position.set(0.85, 0.1, 0); yaw.add(this.lzMuzzle);
+  for (const s of [-1, 1]) part(add(new THREE.BoxGeometry(1.4, 0.05, 0.05), JETM().gold, 1.2, HULL_Y0 + 0.5, s * 0.55), s < 0 ? 'left' : 'right', 45, s);
+  part(add(new THREE.BoxGeometry(0.4, 0.3, 0.6), JETM().dark, -2.3, HULL_Y0 + 0.35, 0), 'rear', 60, 0); // motor cowling
+  for (const s of [-1, 1]) { const e = add(new THREE.SphereGeometry(0.07, 8, 6), M.lamp, 2.0, HULL_Y0 + 0.35, s * 0.35); this.lampMeshes.push(e); }
+  this.exhaust.push(add(new THREE.CylinderGeometry(0.05, 0.06, 0.25, 8), M.chrome, -2.45, HULL_Y0 + 0.2, 0));
+};
+Car.prototype.boatStep = function (dt) { // floats at the water line, planes nose-up at speed, slides wide in the turns; out of the water she can only scoot slowly
+  const b = this.body, T = this.T, m = b.mass, g = S.gravity, v = b.velocity, p = b.position;
+  b.quaternion.vmult(AX_X, this.fwd); b.quaternion.vmult(AX_Y, this.up);
+  const fh = Math.hypot(this.fwd.x, this.fwd.z) || 1, fx = this.fwd.x / fh, fz = this.fwd.z / fh, rx = -fz, rz = fx;
+  const speed = this.speed = v.x * fx + v.z * fz, vr = v.x * rx + v.z * rz;
+  const thr = this.wrecked ? 0 : this.ctrl.throttle;
+  this.boosting = !this.wrecked && this.ctrl.nitro && this.nitro > 0.01 && thr > 0; if (this.boosting) this.nitro = Math.max(0, this.nitro - dt * 0.3);
+  this.rpm = lerp(this.rpm, lerp(T.idle, T.redline, clamp(Math.abs(speed) / 30 + Math.abs(thr) * 0.3, 0, 1)), clamp(dt * 8, 0, 1)); this.gear = 1;
+  _tzA.set(p.x, p.y + 0.5, p.z); _tzB.set(p.x, p.y - 4, p.z); _tzR.reset(); world.raycastClosest(_tzA, _tzB, _tzRay, _tzR);
+  const ground = _tzR.hasHit ? _tzR.hitPointWorld.y : 0, wy = waterAt(p.x, p.z), afloat = this.afloat = wy > ground + 0.35;
+  this.launchT = Math.max(0, (this.launchT || 0) - dt); this.diveCd = Math.max(0, (this.diveCd || 0) - dt);
+  if (this.ctrl.jump) { this.ctrl.jump = false; if (afloat && !this.diveCd && !this.wrecked && !(this.diveT > 0) && MP.role !== 'guest') this.startDive(); }
+  if (this.diveT > 0) { this.diveT -= dt; if (this.diveT <= 0 || !afloat || this.ctrl.fire) this.surface(); }
+  const diving = this.diveT > 0, surf = diving ? wy - 1.5 : afloat ? wy - 0.05 : ground + 0.42;
+  const supported = !this.launchT && p.y < surf + 0.9, inWater = afloat && p.y < wy + 0.4;
+  this.contacts = supported ? 4 : 0;
+  const qi = b.quaternion.conjugate(_wQ), wl = qi.vmult(b.angularVelocity, _wA);
+  if (supported) {
+    if (this.airT > 0.5 && inWater && v.y < -4) { for (let i = 0; i < 16; i++) emit('steam', p.x + rand(-1.5, 1.5), wy + 0.2, p.z + rand(-1.5, 1.5), rand(-4, 4), rand(3, 7), rand(-4, 4), rand(0.6, 1.2), rand(0.8, 1.6)); if (player) sfx.at(p).noiseHit('lowpass', 600, 0.7, wv(this) * 0.5, 0.5); } // SPLASH
+    this.airT = 0;
+    const bob = afloat && !diving ? Math.sin(simTime * 2.1 + (this.number || 0)) * 0.6 : 0, vyT = clamp((surf - p.y) * 4, -4, 4);
+    _wF.set(0, m * clamp(g + (vyT - v.y) * 6 + bob, 0, g * 3), 0); b.applyForce(_wF, _tzZ);
+    const plane = afloat ? clamp(speed * 0.006, -0.03, 0.13) : 0, roll = afloat ? -clamp(this.ctrl.steer * clamp(speed / 20, 0, 1) * 0.16, -0.16, 0.16) : 0, right = b.quaternion.vmult(AX_Z, _wR), k = clamp(dt * 8, 0, 1);
+    wl.z = lerp(wl.z, (plane - Math.asin(clamp(this.fwd.y, -1, 1))) * 5, k); wl.x = lerp(wl.x, -(roll - right.y) * 5, k);
+    const yawMax = (afloat ? lerp(2.0, 1.25, clamp(Math.abs(speed) / 25, 0, 1)) : 0.9) * T.handling.steer;
+    wl.y = lerp(wl.y, this.ctrl.steer * yawMax * (speed < -0.8 ? -1 : 1), clamp(dt * 6, 0, 1));
+    const vMax = (afloat ? 31 * (this.boosting ? 1.3 : 1) * (diving ? 0.55 : 1) : 4) * (1 - this.engineDmg * 0.3);
+    const hb = (this.ctrl.handbrake || this.ctrl.brake) && !this.wrecked; let aF;
+    if (hb) aF = -clamp(speed * 1.5, -10, 10);
+    else if (thr !== 0 && Math.abs(speed) > 0.6 && Math.sign(thr) !== Math.sign(speed)) aF = -Math.sign(speed) * 9 * Math.abs(thr);
+    else if (thr !== 0) aF = clamp((thr * (thr > 0 ? vMax : 6) - speed) * (afloat ? 1.1 : 2), -10, afloat ? 13 : 5);
+    else aF = clamp(-speed * (afloat ? 0.35 : 3), -8, 8);
+    const aR = clamp(-vr * (afloat ? (hb ? 0.5 : 1.7) : 7), -16, 16); // drifty on the water: she keeps sliding wide through a turn
+    _wF.set((fx * aF + rx * aR) * m, 0, (fz * aF + rz * aR) * m); b.applyForce(_wF, _tzZ);
+    this.braking = hb && Math.abs(speed) > 0.5;
+  } else { this.airT = (this.airT || 0) + dt; this.braking = false; if (!this.wrecked) { const upL = qi.vmult(AX_Y, _wR), k = clamp(dt * 3, 0, 1); wl.z = lerp(wl.z, clamp(-upL.x, -0.9, 0.9) * 3, k); wl.x = lerp(wl.x, clamp(upL.z, -0.9, 0.9) * 3, k); } }
+  b.quaternion.vmult(wl, b.angularVelocity);
+  if (!this.wrecked && this.up.y < 0.35 && Math.hypot(v.x, v.z) < 3 && (this.flipTimer || 0) > 0.8) this.flipUpright();
+  this.inWater = inWater; this.onFire = !this.wrecked && !inWater && !(this.douse > 0) && inFire(this); if (inWater) this.douse = Math.max(this.douse || 0, 1); if (this.douse > 0) this.douse -= dt;
+  if (this.wet > 0) this.wet = Math.max(0, this.wet - dt * 0.45);
+  const sp = v.length(); if (sp > 0.1) { const kd = -S.airDrag * T.handling.drag * sp; _wF.set(v.x * kd, v.y * kd, v.z * kd); b.applyForce(_wF, _tzZ); }
+};
+Car.prototype.startDive = function () { // J: under the water for ~1.6 s (cars pass over her), then up with a laser blast into whatever is above
+  this.diveT = 1.6; this.diveCd = 6; this.body.collisionFilterMask = ~CARG; const p = this.body.position;
+  for (let i = 0; i < 10; i++) emit('steam', p.x + rand(-1, 1), TSU.level + 0.2, p.z + rand(-1, 1), rand(-2, 2), rand(2, 4), rand(-2, 2), rand(0.5, 0.9), rand(0.6, 1.1));
+  if (player) sfx.at(p).noiseHit('lowpass', 500, 0.7, wv(this) * 0.45, 0.6);
+  if (this.isPlayer && game.state === 'playing') toast('🤿 DIVE! UP AGAIN IN A MOMENT', 'cool'); else if (!this.remote && Math.random() < 0.6) barks.say(this, 'dive', false);
+  TSU.dives = (TSU.dives || 0) + 1;
+};
+Car.prototype.surface = function () { // up she comes: four beams straight up into anyone overhead, and a fountain
+  this.diveT = 0; this.body.collisionFilterMask = -1; const p = this.body.position, hits = [];
+  if (MP.role !== 'guest' && !this.wrecked) for (const c of cars) { if (c === this || c.wrecked) continue; const q = c.body.position, d = Math.hypot(q.x - p.x, q.z - p.z); if (d > 4.2 || q.y < p.y - 0.5) continue;
+    c.applyDamage(16 * S.damage * c.T.armor, this, 'bottom', new THREE.Vector3(0, HULL_Y0, 0), 6); c.body.wakeUp(); c.body.velocity.y += clamp(7 * Math.sqrt(2000 / c.body.mass), 1.5, 8); c.body.angularVelocity.x += rand(-1.5, 1.5); hits.push(c);
+    for (let k = 0; k < 4; k++) laserBeam(p.x + rand(-0.8, 0.8), TSU.level - 0.4, p.z + rand(-0.8, 0.8), rand(-0.08, 0.08), 1, rand(-0.08, 0.08), q.y - TSU.level + 2.5); sparks(q, 14); }
+  for (let i = 0; i < 18; i++) emit('steam', p.x + rand(-1.2, 1.2), TSU.level + 0.2, p.z + rand(-1.2, 1.2), rand(-2.5, 2.5), rand(5, 10), rand(-2.5, 2.5), rand(0.7, 1.3), rand(0.7, 1.4));
+  if (player) sfx.at(p).noiseHit('bandpass', 900, 0.6, wv(this) * 0.5, 0.4);
+  this.body.velocity.y = Math.max(this.body.velocity.y, 3);
+  if (hits.length) { TSU.upHits = (TSU.upHits || 0) + hits.length; if (this.isPlayer && game.state === 'playing') toast(`🏴‍☠️ SNEAK ATTACK! ${hits[0].name.toUpperCase()}`, 'cool'); else if (game.state === 'playing') barks.announce('annDive', { a: this.isPlayer ? 'our hero' : this.name, v: hits[0].isPlayer ? 'our hero' : hits[0].name }, true); }
+};
+Car.prototype.boatFrame = function (dt) { // the wake, the flag, the hull hidden under water while diving
+  const b = this.body, p = b.position, v = b.velocity, sp = Math.hypot(v.x, v.z), dive = this.ghost ? this.netDive : this.diveT > 0;
+  this.root.visible = !dive || ((clock * 10) % 1 < 0.25); // (a shadow flickering under the surface while she's down)
+  if (this.flagMesh) this.flagMesh.rotation.y = Math.sin(clock * 9 + sp * 0.2) * 0.25 + Math.min(0.6, sp * 0.02);
+  if ((this.afloat || this.ghost) && TSU.level > 0.3 && sp > 3 && !dive) { // a big white wake fanning out behind
+    const back = b.pointToWorldFrame(_tzA.set(-T_ANN_HALF - 0.6, 0, 0), _tzB), n = QUALITY.lite ? 1 : sp > 15 ? 2 : 1;
+    for (let i = 0; i < n; i++) { const s = Math.random() < 0.5 ? -1 : 1; emit('steam', back.x + this.fwd.z * s * 0.6, TSU.level + 0.15, back.z - this.fwd.x * s * 0.6, -v.x * 0.2 - this.fwd.z * s * sp * 0.25, rand(0.6, 1.6) + sp * 0.03, -v.z * 0.2 + this.fwd.x * s * sp * 0.25, rand(0.5, 0.9), rand(0.25, 0.5) + sp * 0.012); }
+    if (sp > 12 && Math.random() < 0.4) { const bow = b.pointToWorldFrame(_tzA.set(1.6, 0, 0), _tzB); emit('steam', bow.x, TSU.level + 0.2, bow.z, rand(-2, 2), rand(1.5, 3), rand(-2, 2), 0.4, 0.35); }
+  }
+  this.skidAmt = 0;
+};
+const T_ANN_HALF = 2.4;
+/* ---------------- Plunder (Victor: "you can also rob the money from the cops"): a hard hit on the police Cruiser knocks cartoon cash bundles out of it;
+   whoever drives over one grabs it (a coin jingle and +100 for you). Pooled: at most 10 bundles, one instanced draw, no physics bodies. ---------------- */
+const CASH = { n: 10, im: null, b: [], m: new THREE.Matrix4(), q: new THREE.Quaternion(), s: new THREE.Vector3(1, 1, 1), p: new THREE.Vector3(), e: new THREE.Euler(), zero: new THREE.Matrix4().makeScale(0, 0, 0), grabbed: 0,
+  pool() { if (this.im) return this.im; const geo = new THREE.BoxGeometry(0.55, 0.2, 0.32), mat = new THREE.MeshStandardMaterial({ color: 0x3f9a46, roughness: 0.7, emissive: 0x0c2a10 });
+    const im = this.im = new THREE.InstancedMesh(geo, mat, this.n); im.instanceMatrix.setUsage(THREE.DynamicDrawUsage); im.frustumCulled = false; im.visible = false; im.userData.keep = true; im.castShadow = true;
+    for (let i = 0; i < this.n; i++) { im.setMatrixAt(i, this.zero); this.b.push({ on: false, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, spin: 0, t: 0 }); } scene.add(im); return im; },
+  reset() { for (const k of this.b) k.on = false; this.live = false; if (this.im) { for (let i = 0; i < this.n; i++) this.im.setMatrixAt(i, this.zero); this.im.instanceMatrix.needsUpdate = true; this.im.visible = false; } this.grabbed = 0; },
+};
+function dropCash(cop, by) { // the cruiser's boot pops and bundles fly out
+  if (MP.role === 'guest' || simTime - (cop.cashT ?? -9) < 1.2) return; cop.cashT = simTime; CASH.pool();
+  const p = cop.body.position, n = 1 + (Math.random() < 0.5 ? 1 : 0);
+  for (let k = 0; k < n; k++) { const s = CASH.b.find((x) => !x.on) || CASH.b.reduce((a, x) => (x.t < a.t ? x : a)); Object.assign(s, { on: true, x: p.x, y: p.y + 1, z: p.z, vx: rand(-4, 4) - cop.fwd.x * 2, vy: rand(5, 8), vz: rand(-4, 4) - cop.fwd.z * 2, spin: rand(-6, 6), t: 20, from: cop }); } CASH.live = true; // (from: the cop can't pick its own cash back up)
+  if (by && by.isPlayer && game.state === 'playing' && !CASH.told) { CASH.told = true; toast('💰 THE COPS DROPPED THEIR CASH!', 'cool'); }
+}
+function updateCash(dt) {
+  if (!CASH.im || !CASH.live) return; let any = false;
+  for (let i = 0; i < CASH.n; i++) { const k = CASH.b[i]; if (!k.on) continue; any = true; k.t -= dt;
+    const floor = Math.max(0.12, waterAt(k.x, k.z) + 0.08); k.vy -= S.gravity * dt; k.x += k.vx * dt; k.y += k.vy * dt; k.z += k.vz * dt;
+    if (k.y <= floor) { k.y = floor; k.vy = 0; k.vx *= 0.9; k.vz *= 0.9; k.spin *= 0.9; } k.x = clamp(k.x, -A + 3, A - 3); k.z = clamp(k.z, -A + 3, A - 3);
+    let got = null; if (MP.role !== 'guest' && k.t < 19.6) for (const c of cars) { if (c.wrecked || c === k.from) continue; const q = c.body.position; if (Math.abs(q.x - k.x) < 2.4 && Math.abs(q.z - k.z) < 2.4 && Math.abs(q.y - k.y) < 2.5) { got = c; break; } }
+    if (got || k.t <= 0) { k.on = false; k.from = null; CASH.im.setMatrixAt(i, CASH.zero); if (got) grabCash(got, k); continue; }
+    CASH.e.set(0, k.t * k.spin * 0.3 + i, Math.sin(k.t * 3 + i) * 0.15); CASH.q.setFromEuler(CASH.e); CASH.p.set(k.x, k.y + Math.sin(clock * 4 + i) * 0.05, k.z); CASH.m.compose(CASH.p, CASH.q, CASH.s); CASH.im.setMatrixAt(i, CASH.m); }
+  CASH.im.instanceMatrix.needsUpdate = true; CASH.im.visible = CASH.live = any;
+}
+function grabCash(c, k) {
+  CASH.grabbed++; c.plunder = (c.plunder || 0) + 1; for (let i = 0; i < 6; i++) emit('debris', k.x, k.y + 0.3, k.z, rand(-2, 2), rand(2, 4), rand(-2, 2), rand(0.8, 1.3), 0.09, goldMat);
+  if (player && player.body.position.distanceTo(c.body.position) < 70) { const v = clamp(1 - player.body.position.distanceTo(c.body.position) / 70, 0, 1); sfx.tone('square', 1320, 1320, 0.07 * v, 0.08); sfx.tone('square', 1760, 1760, 0.07 * v, 0.18, false, 0.08); } // ka-ching
+  if (game.state !== 'playing') return;
+  if (c.isPlayer) game.addScore(100, '💰 PLUNDER'); else if (c.persona && !c.remote && (c.T.jet || c.T.boat)) barks.say(c, 'plunder', true); else if (c.persona && !c.remote && Math.random() < 0.4) barks.say(c, 'gloat');
 }
 // Cars locked together (wedged, or one sitting on another) for over a second get pushed apart
 const wedged = new Map();
@@ -7457,8 +7891,8 @@ function unwedge(dt) {
     const t = near && slow && (a.isPlayer || b.isPlayer ? a.ctrl.throttle || b.ctrl.throttle || dy > 0.8 : true) ? (wedged.get(key) || 0) + dt : 0;
     wedged.set(key, t);
     if (t > (reversing ? 0.3 : 0.6)) {
-      // whatever panel was caught tears off
-      for (const [c, o] of [[a, b], [b, a]]) {
+      // whatever panel was caught tears off (not when it's just two cars bobbing into each other in the tsunami: water alone hurts nobody)
+      if (!((a.floodK || 0) > 0.1 && (b.floodK || 0) > 0.1)) for (const [c, o] of [[a, b], [b, a]]) {
         const z = zoneOf(c.body.quaternion.conjugate().vmult(o.body.position.vsub(c.body.position)));
         const caught = c.parts.filter((pt) => !pt.detached && pt.zone === z).sort((p1, p2) => (p2.loose ? 1 : 0) - (p1.loose ? 1 : 0));
         if (caught.length && Math.random() < 0.6) c.detach(caught[0], o);
@@ -7487,7 +7921,7 @@ function platformOf(p) {
   return null;
 }
 
-world.addEventListener('preStep', () => { for (const c of cars) c.physicsStep(FIXED); });
+world.addEventListener('preStep', () => { for (const c of cars) c.physicsStep(FIXED); if (TSU.hulks.length) for (const h of TSU.hulks) h.physicsStep(FIXED); floodStep(); }); // (floodStep: the tsunami's water, only while there is some)
 world.addEventListener('postStep', () => { for (const c of cars) if (c.webbedT > 0 && !c.ghost) c.webHold(FIXED, true); if (TIES.length && MP.role !== 'guest') updateTies(FIXED); }); // (Anansi's web)
 // Weight matters: a light car can't lever up one more than 2.5x its weight. Its sloped nose can wedge under a heavy car's side and
 // the contact then points upward; for those side contacts the push is made horizontal (before the solver runs), so the tank
@@ -7616,6 +8050,7 @@ function updateHUD(dt) {
   if (player.T.special) { // special weapon cooldown
     const W = WEAPONS[player.T.special], cd = player.specialCd || 0;
     if (player.T.special === 'minigun') { const a = player.mgAmmo ?? W.ammo; hudWidth($('gunFill'), (player.mgReload > 0 ? (1 - player.mgReload / 4) * 100 : a / W.ammo * 100).toFixed(0) + '%'); hudTxt($('gunState'), player.mgReload > 0 ? 'RELOADING' : player.mgOn ? `${Math.round(a)} ROUNDS` : `MINIGUN ${Math.round(a)}`); }
+    else if (player.T.special === 'laser') { hudWidth($('gunFill'), ((player.lzLock > 0 ? 1 - player.lzLock / 2.5 : player.lzBat ?? 1) * 100).toFixed(0) + '%'); hudTxt($('gunState'), player.diveT > 0 ? 'DIVING' : player.lzLock > 0 ? 'RECHARGING' : player.lzOn ? 'FIRING' : player.T.boat && player.diveCd > 0 ? 'LASER · DIVE ' + Math.ceil(player.diveCd) : 'LASER'); } // the battery
     else if (player.T.hover) { const bc = player.bombCd || 0; hudWidth($('gunFill'), ((1 - bc / HOVER.bombCd) * 100).toFixed(0) + '%'); hudTxt($('gunState'), bc > 0 ? 'RELOADING' : player.hovUp ? 'DROP!' : 'BOMB'); }
     else { hudWidth($('gunFill'), (clamp(1 - cd / W.cd, 0, 1) * 100).toFixed(0) + '%'); // (the spider's laser cools a little longer than its web)
     hudTxt($('gunState'), player.laserT > 0 ? 'LASER CUTTING' : player.T.walker && player.webShots > 0 ? `WEB ×${WEB_BURST.n - player.webShots}` : player.specialT > 0 ? 'ACTIVE' : cd > 0 ? (player.T.walker && player.fireMode === 'laser' ? 'LASER COOLING' : 'RECHARGING') : player.T.walker ? (player.fireMode === 'laser' ? 'LASER' : `WEB ×${WEB_BURST.n}`) : W.label); }
@@ -8054,6 +8489,29 @@ CAR_CAST.hover = { nick: 'Typhoon Tomoko', hand: 0.75, style: 'vulture', from: '
     crash: ["Nande yanen?! Who parked a wall here?", "Akan! I drifted a little bit too much!"],
     onFire: ["Atsui! Hot, hot, hot! I'm cooking like a takoyaki!", "Fire under my skirt! Abunai!"],
   } };
+CAR_CAST.jet = { nick: 'Captain Goldtooth', hand: 0.75, style: 'vulture', from: 'Captain Rufus Goldtooth, a jolly, booming West Country pirate captain with one gold tooth, who drives a golden truck and loves treasure more than anything', lang: 'en-GB', pitch: 0.85, rate: 1.0, color: '#e8b21e',
+  words: { ex: ['Arr', 'Shiver me timbers', 'Blow me down', 'Yo ho ho', 'Avast'], insult: ['ye bilge rat', 'ye landlubber', 'ye barnacle-brained scallywag', 'ye soggy ship\'s biscuit'], kin: ['me old mum', 'me parrot Pickles', 'the crew'], thing: ['gold tooth', 'treasure map', 'tricorn hat'], boast: ['Yo ho ho! Another prize for the treasure chest!', 'Arr! Pieces of eight, and pieces of YOU!'], voice: ['Google UK English Male', 'Daniel', 'Arthur'] },
+  lines: {
+    start: ["Arr! Captain Goldtooth be here, and every scrap o' this yard be treasure!", "Hoist the colours, me hearties! The golden Jet sails today!", "Yo ho ho! Polish me gold tooth, Pickles, we be goin' plunderin'!"],
+    hitYou: ["Arr! Boarded and plundered!", "Shiver me timbers, what a crunch! Into the treasure chest wi' ye!", "Ha harr! That be a pirate's kiss!", "Walk the plank, ye bilge rat!"],
+    gotHit: ["Blow me down! Ye scratched me gold paint!", "Avast! That be MUTINY!", "Arr! Ye'll pay for that in doubloons!", "Ow! Me gold tooth nearly popped out!"],
+    wheel: ["Arr! We've lost a wheel! Man the oars!", "A wheel overboard! Somebody fetch it, it's probably gold!"],
+    low: ["She be takin' on water, lads! And I mean real water!", "Me Jet be sinkin'! Save the treasure! And then me!"],
+    wrecked: ["Arr... down to Davy Jones' locker I go...", "Tell me old mum... the gold be buried under the crusher..."],
+    gloat: ["Yo ho ho! Another prize for the treasure chest!", "Arr! That be how a pirate does it!", "Dead men tell no tales, and wrecked cars tell no lies!"],
+    air: ["Arr! The Jet be flyin' like a cannonball!", "Yo ho! I be a flyin' pirate now!"],
+    taunt: ["Surrender yer treasure, or surrender yer bumper!", "X marks the spot, and the spot be YOU!", "I've sunk bigger ships than your rusty dinghy!"],
+    fire: ["Lasers! Fire the lasers, Pickles!", "Pew pew pew! Arr, I love these golden beams!", "Fire the shiny guns!"],
+    charge: ["Ramming speed! Full sail ahead!", "Prepare to be boarded!"],
+    flee: ["Retreat! Every pirate needs a getaway!", "Hard about! Hide the treasure!"],
+    tsunami: ["Shiver me timbers! A wave the size of a galleon!", "Arr! The sea's come to visit! Finally, MY kind o' weather!", "Batten down the hatches! Here she comes!"],
+    eject: ["Abandon truck! To the boat!", "Launch Ann! Yo ho ho, to the sea!", "Arr! Off the truck and into the briny, me beauty!"],
+    boat: ["Ann, me darlin', show 'em what a golden boat can do!", "Now THIS be proper pirate weather!", "Ha harr! Catch me if ye can, ye landlubbers!"],
+    dive: ["Down she goes! Like a sneaky submarine!", "Hold yer breath, Pickles!"],
+    broadside: ["Fire the broadside! BOOM!", "Cannons, fire! Arr!", "A broadside for ye, {target}!"],
+    reboard: ["All aboard the Jet! Strap Ann down, lads!", "Back on dry land. Me sea legs be wobblin'!"],
+    plunder: ["Plunder! Arr, the coppers' cash be MINE!", "Ha harr! Free gold from the sheriff!", "Plunder! Pickles, count it! Twice!"],
+  } };
 for (const P of Object.values(CAR_CAST)) PERSONAS.push(P); // (pushed last: guests look characters up by index)
 const CAST_SET = new Set(Object.values(CAR_CAST));
 const ANNOUNCER = { nick: 'Crash Cam Kev', caller: true, lang: 'en-AU', pitch: 0.95, rate: 1.18, words: { voice: ['Lee', 'Gordon', 'Karen', 'Catherine', 'Google UK English Male', 'Daniel', 'Ralph'] } }; // an over-the-top Aussie play-by-play caller
@@ -8234,6 +8692,9 @@ HORNS.spider = { f: [523.3, 659.3, 784], wave: 'triangle', drive: 2, lp: 3200, g
 MUSIC_FOR.spider = 'funk';
 HORNS.hover = { f: [880, 1108.7], wave: 'square', drive: 2, lp: 3800, gain: 0.07, attack: 0.006, bend: 0.82 }; // a bright two-tone scooter beep that bends up
 MUSIC_FOR.hover = 'synth';
+HORNS.jet = { f: [98, 130.8, 164.8], wave: 'sawtooth', drive: 10, lp: 1300, gain: 0.22, attack: 0.15, breath: 0.2, vibrato: 3 }; // a ship's foghorn chord
+HORNS.ann = HORNS.jet;
+MUSIC_FOR.jet = 'surf'; MUSIC_FOR.ann = 'surf';
 const PLAN_WEIGHTS = { // relative odds of each tactic per personality
   brawler: { hunt: 5, flank: 2, runup: 2, circle: 1, ambush: 0.5 },
   runup:   { runup: 4, hunt: 2, flank: 2, circle: 1, ambush: 1 },
@@ -8403,6 +8864,14 @@ CAST_MORE.hover = {
   taunt: ["You can't hit what you can't catch! And nobody catches the wind!", "My bombs are like takoyaki: round, hot, and they land on your head!", "Spin, spin, spin! My saws never get tired!"],
   hitYou: ["Bzzzz! The saws say thank you!", "Bombs away, and right on target! Meccha sugoi!"],
   gotHit: ["Akan! I'm sliding! I'm sliding!", "Nande yanen?! You pushed me like a shopping trolley!"],
+};
+CAST_MORE.jet = {
+  rival: ["{v}! Yer {vcar} be ugly as a barnacle's bottom!", "Arr, {v}! I'll sink that {vcar} and keep the hubcaps!", "{v}, ye scurvy dog! Hand over yer treasure!", "Ahoy, {v}! Yer mother drives like a leaky rowboat!"],
+  respawn: ["Arr! Ye can't sink a pirate twice in one day! Well... ye can try!", "Back from Davy Jones' locker, and twice as shiny!", "The Jet be patched and polished! Yo ho!"],
+  kill: ["{v} be sleepin' with the fishes! Ha harr!", "{v} walked the plank! Splash!", "Arr! {v}'s scrap be MY treasure now!"],
+  taunt: ["I can smell the gold in yer glovebox from here!", "Me parrot Pickles drives better than you, and he's a parrot!"],
+  hitYou: ["Arr! Boarded ye proper!", "Yo ho! That one'll leave a dent in yer doubloons!"],
+  gotHit: ["Mutiny! Ye'll be swabbin' decks for a month!", "Arr! Mind the gold trim!"],
 };
 for (const [type, more] of Object.entries(CAST_MORE)) {
   const P = type === 'cruiser' ? COP : CAR_CAST[type]; if (!P) continue;
@@ -8665,6 +9134,17 @@ CAST_EXTRA.spider = {
   onFire: ["Ei! Hot, hot! My legs are cooking like kebabs!", "Fire! Somebody bring water! Or a story about water!"],
   rodeo: ["Ha! I have caught Osebo the leopard! No, wait. It is a cow!"],
 };
+CAST_EXTRA.jet = {
+  start: ["Gold truck, gold boat, gold tooth. Arr, life be good!", "Pickles, ready the lasers! We sail for scrap and glory!"],
+  crash: ["Arr! Who put a rock in the sea?", "Blow me down, that wall weren't on me map!"],
+  onFire: ["Fire on deck! FIRE ON DECK!", "Arr! Me gold be meltin'! Somebody fetch a bucket!"],
+  rodeo: ["Arr! A sea cow! I always wanted a sea cow!"],
+  respawn: ["Fresh gold paint and a fresh grudge! Yo ho!"],
+  low: ["Holes in the hull! Pickles, plug 'em with crackers!"],
+  air: ["Ahoy, seagulls! Make room!"],
+  hitYou: ["Ha harr! Got ye with the old pirate switcheroo!"],
+};
+BURGER_LINES.jet = ["Arr! A cheeseburger! Better than ship's biscuits any day!", "Ha harr! Roast beef for the whole crew!"];
 // Anansi roasts everybody, and everybody roasts the spider (added here, not inside each table, so each line stays one line)
 ROASTS.spider = { camper: "Mr. White! You cook in your little van, but I cook up stories, and mine do not smell like burnt socks!", tiger: "Oberst Klaus! A great big tank, and you still cannot catch one little spider! Ha ha!", firetruck: "Captain Maeve! Your hose is very strong, but my web is stronger, and it does not drip!", tanker: "Uncle Bogdan! Your goat is the cleverest one in that truck, and she knows it!", hellbender: "Ragnar! So much beard, so much shouting! Even the hornets said you were too noisy!", sandflea: "Emeka! You drive like a danfo late for market! Ei! In my story, you are the snack!", outrider: "Maxine! You shout like thunder, but I have tricked the sky god himself!", viper: "Dom! Fast, fast, fast! A fly is fast too, and the fly always ends up in the web!", towtruck: "Cletus! You drag cars with a hook? I drag them with a story! Much more stylish!", forklift: "King Arthur! A king on a forklift? In my village even the king walks on his own legs!", combine: "Papa Jacques! You cut the wheat, I weave the web. Only one of us catches cars!", bertha: "Big Bertha! You are the biggest thing in the yard, and in my stories the biggest ones fall the hardest!", dozer: "Bob! You push the dirt, and I walk right over your head! Ha ha!", mixer: "Tony! Your cement shoes will never fit me. I have eight feet!", cruiser: "Sheriff! Arrest me if you can, but first you must catch me, and nobody catches Anansi!" };
 Object.assign(ROASTS.camper, { spider: "B|Yo, Mr. White! There's a giant spider out there telling STORIES, yo! I hate spiders!" });
@@ -8682,6 +9162,24 @@ Object.assign(ROASTS.bertha, { spider: "Anansi, sugar, I've squashed bigger spid
 Object.assign(ROASTS.dozer, { spider: "Anansi, partner, I'll bulldoze that web and all eight of your little legs with it." });
 Object.assign(ROASTS.mixer, { spider: "Anansi, you like stories? Here's one: a spider walks into wet cement. The end. Capisce?" });
 Object.assign(ROASTS.cruiser, { spider: "Anansi, sugar, eight legs means eight tickets for jaywalkin'!" });
+// Captain Goldtooth roasts everybody, and everybody roasts the pirate (each line stays one line)
+ROASTS.jet = { camper: "Mr. White! Yer rolling kitchen be the only thing in this yard that smells worse than me parrot!", tiger: "Oberst Klaus! A big tank, and still no treasure in it! What a waste o' steel!", firetruck: "Captain McCaffrey! Ye spray water? I SAIL on it, ye landlubber!", tanker: "Uncle Bogdan! Yer goat be a better first mate than you be a driver!", hellbender: "Ragnar! Ye call that a beard? Me parrot Pickles has better feathers!", sandflea: "Emeka! Yer little buggy be lighter than me hat! One broadside and it's gone!", outrider: "Maxine! All that shoutin' and still no gold to show for it!", viper: "Dom! Fast, aye, but a fish is fast too, and I eat fish for breakfast!", towtruck: "Cletus! Towin' cars about? A pirate just TAKES 'em! Arr!", forklift: "King Arthur! A crown and no treasure? What sort o' king be that?", combine: "Papa Jacques! Ye harvest wheat, I harvest GOLD! Arr!", bertha: "Big Bertha! A ship that size and not one cannon? Shameful!", dozer: "Bulldozer Bob! Ye push dirt all day. I dig up treasure in it!", mixer: "Tony Cement! Cement shoes don't float, but me golden boat does!", cruiser: "Sheriff Buck! Yer cash be my cash, by pirate law! Ha harr!", spider: "Anansi! Ye tell stories? I've got a story: a pirate steps on a spider. The end!" };
+Object.assign(ROASTS.camper, { jet: "Captain Goldtooth. A golden truck. That is not a disguise, that is a confession." });
+Object.assign(ROASTS.tiger, { jet: "Herr Goldtooth, a golden truck. How very subtle. My gunner thanks you for the target." });
+Object.assign(ROASTS.firetruck, { jet: "Goldtooth, ye overgrown parrot! I've hosed bigger pirates off a pier!" });
+Object.assign(ROASTS.tanker, { jet: "Captain! In my village, pirates wash dishes for my goat!" });
+Object.assign(ROASTS.hellbender, { jet: "Goldtooth! A REAL raider has a longship, not a bathtub on a truck! HAH!" });
+Object.assign(ROASTS.sandflea, { jet: "Ehen, Goldtooth! Your boat is fine, but your driving dey sink!" });
+Object.assign(ROASTS.outrider, { jet: "Goldtooth, ye shiny eejit! I'll harpoon that wee boat right off yer truck!" });
+Object.assign(ROASTS.viper, { jet: "Goldtooth, hermano, all that gold and still slower than my abuela's shopping cart!" });
+Object.assign(ROASTS.towtruck, { jet: "Lordy, a pirate! I'll tow that gold truck straight to the pawn shop!" });
+Object.assign(ROASTS.forklift, { jet: "Halt, pirate! The crown claims all thy treasure! And thy little boat!" });
+Object.assign(ROASTS.combine, { jet: "Goldtooth! Pirates in my field? Zut alors, keep your parrot off my wheat!" });
+Object.assign(ROASTS.bertha, { jet: "Sugar, that boat of yours is the size of my bathtub toy!" });
+Object.assign(ROASTS.dozer, { jet: "Goldtooth, partner, I'll bury that treasure so deep you'll need a map!" });
+Object.assign(ROASTS.mixer, { jet: "Ay, Goldtooth! You want to swim? I got some nice cement shoes for ya!" });
+Object.assign(ROASTS.cruiser, { jet: "Goldtooth! Piracy, theft AND a golden truck with no plates! You're under arrest, sugar!" });
+Object.assign(ROASTS.spider, { jet: "Goldtooth! A pirate with a golden truck? Even the sky god is not that greedy! Ha ha!" });
 const CAST_ACCENT = { // the recast drivers' own words (captions show them as written)
   tiger: { start: ['Achtung! Achtung! Ze panzer is here. Wunderbar.'], hitYou: ['Jawohl! Direct hit! Wunderbar!', 'Ach, you crumple so beautifully. Danke schön.'], gotHit: ['Was ist das?! You have scratched my beautiful panzer!'], gloat: ['Wunderbar. Simply wunderbar.'], taunt: ['Achtung, little rabbit. I am coming for you. Langsam. Slowly.'], fire: ['Feuer! Feuer frei!'], wrecked: ['Ach du lieber! My panzer!'], air: ['Mein Gott! Panzers do not fly!'] },
   mixer: { hitYou: ['Madonna mia, that was beautiful! Capisce?', 'Basta! You had enough? I think you had enough.'], gotHit: ['Ay, ay, ay! Mannaggia! My truck!'], taunt: ['You and me, we gonna have a little chat. Capisce?'], gloat: ['Bada bing, bada boom. Basta.'], start: ['Eh, buongiorno, everybody. Tony\'s here. Nobody panic.'], wrecked: ['Madonna mia... call my mother.'], fire: ['Cement shoes, extra large! Capisce?'] },
@@ -8754,6 +9252,16 @@ const TALK = { gap: [2.5, 5], gap2: 2, gap3: 0.8, budget1: 10, budget2: 15, budg
 };
 // Close events whose recorded lines fit when a driver has nothing fresh (or nothing recorded at all) for this one: rodeo and burger lines were never recorded for most drivers.
 const EV_ALT = { rodeo: ['taunt', 'gloat'], burger: ['gloat', 'kill'], crash: ['gotHit'], onFire: ['fire', 'gotHit'], fire: ['gotHit'], wheel: ['low', 'gotHit'], low: ['gotHit'], flee: ['low'], air: ['taunt'], charge: ['taunt'], kill: ['gloat'], wrecked: ['low'], respawn: ['start'], rival: ['taunt'], hitYou: ['gloat'], gloat: ['hitYou'], gotHit: ['low'], taunt: ['charge'], bull: ['taunt'] };
+// The tsunami (Kev and Lulu split these: even lines Kev, odd lines Lulu)
+Object.assign(ANN_LINES, {
+  tsunami: ['TSUNAMI WARNING! Everybody up the ramps, NOW!', 'Wah! Kev, look at the north wall! That wave is taller than a bus!', 'Here comes the big one, folks! High ground! High ground!', 'Aiya! A tsunami in a scrapyard! Hold on to your hubcaps!'],
+  tsunamiHit: ['And the whole yard is UNDER WATER! It\'s a car wash, folks!', 'Splash! Everybody is swimming now! Doggy paddle, cars, doggy paddle!', 'Crikey! That\'s not a derby anymore, that\'s a boat race!', 'Wah! Floating cars everywhere! Somebody bring the rubber ducks!'],
+  tsunamiOver: ['And the water is going down! Back to dry land, folks!', 'Aiya, the yard is draining! Mind the soggy seats!'],
+  annLaunch: ['{a} just LAUNCHED a golden speedboat off the back of the truck! Ahoy!', 'Wah! The boat flew off the truck! {a} is a pirate now!'],
+  annDive: ['{a} came up UNDER {v}! A sneaky submarine attack!', 'Aiya! {v} got zapped from underneath! Sneaky, {a}!'],
+});
+Object.assign(GENERIC, { tsunami: ['Water! Water everywhere!', 'Who left the tap on?!', 'My car can\'t swim!'] });
+Object.assign(EV_ALT, { tsunami: ['flee', 'low'], eject: ['charge'], boat: ['taunt'], dive: ['charge'], broadside: ['fire'], reboard: ['respawn', 'start'], plunder: ['gloat'] });
 // Web Speech is only the fallback for lines with no recording, and it must speak English in an English voice: a French or German voice reading English
 // sounds like a different language (Papa Jacques's lines came out in French). The accent comes from an English locale instead; only a line that is itself
 // in the character's language (P.native) may use a voice of that language.
@@ -9538,6 +10046,7 @@ function respawnCar(old, type) { const t0 = performance.now(), r = respawnCar0(o
 function respawnCar0(old, type) {
   const i = cars.indexOf(old); if (i < 0 || MP.role === 'guest') return null;
   type = CAR_TYPES[type] ? type : old.type;
+  if (type === 'ann' && !tsuWet()) type = 'jet'; else if (type === 'jet' && tsuWet() && (old.isPlayer || old.remote)) type = 'ann'; // (a wrecked boat comes back as Jet once the water's gone; during the flood a Jet driver gets a boat)
   for (const c of cars) { // let go of anything hooked to the old wreck
     if (c.cable && (c === old || c.cable.t === old)) WEAPONS.harpoon.end(c);
     if (c.tow && (c === old || c.tow.c === old)) towRelease(c);
@@ -9720,9 +10229,10 @@ function aimHintFor(type) { if (!canAim(CAR_TYPES[type])) return; let n = 0; try
 function setControlsFor(type) {
   document.body.classList.toggle('has-gun', !!(CAR_TYPES[type].gun || CAR_TYPES[type].pour || CAR_TYPES[type].special));
   { const T0 = CAR_TYPES[type]; // the controls strip and the touch FIRE button follow your car
-    const act = T0.gun ? 'fire 3-round burst' : T0.pour ? (T0.pour === 'fuel' ? 'dump fuel' : 'pour concrete') : ({ reel: 'reel on / off', dump: 'dump boulders', blade: 'raise / slam blade', lift: 'lift / toss', tow: 'hook / release (back up first)', minigun: 'minigun', rockets: 'rocket salvo', water: 'water cannon', harpoon: 'harpoon', flame: 'flamethrower', bomb: 'propane bomb', spikes: 'shotgun · Z stop stick', oil: 'oil slick', ram: 'rocket ram', web: 'web x3 (Tab: target) · up close: bite + laser', hoverbomb: 'throw a bomb (at the car ahead, behind or below)' })[T0.special];
+    const act = T0.gun ? 'fire 3-round burst' : T0.pour ? (T0.pour === 'fuel' ? 'dump fuel' : 'pour concrete') : ({ reel: 'reel on / off', dump: 'dump boulders', blade: 'raise / slam blade', lift: 'lift / toss', tow: 'hook / release (back up first)', minigun: 'minigun', rockets: 'rocket salvo', water: 'water cannon', harpoon: 'harpoon', flame: 'flamethrower', bomb: 'propane bomb', spikes: 'shotgun · Z stop stick', oil: 'oil slick', ram: 'rocket ram', web: 'web x3 (Tab: target) · up close: bite + laser', hoverbomb: 'throw a bomb (at the car ahead, behind or below)', laser: 'laser minigun (hold)' })[T0.special];
     const kb = (k, t, cls) => `<span${cls ? ' class="sp"' : ''}><b>${k}</b> ${t}</span>`;
-    const parts = [kb('W A S D', 'drive'), kb('Space', 'handbrake'), kb('Shift', 'nitro'), kb('J', T0.hover ? 'boost up' : 'jump')];
+    const parts = [kb('W A S D', 'drive'), kb('Space', 'handbrake'), kb('Shift', 'nitro'), kb('J', T0.hover ? 'boost up' : T0.boat ? 'dive' : 'jump', !!T0.boat)];
+    { const jb = document.querySelector('#touch [data-k="jump"]'); if (jb) { jb.querySelector('.ico').textContent = T0.boat ? '🤿' : '⤴️'; jb.querySelector('small').textContent = T0.boat ? 'Dive' : 'Jump'; } } // (Ann: the jump button dives)
     if (act) parts.push(kb('F', act, true));
     if (T0.wheelie) parts.push(kb('V', 'wheelie', true));
     if (T0.police || T0.siren) parts.push(kb('G', 'siren'));
@@ -9734,7 +10244,7 @@ function setControlsFor(type) {
       minigun: '<svg viewBox="0 0 48 32" width="1.25em" height="1em" aria-hidden="true"><g fill="currentColor"><rect x="3" y="8" width="26" height="3.2" rx="1.2"/><rect x="3" y="12.6" width="26" height="3.2" rx="1.2"/><rect x="3" y="17.2" width="26" height="3.2" rx="1.2"/><rect x="8" y="6" width="3" height="16.6" rx="1"/><rect x="18" y="6" width="3" height="16.6" rx="1"/><rect x="28" y="5" width="13" height="18" rx="3"/><rect x="33" y="22" width="5" height="8" rx="1.5"/><rect x="41" y="10" width="5" height="4" rx="1"/></g></svg>',
       shotgun: '<svg viewBox="0 0 48 32" width="1.25em" height="1em" aria-hidden="true"><g fill="currentColor"><rect x="2" y="10" width="28" height="3" rx="1.2"/><rect x="2" y="14" width="28" height="3" rx="1.2"/><rect x="12" y="17.5" width="10" height="4" rx="1.5"/><rect x="28" y="9" width="9" height="11" rx="2"/><path d="M36 10 L47 13 L47 23 L41 23 L36 19 Z"/><rect x="31" y="19" width="3" height="5" rx="1"/></g></svg>',
       cannon: '<svg viewBox="0 0 48 32" width="1.25em" height="1em" aria-hidden="true"><g fill="currentColor"><rect x="4" y="7" width="4" height="18" rx="1"/><rect x="8" y="9" width="20" height="14" rx="1.5"/><path d="M28 9 Q44 10 46 16 Q44 22 28 23 Z"/><rect x="22" y="9" width="2.5" height="14" fill="rgba(0,0,0,0.35)"/></g></svg>' };
-    const ICON = { reel: ['🌾', 'Reel'], dump: ['🪨', 'Boulders'], blade: ['🚜', 'Blade'], harpoon: ['🔱', 'Harpoon'], oil: ['🛢️', 'Oil'], spikes: [SVG.shotgun, 'Shotgun'], flame: ['🔥', 'Flames'], bomb: ['💣', 'Propane'], water: ['💧', 'Water'], minigun: [SVG.minigun, 'Minigun'], rockets: ['🚀', 'Rockets'], lift: ['⬆️', 'Lift'], tow: ['🪝', 'Hook'], ram: ['🚀', 'Ram'], web: ['🕸️', 'Web'], hoverbomb: ['💣', 'Bombs'] };
+    const ICON = { reel: ['🌾', 'Reel'], dump: ['🪨', 'Boulders'], blade: ['🚜', 'Blade'], harpoon: ['🔱', 'Harpoon'], oil: ['🛢️', 'Oil'], spikes: [SVG.shotgun, 'Shotgun'], flame: ['🔥', 'Flames'], bomb: ['💣', 'Propane'], water: ['💧', 'Water'], minigun: [SVG.minigun, 'Minigun'], rockets: ['🚀', 'Rockets'], lift: ['⬆️', 'Lift'], tow: ['🪝', 'Hook'], ram: ['🚀', 'Ram'], web: ['🕸️', 'Web'], hoverbomb: ['💣', 'Bombs'], laser: ['✴️', 'Laser'] };
     const [ic, lb] = T0.gun ? [SVG.cannon, 'Cannon'] : T0.pour ? (T0.pour === 'fuel' ? ['⛽', 'Fuel'] : ['🧱', 'Concrete']) : ICON[T0.special] || ['💥', 'Fire'];
     if (ic.startsWith('<svg')) $('fireIco').innerHTML = ic; else $('fireIco').textContent = ic; $('fireLab').textContent = lb;
     document.body.classList.toggle('has-siren', !!(T0.police || T0.siren));
@@ -9764,6 +10274,7 @@ function resetMatch() {
   clearSkids();
   buildProps(); batchProps();
   buildPickups();
+  tsuReset(); CASH.reset();
   spawnCars(); SCORE.reset(); SCORE.show(false);
   game.chatT = 14; game.score = 0; game.time = 0; game.overTimer = -1; game.attractReset = -1; game.shake = 0; game.propHits = 0; game.tromboneDone = false; game.tromboneKind = null;
 }
@@ -11073,13 +11584,13 @@ const MP = {
     const r = (v, k = 100) => Math.round(v * k);
     const cs = cars.map((c) => { const b = c.body, p = b.position, q = b.quaternion, v = b.velocity, z = c.zones;
       return [r(p.x), r(p.y), r(p.z), r(q.x, 1e4), r(q.y, 1e4), r(q.z, 1e4), r(q.w, 1e4), r(v.x, 10), r(v.y, 10), r(v.z, 10), Math.round(c.health),
-        (c.wrecked ? 1 : 0) | (c.boosting ? 2 : 0) | (c.braking ? 4 : 0) | (c.sirenOn ? 8 : 0) | (c.turretGone ? 16 : 0) | (c.burnT > 0 ? 32 : 0) | (c.webbedT > 0 ? 64 : 0) | (c.latch ? 1024 : 0) | (c.laserT > 0 ? 2048 : 0) | (c.laserT > 0 && c.laserPin ? 4096 : 0) | (c.webbedT > 0 ? Math.max(1, Math.min(3, Math.ceil(webLeft(c) * 3))) << 13 : 0) | (c.hovAir || c.hovUp ? 32768 : 0) | (c.skirtDown ? 65536 : 0) | (c.T.walker && (c.craned || c.carriedBy) ? 131072 : 0), // bits: 128/256/512 kept for the Steam Elephant's branch; 4096 big beam and 8192/16384 web hold (spider); 32768/65536 hovercraft; 131072 spider lifted (legs kick)
+        (c.wrecked ? 1 : 0) | (c.boosting ? 2 : 0) | (c.braking ? 4 : 0) | (c.sirenOn ? 8 : 0) | (c.turretGone ? 16 : 0) | (c.burnT > 0 ? 32 : 0) | (c.webbedT > 0 ? 64 : 0) | (c.latch ? 1024 : 0) | (c.laserT > 0 ? 2048 : 0) | (c.laserT > 0 && c.laserPin ? 4096 : 0) | (c.webbedT > 0 ? Math.max(1, Math.min(3, Math.ceil(webLeft(c) * 3))) << 13 : 0) | (c.hovAir || c.hovUp ? 32768 : 0) | (c.skirtDown ? 65536 : 0) | (c.T.walker && (c.craned || c.carriedBy) ? 131072 : 0) | (c.lzOn ? 262144 : 0) | (c.diveT > 0 ? 524288 : 0) | (c.annAboard === false ? 1048576 : 0), // bits: 128/256/512 kept for the Steam Elephant's branch; 4096 big beam and 8192/16384 web hold (spider); 32768/65536 hovercraft; 131072 spider lifted (legs kick); 262144 Jet's laser firing, 524288 Ann diving, 1048576 Ann gone from Jet's bed (tsunami)
         [z.front, z.rear, z.left, z.right, z.top].map((x) => Math.round(x)).join('.'),
         c.parts.reduce((a, pt, i) => (pt.detached ? a.concat(i) : a), []), c.wheelLost.reduce((a, l, i) => a | (l ? 1 << i : 0), 0),
         r(c.rpm || 0, 0.01), r(c.steerVal || 0), r(c.turretYaw || 0), r(c.forkH || 0), c.kills || 0]; });
     const snap = { t: Math.round(performance.now()) / 1000, st: game.state === 'playing' ? 1 : game.state === 'over' ? 2 : 0, cd: Math.round(game.countdown * 100) / 100, rk: this.rk, rv: this.rv, c: cs,
       b: BULLS.map((bl) => [r(bl.body.position.x), r(bl.body.position.y), r(bl.body.position.z), r(bl.yaw), ['graze', 'walk', 'paw', 'charge', 'proud', 'down', 'burger', 'flee'].indexOf(bl.state)]),
-      k: [r(CRANE.ang), r(CRANE.r), r(CRANE.h), CRANE.held ? cars.indexOf(CRANE.held) : -1], cr: [r(CRUSHER.y), ['idle', 'warn', 'slam', 'hold'].indexOf(CRUSHER.state)], bp: [r(BALL.ph), BOLLARDS.up ? 1 : 0], e: this.ev, p: this.propState(r), pf: props.filter((pr) => pr.fireT > 0).slice(0, 30).map((pr) => pr.id) };
+      k: [r(CRANE.ang), r(CRANE.r), r(CRANE.h), CRANE.held ? cars.indexOf(CRANE.held) : -1], cr: [r(CRUSHER.y), ['idle', 'warn', 'slam', 'hold'].indexOf(CRUSHER.state)], bp: [r(BALL.ph), BOLLARDS.up ? 1 : 0], ts: tsuNet(r) || undefined, e: this.ev, p: this.propState(r), pf: props.filter((pr) => pr.fireT > 0).slice(0, 30).map((pr) => pr.id) };
     this.snapN = (this.snapN || 0) + 1; if (this.snapN % 2) { delete snap.p; delete snap.pf; if (SCORE.due()) snap.sc = SCORE.pack(); } // the scoreboard rides on a packet without props, about once a second // props drift slowly: their states ride on every other packet (10 a second), cars on every one
     let json = JSON.stringify(snap); while (json.length > 3600 && (snap.e.length || (snap.p && snap.p.length > 4))) { if (snap.p && snap.p.length > 4) snap.p = snap.p.slice(0, snap.p.length - 3); else snap.e = snap.e.slice(1); json = JSON.stringify(snap); } // keep each packet small: drop extra props first, then old events
     NETLOG.w && NETLOG.w.sent++; { const st = this.txStats || (this.txStats = { n: 0, bytes: 0, t0: performance.now(), last: null }); st.n++; st.bytes += json.length; if (performance.now() - st.t0 > 5000) { st.last = { perSec: +(st.n / ((performance.now() - st.t0) / 1000)).toFixed(1), avgBytes: Math.round(st.bytes / Math.max(1, st.n)), kbitPerGuest: Math.round(st.bytes * 8 / 1000 / ((performance.now() - st.t0) / 1000)) }; st.n = 0; st.bytes = 0; st.t0 = performance.now(); } }
@@ -11172,7 +11683,7 @@ const MP = {
       c.ghost = true; c.persona = pi === -2 ? COP : pi >= 0 ? PERSONAS[pi] : null; c.netPeer = peer || null; c.did = e[7] || null; c.body.type = CANNON.Body.KINEMATIC; c.body.updateMassProperties();
       if (old) { const te = threatEls.get(old); if (te) { te.remove(); threatEls.delete(old); } old.dispose(); }
       cars[i] = c; this.slotRv[i] = hp.rv;
-      if (c.isPlayer) { player = c; setControlsFor(type); document.body.classList.toggle('has-gun', !!(c.T.gun || c.T.pour || c.T.special)); toast('BACK IN', 'cool'); }
+      if (c.isPlayer) { player = c; setControlsFor(type); document.body.classList.toggle('has-gun', !!(c.T.gun || c.T.pour || c.T.special)); if (type === 'ann') toast('🏴‍☠️ ABANDON TRUCK! TO THE BOAT!', 'cool'); else if (!(old && old.T.boat)) toast('BACK IN', 'cool'); }
     });
     if (!cars.includes(player)) player = cars.find((c) => c.isPlayer) || cars[0];
     buildOpponentList(); this.builtRv = hp.rv; this.lastRoster = hp.roster;
@@ -11210,6 +11721,7 @@ const MP = {
     else if (st !== 'playing' && game.state === 'playing') { game.state = st === 'over' ? 'over' : 'menu'; if (st === 'over') { toast('ROUND OVER · HOST RESTARTS', 'cool'); if (GAME_MODE === 'respawn') SCORE.show(true, true); } else el.menu.hidden = false; }
     game.countdown = latest.cd;
     if (latest.bp) { BALL.ph = latest.bp[0] / 100 + (this.rt - latest.t) * 0; BOLLARDS.up = !!latest.bp[1]; }
+    tsuNetIn(latest.ts); // the tsunami: the same water level, wave front and empty Jets as the host
     if (latest.cr) { CRUSHER.y = latest.cr[0] / 100; CRUSHER.state = ['idle', 'warn', 'slam', 'hold'][latest.cr[1]] || 'idle'; }
     if (st === 'playing') { const n = Math.ceil(latest.cd / 0.6); if (n !== game.lastCount && n >= 0) { game.lastCount = n; toast(n > 0 ? String(n) : 'GO!', n > 0 ? '' : 'cool'); if (n === 0) sfx.cheer(0.8); } }
     // interpolate 100 ms behind the newest snapshot
@@ -11247,6 +11759,7 @@ const MP = {
       c.netWebbed = !!(B[11] & 64); // caught in a web: the spider draws the cable
       c.netLatched = !!(B[11] & 1024); c.netLaser = !!(B[11] & 2048); c.netLaserPin = !!(B[11] & 4096); c.netFlail = !!(B[11] & 131072); c.netWebQ = (B[11] >> 13) & 3; // a spider riding a roof, its laser cutting (beam and sparks), the big downward beam on a webbed-down car, a lifted spider kicking its legs, and how much of a web's hold is left (thirds: its strands let go)
       c.netAir = !!(B[11] & 32768); c.netSkirt = !!(B[11] & 65536); // a hovercraft off its cushion (no spray), and its skirt down on the dirt (sparks)
+      c.netLz = !!(B[11] & 262144); c.netDive = !!(B[11] & 524288); if (c.T.jet && c.annAboard !== !(B[11] & 1048576)) c.setAnnAboard(!(B[11] & 1048576)); // Jet's laser firing, Ann diving, Ann gone from the bed (tsunami)
       c.health = B[10];
       if ((B[11] & 1) && !c.wrecked) c.wreck();
       if ((B[11] & 16) && c.T.gun && !c.turretGone) c.blowBarrel();
@@ -12101,7 +12614,7 @@ function simBody(now) {
     updatePickups(sdt);
     updateShells(sdt);
     updateConcrete(sdt);
-    SEC.run('effects', () => { updateParticles(sdt); PBATCH.draw(sdt); updateBooms(sdt); updatePropFires(sdt); });
+    SEC.run('effects', () => { updateParticles(sdt); PBATCH.draw(sdt); updateLasers(sdt); updateCash(sdt); updateBooms(sdt); updatePropFires(sdt); });
     updateFireLights(clock);
   }
 }
@@ -13267,6 +13780,7 @@ try { BOOT.parallel = !!renderer.getContext().getExtension('KHR_parallel_shader_
   else { bootLite(); renderer.compile(sky, camera, scene); startLoop('async'); } // (the yard's compile starts once this first frame is up: bootFrame)
 } catch (e) { bootYard('error'); startLoop('error'); }
 window.__derby.BOOT = BOOT; window.__derby.HITLOG = HITLOG; Object.defineProperty(window.__derby, 'camMode', { get: () => camMode }); window.__derby.MEMGUARD = MEMGUARD; window.__derby.GPULIVE = GPULIVE;
+window.__derby.TSU = TSU; window.__derby.startTsunami = (fast) => startTsunami(fast); window.__derby.ejectAnn = (c) => ejectAnn(c); window.__derby.reboardJet = (c) => reboardJet(c); window.__derby.waterAt = (x, z) => waterAt(x, z); window.__derby.JLASER = JLASER; window.__derby.CASH = CASH; window.__derby.dropCash = (c, by) => dropCash(c, by); // (tsunami, Jet and Ann test hooks)
 window.__derby.setCarAlight = (c, by) => setCarAlight(c, by); window.__derby.dropBoulder = (c) => dropBoulder(c); window.__derby.sprites = sprites; window.__derby.IDLE = IDLE; window.__derby.TALK = TALK; window.__derby.DROP = DROP; window.__derby.SCORE = SCORE; window.__derby.UPDATE = UPDATE; window.__derby.TABENV = TABENV; window.__derby.PERFREP = PERFREP; window.__derby.LIFE = LIFE; window.__derby.HEAL = HEAL; // (test hooks)
 window.__derby.HPBAR = HPBAR; window.__derby.VR = VR; window.__derby.XRS = XRS; window.__derby.composer = composer;
 window.__derby.VCLIP = VCLIP; window.__derby.TOURIST = TOURIST; window.__derby.ROAST_BY = ROAST_BY; window.__derby.ROAST_PAIR = ROAST_PAIR; window.__derby.SHAZZA = SHAZZA; window.__derby.CAR_CAST = CAR_CAST; window.__derby.ANNOUNCER = ANNOUNCER; window.__derby.COP = COP; window.__derby.megaphone = megaphone; window.__derby.hornLine = hornLine;
