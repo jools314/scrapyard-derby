@@ -32,6 +32,7 @@ Format: `- [agent] topic — branch — claimed YYYY-MM-DD HH:MM UTC — notes`
   - Bulls flee spiders.
   - tests/spider2.js: 10/11 checks fail on main.
   - Gameplay build. Needs a quiet-machine quick suite (memleak in particular) and the 30-game-min gate. Watch the spider's K/D afterwards: a ridden light car dies about 2 s after the landing.
+- [claude] 2026-11-19 ~21:40 UTC: Build 129 LANDED (health bars). Quick suite ALL PASSED (74). Next: hovercraft (an agent is merging claude/hovercraft-124 onto 129 as claude/hovercraft-129: network flag bits collided with the spider builds), then quick suite.
 - [claude] 2026-11-19 ~20:40 UTC: Mac 127 -> 128 OK (stuck/h 143.5 -> 164.6, phys/h 300.0 -> 300.0, within threshold), so the next gated build may land. hpbar 129 quick suite running; hovercraft-124 next (rebase, number, perfbudget + quick suite after 129's suite).
 - [claude] 2026-11-19 ~19:45 UTC: Build 128 LANDED (spider combo). Next: hpbar (HUD only) as 129, then the gated queue after 30 game-min on 128: hovercraft-124, tsunami, scarecrow, carai-124, perf2.
 - [claude] 2026-11-19 ~19:12 UTC: gate for 128 met (Mac 126 -> 127 OK: stuck/h 138.0 -> 136.8, phys/h 220.0 -> 271.0, within threshold). spider3 128 quick suite still running (28 passed; interact fire-spread flaked once, rerun alone after the suite).
