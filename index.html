@@ -899,6 +899,10 @@ const CAR_TYPES = {
 // Anansi the Spider-Walker: eight scrap-pipe legs instead of wheels (no RaycastVehicle: hover springs + drive forces, legs animated on top, see walkStep/updateLegs).
 // Its "wheels" are its legs: wheelBase = the 8 hips (front pair first, even = left), wheelLost = a leg snapped off. Fewer legs: slower, limps; under 6 it can't climb; under 4 it's a wreck.
 CAR_TYPES.spider = { walker: true, special: 'web', noPlant: true, handling: { steer: 1.2, rate: 1.4, spring: 1, damp: 1, rear: 1, drag: 1.1, roll: 0.5 }, size: 1.18, name: 'Spider-Walker', blurb: 'Anansi\'s eight-legged scrap spider. Scuttles fast, climbs onto containers and walls, drops onto cars. F fires a steel web (up to 3 in a row) that pins a car for 3 s: the one about to hit you, or the one in front (Tab picks another). Up close, or riding a roof, F bites (poison) and fires a laser cutter that melts panels off; a web hit near another car ties the two together, near a wall it sticks the car to it; J leaps 8 m and steers onto a car\'s roof, and it holds on tight until the car shakes it off. Heavy rams snap its legs: every leg lost makes it slower.', style: 'spider', mass: 2100, L: 2.4, W: 1.7, H: 0.6, wheelR: 0.3, wheelW: 0.2, wb: 1.5, axles: [0.75, 0.25, -0.25, -0.75], track: 1.44, power: 1.0, grip: 1.1, armor: 0.85, cabin: { l: 0.9, h: 0.45, w: 0.95, x: 0.7 }, color: 0x7a5232, redline: 5200, idle: 900, cyl: 2 };
+// Lucas's hovercraft (owner's son, 2026-11-19): no wheels at all. Four lift rays hold an air cushion under a rubber skirt (hoverStep), a big fan at the back
+// pushes, and almost nothing grips sideways, so it drifts. A ring of spinning saw blades round the skirt cuts whoever touches it (none at the fan end: hit it
+// from behind). F hops it on a burst of lift; in the air F drops a bomb on the car below or ahead. Its "wheels" are the four lift rays (nothing to lose).
+CAR_TYPES.hover = { hover: true, iconic: true, special: 'hopbomb', noPlant: true, noWheelLoss: true, handling: { steer: 1, rate: 1, spring: 1, damp: 1, rear: 1, drag: 0.85, roll: 0.5 }, name: 'Buzzsaw Hover', blurb: 'Typhoon Tomoko\'s hovercraft: floats on an air cushion, so it is fast, light and drifts round every corner (Space drops the skirt to brake and swing round). Concrete, oil and mud can\'t touch it. A ring of spinning saws cuts anyone who rams it, except at the big fan on the back. F hops it into the air; F again up there drops a bomb on whoever is below.', style: 'hover', mass: 1150, L: 4.6, W: 2.9, H: 0.55, wheelR: 0.3, wheelW: 0.2, wb: 3.0, axles: [1.5, -1.5], track: 2.0, power: 0.95, grip: 0.3, armor: 1.05, cabin: { l: 1.5, h: 0.62, w: 1.3, x: 0.45 }, color: 0x17b3bd, redline: 9000, idle: 2600, cyl: 8 };
 
 const S = {};
 const STORE_KEY = 'scrapyard-derby-settings-v9';
@@ -2674,6 +2678,7 @@ function spiderLine(car, kind, victim) { // one breath of Anansi; the player's s
   if (!TALK.gate(P, line, car.isPlayer ? 3 : 2)) { car.spLineT = now + 1500; return; }
   barks.show(P, car.baseColor || new THREE.Color(0xc89a2a), line); barks.speak(P, line, car.body.position);
 }
+HORN_LINES.hover = ["Abunai! Abunai! Hovercraft coming through!", "Beep beep! Takoyaki delivery! Move it!", "Nande yanen?! Move your car!"];
 HORN_LINES.spider = ["Agoo! Agoo! Spider coming through!", "Ei! Move, move, my legs are in a hurry!", "Ha ha ha! Beep beep, it is Anansi!"];
 const MEGA = { // the deputy on the megaphone / police radio
   shoot: ['Pull over! PULL OVER!', 'This is your final warning!', 'Hands where I can see them!', 'Stop resisting!'],
@@ -3040,6 +3045,14 @@ const WEAPONS = {
     tick(car) { const w = car.web; if (!w) return; if (w.t && (w.t.wrecked || !cars.includes(w.t))) { car.web = null; webLine(car); return; } webLine(car); },
     end(car) { const w = car.web; if (webTether(car)) { webLine(car); return; } /* (still holding: the cable stays attached until the hold runs out) */ if (w && w.t && w.t.webBy === car) { w.t.webbedT = 0; w.t.webAt = null; } car.web = null; webLine(car); },
   },
+  hopbomb: { label: 'HOP', cd: 0.3, dur: 0, // the Buzzsaw Hover: on the cushion F hops it into the air; up there F drops a bomb on the car under the marker (4 s to reload)
+    start(car) {
+      if (!car.hovAir) { car.hopReq = 0.35; return; }
+      if (car.bombCd > 0) { if (car.isPlayer) toast('BOMB RELOADING', 'bad'); return; }
+      car.bombCd = HOVER.bombCd; dropHoverBomb(car); if (!car.isPlayer && Math.random() < 0.5) barks.say(car, 'fire', true);
+    },
+    update(car, dt) { car.bombCd = Math.max(0, (car.bombCd || 0) - dt); hoverMarker(car); },
+  },
   ram: { label: 'ROCKET RAM', cd: 7, dur: 1.2, // nitro lunge that hits twice as hard
     start(car) { const f = car.fwd; car.body.velocity.x += f.x * 12; car.body.velocity.z += f.z * 12; car.ramT = 1.2; sfx.at(car.body.position).rocketLaunch(wv(car)); if (car.isPlayer) { game.fovPunch = 10; sfx.noiseHit('lowpass', 500, 0.7, 0.6, 0.8); } },
     tick(car) { for (const ex of car.exhaust) { ex.getWorldPosition(tmpW); emit('flame', tmpW.x, tmpW.y, tmpW.z, -car.fwd.x * 8, 0, -car.fwd.z * 8, 0.25, 0.5); } },
@@ -3227,13 +3240,14 @@ function updateShells(dt) {
     ob.collisionResponse = resp;
     if (res.hasHit || s.life <= 0 || next.y < -2) {
       scene.remove(s.mesh); shells.splice(i, 1);
-      if (res.hasHit || s.bomb || s.rocket) explodeShell(res.hasHit ? res.hitPointWorld : s.pos, res.body, s.owner, s.scale || 1);
+      if (res.hasHit || s.bomb || s.rocket || s.hbomb) explodeShell(res.hasHit ? res.hitPointWorld : s.pos, res.body, s.owner, s.scale || 1);
       if (s.bomb) { const q = res.hasHit ? res.hitPointWorld : s.pos; addConcrete(q.x, q.z, 3.5, 'fuel'); CONCRETE.list[CONCRETE.list.length - 1].burning = 10; }
       continue;
     }
+    if (s.hbomb) emit('spark', s.pos.x, s.pos.y + 0.35, s.pos.z, rand(-1, 1), rand(0.5, 2), rand(-1, 1), 0.25, 0.07); // the fizzing fuse
     if (s.bomb) { emit('steam', s.pos.x, s.pos.y, s.pos.z, rand(-0.5, 0.5), 0.4, rand(-0.5, 0.5), 0.9, rand(0.3, 0.5)); if (Math.random() < 0.5) emit('flame', s.pos.x, s.pos.y, s.pos.z, 0, 0.5, 0, 0.18, 0.3); } // a hissing white trail you can follow
     else if (!s.rocket && Math.random() < 0.7) emit('smoke', s.pos.x, s.pos.y, s.pos.z, 0, 0.3, 0, 0.5, 0.12);
-    s.pos.copy(next); s.mesh.position.copy(next); if (s.bomb) { s.mesh.rotation.x += dt * (s.spin || 8); s.mesh.rotation.z += dt * 2; }
+    s.pos.copy(next); s.mesh.position.copy(next); if (s.bomb || s.hbomb) { s.mesh.rotation.x += dt * (s.spin || 8); s.mesh.rotation.z += dt * 2; }
   }
 }
 function blastImpulse(o, dir, imp) { // explosions stack (a tanker, its gas bottles, a shell, all at once): cap what one body can gain from blasts in 0.4 s
@@ -4273,6 +4287,64 @@ function spiderWebShot(car) { // AI: web the car about to hit it (its defence: i
   const run = Math.hypot(t.body.velocity.x, t.body.velocity.z) > 5;
   return run || t.body.mass < 2600 || car.body.position.distanceTo(t.body.position) < 12;
 }
+// ---------- the Buzzsaw Hover's kit (Lucas's hovercraft) ----------
+// rx/rz: the four lift rays at the skirt's corners (body frame). They start at `top` (above the hull floor: a ramp's face can rise over the skirt) and
+// look `reach` down; the cushion holds the skirt `gap` off whatever is under it. A hop is a burst of lift (vy), then cooldowns for the hop and the bomb.
+const HOVER = { rx: 1.75, rz: 1.05, top: 0.6, reach: 2.7, gap: 0.42, hopVy: 11.5, hopCd: 1.3, bombCd: 4, bombScale: 0.9 };
+const _hoverRay = { skipBackfaces: true, collisionFilterMask: ~(LIGHT | CARG), callback: _noop }; // the cushion rides on the ground, scenery and heavy props; never on crates, debris or other cars
+const _hm = new THREE.Matrix4(), _hq = new THREE.Quaternion(), _hv = new THREE.Vector3(), _hs = new THREE.Vector3(1, 1, 1), _hY = new THREE.Vector3(0, 1, 0);
+let _hoverKit = null;
+function roundRectShape(hl, hw, r) { const s = new THREE.Shape(); s.moveTo(-hl + r, -hw); s.lineTo(hl - r, -hw); s.quadraticCurveTo(hl, -hw, hl, -hw + r); s.lineTo(hl, hw - r); s.quadraticCurveTo(hl, hw, hl - r, hw); s.lineTo(-hl + r, hw); s.quadraticCurveTo(-hl, hw, -hl, hw - r); s.lineTo(-hl, -hw + r); s.quadraticCurveTo(-hl, -hw, -hl + r, -hw); return s; }
+function HOVERKIT() { // shared by every hovercraft, made once: the skirt, the saw blade, the fan rotor, the rudder, the bomb, the aim marker
+  if (_hoverKit) return _hoverKit;
+  const shared = (g) => { g.userData.shared = true; return g; }, flat = (g) => (g.index ? g.toNonIndexed() : g);
+  const tint = (g, r, gg, b) => { g = flat(g); const n = g.attributes.position.count, c = new Float32Array(n * 3); for (let i = 0; i < n; i++) { c[i * 3] = r; c[i * 3 + 1] = gg; c[i * 3 + 2] = b; } g.setAttribute('color', new THREE.BufferAttribute(c, 3)); return g; };
+  // a saw blade lying flat: a steel disc with 18 raked teeth, a red warning band across it (so you SEE it spin) and a dark hub; one draw for all ten (vertex colours)
+  const R = 0.5, r0 = R * 0.84, N = 18, sh = new THREE.Shape();
+  for (let i = 0; i < N; i++) { const a0 = i / N * Math.PI * 2, a1 = (i + 0.62) / N * Math.PI * 2; if (i === 0) sh.moveTo(Math.cos(a0) * r0, Math.sin(a0) * r0); else sh.lineTo(Math.cos(a0) * r0, Math.sin(a0) * r0); sh.lineTo(Math.cos(a1) * R, Math.sin(a1) * R); sh.lineTo(Math.cos(a1 + 0.02) * r0, Math.sin(a1 + 0.02) * r0); }
+  const disc = new THREE.ExtrudeGeometry(sh, { depth: 0.05, bevelEnabled: false, curveSegments: 1 }); disc.rotateX(-Math.PI / 2); disc.translate(0, -0.025, 0);
+  const saw = mergeGeometries([tint(disc, 0.72, 0.7, 0.68), tint(new THREE.BoxGeometry(r0 * 1.9, 0.06, 0.15), 0.9, 0.1, 0.06), tint(new THREE.CylinderGeometry(0.1, 0.1, 0.09, 10), 0.12, 0.11, 0.1)].map((g) => { g.deleteAttribute('uv'); return g; }), false);
+  // ten blades round the skirt: nose, corners and flanks. None at the back: that is where the fan is (hit it from behind)
+  const sawSpots = [[2.2, 0.6], [2.2, -0.6], [1.6, 1.3], [1.6, -1.3], [0.6, 1.6], [0.6, -1.6], [-0.45, 1.6], [-0.45, -1.6], [-1.35, 1.42], [-1.35, -1.42]].map(([x, z], i) => ({ x, y: HULL_Y0 + 0.2, z, dir: i % 2 ? 1 : -1, ph: i * 0.7 }));
+  // the skirt: a fat black rubber ring, bulging out round the deck
+  const skirt = new THREE.ExtrudeGeometry(roundRectShape(2.12, 1.38, 0.9), { depth: 0.12, bevelEnabled: true, bevelThickness: 0.14, bevelSize: 0.12, bevelSegments: 3, curveSegments: 6 }); skirt.rotateX(-Math.PI / 2); skirt.translate(0, -0.06, 0);
+  // the fan: four paddle blades and a spinner, turning on the duct's axis (x); a tall rudder (two of them steer)
+  const rotor = mergeGeometries([0, 1, 2, 3].map((k) => flat(new THREE.BoxGeometry(0.05, 0.66, 0.16).translate(0, 0.36, 0).rotateX(k * Math.PI / 2 + 0.3))).concat([flat(new THREE.ConeGeometry(0.14, 0.3, 10).rotateZ(-Math.PI / 2).translate(0.12, 0, 0))]).map((g) => { g.deleteAttribute('uv'); return g; }), false);
+  const rudder = new THREE.BoxGeometry(0.42, 1.05, 0.05).translate(-0.18, 0, 0);
+  const bomb = mergeGeometries([flat(new THREE.SphereGeometry(0.3, 14, 10)), flat(new THREE.CylinderGeometry(0.07, 0.09, 0.16, 8).translate(0, 0.33, 0))].map((g) => { g.deleteAttribute('uv'); return g; }), false);
+  const mark = mergeGeometries([flat(new THREE.RingGeometry(1.0, 1.3, 32)), flat(new THREE.CircleGeometry(0.22, 12)), ...[0, 1, 2, 3].map((k) => flat(new THREE.PlaneGeometry(0.12, 0.6).translate(0, 1.55, 0).rotateZ(k * Math.PI / 2)))].map((g) => { g.deleteAttribute('uv'); return g; }), false); mark.rotateX(-Math.PI / 2); // a ring with four ticks and a dot: where the bomb will land
+  const sm = (o) => new THREE.MeshStandardMaterial(o);
+  return (_hoverKit = { saw: shared(saw), sawSpots, skirt: shared(skirt), rotor: shared(rotor), rudder: shared(rudder), bomb: shared(bomb), mark: shared(mark),
+    sawMat: sm({ vertexColors: true, roughness: 0.26, metalness: 0.85 }), bombMat: sm({ color: 0x16151a, roughness: 0.35, metalness: 0.5 }),
+    markMat: new THREE.MeshBasicMaterial({ color: 0xff3a1a, transparent: true, opacity: 0.85, depthWrite: false, side: THREE.DoubleSide }),
+    lantern: sm({ color: 0xd8281e, emissive: 0x9a1408, emissiveIntensity: 0.7, roughness: 0.6 }), white: sm({ color: 0xf2efe8, roughness: 0.5 }), pink: sm({ color: 0xff4f9a, roughness: 0.45, metalness: 0.2 }) });
+}
+// Where a bomb dropped right now would land: aimed at the car (below, ahead, or where it is heading) that needs the smallest nudge to hit, leading it
+// by its speed. The nudge is capped at 13 m/s: out of reach, it just drops. No allocations (every frame while airborne, for the marker).
+function hoverAim(car) {
+  const b = car.body, p = b.position, v = b.velocity, g = S.gravity, A0 = car._aim || (car._aim = { t: null, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, tf: 0 });
+  const y0 = p.y - 0.6, vy = Math.min(v.y, 0) - 2; let best = null, bn = 13;
+  for (const c of cars) { if (c === car || c.wrecked) continue; const q = c.body.position, dx = q.x - p.x, dz = q.z - p.z, dh = Math.hypot(dx, dz);
+    if (dh > 34 || q.y > y0 - 0.3 || (dh > 5 && (dx * car.fwd.x + dz * car.fwd.z) / dh < 0.25 && dx * v.x + dz * v.z <= 0)) continue;
+    const ty = q.y + 0.5, tf = (vy + Math.sqrt(vy * vy + 2 * g * Math.max(0.2, y0 - ty))) / g;
+    const nx = (q.x + c.body.velocity.x * tf - p.x) / tf - v.x, nz = (q.z + c.body.velocity.z * tf - p.z) / tf - v.z, n = Math.hypot(nx, nz);
+    if (n < bn) { bn = n; best = c; A0.tf = tf; A0.vx = nx; A0.vz = nz; A0.y = ty; } }
+  if (!best) { A0.vx = A0.vz = 0; A0.y = 0.15; A0.tf = (vy + Math.sqrt(vy * vy + 2 * g * Math.max(0.2, y0 - 0.15))) / g; }
+  A0.t = best; A0.vy = vy; A0.x = p.x + (v.x + A0.vx) * A0.tf; A0.z = p.z + (v.z + A0.vz) * A0.tf; return A0;
+}
+function dropHoverBomb(car) { // a round black cartoon bomb with a lit fuse, out of the hatch under the deck: it falls on whoever the marker is on and goes off on impact
+  const K = HOVERKIT(), A0 = hoverAim(car), p = car.body.position, v = car.body.velocity, mesh = new THREE.Mesh(K.bomb, K.bombMat); mesh.castShadow = true; mesh.position.set(p.x, p.y - 0.6, p.z); scene.add(mesh);
+  shells.push({ pos: new THREE.Vector3(p.x, p.y - 0.6, p.z), vel: new THREE.Vector3(v.x + A0.vx, A0.vy, v.z + A0.vz), owner: car, life: 4, mesh, hbomb: true, scale: HOVER.bombScale, spin: rand(3, 6) });
+  sfx.at(p).noiseHit('lowpass', 700, 1.2, 0.35 * wv(car), 0.15); sfx.at(p).clank(wv(car) * 0.5); // the hatch clunks open
+  if (PLAYLOG.m) { const V = PLAYLOG.V(car.type); V.bombs = (V.bombs || 0) + 1; }
+  if (game.state === 'playing') { if (car.isPlayer) toast(A0.t ? `BOMBS AWAY · ${A0.t.name}` : 'BOMBS AWAY'); else if (A0.t && A0.t.isPlayer) toast(`${car.name} IS BOMBING YOU!`, 'bad'); }
+}
+function hoverMarker(car) { // the aim marker: a red ring on the car the bomb will hit (or on the ground where it will land); only while airborne with a bomb ready
+  const show = !car.wrecked && car.hovAir && !(car.bombCd > 0) && game.state === 'playing' && car.airT > 0.12 && (car.isPlayer || !!(player && car.body.position.distanceTo(player.body.position) < 90));
+  let m = car.marker; if (!show) { if (m) m.visible = false; return; }
+  if (!m) { const K = HOVERKIT(); m = car.marker = new THREE.Mesh(K.mark, K.markMat); m.renderOrder = 2; m.frustumCulled = false; scene.add(m); }
+  const A0 = hoverAim(car); m.visible = true; m.position.set(A0.x, A0.y + 0.05, A0.z); m.rotation.y = simTime * 2.5; m.scale.setScalar(A0.t ? 1.2 + Math.sin(simTime * 14) * 0.08 : 0.8);
+}
 // Materials that differ only in colour, roughness, metalness and glow share one draw: those move into the vertices (colour, pbr, emi)
 // and a folded material reads them back per pixel, so every pixel comes out the same. Only plain MeshStandardMaterials nothing changes
 // at runtime are folded; one folded material per look (maps, env strength...), shared by every car (never disposed).
@@ -4340,7 +4412,7 @@ class Car {
     b.quaternion.setFromAxisAngle(AX_Y, yaw);
     b.car = this;
 
-    const v = this.vehicle = T.walker ? walkerRig(8, b) : new CANNON.RaycastVehicle({ chassisBody: b, indexRightAxis: 2, indexForwardAxis: 0, indexUpAxis: 1 });
+    const v = this.vehicle = T.walker ? walkerRig(8, b) : T.hover ? walkerRig(4, b) : new CANNON.RaycastVehicle({ chassisBody: b, indexRightAxis: 2, indexForwardAxis: 0, indexUpAxis: 1 });
     // Wheels come in pairs per axle, front axle first: even index = left (-z), odd = right (+z)
     this.axles = T.axles || [T.wb / 2, -T.wb / 2];
     const rearAvg = this.axles.slice(1).reduce((a, x) => a + x, 0) / (this.axles.length - 1);
@@ -4389,6 +4461,7 @@ class Car {
   /* ---------- visual model ---------- */
   buildModel() {
     if (this.T.walker) return this.buildSpider();
+    if (this.T.hover) return this.buildHover();
     const T = this.T, C = T.cabin, L = T.L, W = T.W, H = T.H, st = T.style;
     const g = this.group = new THREE.Group();
     const root = this.root = new THREE.Group();
@@ -5217,6 +5290,7 @@ class Car {
 
   dispose() {
     if (this.blob) scene.remove(this.blob);
+    if (this.marker) scene.remove(this.marker); if (this.sawIM) this.sawIM.dispose(); // (the hovercraft's bomb marker and saw ring: shared shapes and materials; the ring's instance buffer is its own)
     for (const k of world.constraints.slice()) if (k.bodyA === this.body || k.bodyB === this.body) world.removeConstraint(k); // tow hooks, forks, magnets, harpoons
     if (this.towLine) { scene.remove(this.towLine); this.towLine.geometry.dispose(); this.towLine.material.dispose(); }
     if (this.cable) { scene.remove(this.cable.line); this.cable.line.geometry.dispose(); this.cable.line.material.dispose(); this.cable = null; } // a harpoon still out when its car goes
@@ -5246,7 +5320,7 @@ class Car {
 
   // Move the centre of mass fore/aft: everything else shifts the other way in the body frame
   applyBalance() {
-    const d = this.T.walker ? 0 : this.axleMid + (S.frontWeight / 100 - 0.5 + (this.T.comBias || 0)) * this.T.wb; // (a walker hangs from its hips: no weight balance to shift)
+    const d = this.T.walker || this.T.hover ? 0 : this.axleMid + (S.frontWeight / 100 - 0.5 + (this.T.comBias || 0)) * this.T.wb; // (a walker hangs from its hips: no weight balance to shift)
     const b = this.body;
     b.shapeOffsets.forEach((o, i) => { o.x = this.baseOffsets[i].x - d; });
     this.vehicle.wheelInfos.forEach((w, i) => { w.chassisConnectionPointLocal.x = this.wheelBase[i][0] - d; });
@@ -5276,6 +5350,7 @@ class Car {
     if (this.webbedT > 0) this.webHold(dt); // pinned by Anansi's web: it can spin its wheels all it likes
     if (this.poisonT > 0) this.poisonStep(dt); // Anansi's bite
     if (this.T.walker) return this.walkStep(dt);
+    if (this.T.hover) return this.hoverStep(dt);
     const b = this.body, v = this.vehicle, T = this.T;
     b.quaternion.vmult(AX_X, this.fwd);
     b.quaternion.vmult(AX_Y, this.up);
@@ -5654,7 +5729,7 @@ class Car {
 
     // Hydraulic jump: impulse through the centre of mass, mostly world-up, so it never adds spin
     this.jumpCd -= dt;
-    if (!this.T.walker) { // (a walker's J is its own leap, in walkStep: Build 106)
+    if (!this.T.walker && !this.T.hover) { // (a walker's J is its own leap, in walkStep: Build 106; a hovercraft's is its hop, in hoverStep)
     if (this.ctrl.jump) { this.jumpBuf = 0.35; this.ctrl.jump = false; } // buffered so a wheel bouncing off the ground doesn't eat the press
     this.jumpBuf -= dt;
     if (this.jumpBuf > 0 && this.jumpCd <= 0 && this.contacts >= 2 && !this.wrecked && S.jumpStrength > 0) {
@@ -5781,6 +5856,7 @@ class Car {
     // Wheels, springs, skid marks, dust
     let skid = 0;
     if (T.walker) { this.updateLegs(dt); this.laserFrame(dt); }
+    else if (T.hover) this.hoverFrame(dt);
     else for (let i = 0; i < this.nW; i++) {
       const wi = v.wheelInfos[i], inContact = wi.isInContact;
       v.updateWheelTransform(i);
@@ -5977,6 +6053,173 @@ class Car {
     this.onOil = hits > 0 && !this.wrecked && !!puddleAt(b.position.x, b.position.z, 'oil', 0.5);
     this.inMud = false; if (hits > 0 && b.position.y < 3.5) for (const mu of ARENA.mud) if ((b.position.x - mu.x) ** 2 + (b.position.z - mu.z) ** 2 < mu.r * mu.r) { this.inMud = true; break; }
     const sp = v.length(); if (sp > 0.1) { const kd = -S.airDrag * T.handling.drag * sp; _wF.set(v.x * kd, v.y * kd, v.z * kd); b.applyForce(_wF); }
+  }
+  /* ---------- the Buzzsaw Hover (Lucas's hovercraft) ---------- */
+  buildHover() { // a teal deck on a fat black rubber skirt, a bubble canopy with Typhoon Tomoko in her headband, a caged fan with twin rudders, a red paper lantern, ten saw blades round the skirt
+    const T = this.T, g = this.group = new THREE.Group(), root = this.root = new THREE.Group(), K = HOVERKIT(); g.add(root); scene.add(g);
+    this.paint = (QUALITY.level ?? 0) <= 2
+      ? new THREE.MeshPhysicalMaterial({ color: this.baseColor.clone(), map: grimeTex, roughness: 0.38, metalness: 0.45, envMapIntensity: 1.3, clearcoat: 0.65, clearcoatRoughness: 0.18 })
+      : new THREE.MeshStandardMaterial({ color: this.baseColor.clone(), map: grimeTex, roughness: 0.34, metalness: 0.5, envMapIntensity: 1.25 });
+    this.glassMat = M.glass.clone(); this.lampMat = M.lamp; this.lampMeshes = []; this.tailMat = M.tail.clone();
+    this.tailGlow = new THREE.SpriteMaterial({ map: glowTex, color: 0xff2a1a, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.35 });
+    this.parts = []; this.deform = []; this.exhaust = []; this.wheelMeshes = []; this.springs = [];
+    const add = (geo, mat, x, y, z, parent = root) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; parent.add(m); return m; };
+    const part = (mesh, zone, at, side) => { this.parts.push({ mesh, zone, at: at * 0.6, side, detached: false }); return mesh; };
+    const Y0 = HULL_Y0, top = Y0 + 0.62; // (the deck's top)
+    add(K.skirt, DET.rubber, 0, Y0 + 0.02, 0); // the skirt: the cushion pushes on it
+    // the deck: rounded, teal, and it dents like any hull (its own copy)
+    const deckGeo = new THREE.ExtrudeGeometry(roundRectShape(1.95, 1.18, 0.75), { depth: 0.3, bevelEnabled: true, bevelThickness: 0.1, bevelSize: 0.1, bevelSegments: 2, curveSegments: 5 }); deckGeo.rotateX(-Math.PI / 2);
+    const deck = add(deckGeo, this.paint, 0, Y0 + 0.22, 0); this.deform.push({ mesh: deck, orig: deckGeo.attributes.position.array.slice() });
+    add(new THREE.BoxGeometry(3.2, 0.02, 0.32), K.white, 0.15, top + 0.005, 0); // a white racing stripe down the deck...
+    for (const s of [-1, 1]) add(new THREE.BoxGeometry(3.0, 0.02, 0.08), K.pink, 0.05, top + 0.006, s * 0.26); // ...with hot-pink pinstripes
+    for (const s of [-1, 1]) add(new THREE.BoxGeometry(3.4, 0.05, 0.05), M.chrome, -0.05, Y0 + 0.4, s * 1.3); // rub rails along the flanks
+    // the canopy: a glass bubble, Tomoko inside in her red-and-white headband
+    const bub = add(new THREE.SphereGeometry(0.72, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2), this.glassMat, 0.55, top, 0); bub.scale.set(1.15, 0.85, 0.85);
+    add(new THREE.TorusGeometry(0.66, 0.04, 6, 24), M.chrome, 0.55, top + 0.02, 0).rotation.x = Math.PI / 2;
+    add(new THREE.SphereGeometry(0.15, 10, 8), DET.skin, 0.45, top + 0.36, 0); add(new THREE.CylinderGeometry(0.155, 0.155, 0.05, 12), K.white, 0.45, top + 0.42, 0); add(new THREE.SphereGeometry(0.04, 8, 6), K.lantern, 0.6, top + 0.42, 0);
+    add(new THREE.BoxGeometry(0.22, 0.26, 0.34), K.pink, 0.42, top + 0.13, 0); // her jacket
+    // headlights in the nose, tail lights under the fan
+    for (const s of [-1, 1]) { const l = add(new THREE.SphereGeometry(0.11, 10, 8), M.lamp, 1.98, Y0 + 0.42, s * 0.62); l.scale.set(0.6, 1, 1); this.lampMeshes.push(l); }
+    for (const s of [-1, 1]) add(new THREE.BoxGeometry(0.06, 0.1, 0.3), this.tailMat, -2.03, Y0 + 0.42, s * 0.75);
+    // the nose: a hazard-striped push bar (comes off)
+    part(add(new THREE.BoxGeometry(0.1, 0.16, 1.7), DET.hazard, 2.06, Y0 + 0.36, 0), 'front', 55, 0);
+    for (const s of [-1, 1]) part(add(new THREE.BoxGeometry(1.6, 0.14, 0.05), DET.hazard, 0.1, Y0 + 0.47, s * 1.29), s < 0 ? 'left' : 'right', 55, s); // flank guards
+    // the fan: a duct on two struts, the rotor inside it, a guard grille (comes off: the weak spot is behind it), twin rudders
+    const fx = -1.62, fy = top + 0.82, duct = add(new THREE.TorusGeometry(0.8, 0.1, 8, 26), this.paint, fx, fy, 0); duct.rotation.y = Math.PI / 2;
+    add(new THREE.CylinderGeometry(0.82, 0.82, 0.32, 26, 1, true), DET2().dark, fx, fy, 0).rotation.z = Math.PI / 2;
+    for (const s of [-1, 1]) add(new THREE.BoxGeometry(0.16, 0.9, 0.1), M.steel, fx + 0.05, top + 0.25, s * 0.55).rotation.x = s * 0.45;
+    this.fanRotor = add(K.rotor, M.chrome, fx + 0.04, fy, 0);
+    const grille = new THREE.Group(); grille.position.set(fx - 0.2, fy, 0); root.add(grille);
+    for (let k = 0; k < 3; k++) { const bar = new THREE.Mesh(new THREE.BoxGeometry(0.03, 1.6, 0.04), M.steel); bar.rotation.x = k * Math.PI / 3; bar.castShadow = true; grille.add(bar); }
+    { const ring = new THREE.Mesh(new THREE.TorusGeometry(0.45, 0.025, 6, 20), M.steel); ring.rotation.y = Math.PI / 2; grille.add(ring); }
+    part(grille, 'rear', 40, 0);
+    this.rudders = [-0.42, 0.42].map((z) => add(K.rudder, this.paint, fx - 0.32, fy, z));
+    for (const s of [-1, 1]) this.exhaust.push(add(new THREE.CylinderGeometry(0.07, 0.09, 0.3, 8), M.chrome, fx - 0.05, top + 0.18, s * 0.95).rotateZ(Math.PI / 2));
+    // a red paper lantern on a pole: Tomoko's takoyaki stall sign (comes off)
+    { const lg = new THREE.Group(); lg.position.set(-0.75, top, -0.92); root.add(lg);
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 1.3, 6), DET2().wood); pole.position.y = 0.65; pole.castShadow = true; lg.add(pole);
+      const lan = new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 10), K.lantern); lan.scale.set(1, 1.3, 1); lan.position.set(0, 1.12, 0); lg.add(lan);
+      for (const y of [0.8, 1.44]) { const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.06, 10), M.black); cap.position.y = y; lg.add(cap); }
+      part(lg, 'top', 45, 0); }
+    // the saw ring: ten blades on one instanced draw, spun in hoverFrame
+    const IM = this.sawIM = new THREE.InstancedMesh(K.saw, K.sawMat, K.sawSpots.length); IM.instanceMatrix.setUsage(THREE.DynamicDrawUsage); IM.castShadow = true;
+    IM.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 0, 0), 3.2); IM.userData.lodR = 0.7; // (beyond ~120 m the blades aren't drawn)
+    this.sawSpots = K.sawSpots; for (let i = 0; i < K.sawSpots.length; i++) { const s = K.sawSpots[i]; _hv.set(s.x, s.y, s.z); _hm.compose(_hv, _hq.identity(), _hs); IM.setMatrixAt(i, _hm); }
+    for (const s of K.sawSpots) add(new THREE.BoxGeometry(0.3, 0.06, 0.08), M.steel, s.x * 0.86, s.y + 0.06, s.z * 0.86).rotation.y = -Math.atan2(s.z, s.x); // the arms the blades spin on
+    root.add(IM);
+    this.looks = { saws: K.sawSpots.length, fan: 1, skirt: 1, lantern: 1 };
+  }
+  hoverStep(dt) { // no wheels: four lift rays hold the air cushion under the skirt, the fan pushes, and only a little grips sideways (so it drifts)
+    const b = this.body, T = this.T, m = b.mass, g = S.gravity, v = b.velocity, w = b.angularVelocity;
+    b.quaternion.vmult(AX_X, this.fwd); b.quaternion.vmult(AX_Y, this.up);
+    const up = this.up, fh = Math.hypot(this.fwd.x, this.fwd.z) || 1, fx = this.fwd.x / fh, fz = this.fwd.z / fh, rx = -fz, rz = fx;
+    const speed = this.speed = v.x * fx + v.z * fz, vr = v.x * rx + v.z * rz, hv = Math.hypot(v.x, v.z);
+    const thr = this.wrecked ? 0 : this.ctrl.throttle;
+    this.boosting = !this.wrecked && this.ctrl.nitro && this.nitro > 0.01 && thr > 0;
+    if (this.boosting) this.nitro = Math.max(0, this.nitro - dt * 0.3);
+    this.hopCd = Math.max(0, (this.hopCd || 0) - dt); this.hopT = Math.max(0, (this.hopT || 0) - dt);
+    if (this.ctrl.jump) { this.hopReq = 0.35; this.ctrl.jump = false; } this.hopReq = Math.max(0, (this.hopReq || 0) - dt);
+    const fan = this.fanK = 1 - clamp((this.zones.rear - 25) / 75, 0, 1) * 0.45; // THE WEAK SPOT: rear hits smash the fan, and a smashed fan pushes less
+    const held = !!(this.craned || this.carriedBy || this.towedBy);
+    // the cushion: each corner is a stiff, well-damped spring holding the skirt HOVER.gap off whatever is under it (and catching a landing from up to ~1.6 m)
+    const lift = !this.wrecked && !held && !(this.hopT > 0) && up.y > 0.25, gap = HOVER.gap + (this.stuckA > 1 ? 0.45 : 0); // (wedged on something: it puffs the skirt up and slides off)
+    let hits = 0; const wi = this.vehicle.wheelInfos;
+    for (let k = 0; k < 4; k++) {
+      const lx = (k < 2 ? 1 : -1) * HOVER.rx, lz = (k % 2 ? 1 : -1) * HOVER.rz;
+      _wP.set(lx, HOVER.top, lz); b.pointToWorldFrame(_wP, _wf); _wP.y = HOVER.top - HOVER.reach; b.pointToWorldFrame(_wP, _wt); _wr.reset();
+      world.raycastClosest(_wf, _wt, _hoverRay, _wr);
+      const d = _wr.hasHit && _wr.body !== b ? _wr.distance - (HOVER.top - HULL_Y0) : 99; // the gap under the skirt at this corner
+      wi[k].isInContact = d < gap + 0.5; if (wi[k].isInContact) hits++;
+      if (!lift || d > gap + 1.2) continue;
+      _wP.set(lx, HULL_Y0, lz); b.vectorToWorldFrame(_wP, _wL); // the corner, from the centre of mass (world axes)
+      const vu = (v.x + w.y * _wL.z - w.z * _wL.y) * up.x + (v.y + w.z * _wL.x - w.x * _wL.z) * up.y + (v.z + w.x * _wL.y - w.y * _wL.x) * up.z; // how fast that corner moves along up
+      const f = m / 4 * clamp(g + (gap - d) * 60 - vu * 10, 0, g * 7);
+      _wF.set(up.x * f, up.y * f, up.z * f); b.applyForce(_wF, _wL);
+    }
+    this.contacts = hits; const grounded = hits > 0 && lift; this.hovAir = hits === 0;
+    // F (or J) on the cushion: a burst of lift, a hop of ~4 m and ~1.4 s in the air (up there F drops a bomb: WEAPONS.hopbomb)
+    if (this.hopReq > 0 && grounded && this.hopCd <= 0) {
+      this.hopReq = 0; this.hopCd = HOVER.hopCd; this.hopT = 0.3; v.y = Math.max(v.y, HOVER.hopVy); this.airT = 0.01;
+      { const tf = 2 * v.y / g, lim = A - 8; for (const ax of ['x', 'z']) { const land = b.position[ax] + v[ax] * tf; if (Math.abs(land) > lim) v[ax] = Math.abs(b.position[ax]) >= lim ? Math.min(0, v[ax] * Math.sign(b.position[ax])) * Math.sign(b.position[ax]) : (Math.sign(land) * lim - b.position[ax]) / tf; } } // (it always comes down inside the yard)
+      { const s0 = _pv.get(b); if (s0) s0.v.copy(v); _vmax = Math.max(_vmax, v.length()); } // (a hop inside the physics step is meant: the solver-kick net must not undo it)
+      if (this.isPlayer) sfx.jump(); sfx.at(b.position).noiseHit('lowpass', 260, 1, 0.5 * wv(this), 0.35); // a big whump of air
+      for (let i = 0; i < 12; i++) { const a = i / 12 * 6.283; emit('dust', b.position.x + Math.cos(a) * 2.2, 0.2, b.position.z + Math.sin(a) * 1.6, Math.cos(a) * 6, rand(0.5, 1.5), Math.sin(a) * 6, 0.8, 0.9); }
+      if (PLAYLOG.m) { const V = PLAYLOG.V(this.type); V.hops = (V.hops || 0) + 1; }
+    }
+    // the fan: thrust along the nose (uphill too), a soft top speed, a long glide when you let go; sideways, only a little grip: it drifts
+    const hb = !!this.ctrl.handbrake && !this.wrecked, brake = !!this.ctrl.brake && !this.wrecked, push = grounded ? 1 : 0.25; // (the fan still pushes in the air, a little)
+    const vMax = 29 * fan * (this.boosting ? 1.3 : 1) * (1 - this.engineDmg * 0.3);
+    let aF;
+    if (thr > 0) aF = thr * 10.5 * fan * (this.boosting ? 1.4 : 1) * clamp(1 - (speed / vMax) ** 2, -0.6, 1);
+    else if (thr < 0) aF = speed > 1 ? thr * 9 : thr * 6.5 * fan * clamp(1 - (speed / 10) ** 2, -0.6, 1);
+    else aF = -speed * 0.3;
+    if (brake) aF = -clamp(speed * 1.6, -10, 10);
+    let kLat = 0.8 + 1.6 * clamp(1 - hv / 5, 0, 1); // low but not zero: at speed the slide lasts ~1.2 s; parked, it settles
+    if (grounded && (hb || brake)) { kLat = 3.4; aF = -clamp(speed * 1.5, -14, 14); this.skirtDown = hv > 2; } else this.skirtDown = false; // Space drops the skirt onto the dirt: it scrubs off speed and bites sideways
+    if (!grounded) kLat = 0.05;
+    _wF.set((this.fwd.x * aF * push - rx * vr * kLat) * m, this.fwd.y * aF * push * m, (this.fwd.z * aF * push - rz * vr * kLat) * m); b.applyForce(_wF);
+    // steering: slow to turn (the nose comes round lazily, the slide carries on), quicker with the skirt down; in the air the rudders still bite a little
+    const qi = b.quaternion.conjugate(_wQ), wl = qi.vmult(w, _wA), st = this.wrecked ? 0 : this.ctrl.steer, sp = Math.abs(speed);
+    const yawT = st * lerp(1.8, 0.95, clamp(sp / 28, 0, 1)) * T.handling.steer * (hb ? 1.4 : 1) * (speed < -1 ? -1 : 1);
+    wl.y = lerp(wl.y, grounded ? yawT : yawT * 0.5, clamp(dt * (grounded ? (st ? (hb ? 5 : 2.4) : 1.4) : 0.8), 0, 1));
+    if (grounded) { const k = 1 - Math.exp(-dt * 5); wl.x -= wl.x * k; wl.z -= wl.z * k; } // the cushion soaks up pitch and roll
+    else if (!this.wrecked) { const upL = qi.vmult(AX_Y, _wR), k = clamp(dt * 3, 0, 1); wl.z = lerp(wl.z, clamp(-upL.x, -0.9, 0.9) * 3, k); wl.x = lerp(wl.x, clamp(upL.z, -0.9, 0.9) * 3, k); } // in the air it levels out to land on its skirt
+    b.quaternion.vmult(wl, w);
+    // never stuck: wanting to move but going nowhere puffs the skirt up (above) and shoves it along
+    this.stuckA = Math.abs(thr) > 0.3 && hv < 1.2 && !held && !this.wrecked ? (this.stuckA || 0) + dt : Math.max(0, (this.stuckA || 0) - dt * 2);
+    if (this.stuckA > 1) { const k = m * 5 * Math.sign(thr); _wF.set(this.fwd.x * k, 0, this.fwd.z * k); b.applyForce(_wF); }
+    if (!this.wrecked && up.y < 0.35 && hv < 3 && (this.flipTimer || 0) > 0.8) this.flipUpright(); // upside down: it rights itself
+    // the yard underneath: it floats over wet concrete, oil, fuel slicks and mud (fire still burns)
+    this.stuckConcrete = false; this.onOil = false; this.inMud = false;
+    this.onFire = !this.wrecked && !(this.douse > 0) && inFire(this);
+    if (this.douse > 0) this.douse -= dt;
+    if (this.wet > 0) this.wet = Math.max(0, this.wet - dt * 0.45);
+    this.inWater = hits > 0 && !!puddleAt(b.position.x, b.position.z, 'water', 0.3);
+    this.rpm = lerp(this.rpm, lerp(T.idle, T.redline, clamp(Math.abs(thr) * 0.6 + sp / 40, 0, 1)), clamp(dt * 6, 0, 1)); this.gear = 1;
+    this.braking = !this.wrecked && (hb || brake || (thr !== 0 && Math.sign(thr) !== Math.sign(speed) && sp > 1));
+    if (grounded) this.airT = 0; else this.airT = (this.airT || 0) + dt;
+    const s3 = v.length(); if (s3 > 0.1) { const kd = -S.airDrag * T.handling.drag * s3; _wF.set(v.x * kd, v.y * kd, v.z * kd); b.applyForce(_wF); }
+  }
+  hoverFrame(dt) { // the saws spin, the fan turns, the rudders follow the stick, spray boils out from under the skirt (pooled particles; only near the camera)
+    const b = this.body, p = b.position, cp = camera.position, near = (p.x - cp.x) ** 2 + (p.z - cp.z) ** 2 < 90 * 90, live = !this.wrecked;
+    const air = this.ghost ? !!this.netAir : !!this.hovAir, skirt = this.ghost ? !!this.netSkirt : !!this.skirtDown;
+    this.sawA = (this.sawA || 0) + dt * (live ? 34 : 0);
+    if (near && live && this.sawIM) { const S0 = this.sawSpots, IM = this.sawIM; for (let i = 0; i < S0.length; i++) { const s = S0[i]; _hq.setFromAxisAngle(_hY, this.sawA * s.dir + s.ph); _hv.set(s.x, s.y, s.z); _hm.compose(_hv, _hq, _hs); IM.setMatrixAt(i, _hm); } IM.instanceMatrix.needsUpdate = true; }
+    const fk = this.fanK ?? 1;
+    if (this.fanRotor) { const R = this.fanRotor; R.rotation.x += dt * (live ? 10 + this.rpm / this.T.redline * 45 : 0); R.rotation.z = fk < 0.9 ? Math.sin(clock * 31) * (1 - fk) * 0.5 : 0; } // a bent fan wobbles
+    if (this.rudders) { this.rudA = lerp(this.rudA || 0, -this.steerVal * 1.1, clamp(dt * 8, 0, 1)); for (const r of this.rudders) r.rotation.y = this.rudA; }
+    if (!near || !live) return;
+    if (fk < 0.8 && Math.random() < dt * 6) { _wP.set(-1.8, 1.25, 0); b.pointToWorldFrame(_wP, _wL); emit('smoke', _wL.x, _wL.y, _wL.z, -this.fwd.x * 3 + rand(-0.5, 0.5), rand(0.5, 1.5), -this.fwd.z * 3 + rand(-0.5, 0.5), rand(0.8, 1.4), rand(0.3, 0.5)); } // the smashed fan smokes
+    if (!air && Math.random() < dt * (QUALITY.lite ? 8 : 22) * (0.4 + Math.min(1, Math.abs(this.speed) / 15))) { // spray boiling out under the skirt
+      const a = Math.random() * 6.283, ca = Math.cos(a), sa = Math.sin(a); _wP.set(ca * 2.2, HULL_Y0 - 0.2, sa * 1.45); b.pointToWorldFrame(_wP, _wL);
+      emit(this.inWater ? 'steam' : 'dust', _wL.x, Math.max(0.15, _wL.y), _wL.z, (_wL.x - p.x) * 1.4 + b.velocity.x * 0.3, rand(0.3, 1.1), (_wL.z - p.z) * 1.4 + b.velocity.z * 0.3, rand(0.5, 0.9), rand(0.5, 0.9));
+    }
+    if (skirt && Math.random() < 0.6) { const a = Math.random() * 6.283; _wP.set(Math.cos(a) * 2.1, HULL_Y0 - 0.35, Math.sin(a) * 1.35); b.pointToWorldFrame(_wP, _wL); emit('spark', _wL.x, Math.max(0.06, _wL.y), _wL.z, -b.velocity.x * 0.3 + rand(-1.5, 1.5), rand(0.5, 2), -b.velocity.z * 0.3 + rand(-1.5, 1.5), rand(0.2, 0.4), rand(0.05, 0.09)); } // the skirt's steel wear-strip on the dirt
+  }
+  hoverTactics(dt, t, dist, aim, throttle, steer) { // AI: drift lines (point the nose where the SLIDE must go, not at the target), hop-bombs from above, keeps off the walls
+    const b = this.body, p = b.position, v = b.velocity, hv = Math.hypot(v.x, v.z); this.hoverHB = false;
+    if (this.reverseTimer > 0 || this.mode === 'backup') return { throttle, steer };
+    if (throttle < 0) throttle = 0.5; // (no braking for the turn or backing round: it swings its nose and drifts)
+    let dx = aim.x - p.x, dz = aim.z - p.z; { const l = Math.hypot(dx, dz) || 1; dx /= l; dz /= l; }
+    let hx = dx, hz = dz;
+    if (hv > 6) { // the slide carries it on: aim the nose past the target by the slip angle, so the fan pulls the drift round onto it
+      const vx = v.x / hv, vz = v.z / hv, err = Math.atan2(vx * dz - vz * dx, vx * dx + vz * dz), over = clamp(err * 0.9, -1.1, 1.1), c = Math.cos(over), s = Math.sin(over);
+      hx = dx * c - dz * s; hz = dx * s + dz * c;
+      if (Math.abs(err) > 1.3 && hv > 16) this.hoverHB = true; // sliding the wrong way, fast: drop the skirt and swing round
+    }
+    { const ax = p.x + v.x * 1.2, az = p.z + v.z * 1.2, lim = A - 14; // a wall coming up: turn for the middle, ease off, skirt down if it's close
+      if (Math.abs(ax) > lim || Math.abs(az) > lim) { hx = hx * 0.3 - p.x / A; hz = hz * 0.3 - p.z / A; throttle = Math.min(throttle, 0.5); if (hv > 18 && (Math.abs(p.x + v.x * 0.6) > lim || Math.abs(p.z + v.z * 0.6) > lim)) this.hoverHB = true; } }
+    const f = this.fwd, fl = Math.hypot(f.x, f.z) || 1, fx = f.x / fl, fz = f.z / fl, ang = Math.atan2(fx * hz - fz * hx, fx * hx + fz * hz); // (+ = to the right)
+    steer = clamp(-ang * 1.8, -1, 1); if (Math.abs(ang) > 1.4) throttle = Math.min(throttle, 0.35); // nose way off: let it swing round before pushing
+    if (this.mode === 'flee' || this.mode === 'ambush') this.hoverHB = false;
+    // hop and bomb: hop when the target is a hop's flight ahead, then let go the bomb as soon as the marker is on it
+    if (MP.role !== 'guest' && game.state === 'playing' && game.countdown <= 0 && !this.wrecked && !(this.bombCd > 0)) {
+      const tp = t.body.position, ahead = ((tp.x - p.x) * fx + (tp.z - p.z) * fz) / (dist || 1);
+      if (!this.hovAir && !(this.hopCd > 0) && dist > 5 && dist < 7 + hv * 0.75 && ahead > 0.55 && tp.y < p.y + 1.5 && Math.random() < dt * 6 * (0.5 + S.aiSkill)) this.ctrl.fire = true;
+      else if (this.hovAir && this.airT > 0.25) { const A0 = hoverAim(this); if (A0.t && (Math.hypot(A0.vx, A0.vz) < 9 || this.airT > 0.9)) this.ctrl.fire = true; }
+    }
+    if (!this.hovAir && !(this.hopCd > 0) && hv < 1.5 && Math.abs(throttle) > 0.3 && (this.stuckA || 0) > 1.2) this.ctrl.jump = true; // still wedged: hop out
+    return { throttle, steer };
   }
   poisonStep(dt) { // ~1.5 health a second for 8 s, a drunken weave, green drips
     this.poisonT -= dt; if (this.wrecked) { this.poisonT = 0; return; }
@@ -6469,6 +6712,20 @@ class Car {
       const hard = dv * (Mo >= 3000 ? 1.5 : 0.85);
       if (hard > 10.5) { this.legSnapT = simTime; this.snapNearestLeg(model, otherCar); if (hard > 18 && !this.wrecked) this.snapNearestLeg(model, otherCar); }
     }
+    // THE SAW RING (the Buzzsaw Hover): a car that touches the spinning blades gets cut and thrown off, and the light hovercraft bounces away the other way.
+    // The blades soak up most of the hit, so the hovercraft takes less damage than usual. None at the back: hit it from behind, at the fan.
+    const sawHit = !!(this.T.hover && otherCar && !this.wrecked && zone !== 'bottom' && zone !== 'top' && nl.x > -0.55);
+    if (sawHit && MP.role !== 'guest' && !otherCar.wrecked) {
+      const ob = otherCar.body, cut = (5 + vImp * 0.9) * S.damage * otherCar.T.armor, theirs = zoneOf(ob.quaternion.conjugate().vmult(n.negate()));
+      otherCar._hitWhat = 'saw ring ' + this.name; otherCar.applyDamage(cut, this, theirs, null, 0); otherCar._hitWhat = null;
+      const kk = Math.min(8, 3 + vImp * 0.35) * (ob.mass > 6000 ? 0.3 : ob.mass > 3000 ? 0.6 : 1); // thrown off the blades (a truck only rocks)
+      ob.velocity.x += n.x * kk; ob.velocity.z += n.z * kk; ob.velocity.y += Math.min(2.5, kk * 0.3); ob.angularVelocity.y += rand(-1, 1) * kk * 0.15; ob.wakeUp();
+      const sk = Math.min(7, (2 + vImp * 0.3) * clamp(ob.mass / m, 0.6, 2)); this.body.velocity.x -= n.x * sk; this.body.velocity.z -= n.z * sk; // and the hovercraft skates away
+      this.sawHits = (this.sawHits || 0) + 1; sparks(p, 40); for (let i = 0; i < 8; i++) emit('spark', p.x, p.y, p.z, rand(-9, 9), rand(2, 7), rand(-9, 9), rand(0.3, 0.6), rand(0.06, 0.12));
+      if (player) sfx.at(p).zing(clamp(1 - player.body.position.distanceTo(p) / 80, 0, 1));
+      if (PLAYLOG.m) { const V = PLAYLOG.V(this.type); V.sawHits = (V.sawHits || 0) + 1; }
+      if (game.state === 'playing' && vImp > 5) { if (this.isPlayer) toast(`SAWED ${otherCar.name}!`); else if (otherCar.isPlayer) toast('OUCH! THE SAWS!', 'bad'); }
+    }
     if (this.T.dozer && otherCar && zone !== 'front' && zone !== 'bottom') dv = Math.max(dv, vImp * 0.55); // 14 t barely moves, but a car punched into its flank still caves the panels in
     if (this.trackHp && otherCar && (zone === 'left' || zone === 'right') && vImp > 4 && local.y < 0.4) { // a car slamming into the running gear: momentum, not the tank's tiny dv, is what snaps links
       this.hurtTrack(zone === 'left' ? 0 : 1, (vImp - 4) * Math.pow(Mo / 1500, 0.7) * 3.5 * (otherCar.ramT > 0 ? 1.6 : 1), otherCar);
@@ -6488,7 +6745,7 @@ class Car {
     const rocket = otherCar && otherCar.ramT > 0 ? 1.6 : otherCar && otherCar.boosting && otherCar.T.style === 'muscle' ? 1.5 : 1; // hit by a rocket ram (or the Outrider with its blower screaming)
     const bladeK = this.T.dozer ? (zone === 'front' ? 0.1 : zone === 'left' || zone === 'right' ? 2.4 : zone === 'rear' ? 1.5 : 1) : 1; // the blade shrugs everything off; the dozer's flanks are its soft spot
     const onBlade = otherCar && otherCar.T.dozer && !otherCar.bladeRaised && (() => { const l = otherCar.body.pointToLocalFrame(this.body.position); return l.x + otherCar.comShift > otherCar.T.L / 2 - 0.4 && Math.abs(l.z) < otherCar.T.W * 0.8; })();
-    const dmg = Math.pow(Math.max(0, dv - 3), 1.3) * 0.8 * S.damage * armor * ram * squeeze * rocket * this.T.armor * bladeK * (onBlade ? 2.5 : 1) + (onBlade && dv > 2 ? dv * 0.8 * S.damage : 0); // ...and driving into a steel blade hurts
+    const dmg = Math.pow(Math.max(0, dv - 3), 1.3) * 0.8 * S.damage * armor * ram * squeeze * rocket * this.T.armor * bladeK * (onBlade ? 2.5 : 1) * (sawHit ? 0.45 : 1) + (onBlade && dv > 2 ? dv * 0.8 * S.damage : 0); // ...and driving into a steel blade hurts
     if (squeeze > 1 && game.state === 'playing') {
       if (this.isPlayer) toast('SANDWICHED!', 'bad'); else if (otherCar && otherCar.isPlayer) toast(`SANDWICH! ${this.name}`);
       barks.announce('sandwich', { v: this.isPlayer ? 'our hero' : this.name });
@@ -6917,6 +7174,7 @@ class Car {
         if (st === 'coward' && c.isPlayer) s *= 2.5;                        // prefers easier prey
         if (c.T.gun && !this.T.gun) s *= st === 'brawler' ? 1.6 : 3;        // nobody sane picks a fight with a tank
         if (this.T.walker) s *= c.body.mass >= 5000 ? 2.2 : c.body.mass < 2600 ? 0.6 : 1; // the spider hunts light, fast cars and leaves the heavies alone
+        if (this.T.hover) s *= c.body.mass >= 5000 ? 0.6 : c.T.special === 'water' ? 2 : 1; // the hovercraft bombs the slow heavies (they can't catch it) and keeps clear of the fire hose
         if (s < bestScore) { bestScore = s; best = c; }
       }
       this.target = best; this.retarget = this.persona && this.persona.style === 'chaos' ? rand(1, 2.5) : rand(2, 4);
@@ -7085,8 +7343,9 @@ class Car {
     }
     if (this.T.walker && !this.delivery) ({ throttle, steer } = this.spiderTactics(dt, t, dist, throttle, steer));
     if (this.T.walker && !this.delivery) this.spiderLeaps(dt, t, dist, throttle);
+    if (this.T.hover) ({ throttle, steer } = this.hoverTactics(dt, t, dist, aim, throttle, steer));
     ctrl.throttle = throttle; ctrl.steer = steer; ctrl.pitch = 0;
-    ctrl.handbrake = Math.abs(angle) > 1.2 && this.speed > 14 && S.aiSkill > 0.4;
+    ctrl.handbrake = this.T.hover ? !!this.hoverHB && S.aiSkill > 0.3 : Math.abs(angle) > 1.2 && this.speed > 14 && S.aiSkill > 0.4;
     if (this.latchedBy && this.latchedBy.latch && this.latchedBy.latch.c === this) { ctrl.throttle = 1; ctrl.steer = Math.sin(simTime * 3.2 + this.number) > 0 ? 1 : -1; ctrl.handbrake = false; if (this.body.mass < 3000 && this.contacts >= 3 && Math.random() < 0.003) ctrl.jump = true; } // a spider on the roof: swerve hard to sling it off (and now and then jump: a jump throws it; rarer since 11-19, the spider holds on better)
     ctrl.nitro = (this.mode === 'charge' && Math.abs(angle) < 0.35) || this.mode === 'flee' || (Math.abs(angle) < 0.2 && dist > 35 && this.nitro > 0.35 && S.aiSkill > 0.3);
     if (this.persona && this.persona.style === 'chaos' && this.body.mass < 3000 && this.contacts >= 3 && Math.random() < 0.002) ctrl.jump = true;
@@ -7270,6 +7529,8 @@ function updateHUD(dt) {
   if (player.T.special) { // special weapon cooldown
     const W = WEAPONS[player.T.special], cd = player.specialCd || 0;
     if (player.T.special === 'minigun') { const a = player.mgAmmo ?? W.ammo; hudWidth($('gunFill'), (player.mgReload > 0 ? (1 - player.mgReload / 4) * 100 : a / W.ammo * 100).toFixed(0) + '%'); hudTxt($('gunState'), player.mgReload > 0 ? 'RELOADING' : player.mgOn ? `${Math.round(a)} ROUNDS` : `MINIGUN ${Math.round(a)}`); }
+    else if (player.T.hover) { const bc = player.bombCd || 0; hudWidth($('gunFill'), ((1 - bc / HOVER.bombCd) * 100).toFixed(0) + '%'); hudTxt($('gunState'), bc > 0 ? 'RELOADING' : player.hovAir ? 'DROP BOMB!' : 'HOP');
+      const m = player.hovAir ? 'bomb' : 'hop'; if (m !== player.fireMode) { player.fireMode = m; $('fireIco').textContent = m === 'bomb' ? '💣' : '⏫'; $('fireLab').textContent = m === 'bomb' ? 'Bomb' : 'Hop'; } }
     else { hudWidth($('gunFill'), (clamp(1 - cd / W.cd, 0, 1) * 100).toFixed(0) + '%'); // (the spider's laser cools a little longer than its web)
     hudTxt($('gunState'), player.laserT > 0 ? 'LASER CUTTING' : player.T.walker && player.webShots > 0 ? `WEB ×${WEB_BURST.n - player.webShots}` : player.specialT > 0 ? 'ACTIVE' : cd > 0 ? (player.T.walker && player.fireMode === 'laser' ? 'LASER COOLING' : 'RECHARGING') : player.T.walker ? (player.fireMode === 'laser' ? 'LASER' : `WEB ×${WEB_BURST.n}`) : W.label); }
     if (player.T.walker && (HUDLITE.spT = (HUDLITE.spT || 0) - dt) <= 0) { HUDLITE.spT = 0.15; const m = spiderCloseTarget(player) ? 'laser' : 'web'; // the FIRE button shows what F does right now: up close (or on a roof) the laser, otherwise the web
@@ -7687,6 +7948,26 @@ CAR_CAST.spider = { nick: 'Kwaku Anansi', hand: 0.75, style: 'vulture', from: 'K
     charge: ["Agoo! Spider coming through!", "Eight legs, full speed! Here comes the clever part!"],
     flee: ["This is not running! This is a clever plan! Very clever!", "Every good trickster knows when to leave the story!"],
   } };
+// Typhoon Tomoko (Tomoko Kazehara): a loud, laughing Osaka takoyaki-stall owner who delivers her takoyaki by hovercraft and drifts every corner.
+// Osaka words: Nande yanen! (what the heck?!), meccha (super), honma ni (really?), akan (no good, oh no), ookini (thanks), yosh!, ikuzo! (let's go), abunai! (look out),
+// sugoi (amazing), mattaku (good grief), kuso (damn), atsui (hot), oishii (tasty), itadakimasu (let's eat). Computer voice until the owner picks a recorded one.
+CAR_CAST.hover = { nick: 'Typhoon Tomoko', hand: 0.75, style: 'vulture', from: 'Tomoko "Typhoon" Kazehara, a loud, laughing Osaka takoyaki-stall owner who delivers by hovercraft and drifts every corner', lang: 'ja-JP', pitch: 1.25, rate: 1.12, color: '#19b6c0',
+  words: { ex: ['Nande yanen', 'Yosh', 'Akan', 'Meccha', 'Honma ni', 'Ikuzo'], insult: ['you soggy dumpling', 'you cold noodle', 'you sleepy snail', 'you burnt rice cracker'], kin: ['grandma Fumiko', 'takoyaki stall', 'little brother Kenta'], thing: ['takoyaki pan', 'paper lantern', 'headband'], boast: ['Meccha sugoi! The drift queen of Osaka!', 'Yosh! Served hot!'], voice: ['Samantha', 'Google US English', 'Karen'] },
+  lines: {
+    start: ["Yosh! Typhoon Tomoko is here! Takoyaki delivery, hot and fast!", "Ikuzo! Fan on, saws on, everybody out of my way!", "Ookini for coming, everybody! Today's special: bombs from the sky!"],
+    hitYou: ["Nande yanen! You ran into my saws? Meccha silly!", "Yosh! Sliced and diced, like octopus for takoyaki!", "Sugoi! Served hot, straight from the sky!", "Ha! My saws say hello! Bzzzzz!"],
+    gotHit: ["Akan! You pushed me halfway across the yard!", "Kuso! My skirt! Do you know how hard it is to blow up a rubber skirt?", "Nande yanen?! I'm a hovercraft, not a hockey puck!"],
+    low: ["Akan, akan! My fan is going wobble-wobble!", "Grandma Fumiko, if you are listening, close the stall early today!"],
+    wrecked: ["Akan! Sold out! The stall is closed!", "Mattaku... somebody save my takoyaki pan!"],
+    gloat: ["Meccha sugoi! Typhoon Tomoko, drift queen of Osaka!", "Ookini, ookini! Thank you for being my target!", "Another order delivered! One bomb, extra hot!"],
+    air: ["Wheee! Takoyaki from the sky!", "Bombs away! Look up, look up!", "I'm flying! The whole skirt is in the air!"],
+    taunt: ["Can you catch the wind? No? Then you can't catch Tomoko!", "You turn like a fridge on roller skates!", "Come closer! My saws are hungry!"],
+    fire: ["Hop! And... drop!", "Special delivery from above!", "Itadakimasu! Ha ha!"],
+    charge: ["Ikuzo! Full fan, full saws!", "Drift mode! Out of my way!"],
+    flee: ["Abunai! Typhoon Tomoko is blowing away!", "I'm not running! I'm drifting in the other direction!"],
+    crash: ["Nande yanen?! Who parked a wall here?", "Akan! I drifted a little bit too much!"],
+    onFire: ["Atsui! Hot, hot, hot! I'm cooking like a takoyaki!", "Fire under my skirt! Abunai!"],
+  } };
 for (const P of Object.values(CAR_CAST)) PERSONAS.push(P); // (pushed last: guests look characters up by index)
 const CAST_SET = new Set(Object.values(CAR_CAST));
 const ANNOUNCER = { nick: 'Crash Cam Kev', caller: true, lang: 'en-AU', pitch: 0.95, rate: 1.18, words: { voice: ['Lee', 'Gordon', 'Karen', 'Catherine', 'Google UK English Male', 'Daniel', 'Ralph'] } }; // an over-the-top Aussie play-by-play caller
@@ -7865,6 +8146,8 @@ const MUSIC = {
 const MUSIC_FOR = { hellbender: 'hillbilly', mule: 'hillbilly', cruiser: 'funk', tiger: 'march', viper: 'synth', commuter: 'synth', hearse: 'dirge', forklift: 'funk', towtruck: 'country', sandflea: 'surf', tanker: 'country', mixer: 'country', firetruck: 'country', camper: 'country', outrider: 'rock' };
 HORNS.spider = { f: [523.3, 659.3, 784], wave: 'triangle', drive: 2, lp: 3200, gain: 0.09, attack: 0.008, vibrato: 6 }; // a cheeky three-note xylophone toot
 MUSIC_FOR.spider = 'funk';
+HORNS.hover = { f: [880, 1108.7], wave: 'square', drive: 2, lp: 3800, gain: 0.07, attack: 0.006, bend: 0.82 }; // a bright two-tone scooter beep that bends up
+MUSIC_FOR.hover = 'synth';
 const PLAN_WEIGHTS = { // relative odds of each tactic per personality
   brawler: { hunt: 5, flank: 2, runup: 2, circle: 1, ambush: 0.5 },
   runup:   { runup: 4, hunt: 2, flank: 2, circle: 1, ambush: 1 },
@@ -8027,6 +8310,14 @@ CAST_MORE.spider = {
   hitYou: ["Ei! That one goes into the story book!", "Small spider, big bite! Ha ha!", "Medaase! Thank you for standing exactly there!"],
   gotHit: ["Ei! Careful! Those are my best legs!", "Ao! Now you have made Anansi angry, and an angry Anansi is a clever Anansi!", "You hit like a falling coconut! It hurts, but it is not clever!"],
 };
+CAST_MORE.hover = {
+  rival: ["{v}! Your {vcar} turns like a fridge on roller skates!", "Hey {v}! I drift circles round you and you don't even see me!", "{v}! Grandma Fumiko pushes her noodle cart faster than you!", "{v}, your mother drives like a sleepy turtle! Meccha slow!", "{v}! Look up! That's me, and that's a bomb!"],
+  respawn: ["Yosh! New skirt, new saws, same Tomoko!", "Typhoon Tomoko is back! The stall is open again!", "Honma ni? You thought I was finished? Ha!"],
+  kill: ["{v}! Order up! One wreck, extra crispy!", "Ookini, {v}! Sliced, diced and served!", "Sold out, {v}! Come back tomorrow!"],
+  taunt: ["You can't hit what you can't catch! And nobody catches the wind!", "My bombs are like takoyaki: round, hot, and they land on your head!", "Spin, spin, spin! My saws never get tired!"],
+  hitYou: ["Bzzzz! The saws say thank you!", "Bombs away, and right on target! Meccha sugoi!"],
+  gotHit: ["Akan! I'm sliding! I'm sliding!", "Nande yanen?! You pushed me like a shopping trolley!"],
+};
 for (const [type, more] of Object.entries(CAST_MORE)) {
   const P = type === 'cruiser' ? COP : CAR_CAST[type]; if (!P) continue;
   for (const [ev, list] of Object.entries(more)) {
@@ -8037,6 +8328,7 @@ for (const [type, more] of Object.entries(CAST_MORE)) {
 const BURGER_LINES = { camper: ['B|Yo, Mr. White, we made a burger! Science!', 'Perfectly cooked. Ninety-nine percent beef.'], tiger: ['Ah, a little snack. With cheese, please.', 'Flame-grilled. How delightfully efficient.'], firetruck: ['I\'m supposed to PUT OUT fires! ...Smells great though.'],
   tanker: ["Opa! Cheeseburger! In my village, this is a wedding feast!", "Is cooked bull! I take some home for my goat!"], hellbender: ["A FEAST! Ragnar eats the whole bull! SKÅL!", "Flame-grilled, like the old days!"], sandflea: ["Chai! Suya! Bring the pepper, abeg!","Ehen! Lunch is served, hot and spicy!"], outrider: ["Och, a burger! Somebody fetch the brown sauce!"], viper: ['Family barbecue, everybody!'],
   towtruck: ['Hoo-wee! Somebody bring the pickles!', 'Lordy, that\'s the biggest burger in the county!'], forklift: ['C|I made a burger of your bull, English pig-dog!', 'Bring out your... burgers!'], mixer: ['Gabagool! Nah, cheeseburger.', 'Now THAT\'s a family meal.'], cruiser: ['That\'s a barbecue violation, but I\'ll allow it!'] };
+BURGER_LINES.hover = ["Oishii! A bull burger! Second best food in the yard, after my takoyaki!", "Itadakimasu! Grilled beef, hot from the yard!"];
 BURGER_LINES.spider = ["Ei! Grilled beef! Somebody bring the shito pepper!", "A bull burger! I will tell everybody I caught it myself!"];
 for (const [type, list] of Object.entries(BURGER_LINES)) { const P = type === 'cruiser' ? COP : CAR_CAST[type]; if (P) P.lines.burger = list; }
 // generic fallbacks so the extras (custom drivers) can join in too
@@ -8337,6 +8629,24 @@ const CAST_R5 = {
   cruiser: { hitYou: ["Gotcha, ya varmint! That's resistin' arrest!", "Bless your heart, you're under arrest!", "That's a moving violation, sugar! And now you ain't moving!"], gotHit: ["Assaultin' an officer?! That's a felony, darlin'!", "Lord have mercy, you dented my cruiser!", "Hey! That's taxpayer property!"], taunt: ["Your mama drives like a raccoon on a tricycle!", "Pull over, ya scofflaw, or I'm gonna paint you pink!", "You're in a heap of trouble, sweetie!"], respawn: ["Sheriff Dolly Mae is back on patrol!", "New cruiser, same badge, same bad mood!", "Back again, ya varmints! Law's in town!"], gloat: ["Case closed, sugar!", "Book 'em! Another one for the county jail!", "That's justice, Southern style!"] },
 };
 for (const [type, more] of Object.entries(CAST_R5)) { const P = type === 'cruiser' ? COP : CAR_CAST[type]; if (P) for (const [ev, list] of Object.entries(more)) P.lines[ev] = (P.lines[ev] || []).concat(list); }
+// Typhoon Tomoko roasts everybody, and everybody roasts the hovercraft
+ROASTS.hover = { camper: "Mr. White! Your RV is so slow, my takoyaki gets cold just watching it!", tiger: "Klaus! A big tank with a big gun, and it turns slower than grandma's bicycle!", firetruck: "Captain Maeve! Put that hose away! Water under my skirt tickles! Ha ha!", tanker: "Uncle Bogdan! One little bomb and your tanker goes BOOM! Meccha fireworks!", hellbender: "Ragnar! So much beard! Do you keep your lunch in there? Nande yanen!", sandflea: "Emeka! You honk, I float! Your buggy is fast, but can it fly? No!", outrider: "Maxine! You shout louder than my fan, and my fan is meccha loud!", viper: "Dom! Quarter mile? I do the quarter mile sideways! Drift queen, baby!", towtruck: "Cletus! You want to tow me? I have no wheels! Where does your hook go?", forklift: "King Arthur! Your royal forks can't lift what they can't catch! Bye-bye!", combine: "Papa Jacques! I float right over your wheat! Not one stalk bent! Ha ha!", bertha: "Big Bertha! You're so tall you can't even see me! Bombs from above, sugar!", dozer: "Bob! Push, push, push! You can't push the wind, cowboy!", mixer: "Tony! Your wet cement can't stick to me! I float, you sink! Capisce?", cruiser: "Sheriff! Write me a ticket! No plates, no wheels, no problem!", spider: "Anansi! Eight legs, and you still can't catch one little hovercraft!" };
+Object.assign(ROASTS.camper, { hover: "B|Yo, Mr. White! That floaty thing has SAWS on it, yo! Who puts saws on a boat?!" });
+Object.assign(ROASTS.tiger, { hover: "Fräulein Tomoko, a boat that drives on land. Ze navy would be ashamed of you." });
+Object.assign(ROASTS.firetruck, { hover: "Tomoko, ye wee floatin' teapot! One blast o' me hose an' ye're in the next county!" });
+Object.assign(ROASTS.tanker, { hover: "Tomoko! In my village, boats stay in the river! Go back to the river!" });
+Object.assign(ROASTS.hellbender, { hover: "A longship with no water! Ragnar respects it! Ragnar will still sink it! HAH!" });
+Object.assign(ROASTS.sandflea, { hover: "Tomoko! You float like a big tray of snacks! Abeg, sell me one before I crash you!" });
+Object.assign(ROASTS.outrider, { hover: "Tomoko, ye daft flyin' biscuit tin! Ah'll harpoon ye like a wee kipper!" });
+Object.assign(ROASTS.viper, { hover: "Tomoko, sideways all day, hermana. Drift all you want, la familia still wins." });
+Object.assign(ROASTS.towtruck, { hover: "Lordy, Tomoko, a truck with no wheels? How in tarnation am I s'posed to tow that?!" });
+Object.assign(ROASTS.forklift, { hover: "Lady Tomoko! Thy floating barge is most irregular! The crown forbids it! Blast!" });
+Object.assign(ROASTS.combine, { hover: "Tomoko! Your big fan blows my wheat all over the field! Merde alors!" });
+Object.assign(ROASTS.bertha, { hover: "Tomoko, sugar, I've got dust bunnies under my bed bigger than that little boat." });
+Object.assign(ROASTS.dozer, { hover: "Tomoko, partner, a boat in a dirt yard? I'll scoop you up and call it a pond." });
+Object.assign(ROASTS.mixer, { hover: "Tomoko, you float over my cement? Ay, that's disrespectful, that's what that is." });
+Object.assign(ROASTS.cruiser, { hover: "Tomoko, sugar, that thing ain't got wheels, plates, or a lick of sense!" });
+Object.assign(ROASTS.spider, { hover: "Tomoko! You float like a leaf on the river, and the spider catches leaves too!" });
 const ROAST_BY = new Map(); // speaker persona -> target nick -> [lines]
 for (const [type, targets] of Object.entries(ROASTS)) { const P = type === 'cruiser' ? COP : CAR_CAST[type]; if (!P) continue; const m = new Map(); for (const [tt, line] of Object.entries(targets)) { const T = tt === 'cruiser' ? COP : CAR_CAST[tt]; if (T) m.set(T.nick, [].concat(line)); } ROAST_BY.set(P, m); }
 Object.assign(GENERIC, { onFire: ['I\'m on fire! I\'M ON FIRE!', 'Hot hot hot!', 'Somebody hose me down!', 'My engine is a barbecue!'], rodeo: ['Yee-haw! Ride \'em!', 'Gotcha, bull!', 'Rodeo time!'], burger: ['Flame-grilled!', 'Medium rare!', 'Who ordered the bull burger?'], rival: ['Hey {v}! Get out of my way!', '{v}, your {vcar} is a joke!', 'I\'m coming for you, {v}!'], respawn: ['I\'m back!', 'Miss me?', 'Round two!'], kill: ['So long, {v}!', 'Got you, {v}!', 'Ha! {v} is out!'] });
@@ -9324,7 +9634,7 @@ function aimHintFor(type) { if (!canAim(CAR_TYPES[type])) return; let n = 0; try
 function setControlsFor(type) {
   document.body.classList.toggle('has-gun', !!(CAR_TYPES[type].gun || CAR_TYPES[type].pour || CAR_TYPES[type].special));
   { const T0 = CAR_TYPES[type]; // the controls strip and the touch FIRE button follow your car
-    const act = T0.gun ? 'fire 3-round burst' : T0.pour ? (T0.pour === 'fuel' ? 'dump fuel' : 'pour concrete') : ({ reel: 'reel on / off', dump: 'dump boulders', blade: 'raise / slam blade', lift: 'lift / toss', tow: 'hook / release (back up first)', minigun: 'minigun', rockets: 'rocket salvo', water: 'water cannon', harpoon: 'harpoon', flame: 'flamethrower', bomb: 'propane bomb', spikes: 'shotgun · Z stop stick', oil: 'oil slick', ram: 'rocket ram', web: 'web x3 (Tab: target) · up close: bite + laser' })[T0.special];
+    const act = T0.gun ? 'fire 3-round burst' : T0.pour ? (T0.pour === 'fuel' ? 'dump fuel' : 'pour concrete') : ({ reel: 'reel on / off', dump: 'dump boulders', blade: 'raise / slam blade', lift: 'lift / toss', tow: 'hook / release (back up first)', minigun: 'minigun', rockets: 'rocket salvo', water: 'water cannon', harpoon: 'harpoon', flame: 'flamethrower', bomb: 'propane bomb', spikes: 'shotgun · Z stop stick', oil: 'oil slick', ram: 'rocket ram', web: 'web x3 (Tab: target) · up close: bite + laser', hopbomb: 'hop · in the air: drop a bomb' })[T0.special];
     const kb = (k, t, cls) => `<span${cls ? ' class="sp"' : ''}><b>${k}</b> ${t}</span>`;
     const parts = [kb('W A S D', 'drive'), kb('Space', 'handbrake'), kb('Shift', 'nitro'), kb('J', 'jump')];
     if (act) parts.push(kb('F', act, true));
@@ -9338,7 +9648,7 @@ function setControlsFor(type) {
       minigun: '<svg viewBox="0 0 48 32" width="1.25em" height="1em" aria-hidden="true"><g fill="currentColor"><rect x="3" y="8" width="26" height="3.2" rx="1.2"/><rect x="3" y="12.6" width="26" height="3.2" rx="1.2"/><rect x="3" y="17.2" width="26" height="3.2" rx="1.2"/><rect x="8" y="6" width="3" height="16.6" rx="1"/><rect x="18" y="6" width="3" height="16.6" rx="1"/><rect x="28" y="5" width="13" height="18" rx="3"/><rect x="33" y="22" width="5" height="8" rx="1.5"/><rect x="41" y="10" width="5" height="4" rx="1"/></g></svg>',
       shotgun: '<svg viewBox="0 0 48 32" width="1.25em" height="1em" aria-hidden="true"><g fill="currentColor"><rect x="2" y="10" width="28" height="3" rx="1.2"/><rect x="2" y="14" width="28" height="3" rx="1.2"/><rect x="12" y="17.5" width="10" height="4" rx="1.5"/><rect x="28" y="9" width="9" height="11" rx="2"/><path d="M36 10 L47 13 L47 23 L41 23 L36 19 Z"/><rect x="31" y="19" width="3" height="5" rx="1"/></g></svg>',
       cannon: '<svg viewBox="0 0 48 32" width="1.25em" height="1em" aria-hidden="true"><g fill="currentColor"><rect x="4" y="7" width="4" height="18" rx="1"/><rect x="8" y="9" width="20" height="14" rx="1.5"/><path d="M28 9 Q44 10 46 16 Q44 22 28 23 Z"/><rect x="22" y="9" width="2.5" height="14" fill="rgba(0,0,0,0.35)"/></g></svg>' };
-    const ICON = { reel: ['🌾', 'Reel'], dump: ['🪨', 'Boulders'], blade: ['🚜', 'Blade'], harpoon: ['🔱', 'Harpoon'], oil: ['🛢️', 'Oil'], spikes: [SVG.shotgun, 'Shotgun'], flame: ['🔥', 'Flames'], bomb: ['💣', 'Propane'], water: ['💧', 'Water'], minigun: [SVG.minigun, 'Minigun'], rockets: ['🚀', 'Rockets'], lift: ['⬆️', 'Lift'], tow: ['🪝', 'Hook'], ram: ['🚀', 'Ram'], web: ['🕸️', 'Web'] };
+    const ICON = { reel: ['🌾', 'Reel'], dump: ['🪨', 'Boulders'], blade: ['🚜', 'Blade'], harpoon: ['🔱', 'Harpoon'], oil: ['🛢️', 'Oil'], spikes: [SVG.shotgun, 'Shotgun'], flame: ['🔥', 'Flames'], bomb: ['💣', 'Propane'], water: ['💧', 'Water'], minigun: [SVG.minigun, 'Minigun'], rockets: ['🚀', 'Rockets'], lift: ['⬆️', 'Lift'], tow: ['🪝', 'Hook'], ram: ['🚀', 'Ram'], web: ['🕸️', 'Web'], hopbomb: ['⏫', 'Hop'] };
     const [ic, lb] = T0.gun ? [SVG.cannon, 'Cannon'] : T0.pour ? (T0.pour === 'fuel' ? ['⛽', 'Fuel'] : ['🧱', 'Concrete']) : ICON[T0.special] || ['💥', 'Fire'];
     if (ic.startsWith('<svg')) $('fireIco').innerHTML = ic; else $('fireIco').textContent = ic; $('fireLab').textContent = lb;
     document.body.classList.toggle('has-siren', !!(T0.police || T0.siren));
@@ -10677,7 +10987,7 @@ const MP = {
     const r = (v, k = 100) => Math.round(v * k);
     const cs = cars.map((c) => { const b = c.body, p = b.position, q = b.quaternion, v = b.velocity, z = c.zones;
       return [r(p.x), r(p.y), r(p.z), r(q.x, 1e4), r(q.y, 1e4), r(q.z, 1e4), r(q.w, 1e4), r(v.x, 10), r(v.y, 10), r(v.z, 10), Math.round(c.health),
-        (c.wrecked ? 1 : 0) | (c.boosting ? 2 : 0) | (c.braking ? 4 : 0) | (c.sirenOn ? 8 : 0) | (c.turretGone ? 16 : 0) | (c.burnT > 0 ? 32 : 0) | (c.webbedT > 0 ? 64 : 0) | (c.latch ? 1024 : 0) | (c.laserT > 0 ? 2048 : 0) | (c.laserT > 0 && c.laserPin ? 4096 : 0) | (c.webbedT > 0 ? Math.max(1, Math.min(3, Math.ceil(webLeft(c) * 3))) << 13 : 0),
+        (c.wrecked ? 1 : 0) | (c.boosting ? 2 : 0) | (c.braking ? 4 : 0) | (c.sirenOn ? 8 : 0) | (c.turretGone ? 16 : 0) | (c.burnT > 0 ? 32 : 0) | (c.webbedT > 0 ? 64 : 0) | (c.latch ? 1024 : 0) | (c.laserT > 0 ? 2048 : 0) | (c.laserT > 0 && c.laserPin ? 4096 : 0) | (c.webbedT > 0 ? Math.max(1, Math.min(3, Math.ceil(webLeft(c) * 3))) << 13 : 0) | (c.hovAir ? 32768 : 0) | (c.skirtDown ? 65536 : 0), // bits: 128/256/512 kept for the Steam Elephant's branch; 4096 big beam and 8192/16384 web hold (spider); 32768/65536 hovercraft
         [z.front, z.rear, z.left, z.right, z.top].map((x) => Math.round(x)).join('.'),
         c.parts.reduce((a, pt, i) => (pt.detached ? a.concat(i) : a), []), c.wheelLost.reduce((a, l, i) => a | (l ? 1 << i : 0), 0),
         r(c.rpm || 0, 0.01), r(c.steerVal || 0), r(c.turretYaw || 0), r(c.forkH || 0), c.kills || 0]; });
@@ -10850,6 +11160,7 @@ const MP = {
       for (let w = 0; w < c.nW; w++) if ((B[14] >> w) & 1 && !c.wheelLost[w]) c.loseWheel(w, null); else if (c.T.walker && !((B[14] >> w) & 1) && c.wheelLost[w] && !c.wrecked) c.refitWheel(w); // (a repaired spider grows its leg back here too)
       c.netWebbed = !!(B[11] & 64); // caught in a web: the spider draws the cable
       c.netLatched = !!(B[11] & 1024); c.netLaser = !!(B[11] & 2048); c.netLaserPin = !!(B[11] & 4096); c.netWebQ = (B[11] >> 13) & 3; // a spider riding a roof, its laser cutting (beam and sparks), the big downward beam on a webbed-down car, and how much of a web's hold is left (thirds: its strands let go)
+      c.netAir = !!(B[11] & 32768); c.netSkirt = !!(B[11] & 65536); // a hovercraft off its cushion (no spray), and its skirt down on the dirt (sparks)
       c.health = B[10];
       if ((B[11] & 1) && !c.wrecked) c.wreck();
       if ((B[11] & 16) && c.T.gun && !c.turretGone) c.blowBarrel();
