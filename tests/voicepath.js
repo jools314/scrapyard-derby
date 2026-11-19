@@ -125,8 +125,11 @@ const INIT = () => {
     ok('after the context was suspended (tab or app switch), coming back brings the music back without waiting for Start', mu.state === 'running' && mu.rms > 0.002, mu);
 
     // ---- 5. long session: composed lines stay recorded ----
-    const r5 = await page.evaluate(() => { const D = __derby, B = D.barks, V = D.VCLIP; const evs = ['taunt', 'gotHit', 'fire', 'hitYou', 'charge', 'wrecked', 'wheel', 'gloat', 'air', 'low', 'flee', 'rodeo', 'rival', 'respawn', 'onFire', 'kill', 'crash', 'burger'];
-      const Ps = [...Object.values(D.CAR_CAST), D.COP], names = Ps.map((P) => P.nick); B.used.clear(); let clip = 0, n = 0, tplClip = 0, tplN = 0; const miss = {};
+    // Drivers still waiting for the owner's voice pick (cast.json: no voice_id yet) speak with the browser voice until they are cast,
+    // so they are left out of the 'recorded clips' share (Typhoon Tomoko, Build 131; same rule as voicelines.js).
+    const UNCAST = Object.values(JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'voices', 'cast.json'), 'utf8')).characters || {}).filter((c) => c && !c.voice_id && c.speaker).map((c) => c.speaker);
+    const r5 = await page.evaluate((UNCAST) => { const D = __derby, B = D.barks, V = D.VCLIP; const evs = ['taunt', 'gotHit', 'fire', 'hitYou', 'charge', 'wrecked', 'wheel', 'gloat', 'air', 'low', 'flee', 'rodeo', 'rival', 'respawn', 'onFire', 'kill', 'crash', 'burger'];
+      const Ps = [...Object.values(D.CAR_CAST), D.COP].filter((P) => !UNCAST.includes(P.nick)), names = Ps.map((P) => P.nick); B.used.clear(); let clip = 0, n = 0, tplClip = 0, tplN = 0; const miss = {};
       for (let i = 0; i < 2000; i++) { const P = Ps[i % Ps.length], ev = evs[(Math.random() * evs.length) | 0], o = names[(Math.random() * names.length) | 0];
         const vars = Math.random() < 0.5 ? { target: 'you', car: 'Viper', v: 'you', vcar: 'Viper' } : { target: o, car: 'Dozer', v: o, vcar: 'Dozer' };
         const line = B.compose(P, ev, vars); if (!line) continue; const has = !!V.id(P, line); if (i >= 1000) { n++; if (has) clip++; else { const k = P.nick + ':' + ev; miss[k] = (miss[k] || 0) + 1; } } }
@@ -134,7 +137,7 @@ const INIT = () => {
       const sp = B.speak, sh = B.show; B.speak = (P, l) => { annN++; if (V.id(P, l)) ann++; }; B.show = () => {}; B.used.clear();
       for (let i = 0; i < 600; i++) { B.lastT = -99; B.annT = -99; __ann.call(B, A[i % A.length], { a: 'Dom', v: 'Tony Cement', vcar: 'Mixer', kmh: 80 }, true); }
       B.speak = sp; B.show = sh;
-      return { late: n ? Math.round(clip / n * 100) : 0, n, ann: annN ? Math.round(ann / annN * 100) : 0, annN, topMiss: Object.entries(miss).sort((a, b) => b[1] - a[1]).slice(0, 6) }; }).catch((e) => ({ err: e.message }));
+      return { late: n ? Math.round(clip / n * 100) : 0, n, ann: annN ? Math.round(ann / annN * 100) : 0, annN, topMiss: Object.entries(miss).sort((a, b) => b[1] - a[1]).slice(0, 6), uncast: UNCAST }; }, UNCAST).catch((e) => ({ err: e.message }));
     ok('a long respawn session: at least 97% of the drivers\' composed lines (lines 1000-2000) are recorded clips', r5.late >= 97, r5);
     ok('  ...and at least 97% of Kev and Lulu\'s calls over 600 calls', r5.ann >= 97 && r5.annN >= 500, r5);
 
