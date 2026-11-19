@@ -1214,12 +1214,14 @@ const wallTex = canvasTex(1024, (g, w, h) => {
   for (const [t, c] of [['WRECK IT', '#e83a8a'], ['NO BRAKES', '#38c8e8'], ['KEV WAS HERE', '#f0f0f0'], ['SMASH', '#9ae830']]) { const x = rand(60, w - 300), y = rand(110, 190); g.save(); g.translate(x, y); g.rotate(rand(-0.12, 0.08)); g.globalAlpha = 0.8; g.lineWidth = 9; g.strokeStyle = '#151515'; g.strokeText(t, 0, 0); g.fillStyle = c; g.fillText(t, 0, 0); g.restore(); }
   g.globalAlpha = 1;
 }, 1, 1, 4096);
-function hazardTex(rx) {
-  return canvasTex(128, (g, s) => {
+let _hazTex = null;
+function hazardTex(rx) { // one striped image for every hazard band (drawn and uploaded once); each band only sets its own repeat
+  if (!_hazTex) _hazTex = canvasTex(128, (g, s) => {
     g.fillStyle = '#1c1712'; g.fillRect(0, 0, s, s);
     g.fillStyle = '#e6a316';
     for (let i = -2; i < 4; i++) { g.beginPath(); g.moveTo(i * 64, s); g.lineTo(i * 64 + 32, s); g.lineTo(i * 64 + 32 + s, 0); g.lineTo(i * 64 + s, 0); g.fill(); }
-  }, rx, 1);
+  }, 1, 1);
+  const t = _hazTex.clone(); t.repeat.set(rx, 1); return t;
 }
 const corrugTex = canvasTex(256, (g, s) => {
   for (let x = 0; x < s; x += 16) {
@@ -2149,6 +2151,37 @@ function mergeStatic() {
     const m = new THREE.Mesh(merged, gr.mat); m.castShadow = gr.cast; m.receiveShadow = gr.rec; m.matrixAutoUpdate = false; m.updateMatrix(); scene.add(m);
     for (const o of gr.list) o.parent.remove(o);
     after++;
+  }
+  // Second pass, the leftovers: scenery that got a material of its own only for its own colour (the shipping containers, the stacked
+  // pallets, drain rings, oil-stained pads...) was one draw call each. Like the cars (foldMat), those that differ only in colour, roughness
+  // and metalness share one draw: the values move into the vertices and the folded shader reads them back, so every pixel comes out the same.
+  // Plain standard materials only: nothing that glows (lamps flash, night dims windows), no extra maps, no shader of its own.
+  const fold = new Map(), id = (t) => (t ? t.uuid : '-');
+  // a map is keyed by its image and sampling, not by the texture object: bands that share the striped image but repeat it differently
+  // (hazardTex, the fence's wallTex clones) fold too, their repeat baked into the UVs. Only when the map is the one thing reading the UVs.
+  const uvMaps = ['normalMap', 'bumpMap', 'aoMap', 'alphaMap', 'lightMap', 'displacementMap', 'roughnessMap', 'metalnessMap', 'emissiveMap', 'specularMap'];
+  const mapKey = (m) => { const t = m.map; if (!t) return '-'; if (uvMaps.some((k) => m[k]) || t.channel !== 0 || !t.matrixAutoUpdate) return t.uuid;
+    return ['src', t.source.uuid, t.wrapS, t.wrapT, t.magFilter, t.minFilter, t.anisotropy, t.colorSpace, t.flipY, t.generateMipmaps, t.premultiplyAlpha, t.unpackAlignment, t.format, t.type].join(','); };
+  const bakeUV = (g, m) => { const t = m.map; if (!t || !g.attributes.uv || mapKey(m) === t.uuid) return; t.updateMatrix(); const e = t.matrix.elements; if (e[0] === 1 && e[1] === 0 && e[3] === 0 && e[4] === 1 && e[6] === 0 && e[7] === 0) return;
+    const a = g.attributes.uv; for (let i = 0; i < a.count; i++) { const u = a.getX(i), v = a.getY(i); a.setXY(i, e[0] * u + e[3] * v + e[6], e[1] * u + e[4] * v + e[7]); } };
+  for (const gr of groups.values()) {
+    if (gr.list.length !== 1) continue; const o = gr.list[0], m = o.material, g = o.geometry;
+    if (m.type !== 'MeshStandardMaterial' || m.vertexColors || m.roughnessMap || m.metalnessMap || m.emissiveMap || m.emissive.getHex() !== 0 || m.onBeforeCompile !== THREE.Material.prototype.onBeforeCompile || m === M.glass || g.attributes.color || g.attributes.pbr) continue;
+    const key = [mapKey(m), id(m.normalMap), id(m.bumpMap), m.bumpScale, id(m.aoMap), id(m.alphaMap), id(m.lightMap), id(m.envMap), m.envMapIntensity, m.flatShading, m.side, m.shadowSide, m.opacity, m.alphaTest, m.fog, m.wireframe,
+      m.depthTest, m.depthWrite, m.colorWrite, m.toneMapped, m.blending, m.polygonOffset, m.polygonOffsetFactor, m.polygonOffsetUnits, m.dithering, m.normalScale && m.normalScale.x, gr.cast, gr.rec, Object.keys(g.attributes).sort().join(','), g.index ? 'i' : 'n'].join('|');
+    let f = fold.get(key); if (!f) fold.set(key, f = { m, cast: gr.cast, rec: gr.rec, list: [] }); f.list.push(o);
+  }
+  for (const f of fold.values()) {
+    if (f.list.length < 2) continue;
+    const geos = f.list.map((o) => { const g = o.geometry.clone(), m = o.material, n = g.attributes.position.count, ca = new Float32Array(n * 3), pa = new Float32Array(n * 2), ea = new Float32Array(n * 3);
+      for (let i = 0; i < n; i++) { ca[i * 3] = m.color.r; ca[i * 3 + 1] = m.color.g; ca[i * 3 + 2] = m.color.b; pa[i * 2] = m.roughness; pa[i * 2 + 1] = m.metalness; }
+      g.setAttribute('color', new THREE.BufferAttribute(ca, 3)); g.setAttribute('pbr', new THREE.BufferAttribute(pa, 2)); g.setAttribute('emi', new THREE.BufferAttribute(ea, 3)); bakeUV(g, m); g.applyMatrix4(o.matrixWorld); return g; });
+    const merged = mergeGeometries(geos, false); geos.forEach((g) => g.dispose()); if (!merged) continue;
+    const mat = f.m.clone(); if (mat.map && mapKey(f.m) !== f.m.map.uuid) { mat.map = f.m.map.clone(); mat.map.offset.set(0, 0); mat.map.repeat.set(1, 1); mat.map.rotation = 0; mat.map.center.set(0, 0); } mat.color.setRGB(1, 1, 1); mat.vertexColors = true; mat.userData = { folded: true }; mat.onBeforeCompile = foldCompile; mat.customProgramCacheKey = () => 'carfold';
+    merged.computeBoundingSphere();
+    const mm = new THREE.Mesh(merged, mat); mm.castShadow = f.cast; mm.receiveShadow = f.rec; mm.matrixAutoUpdate = false; mm.updateMatrix(); mm.userData.folded = f.list.length; scene.add(mm);
+    for (const o of f.list) o.parent.remove(o);
+    after -= f.list.length - 1;
   }
   return { before, after };
 }
@@ -7090,6 +7123,11 @@ function buildOpponentList() {
 let hudT = 0;
 const _hudW = new WeakMap(); // last value written per element, so a frame that changes nothing touches nothing
 function hudTxt(e, v) { if (_hudW.get(e) !== v) { _hudW.set(e, v); e.textContent = v; } }
+// Element sizes for the HUD without forcing a layout: reading clientWidth after the frame's style writes made the browser lay out the whole page
+// right there, inside the HUD's time, every frame (the name tags read it even with no tags to place). A ResizeObserver keeps the numbers fresh instead.
+const HUDSZ = new Map(), HUDRO = typeof ResizeObserver !== 'undefined' ? new ResizeObserver((es) => { for (const e of es) { const r = HUDSZ.get(e.target); if (r) { r.w = e.target.clientWidth; r.h = e.target.clientHeight; } } }) : null;
+function hudSize(e) { let r = HUDSZ.get(e); const now = performance.now(); if (!r) { r = { w: e.clientWidth, h: e.clientHeight, t: now }; HUDSZ.set(e, r); if (HUDRO) HUDRO.observe(e); } else if (!HUDRO && now - r.t > 500) { r.t = now; r.w = e.clientWidth; r.h = e.clientHeight; } return r; } // (no ResizeObserver: re-read twice a second)
+function hudStyle(e, k, v) { const c = e._hs || (e._hs = {}); if (c[k] !== v) { c[k] = v; e.style[k] = v; } } // a style write only when the value changes
 function hudWidth(e, v) { const k = 'w' + v; if (_hudW.get(e.style) !== k) { _hudW.set(e.style, k); e.style.width = v; if (e.id === 'gunFill') hudTxt($('gunPct'), Math.round(parseFloat(v) || 0) + '%'); } }
 const HUDLITE = { t: 0 };
 function updateHUD(dt) {
@@ -7098,7 +7136,7 @@ function updateHUD(dt) {
   updatePick(dt);
   { const pk = player.pickT, pm = $('pickMark'); let show = false; // the picked target: corner brackets and the driver's name
     if (pk && game.state === 'playing') { const p = pk.body.position; tv3.set(p.x, p.y + 0.7, p.z).project(camera);
-      if (tv3.z < 1 && Math.abs(tv3.x) < 1.1 && Math.abs(tv3.y) < 1.1) { show = true; pm.style.transform = `translate(${((tv3.x + 1) / 2 * canvas.clientWidth).toFixed(0)}px, ${((1 - tv3.y) / 2 * canvas.clientHeight).toFixed(0)}px)`; hudTxt($('pickName'), '🎯 ' + pk.name); pm.classList.toggle('far', !!player.pickLost); } }
+      if (tv3.z < 1 && Math.abs(tv3.x) < 1.1 && Math.abs(tv3.y) < 1.1) { show = true; const cz = hudSize(canvas); pm.style.transform = `translate(${((tv3.x + 1) / 2 * cz.w).toFixed(0)}px, ${((1 - tv3.y) / 2 * cz.h).toFixed(0)}px)`; hudTxt($('pickName'), '🎯 ' + pk.name); pm.classList.toggle('far', !!player.pickLost); } }
     if (pm.hidden === show) pm.hidden = !show; }
   // weak devices (the two lowest quality levels): the speedometer and the off-screen threat arrows redraw ~20 times a second, not every
   // frame. On a 4x-throttled CPU they were ~4.5% of the frame (Build 101); 20 Hz looks the same for a needle and edge arrows.
@@ -7112,7 +7150,7 @@ function updateHUD(dt) {
     if (player.T.walker && (HUDLITE.spT = (HUDLITE.spT || 0) - dt) <= 0) { HUDLITE.spT = 0.2; const m = spiderCloseTarget(player) ? 'grind' : 'web'; // the FIRE button shows what F does right now: up close the grinder, otherwise the web
       if (m !== player.fireMode) { player.fireMode = m; if (m === 'grind') $('fireIco').innerHTML = GRINDER_SVG; else $('fireIco').textContent = '🕸️'; $('fireLab').textContent = m === 'grind' ? 'Grinder' : 'Web'; } }
     const rt = $('reticle'), lockT = player.T.special === 'rockets' && game.state === 'playing' ? frontTarget(player, 110, 0.6) : null; // the Viper's rockets lock on: show who they'll chase
-    if (lockT) { tv3.set(lockT.body.position.x, lockT.body.position.y + 0.8, lockT.body.position.z).project(camera); rt.hidden = tv3.z > 1; rt.style.transform = `translate(${((tv3.x + 1) / 2 * canvas.clientWidth).toFixed(0)}px, ${((1 - tv3.y) / 2 * canvas.clientHeight).toFixed(0)}px)`; rt.classList.toggle('lock', cd <= 0); if (cd <= 0 && player.lockOn !== lockT) { player.lockOn = lockT; sfx.tone('square', 1400, 1400, 0.05, 0.06); sfx.tone('square', 1800, 1800, 0.05, 0.06, false, 0.08); } } else { rt.hidden = true; player.lockOn = null; }
+    if (lockT) { tv3.set(lockT.body.position.x, lockT.body.position.y + 0.8, lockT.body.position.z).project(camera); rt.hidden = tv3.z > 1; const cz = hudSize(canvas); rt.style.transform = `translate(${((tv3.x + 1) / 2 * cz.w).toFixed(0)}px, ${((1 - tv3.y) / 2 * cz.h).toFixed(0)}px)`; rt.classList.toggle('lock', cd <= 0); if (cd <= 0 && player.lockOn !== lockT) { player.lockOn = lockT; sfx.tone('square', 1400, 1400, 0.05, 0.06); sfx.tone('square', 1800, 1800, 0.05, 0.06, false, 0.08); } } else { rt.hidden = true; player.lockOn = null; }
   } else if (player.T.pour) { // concrete load
     hudWidth($('gunFill'), (player.load * 100).toFixed(0) + '%');
     hudTxt($('gunState'), player.pourT > 0 ? (player.T.pour === 'fuel' ? 'SPILLING' : 'POURING') : player.load < 0.2 ? 'REFILLING' : player.T.pour === 'fuel' ? 'FUEL' : 'CONCRETE');
@@ -7124,7 +7162,7 @@ function updateHUD(dt) {
     if (tg && game.state === 'playing') {
       tv3.set(tg.body.position.x, tg.body.position.y + 0.6, tg.body.position.z).project(camera);
       rt.hidden = tv3.z > 1;
-      rt.style.transform = `translate(${((tv3.x + 1) / 2 * canvas.clientWidth).toFixed(0)}px, ${((1 - tv3.y) / 2 * canvas.clientHeight).toFixed(0)}px)`;
+      const cz = hudSize(canvas); rt.style.transform = `translate(${((tv3.x + 1) / 2 * cz.w).toFixed(0)}px, ${((1 - tv3.y) / 2 * cz.h).toFixed(0)}px)`;
       rt.classList.toggle('lock', player.aimErr < 0.05);
     } else rt.hidden = true;
   } else $('reticle').hidden = true;
@@ -7139,11 +7177,11 @@ function updateHUD(dt) {
   hudWidth(el.hpFill, hp + '%');
   { const k = hp < 30 ? 'crit' : hp < 60 ? 'warn' : ''; if (el.hpFill.className !== k) el.hpFill.className = k; }
   hudTxt(el.hpText, Math.ceil(hp) + '%');
-  ZONES.forEach((z, i) => { zoneEls[i].style.fill = dmgColor(player.zones[z]); });
+  ZONES.forEach((z, i) => hudStyle(zoneEls[i], 'fill', dmgColor(player.zones[z])));
   wheelEls.forEach((e, c) => { // circles: FL, FR, then the worst wheel on each rear side
     const idx = c < 2 ? [c] : player.wheelBase.map((_, i) => i).filter((i) => i >= 2 && i % 2 === c % 2);
     const lost = idx.some((i) => player.wheelLost[i]), dmg = Math.max(...idx.map((i) => player.wheelDmg[i]));
-    e.style.fill = lost ? '#17130f' : dmgColor(Math.min(100, dmg)); e.style.stroke = lost ? '#e4472c' : 'rgba(0,0,0,.5)';
+    hudStyle(e, 'fill', lost ? '#17130f' : dmgColor(Math.min(100, dmg))); hudStyle(e, 'stroke', lost ? '#e4472c' : 'rgba(0,0,0,.5)');
   });
   hudTxt(el.score, game.score.toLocaleString());
   SCORE.render();
@@ -8691,8 +8729,9 @@ const threatEls = new Map();
 const tv3 = new THREE.Vector3();
 // name tags over the other human drivers, so you know who just hit you (and a small broken-link mark if their connection is struggling)
 const tagEls = new Map(), tagHost = document.getElementById('tags'), NET_ICON = '<svg class="net" viewBox="0 0 16 16" aria-label="poor connection"><path d="M2 6.5a9 9 0 0 1 12 0M4.5 9a5.5 5.5 0 0 1 7 0" fill="none" stroke="#ff9a6b" stroke-width="1.6" stroke-linecap="round"/><circle cx="8" cy="12" r="1.3" fill="#ff9a6b"/><path d="M3 2l10 12" stroke="#ff9a6b" stroke-width="1.6" stroke-linecap="round"/></svg>';
+const TAGSEEN = new Set(), _thrRel = new CANNON.Vec3(), _thrDir = new CANNON.Vec3();
 function updateTags() {
-  const W = tagHost.clientWidth, H = tagHost.clientHeight, seen = new Set();
+  const tz = hudSize(tagHost), W = tz.w, H = tz.h, seen = TAGSEEN; seen.clear();
   for (const c of cars) {
     if (c.isPlayer || !(c.remote || c.netPeer) || c.wrecked) continue;
     const p = c.body.position, d = player ? p.distanceTo(player.body.position) : 0; if (d > 80) continue;
@@ -8706,7 +8745,7 @@ function updateTags() {
   for (const [c, e] of tagEls) if (!seen.has(c)) { if (!cars.includes(c)) { e.remove(); tagEls.delete(c); } else e.hidden = true; }
 }
 function updateThreats() {
-  const W = threatHost.clientWidth, H = threatHost.clientHeight;
+  const hz = hudSize(threatHost), W = hz.w, H = hz.h;
   const live = game.state === 'playing' && player && !player.wrecked;
   for (const c of cars) {
     if (c.isPlayer) continue;
@@ -8720,7 +8759,7 @@ function updateThreats() {
     if (behind) { x = -x; y = -y; }
     if (!behind && Math.abs(x) < 0.95 && Math.abs(y) < 0.95) { e.hidden = true; continue; } // on screen: no arrow needed
     // closing speed toward you
-    const rel = c.body.velocity.vsub(player.body.velocity), dir = player.body.position.vsub(c.body.position); dir.normalize();
+    const rel = c.body.velocity.vsub(player.body.velocity, _thrRel), dir = player.body.position.vsub(c.body.position, _thrDir); dir.normalize();
     const closing = rel.dot(dir);
     const a = Math.atan2(y * H, x * W); // screen-space direction toward the car
     const k = Math.min((W / 2 - 34) / Math.max(1e-3, Math.abs(Math.cos(a))), (H / 2 - 34) / Math.max(1e-3, Math.abs(Math.sin(a))));
@@ -8730,8 +8769,7 @@ function updateThreats() {
     e.firstChild.style.transform = `rotate(${(-a + Math.PI / 2).toFixed(3)}rad)`;
     { const col = closing > 8 && d < 45 ? '#e4472c' : (c.css || (c.css = '#' + c.baseColor.getHexString())); if (e.dataset.c !== col) { e.dataset.c = col; e.style.setProperty('--c', col); } } // (style writes only when it changes)
     const charge = closing > 8 && d < 45;
-    e.classList.toggle('charge', charge);
-    e.lastChild.style.display = charge ? 'block' : 'none';
+    if (e._ch !== charge) { e._ch = charge; e.classList.toggle('charge', charge); e.lastChild.style.display = charge ? 'block' : 'none'; }
   }
 }
 
@@ -8741,7 +8779,7 @@ const GAUGE = { key: '', faceKey: '', face: null, W: 0, H: 0, t: 0 };
 try { document.fonts && document.fonts.addEventListener('loadingdone', () => { GAUGE.faceKey = GAUGE.key = ''; }); } catch (e) {} // the dial face was drawn before the fonts arrived
 function drawGauge() {
   const dpr = Math.min(2, window.devicePixelRatio || 1);
-  const now = performance.now(); if (now - GAUGE.t > 500 || !GAUGE.W) { GAUGE.t = now; GAUGE.W = gauge.clientWidth; GAUGE.H = gauge.clientHeight; } // (reading the size every frame forced a layout after the HUD's writes)
+  { const gz = hudSize(gauge); GAUGE.W = gz.w; GAUGE.H = gz.h; } // (reading the size every frame, later every 500 ms, forced a layout after the HUD's writes)
   const W = GAUGE.W, H = GAUGE.H;
   if (!W || !H) return;
   const T = player.T, red = T.redline, max = Math.ceil(red * 1.15 / 1000) * 1000;
@@ -9741,7 +9779,7 @@ function updateCamera(dt) {
     desired.x = clamp(desired.x, -A + 0.5, A - 0.5);
     desired.z = clamp(desired.z, -A + 0.5, A - 0.5);
     camera.position.lerp(desired, 1 - Math.exp(-dt * 7));
-    camLook.lerp(new THREE.Vector3(p.x + fx * 4, p.y + 1, p.z + fz * 4), 1 - Math.exp(-dt * 14));
+    camLook.lerp(tv3.set(p.x + fx * 4, p.y + 1, p.z + fz * 4), 1 - Math.exp(-dt * 14));
   }
   if (game.shake > 0.01) {
     const s = game.shake * 0.35;
@@ -11503,25 +11541,30 @@ function sunGlare() { // where the sun is on screen (z = strength: fades out as 
 }
 function drawBody(dt) {
   SEC.run('lod', updatePropBatches);
+  let tq = performance.now(); // (every part of the drawing prep is timed, so the play log can name it: the Chromebook's slow moments had ~29 ms a frame of draw prep outside render/hud/lod)
   CAR_AO.update();
   const running = !(game.state === 'playing' && game.paused);
   updateCamera(dt);
   sky.position.copy(camera.position);
+  { const n = performance.now(); SEC.add('camera', n - tq); tq = n; }
   if (player) {
     const pp = player.body.position;
     const sp0 = camTarget().body.position; // the shadow map follows whatever the camera is looking at
     sun.position.set(sp0.x + SUN_OFF.x, SUN_OFF.y, sp0.z + SUN_OFF.z);
     sun.target.position.set(sp0.x, 0, sp0.z);
     const live = game.state === 'playing' && running;
-    let near = null;
-    for (const c of cars) if (!c.isPlayer && !c.wrecked) { const d = c.body.position.distanceTo(pp); if (!near || d < near.dist) near = { car: c, dist: d }; }
+    let near = null; const nb = drawBody.near || (drawBody.near = { car: null, dist: 0 }); // (one object, reused: no garbage per car per frame)
+    for (const c of cars) if (!c.isPlayer && !c.wrecked) { const d = c.body.position.distanceTo(pp); if (!near || d < near.dist) { near = nb; nb.car = c; nb.dist = d; } }
     sfx.update(player, near, live);
     { const hn = live && player.ctrl.horn && !player.wrecked; if (hn && !player.hornHeld) { hornLine(player); honkBack(player); } player.hornHeld = hn; sfx.horn(hn, player.type); }
     { const cop = cars.find((c) => (c.T.police || c.T.siren) && c.sirenOn && !c.wrecked); sfx.siren(!!cop && live, cop ? (cop.isPlayer ? 1 : clamp(1 - cop.body.position.distanceTo(pp) / 130, 0.08, 1)) : 0); }
+    { const n = performance.now(); SEC.add('sound', n - tq); tq = n; }
   }
   SEC.run('hud', () => updateHUD(dt));
+  tq = performance.now();
   updateRespawnSheet(dt);
   PERFREP.check();
+  SEC.add('report', performance.now() - tq);
   SEC.run('hud', drawMinimap);
   // a host that is still too slow at the lowest quality draws every other frame: the game and the network come first
   PERF.n = (PERF.n || 0) + 1; PERF.hostSkip = MP.role === 'host' && QUALITY.level === QSTEPS.length - 1 && PERF.fps < 34 && MP.guests().length > 0;

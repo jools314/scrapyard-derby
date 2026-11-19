@@ -2,37 +2,38 @@
   "high": {
     "level": 0,
     "runs": 3,
-    "callsAvg": 503,
-    "callsMax": 509,
-    "trisAvg": 222430,
-    "geometries": 648,
-    "textures": 110,
+    "callsAvg": 368,
+    "callsMax": 395,
+    "trisAvg": 213786,
+    "geometries": 448,
+    "textures": 80,
     "frameMsMed": 937,
     "frameMsP95": 2718.6,
     "physMsPerStep": 3.667,
     "spread": {
       "callsAvg": [
-        503,
-        514
+        365,
+        395
       ]
     }
   },
   "low": {
     "level": 7,
     "runs": 3,
-    "callsAvg": 453,
-    "callsMax": 455,
-    "trisAvg": 195896,
-    "geometries": 619,
-    "textures": 114,
+    "callsAvg": 323,
+    "callsMax": 338,
+    "trisAvg": 200803,
+    "geometries": 412,
+    "textures": 84,
     "frameMsMed": 474.6,
     "frameMsP95": 980.1,
     "physMsPerStep": 5.81,
     "spread": {
       "callsAvg": [
-        452,
-        465
+        314,
+        338
       ]
     }
-  }
+  },
+  "note": "Build 125 (claude/perf2): draw calls, triangles, geometries and textures from the branch run on 2026-11-19 (high 368/395, low 323/338, textures 80/84); physics and frame times kept from the earlier baseline (this run was on a machine shared with other agents: physics 5.6-8.7 ms/step on both main and the branch)."
 }
