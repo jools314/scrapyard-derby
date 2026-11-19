@@ -96,6 +96,10 @@ quick() {
   t hovercraft 1500 "HOVERCRAFT PASS"
   t hovernet 60 "HOVERNET PASS"
   t spider4 900 "SPIDER4 PASS"
+  TAG=-jet t drive 900 "" ONLY=jet
+  TAG=-jet t crusheropen 600 "CRUSHEROPEN PASS" TYPE=jet
+  t jet 1800 "JET PASS"
+  t tsunami 2400 "TSUNAMI PASS"
 }
 release() {
   quick
