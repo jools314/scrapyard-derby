@@ -90,6 +90,7 @@ quick() {
   t cranejitter 600 "CRANEJITTER PASS"
   t spider2 900 "SPIDER2 PASS"
   t spider3 900 "SPIDER3 PASS"
+  t physfix 600 "PHYSFIX PASS"
 }
 release() {
   quick
