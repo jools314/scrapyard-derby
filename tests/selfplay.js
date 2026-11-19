@@ -4,7 +4,7 @@
 // Time is warped: every animation frame is 1/60 s of game time and the next one starts at once, so a match runs as fast as
 // this machine can step it. The AI think step is timed with the real clock (ms of think() per sim frame, all cars together).
 // Prints one JSON line per car (lives, wrecks dealt k, wrecked d, K/D, damage dealt/taken per life, life s, special uses per
-// life, stuck s per life) and a SELFPLAY line with the totals. OUT=file.json also writes it all to a file.
+// life, stuck s per life, onYou: share of its thinking time spent going for the autoplay 'player' car) and a SELFPLAY line with the totals. OUT=file.json also writes it all to a file.
 const fs = require('fs'); const { open } = require('./harness');
 const MATCHES = +(process.env.MATCHES || 24), PAR = +(process.env.PAR || 3), APLEN = +(process.env.APLEN || 90), OPP = +(process.env.OPP || 9);
 const warp = () => { const rn = performance.now.bind(performance); window.__realNow = rn; let v = rn(); performance.now = () => v; window.__noRender = true;
@@ -13,25 +13,26 @@ const warp = () => { const rn = performance.now.bind(performance); window.__real
 async function worker(n, id, sink) { // runs n matches in one page, handing each match record to sink as soon as it is logged
   const { browser, page, errors } = await open({ viewport: { width: 640, height: 400 } }, warp);
   await page.evaluate(({ APLEN, OPP }) => {
-    const D = __derby, rn = window.__realNow; D.S.aiCount = OPP; window.__sp = { recs: [], thinkMs: 0, simFrames: 0 }; let lastSim = -1; const S = window.__sp;
-    const wrap = () => { const c = D.cars[0]; if (!c) return; const proto = Object.getPrototypeOf(c); if (proto.__wrapped) return; proto.__wrapped = true; const o = proto.think; proto.think = function (dt) { const t = rn(); o.call(this, dt); S.thinkMs += rn() - t; if (D.simTime !== lastSim) { lastSim = D.simTime; S.simFrames++; } }; };
+    const D = __derby, rn = window.__realNow; D.S.aiCount = OPP; window.__sp = { recs: [], thinkMs: 0, simFrames: 0, foc: {} }; let lastSim = -1; const S = window.__sp;
+    const wrap = () => { const c = D.cars[0]; if (!c) return; const proto = Object.getPrototypeOf(c); if (proto.__wrapped) return; proto.__wrapped = true; const o = proto.think; proto.think = function (dt) { const t = rn(); o.call(this, dt); S.thinkMs += rn() - t; if (!this.isPlayer && !this.wrecked && D.game.state === 'playing' && D.game.countdown <= 0) { const f = S.foc[this.type] || (S.foc[this.type] = [0, 0]); f[1]++; if (this.target && this.target === D.player) f[0]++; } if (D.simTime !== lastSim) { lastSim = D.simTime; S.simFrames++; } }; };
     const ol = D.AUTO.logged.bind(D.AUTO); D.AUTO.logged = (r) => { S.recs.push({ veh: r.veh, stuck: r.stuck, game: r.game, cars: r.cars }); ol(r); };
     D.AUTO.matchSecs = APLEN; document.getElementById('btnAutoplay').click(); D.AUTO.matchSecs = APLEN; setInterval(wrap, 200);
   }, { APLEN, OPP });
   let got = 0; const t0 = Date.now();
   while (got < n && Date.now() - t0 < 3 * 3600e3) { await new Promise((r) => setTimeout(r, 3000));
-    const r = await page.evaluate(() => { const S = window.__sp, out = { recs: S.recs.splice(0), thinkMs: S.thinkMs, simFrames: S.simFrames }; S.thinkMs = 0; S.simFrames = 0; return out; });
-    for (const m of r.recs) { got++; sink({ worker: id, m }); } sink({ worker: id, thinkMs: r.thinkMs, simFrames: r.simFrames }); }
+    const r = await page.evaluate(() => { const S = window.__sp, out = { recs: S.recs.splice(0), thinkMs: S.thinkMs, simFrames: S.simFrames, foc: S.foc }; S.thinkMs = 0; S.simFrames = 0; S.foc = {}; return out; });
+    for (const m of r.recs) { got++; sink({ worker: id, m }); } sink({ worker: id, thinkMs: r.thinkMs, simFrames: r.simFrames, foc: r.foc }); }
   await browser.close(); for (const e of errors.filter((e) => !e.includes('ERR_FAILED'))) sink({ worker: id, error: e });
 }
 function summarise(lines) {
   const veh = {}, head = (lines.find((L) => L.head) || {}).head || { aplen: APLEN, opp: OPP }; let think = 0, frames = 0, matches = 0, stuckN = 0, stuckS = 0, errs = [];
+  const foc = {}; for (const L of lines) for (const [k, v] of Object.entries(L.foc || {})) { const f = foc[k] || (foc[k] = [0, 0]); f[0] += v[0]; f[1] += v[1]; }
   for (const L of lines) { if (L.error) errs.push(L.error); if (L.thinkMs !== undefined) { think += L.thinkMs; frames += L.simFrames; } const m = L.m; if (!m) continue;
     matches++; stuckN += m.stuck ? m.stuck.n : 0; stuckS += m.stuck ? m.stuck.secs : 0;
     for (const [k, v] of Object.entries(m.veh || {})) { const a = veh[k] || (veh[k] = { lives: 0, k: 0, d: 0, dmg: 0, taken: 0, life: 0, fires: 0, stuckS: 0 }); for (const f of ['lives', 'k', 'd', 'dmg', 'taken', 'life', 'fires']) a[f] += v[f] || 0; }
     for (const s of (m.stuck && m.stuck.list) || []) if (veh[s.car]) veh[s.car].stuckS += s.secs; }
   const r1 = (x) => Math.round(x * 100) / 100, out = { matches, aplen: head.aplen, opp: head.opp, thinkMsPerFrame: r1(think / Math.max(1, frames)), stuckN, stuckS: Math.round(stuckS), errors: errs.length, cars: {} };
-  for (const [k, a] of Object.entries(veh).sort()) { const L = Math.max(1, a.lives); out.cars[k] = { lives: a.lives, k: a.k, d: a.d, kd: r1(a.k / Math.max(1, a.d)), dmgL: Math.round(a.dmg / L), takenL: Math.round(a.taken / L), lifeS: Math.round(a.life / L), firesL: r1(a.fires / L), stuckL: r1(a.stuckS / L) }; }
+  for (const [k, a] of Object.entries(veh).sort()) { const L = Math.max(1, a.lives); out.cars[k] = { lives: a.lives, k: a.k, d: a.d, kd: r1(a.k / Math.max(1, a.d)), dmgL: Math.round(a.dmg / L), takenL: Math.round(a.taken / L), lifeS: Math.round(a.life / L), firesL: r1(a.fires / L), stuckL: r1(a.stuckS / L), onYou: foc[k] ? r1(foc[k][0] / Math.max(1, foc[k][1])) : undefined }; }
   return { out, errs };
 }
 (async () => {
