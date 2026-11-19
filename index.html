@@ -2489,21 +2489,21 @@ function scareGeos() { // cartoon scarecrow parts, each one geometry with vertex
     [new THREE.CylinderGeometry(0.29, 0.34, 0.8, 8).rotateY(Math.PI / 8).scale(1, 1, 0.62), S.shirt],
     [at(new THREE.BoxGeometry(0.17, 0.17, 0.03), 0.12, 0.12, 0.185, 0, 0, 0.12), S.patch], [at(new THREE.BoxGeometry(0.14, 0.12, 0.03), -0.13, -0.12, 0.19, 0, 0, -0.2), S.patch2], [at(new THREE.BoxGeometry(0.16, 0.15, 0.03), -0.05, 0.05, -0.185, 0, 0, 0.3), S.patch2], // patches, front and back
     [new THREE.CylinderGeometry(0.345, 0.35, 0.07, 8, 1, true).rotateY(Math.PI / 8).scale(1, 1, 0.64).translate(0, -0.28, 0), S.rope], // rope belt
-    [at(new THREE.CylinderGeometry(0.06, 0.07, 2.4, 6), 0, -0.7, 0), S.wood], [at(new THREE.CylinderGeometry(0.045, 0.045, 1.9, 6), 0, 0.3, -0.06, 0, 0, Math.PI / 2), S.wood], // the post and its crossbar
+    [at(new THREE.CylinderGeometry(0.06, 0.07, 2.4, 6, 1, true), 0, -0.7, 0), S.wood], [at(new THREE.CylinderGeometry(0.045, 0.045, 1.9, 5), 0, 0.3, -0.06, 0, 0, Math.PI / 2), S.wood], // the post and its crossbar
   ];
   for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2; torso.push([tuft(Math.cos(a) * 0.1, 0.47, Math.sin(a) * 0.07, Math.sin(a) * 0.5, -Math.cos(a) * 0.5), k % 2 ? S.straw : S.straw2]); } // straw out of the collar
   for (let k = 0; k < 7; k++) { const a = k / 7 * Math.PI * 2; torso.push([tuft(Math.cos(a) * 0.26, -0.47, Math.sin(a) * 0.16, Math.PI - Math.sin(a) * 0.45, Math.cos(a) * 0.45, 0.24), k % 2 ? S.straw : S.straw2]); } // ...and out of the shirt tails
-  const head = [[new THREE.SphereGeometry(0.27, 9, 7).scale(1, 1.08, 0.95), S.sack], [at(new THREE.CylinderGeometry(0.08, 0.13, 0.12, 6), 0, -0.29, 0), S.sack2], [at(new THREE.TorusGeometry(0.085, 0.018, 3, 8), 0, -0.26, 0, Math.PI / 2), S.rope],
-    [at(new THREE.CylinderGeometry(0.05, 0.05, 0.025, 8), 0.095, 0.06, 0.235, Math.PI / 2), S.ink], [at(new THREE.CylinderGeometry(0.05, 0.05, 0.025, 8), -0.095, 0.06, 0.235, Math.PI / 2), S.ink], // button eyes
+  const head = [[new THREE.SphereGeometry(0.27, 9, 7).scale(1, 1.08, 0.95), S.sack], [at(new THREE.CylinderGeometry(0.08, 0.13, 0.12, 6, 1, true), 0, -0.29, 0), S.sack2], [at(new THREE.TorusGeometry(0.085, 0.018, 3, 8), 0, -0.26, 0, Math.PI / 2), S.rope],
+    [at(new THREE.CircleGeometry(0.05, 8), 0.095, 0.06, 0.248, -0.1, 0.35), S.ink], [at(new THREE.CircleGeometry(0.05, 8), -0.095, 0.06, 0.248, -0.1, -0.35), S.ink], // button eyes
     [at(new THREE.ConeGeometry(0.04, 0.09, 4), 0, -0.01, 0.27, Math.PI / 2), S.patch3]]; // a patch of a nose
   for (let k = 0; k <= 5; k++) { const t = Math.PI * (1.17 + k * 0.66 / 5), x = 0.14 * Math.cos(t), y = -0.07 + 0.1 * Math.sin(t), z = Math.sqrt(Math.max(0, 0.0729 - x * x - (y / 1.08) ** 2)) * 0.95 + 0.006;
     head.push([at(new THREE.BoxGeometry(0.05, 0.014, 0.014), x, y, z, 0, 0, t + Math.PI / 2), S.ink]); } // the stitched smile
-  const hat = [[new THREE.CylinderGeometry(0.44, 0.44, 0.03, 10).translate(0, 0.25, 0), S.hat], [new THREE.CylinderGeometry(0.17, 0.21, 0.2, 8).translate(0, 0.36, 0), S.hat], [new THREE.CylinderGeometry(0.215, 0.215, 0.05, 8).translate(0, 0.29, 0), S.band]];
+  const hat = [[new THREE.CylinderGeometry(0.44, 0.44, 0.03, 10).translate(0, 0.25, 0), S.hat], [new THREE.CylinderGeometry(0.17, 0.21, 0.2, 8, 1).translate(0, 0.36, 0), S.hat], [new THREE.CylinderGeometry(0.215, 0.215, 0.05, 8, 1, true).translate(0, 0.29, 0), S.band]];
   for (const [g] of hat) g.rotateZ(0.14).rotateX(-0.06); head.push(...hat); // the straw hat sits at a jaunty angle
   for (const sd of [-1, 1]) for (let k = 0; k < 3; k++) head.push([tuft(sd * 0.27, 0.12 - k * 0.07, -0.05 + k * 0.05, (k - 1) * 0.3, -sd * (Math.PI / 2 + 0.35 + k * 0.15)), k % 2 ? S.straw2 : S.straw]); // straw sticking out under the hat
-  const arm = [[at(new THREE.CylinderGeometry(0.085, 0.095, 0.6, 6), -0.08, 0, 0, 0, 0, Math.PI / 2), S.shirt], [at(new THREE.CylinderGeometry(0.1, 0.1, 0.05, 6), 0.2, 0, 0, 0, 0, Math.PI / 2), S.rope], [at(new THREE.BoxGeometry(0.12, 0.03, 0.1), -0.15, 0.085, 0, 0, 0, 0.05), S.patch]];
+  const arm = [[at(new THREE.CylinderGeometry(0.085, 0.095, 0.6, 6, 1, true), -0.08, 0, 0, 0, 0, Math.PI / 2), S.shirt], [at(new THREE.CylinderGeometry(0.1, 0.1, 0.05, 6, 1, true), 0.2, 0, 0, 0, 0, Math.PI / 2), S.rope], [at(new THREE.BoxGeometry(0.12, 0.03, 0.1), -0.15, 0.085, 0, 0, 0, 0.05), S.patch]];
   for (let k = 0; k < 5; k++) arm.push([tuft(0.33, (k - 2) * 0.03, ((k * 3) % 5 - 2) * 0.025, ((k * 3) % 5 - 2) * 0.25, -Math.PI / 2 + (k - 2) * 0.22, 0.22), k % 2 ? S.straw2 : S.straw]); // straw hands
-  const leg = [[at(new THREE.CylinderGeometry(0.1, 0.09, 0.62, 6), 0, 0.07, 0), S.jeans], [at(new THREE.BoxGeometry(0.11, 0.11, 0.03), 0, -0.02, 0.092), S.patch3], [at(new THREE.CylinderGeometry(0.1, 0.1, 0.04, 6), 0, -0.23, 0), S.rope]];
+  const leg = [[at(new THREE.CylinderGeometry(0.1, 0.09, 0.62, 6, 1, true), 0, 0.07, 0), S.jeans], [at(new THREE.BoxGeometry(0.11, 0.11, 0.03), 0, -0.02, 0.092), S.patch3], [at(new THREE.CylinderGeometry(0.1, 0.1, 0.04, 6, 1, true), 0, -0.23, 0), S.rope]];
   for (let k = 0; k < 5; k++) leg.push([tuft(((k * 2) % 5 - 2) * 0.03, -0.33, (k - 2) * 0.03, Math.PI + (k - 2) * 0.2, ((k * 2) % 5 - 2) * 0.2, 0.22), k % 2 ? S.straw2 : S.straw]); // straw feet
   const stick = [[at(new THREE.CylinderGeometry(0.05, 0.068, 2.4, 6), 0, -0.7, 0), S.char], [at(new THREE.CylinderGeometry(0.038, 0.038, 1.5, 6), 0, 0.3, -0.06, 0, 0, Math.PI / 2), S.char], [at(new THREE.BoxGeometry(0.07, 0.05, 0.07), 0, 0.5, 0), S.ember], [at(new THREE.BoxGeometry(0.05, 0.05, 0.05), 0.76, 0.3, -0.06), S.ember]]; // what's left: a charred stick, embers glowing at the tips
   for (let k = 0; k < 4; k++) stick.push([tuft((k - 1.5) * 0.06, 0.42, 0, 0, (k - 1.5) * 0.4, 0.16), S.char]);
@@ -2511,9 +2511,9 @@ function scareGeos() { // cartoon scarecrow parts, each one geometry with vertex
 }
 function scareMeshes() {
   if (SCIM) return SCIM;
-  const G = scareGeos(), mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95 }), n = SCARE_SPOTS.length; SCIM = {};
+  const G = scareGeos(), mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, side: THREE.DoubleSide }) /* (open-ended sleeves and trousers) */, n = SCARE_SPOTS.length; SCIM = {};
   for (const [k, cap] of [['torso', n], ['head', n], ['arm', n * 2], ['leg', n * 2], ['stick', n]]) {
-    const im = new THREE.InstancedMesh(G[k], mat, cap); im.instanceMatrix.setUsage(THREE.DynamicDrawUsage); im.castShadow = true; im.receiveShadow = true; im.frustumCulled = false; im.userData.keep = true;
+    const im = new THREE.InstancedMesh(G[k], mat, cap); im.instanceMatrix.setUsage(THREE.DynamicDrawUsage); im.castShadow = k !== 'arm' && k !== 'leg'; im.receiveShadow = true; im.frustumCulled = false; im.userData.keep = true; // (body, head and stick throw the shadow: thin arms and legs aren't worth a shadow pass)
     for (let i = 0; i < cap; i++) { im.setMatrixAt(i, _bZero); im.setColorAt(i, _scC.setRGB(1, 1, 1)); }
     scene.add(im); SCIM[k] = im;
   }
