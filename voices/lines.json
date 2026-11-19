@@ -1624,7 +1624,7 @@
 {"id":"12gp7yk2jnn","character":"typhoon-tomoko","speaker":"Typhoon Tomoko","text":"You can't hit what you can't catch! And nobody catches the wind!","say":"You can't hit what you can't catch! And nobody catches the wind!","ev":"taunt","style":"mocking, trash talk","tier":1},
 {"id":"1edpsnomk5z","character":"typhoon-tomoko","speaker":"Typhoon Tomoko","text":"My bombs are like takoyaki: round, hot, and they land on your head!","say":"My bombs are like takoyaki: round, hot, and they land on your head!","ev":"taunt","style":"mocking, trash talk","tier":1},
 {"id":"1m6pvr8s557","character":"typhoon-tomoko","speaker":"Typhoon Tomoko","text":"Spin, spin, spin! My saws never get tired!","say":"Spin, spin, spin! My saws never get tired!","ev":"taunt","style":"mocking, trash talk","tier":1},
-{"id":"138w4eix1n","character":"typhoon-tomoko","speaker":"Typhoon Tomoko","text":"Hop! And... drop!","say":"Hop! And... drop!","ev":"fire","style":"battle cry","tier":1},
+{"id":"sj62ldc5p4","character":"typhoon-tomoko","speaker":"Typhoon Tomoko","text":"Catch! Hot takoyaki bomb, fresh from the pan!","say":"Catch! Hot takoyaki bomb, fresh from the pan!","ev":"fire","style":"battle cry","tier":1},
 {"id":"10f1kzl04e7","character":"typhoon-tomoko","speaker":"Typhoon Tomoko","text":"Special delivery from above!","say":"Special delivery from above!","ev":"fire","style":"battle cry","tier":1},
 {"id":"1z2s85mv906","character":"typhoon-tomoko","speaker":"Typhoon Tomoko","text":"Itadakimasu! Ha ha!","say":"Itadakimasu! Ha ha!","ev":"fire","style":"battle cry","tier":1},
 {"id":"akl4ylcyie","character":"typhoon-tomoko","speaker":"Typhoon Tomoko","text":"Ikuzo! Full fan, full saws!","say":"Ikuzo! Full fan, full saws!","ev":"charge","style":"aggressive, charging","tier":1},
