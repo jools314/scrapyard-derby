@@ -9546,7 +9546,8 @@ $('btnTilt').addEventListener('click', tiltTap);
 // outside the controls, and the double-tap zoom. (The thumbstick and pedal use pointer events, which this doesn't touch.)
 for (const ev of ['gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(ev, (e) => e.preventDefault(), { passive: false });
 document.addEventListener('touchmove', (e) => { if (e.touches.length > 1 || (e.scale !== undefined && e.scale !== 1)) e.preventDefault(); }, { passive: false });
-{ let lastEnd = 0; document.addEventListener('touchend', (e) => { const now = Date.now(); if (now - lastEnd < 320 && e.target.closest && !e.target.closest('input,textarea,select')) e.preventDefault(); lastEnd = now; }, { passive: false }); }
+// (not on a menu or HUD button: cancelling its touchend cancels its click, so a second quick tap - Sound then Music, or ⋯ More - was lost)
+{ let lastEnd = 0; document.addEventListener('touchend', (e) => { const now = Date.now(), t = e.target; if (now - lastEnd < 320 && t.closest && !t.closest('input,textarea,select') && !(t.closest('button') && !t.closest('#touch'))) e.preventDefault(); lastEnd = now; }, { passive: false }); }
 document.addEventListener('dblclick', (e) => e.preventDefault(), { passive: false });
 // Full screen: real full screen where the browser allows it (Android, iPad, desktop); an iPhone only goes full screen as a home-screen app
 const FS = { el: document.documentElement, get on() { return !!(document.fullscreenElement || document.webkitFullscreenElement); },

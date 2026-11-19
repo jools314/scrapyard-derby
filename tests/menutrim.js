@@ -47,6 +47,13 @@ const SHOTS = process.env.SHOTS;
       console.log(`  ${name} toggles: ${JSON.stringify([s0, s1, s2])}`);
       ok(s1.mute !== s0.mute && s1.music !== s0.music && s1.voices !== s0.voices && s1.p.every((v) => v === 'false') && s0.p.every((v) => v === 'true') && s1.menu, `${name}: each toggle flips its setting and shows off (aria-pressed), the menu stays open`);
       ok(s2.mute === s0.mute && s2.music === s0.music && s2.voices === s0.voices && s2.p.every((v) => v === 'true'), `${name}: a second tap turns each back on`);
+      if (touch) { /* two quick taps (< 320 ms apart, like a thumb going Sound then Music) must both land: the double-tap-zoom guard used to swallow the second click */
+        const box = await page.evaluate(() => { const r = document.getElementById('btnMute').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; });
+        const m0 = await page.evaluate(() => __derby.sfx.muted); const t0q = Date.now();
+        await page.touchscreen.tap(box.x, box.y); const m1 = await page.evaluate(() => __derby.sfx.muted);
+        await page.touchscreen.tap(box.x, box.y); const gap = Date.now() - t0q; const m2 = await page.evaluate(() => __derby.sfx.muted);
+        ok(m1 !== m0 && m2 === m0, `${name}: two quick taps on Sound both land (${m0} -> ${m1} -> ${m2}, ${gap} ms)`);
+      }
       if (SHOTS) { for (const id of ['btnMusic']) await press('#' + id); await page.screenshot({ path: `${SHOTS}/menu-${name.replace(/ /g, '_')}-musicoff.png`, timeout: 120000 }).catch(() => {}); await press('#btnMusic'); }
     } else ok(false, `${name}: sound toggles not shown`);
     if (a.hasMore) {
