@@ -19,3 +19,5 @@ Principle (from the user): every car is strong at something and has ONE visible 
 | Camper | propane bombs | PROPANE TANKS: fire → it explodes | Sandflea, Hellbender | heavies with propane |
 | Forklift | lift & toss | FORKS UP = TOP-HEAVY: tips over from side hits | any side ram, Dozer | light cars, wrecks |
 | Tow truck | drags victims to the crusher | slow & exposed while towing | Viper, Outrider hit it mid-tow | damaged/light cars |
+| Jet (Captain Goldtooth) | laser minigun on the roof; in a tsunami Ann the speedboat launches off the bed | BATTERY RING on the turret dims as it drains, flashes red while it recharges (2.5 s locked out); water from the Fire truck shorts the laser | Fire truck (water shorts it), fast flankers once the battery is flat (Viper, Outrider) | the Cruiser (plunder: its cash), light cars from range |
+| Ann (tsunami only) | very fast and drifty on water, bow laser, auto broadside cannons, J dives under and comes up zapping whoever is above | out of the water she can only scoot; light hull | heavies she can't get under, anything on high ground | slow cars wading in the flood |

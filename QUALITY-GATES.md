@@ -108,3 +108,4 @@ The game needs room to breathe, in sound, on screen and in the arena.
 | Camper | propane bombs | propane tanks explode in fire | Sandflea, Hellbender | heavies |
 | Forklift | lift and toss | forks up = top-heavy, tips over | side rams, Dozer | light cars, wrecks into hazards |
 | Tow truck | drags victims into the crusher, wrecking ball and fire pit | slow and exposed while towing | Viper, Outrider mid-tow | damaged and light cars |
+| Jet | laser minigun; Ann the speedboat in a tsunami | battery ring dims, then locks out; water shorts the laser | Fire truck, flankers once it's flat | the Cruiser (plunder), light cars |
