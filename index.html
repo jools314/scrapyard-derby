@@ -7347,17 +7347,21 @@ Car.prototype.boatFrame = function (dt) { // the wake, the flag, the hull hidden
 };
 const T_ANN_HALF = 2.4;
 /* ---------------- Plunder (Victor: "you can also rob the money from the cops"): a hard hit on the police Cruiser knocks cartoon cash bundles out of it;
-   whoever drives over one grabs it (a coin jingle and +100 for you). Pooled: at most 10 bundles, one instanced draw, no physics bodies. ---------------- */
-const CASH = { n: 10, im: null, b: [], m: new THREE.Matrix4(), q: new THREE.Quaternion(), s: new THREE.Vector3(1, 1, 1), p: new THREE.Vector3(), e: new THREE.Euler(), zero: new THREE.Matrix4().makeScale(0, 0, 0), grabbed: 0,
+   whoever drives over one grabs it (a coin jingle and +100 for you). Robbing them again pays: each hit that knocks cash loose is one robbery, and
+   the first robbery a driver grabs cash from in a match pays +100 a bundle; every later one (a different drop) pays +1,000 a bundle (Victor). Pooled: at most 10 bundles, one instanced draw, no physics bodies. ---------------- */
+const CASH = { n: 10, im: null, b: [], m: new THREE.Matrix4(), q: new THREE.Quaternion(), s: new THREE.Vector3(1, 1, 1), p: new THREE.Vector3(), e: new THREE.Euler(), zero: new THREE.Matrix4().makeScale(0, 0, 0), grabbed: 0, drops: 0, robs: new Map(),
   pool() { if (this.im) return this.im; const geo = new THREE.BoxGeometry(0.55, 0.2, 0.32), mat = new THREE.MeshStandardMaterial({ color: 0x3f9a46, roughness: 0.7, emissive: 0x0c2a10 });
     const im = this.im = new THREE.InstancedMesh(geo, mat, this.n); im.instanceMatrix.setUsage(THREE.DynamicDrawUsage); im.frustumCulled = false; im.visible = false; im.userData.keep = true; im.castShadow = true;
     for (let i = 0; i < this.n; i++) { im.setMatrixAt(i, this.zero); this.b.push({ on: false, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, spin: 0, t: 0 }); } scene.add(im); return im; },
-  reset() { for (const k of this.b) k.on = false; this.live = false; if (this.im) { for (let i = 0; i < this.n; i++) this.im.setMatrixAt(i, this.zero); this.im.instanceMatrix.needsUpdate = true; this.im.visible = false; } this.grabbed = 0; },
+  reset() { for (const k of this.b) k.on = false; this.live = false; if (this.im) { for (let i = 0; i < this.n; i++) this.im.setMatrixAt(i, this.zero); this.im.instanceMatrix.needsUpdate = true; this.im.visible = false; } this.grabbed = 0; this.drops = 0; this.robs.clear(); },
+  pay(c, k) { // which robbery this bundle is for its grabber: the first drop they rob this match pays 100 a bundle, any later drop 1,000 (keyed by driver, so it carries over a respawn)
+    const key = SCORE.keyOf(c); let m = this.robs.get(key); if (!m) this.robs.set(key, (m = new Map()));
+    let v = m.get(k.drop); if (v == null) m.set(k.drop, (v = m.size ? 1000 : 100)); return v; },
 };
 function dropCash(cop, by) { // the cruiser's boot pops and bundles fly out
-  if (MP.role === 'guest' || simTime - (cop.cashT ?? -9) < 1.2) return; cop.cashT = simTime; CASH.pool();
+  if (MP.role === 'guest' || simTime - (cop.cashT ?? -9) < 1.2) return; cop.cashT = simTime; CASH.pool(); const drop = ++CASH.drops;
   const p = cop.body.position, n = 1 + (Math.random() < 0.5 ? 1 : 0);
-  for (let k = 0; k < n; k++) { const s = CASH.b.find((x) => !x.on) || CASH.b.reduce((a, x) => (x.t < a.t ? x : a)); Object.assign(s, { on: true, x: p.x, y: p.y + 1, z: p.z, vx: rand(-4, 4) - cop.fwd.x * 2, vy: rand(5, 8), vz: rand(-4, 4) - cop.fwd.z * 2, spin: rand(-6, 6), t: 20, from: cop }); } CASH.live = true; // (from: the cop can't pick its own cash back up)
+  for (let k = 0; k < n; k++) { const s = CASH.b.find((x) => !x.on) || CASH.b.reduce((a, x) => (x.t < a.t ? x : a)); Object.assign(s, { on: true, x: p.x, y: p.y + 1, z: p.z, vx: rand(-4, 4) - cop.fwd.x * 2, vy: rand(5, 8), vz: rand(-4, 4) - cop.fwd.z * 2, spin: rand(-6, 6), t: 20, from: cop, drop }); } CASH.live = true; // (from: the cop can't pick its own cash back up)
   if (by && by.isPlayer && game.state === 'playing' && !CASH.told) { CASH.told = true; toast('💰 THE COPS DROPPED THEIR CASH!', 'cool'); }
 }
 function updateCash(dt) {
@@ -7371,10 +7375,10 @@ function updateCash(dt) {
   CASH.im.instanceMatrix.needsUpdate = true; CASH.im.visible = CASH.live = any;
 }
 function grabCash(c, k) {
-  CASH.grabbed++; c.plunder = (c.plunder || 0) + 1; for (let i = 0; i < 6; i++) emit('debris', k.x, k.y + 0.3, k.z, rand(-2, 2), rand(2, 4), rand(-2, 2), rand(0.8, 1.3), 0.09, goldMat);
+  CASH.grabbed++; c.plunder = (c.plunder || 0) + 1; const pay = CASH.pay(c, k); for (let i = 0; i < 6; i++) emit('debris', k.x, k.y + 0.3, k.z, rand(-2, 2), rand(2, 4), rand(-2, 2), rand(0.8, 1.3), 0.09, goldMat);
   if (player && player.body.position.distanceTo(c.body.position) < 70) { const v = clamp(1 - player.body.position.distanceTo(c.body.position) / 70, 0, 1); sfx.tone('square', 1320, 1320, 0.07 * v, 0.08); sfx.tone('square', 1760, 1760, 0.07 * v, 0.18, false, 0.08); } // ka-ching
   if (game.state !== 'playing') return;
-  if (c.isPlayer) game.addScore(100, '💰 PLUNDER'); else if (c.persona && !c.remote && (c.T.jet || c.T.boat)) barks.say(c, 'plunder', true); else if (c.persona && !c.remote && Math.random() < 0.4) barks.say(c, 'gloat');
+  if (c.isPlayer) game.addScore(pay, pay > 100 ? '💰 ROBBED THEM AGAIN!' : '💰 PLUNDER'); else if (c.persona && !c.remote && (c.T.jet || c.T.boat)) barks.say(c, 'plunder', true); else if (c.persona && !c.remote && Math.random() < 0.4) barks.say(c, 'gloat');
 }
 // Cars locked together (wedged, or one sitting on another) for over a second get pushed apart
 const wedged = new Map();
