@@ -1,9 +1,10 @@
-# Scrapyard Derby play-log report · 2026-11-20 00:40 UTC
+# Scrapyard Derby play-log report · 2026-11-20 02:40 UTC
 
-1399 matches (1386 from real devices, 4166.8 game-minutes), 134 page loads, 9 bug reports.
+1412 matches (1399 from real devices, 4205.8 game-minutes), 136 page loads, 9 bug reports.
 
 ## Who and what
 
+- Mac · build 130 · autoplay: 13 matches
 - Mac · build 129 · autoplay: 25 matches
 - Mac · build 129 · solo: 1 matches
 - Mac · build 128 · autoplay: 35 matches
@@ -72,7 +73,7 @@
 ## Performance (foreground)
 
 - **Android**: fps median 60, typical 1% low 40, worst frame 92 ms · quality 0, res 100% · 1 matches · 2 s throttled/hidden (excluded)
-- **Mac**: fps median 60, typical 1% low 53, worst frame 983 ms · quality 0, res 100% · 959 matches · 8825 s throttled/hidden (excluded)
+- **Mac**: fps median 60, typical 1% low 53, worst frame 983 ms · quality 0, res 100% · 972 matches · 8823 s throttled/hidden (excluded)
 - **iPhone**: fps median 58, typical 1% low 47, worst frame 353 ms · quality 0, res 100% · 6 matches · 27 s throttled/hidden (excluded)
 - **other**: fps median 60, typical 1% low 20, worst frame 984 ms · quality 7, res 50% · 406 matches · 2970 s throttled/hidden (excluded)
 ### Release to release
@@ -109,7 +110,8 @@
 | Mac | 126 | 20 | 60 | 60 | 56 | 53 | 300 | 100% | 0.0 | 138 | 220 | 0 | 0.0 |
 | Mac | 127 | 34 | 102 | 60 | 55 | 53 | 300 | 100% | 0.0 | 144 | 300 | 0 | 0.0 |
 | Mac | 128 | 35 | 105 | 60 | 55 | 53 | 284 | 100% | 0.0 | 139 | 277 | 0 | 0.0 |
-| Mac | 129 | 26 | 78 | 60 | 55 | 53 | 300 | 100% | 0.0 | 156 | 477 | 6 | 0.0 |
+| Mac | 129 | 26 | 78 | 60 | 55 | 53 | 300 | 100% | 0.0 | 156 | 477 | 4 | 0.0 |
+| Mac | 130 | 13 | 39 | 60 | 53 | 53 | 150 | 100% | 0.0 | 166 | 140 | 0 | 0.0 |
 | iPhone | 100 | 1 | 3 | 58 | 55 | 47 | 319 | 100% | 0.0 | 46 | 46 | 3 | 0.0 |
 | iPhone | 102 | 1 | 6 | 58 | 55 | 47 | 348 | 100% | 0.0 | 60 | 70 | 2 | 0.0 |
 | iPhone | 107 | 1 | 3 | 58 | 55 | 45 | 325 | 100% | 0.0 | 20 | 99 | 1 | 0.0 |
@@ -132,7 +134,7 @@
 
 ### Regression check (newest build vs previous, per device)
 
-- **REGRESSION** Mac: build 128 -> 129: physics catches/h 277.1 -> 476.8
+- OK Mac: build 129 -> 130 (fps low 53->53, stuck/h 155.9->166.2, phys/h 476.8->140.0)
 - iPhone: build 122 has only 9.0 game-min (need 30) — not judged yet
 - **REGRESSION** other: build 114 -> 118: slow s/h 583.2 -> 3280.1; physics catches/h 356.3 -> 613.6 (focus differs: 29% vs 100% of matches ended focused — slow s/h not comparable)
 
@@ -163,6 +165,7 @@ Portal players leave if the page sits frozen. scriptMs = building the yard, comp
 | Mac | 127 | 2 | 1041 | 1041 | 257 | 145 | 1291 | 2/2 |
 | Mac | 128 | 2 | 823 | 823 | 260 | 133 | 1062 | 2/2 |
 | Mac | 129 | 2 | 923 | 923 | 287 | 180 | 1172 | 2/2 |
+| Mac | 130 | 2 | 1463638 | 1463638 | 718 | 1461997 | 1463659 | 2/2 |
 | iPhone | 100 | 1 | 1418 | 1418 | 289 | 147 | – | 1/1 |
 | iPhone | 102 | 2 | 1580 | 1580 | 347 | 422 | – | 2/2 |
 | iPhone | 104 | 1 | 1422 | 1422 | 347 | 198 | – | 1/1 |
@@ -214,6 +217,7 @@ Build 102+ reloads an autoplaying page whose memory runs away and logs what was 
 | Mac | 127 | 1 | -0.3 |
 | Mac | 128 | 1 | 2.0 |
 | Mac | 129 | 1 | -2.5 |
+| Mac | 130 | 1 | 3.1 |
 | Mac | 65 | 1 | 241.0 |
 | Mac | 66 | 2 | 160.3 |
 | Mac | 67 | 2 | 196.7 |
@@ -249,23 +253,23 @@ Build 102+ reloads an autoplaying page whose memory runs away and logs what was 
 
 ## Stuck hotspots
 
-- (38, -96): 336× · 1865.0 s · combine 62, firetruck 57, bertha 49, mixer 44, tanker 35 · touching: wall, ground, debris
-- (37, -108): 231× · 1338.0 s · combine 72, mixer 33, firetruck 31, bertha 29, forklift 15 · touching: wall, ground, debris
+- (38, -96): 340× · 1884.0 s · combine 63, firetruck 57, bertha 49, mixer 44, tanker 36 · touching: wall, ground, debris
+- (37, -108): 237× · 1375.5 s · combine 76, mixer 33, firetruck 31, bertha 29, tanker 16 · touching: wall, ground, debris
 - (-107, -95): 142× · 943.0 s · tanker 23, bertha 23, forklift 23, mixer 21, combine 12 · touching: wall, ground, debris
-- (24, -13): 120× · 649.5 s · firetruck 31, combine 29, mixer 16, tanker 12, towtruck 6 · touching: ground, wall, debris
-- (1, 36): 122× · 620.0 s · bertha 30, firetruck 19, combine 17, tanker 14, dozer 9 · touching: wall, ground, debris
+- (24, -13): 121× · 653.5 s · firetruck 31, combine 29, mixer 16, tanker 12, towtruck 6 · touching: ground, wall, debris
+- (1, 36): 124× · 634.0 s · bertha 31, firetruck 19, combine 17, tanker 14, dozer 9 · touching: wall, ground, debris
+- (36, -87): 94× · 543.5 s · combine 21, bertha 19, firetruck 17, tanker 6, mixer 6 · touching: ground, debris, bertha
 - (97, -71): 91× · 541.0 s · firetruck 11, combine 10, spider 9, dozer 8, viper 8 · touching: wall, ground, debris
-- (36, -87): 90× · 512.0 s · combine 19, firetruck 17, bertha 17, tanker 6, mixer 6 · touching: ground, debris, bertha
-- (-11, 26): 89× · 498.5 s · combine 23, firetruck 20, mixer 15, tanker 9, towtruck 6 · touching: ground, wall, debris
+- (-11, 26): 91× · 510.5 s · combine 23, firetruck 20, mixer 16, tanker 9, towtruck 6 · touching: ground, wall, debris
 - (98, -61): 80× · 474.0 s · bertha 16, spider 13, firetruck 8, dozer 7, combine 6 · touching: wall, ground, debris
 - (45, -109): 77× · 429.0 s · firetruck 21, dozer 9, combine 8, forklift 8, bertha 7 · touching: ground, prop (metal), debris
-- (44, -95): 74× · 416.5 s · firetruck 19, forklift 10, combine 10, tanker 9, cruiser 5 · touching: ground, wall, combine
-- (-11, 33): 71× · 386.5 s · combine 19, mixer 16, firetruck 10, tanker 9, forklift 4 · touching: wall, ground, debris
-- total 6396 stuck events, 35886.5 s, over 4166.8 game-minutes (92.1 per hour)
+- (44, -95): 75× · 422.5 s · firetruck 19, forklift 10, combine 10, tanker 9, cruiser 5 · touching: ground, wall, combine
+- (47, -86): 74× · 392.0 s · combine 27, firetruck 14, bertha 13, tanker 6, mixer 5 · touching: ground, debris, mixer
+- total 6498 stuck events, 36460.5 s, over 4205.8 game-minutes (92.7 per hour)
 
 ## Cars inside objects
 
-- total 46 cars caught inside an object over 2342.4 game-minutes (1.2 per hour) · listed 46 (the game lists at most 12 per match)
+- total 46 cars caught inside an object over 2381.4 game-minutes (1.2 per hour) · listed 46 (the game lists at most 12 per match)
 - Mac · build 94: 42 over 320.8 game-min (7.9/h, 23 of 103 matches)
 - Mac · build 104: 0 over 143.2 game-min (0.0/h, 0 of 49 matches)
 - Mac · build 105: 0 over 128.7 game-min (0.0/h, 0 of 47 matches)
@@ -283,6 +287,7 @@ Build 102+ reloads an autoplaying page whose memory runs away and logs what was 
 - Mac · build 127: 0 over 102.0 game-min (0.0/h, 0 of 34 matches)
 - Mac · build 128: 0 over 105.0 game-min (0.0/h, 0 of 35 matches)
 - Mac · build 129: 0 over 77.8 game-min (0.0/h, 0 of 26 matches)
+- Mac · build 130: 0 over 39.0 game-min (0.0/h, 0 of 13 matches)
 - iPhone · build 100: 0 over 2.6 game-min (0.0/h, 0 of 1 matches)
 - iPhone · build 102: 0 over 6.0 game-min (0.0/h, 0 of 1 matches)
 - iPhone · build 107: 0 over 3.0 game-min (0.0/h, 0 of 1 matches)
@@ -301,65 +306,66 @@ Build 102+ reloads an autoplaying page whose memory runs away and logs what was 
 
 ## Physics safety-net catches
 
-- totals (full census): blowups 24347, fixes 7056034, clamps 185885, undos 21600, escapes 41, launches 131, rescues 13, below 27, nan 0 · safety-net work: fixes 7056034 (101604/h), clamps 185885 (2677/h) · kinds (census): solver kick undone 21600, blow-up clamped 2747, escaped the arena, put back 41, fell through floor, lifted back 13
-- by vehicle (listed catches only — the game lists at most 40 per match, so this is a capped sample): Outrider 4215, Sandflea 2400, bull 1684, Tow Truck 1610, Viper 1546, Forklift 1504, Cruiser 1348, Hellbender 1262 · listed kinds: solver kick undone 16588, blow-up clamped 2495, escaped the arena, put back 39, fell through floor, lifted back 12
+- totals (full census): blowups 24438, fixes 7129115, clamps 186905, undos 21680, escapes 41, launches 132, rescues 13, below 27, nan 0 · safety-net work: fixes 7129115 (101704/h), clamps 186905 (2666/h) · kinds (census): solver kick undone 21680, blow-up clamped 2758, escaped the arena, put back 41, fell through floor, lifted back 13
+- by vehicle (listed catches only — the game lists at most 40 per match, so this is a capped sample): Outrider 4241, Sandflea 2419, bull 1689, Tow Truck 1615, Viper 1549, Forklift 1521, Cruiser 1353, Hellbender 1267 · listed kinds: solver kick undone 16668, blow-up clamped 2506, escaped the arena, put back 39, fell through floor, lifted back 12
 
-- by vehicle × kind (listed catches only): Outrider: solver kick undone 3628, blow-up clamped 584, escaped the arena, put back 3; Sandflea: solver kick undone 1588, blow-up clamped 809, escaped the arena, put back 2, fell through floor, lifted back 1; bull: solver kick undone 1676, blow-up clamped 8; Tow Truck: solver kick undone 1593, blow-up clamped 10, escaped the arena, put back 4, fell through floor, lifted back 3; Viper: solver kick undone 1166, blow-up clamped 376, fell through floor, lifted back 2, escaped the arena, put back 2; Forklift: solver kick undone 1334, blow-up clamped 170; Cruiser: solver kick undone 1227, blow-up clamped 120, fell through floor, lifted back 1; Hellbender: solver kick undone 1237, blow-up clamped 15, escaped the arena, put back 6, fell through floor, lifted back 4
-- catch locations (listed catches with a position, same 12 m grid as stuck — do the two maps agree?): (98, 92): 675× · solver kick undone 674, fell through floor, lifted back 1; (98, 87): 572× · solver kick undone 570, fell through floor, lifted back 2; (108, -60): 426× · solver kick undone 426; (1, 36): 297× · solver kick undone 297; (116, -71): 279× · solver kick undone 279; (84, -60): 258× · solver kick undone 257, fell through floor, lifted back 1; (83, -71): 250× · solver kick undone 250; (95, -58): 246× · solver kick undone 246
+- by vehicle × kind (listed catches only): Outrider: solver kick undone 3654, blow-up clamped 584, escaped the arena, put back 3; Sandflea: solver kick undone 1606, blow-up clamped 810, escaped the arena, put back 2, fell through floor, lifted back 1; bull: solver kick undone 1681, blow-up clamped 8; Tow Truck: solver kick undone 1598, blow-up clamped 10, escaped the arena, put back 4, fell through floor, lifted back 3; Viper: solver kick undone 1169, blow-up clamped 376, fell through floor, lifted back 2, escaped the arena, put back 2; Forklift: solver kick undone 1344, blow-up clamped 177; Cruiser: solver kick undone 1232, blow-up clamped 120, fell through floor, lifted back 1; Hellbender: solver kick undone 1242, blow-up clamped 15, escaped the arena, put back 6, fell through floor, lifted back 4
+- catch locations (listed catches with a position, same 12 m grid as stuck — do the two maps agree?): (98, 92): 676× · solver kick undone 675, fell through floor, lifted back 1; (98, 87): 572× · solver kick undone 570, fell through floor, lifted back 2; (108, -60): 426× · solver kick undone 426; (1, 36): 297× · solver kick undone 297; (116, -71): 279× · solver kick undone 279; (84, -60): 258× · solver kick undone 257, fell through floor, lifted back 1; (83, -71): 250× · solver kick undone 250; (95, -58): 246× · solver kick undone 246
 ## Balance (all real matches)
 
 | vehicle | lives | kills | deaths | K/D | dmg/life | taken/life | avg life s | fires |
 |---|---|---|---|---|---|---|---|---|
-| bertha | 2447 | 4015 | 1599 | 2.51 | 282 | 85 | 56 | 9226 |
-| dozer | 2726 | 4741 | 1992 | 2.38 | 130 | 89 | 46 | 14521 |
-| combine | 2731 | 2857 | 1889 | 1.51 | 85 | 83 | 49 | 5238 |
-| tanker | 2937 | 2167 | 2279 | 0.95 | 41 | 91 | 37 | 3090 |
-| mixer | 2897 | 1901 | 2120 | 0.9 | 48 | 87 | 43 | 4958 |
-| spider | 1348 | 944 | 1091 | 0.87 | 52 | 82 | 33 | 5192 |
-| hellbender | 3103 | 2025 | 2630 | 0.77 | 112 | 96 | 31 | 150700 |
-| towtruck | 3105 | 1740 | 2515 | 0.69 | 31 | 93 | 34 | 6052 |
-| forklift | 3094 | 1706 | 2470 | 0.69 | 30 | 92 | 36 | 4052 |
-| firetruck | 2990 | 1442 | 2233 | 0.65 | 39 | 88 | 43 | 10163 |
-| cruiser | 3244 | 1557 | 2803 | 0.56 | 60 | 95 | 26 | 20186 |
-| outrider | 3574 | 1080 | 3182 | 0.34 | 40 | 96 | 21 | 14258 |
-| camper | 3425 | 992 | 3025 | 0.33 | 26 | 96 | 21 | 5675 |
-| tiger | 1646 | 385 | 1468 | 0.26 | 216 | 92 | 32 | 11448 |
-| sandflea | 3589 | 797 | 3298 | 0.24 | 44 | 98 | 16 | 4147 |
-| viper | 3659 | 787 | 3262 | 0.24 | 37 | 97 | 23 | 9068 |
+| bertha | 2470 | 4037 | 1612 | 2.5 | 281 | 84 | 56 | 9298 |
+| dozer | 2750 | 4782 | 2011 | 2.38 | 130 | 89 | 46 | 14653 |
+| combine | 2760 | 2878 | 1911 | 1.51 | 84 | 83 | 49 | 5286 |
+| tanker | 2967 | 2179 | 2304 | 0.95 | 41 | 91 | 37 | 3117 |
+| spider | 1376 | 994 | 1112 | 0.89 | 54 | 83 | 34 | 5357 |
+| mixer | 2922 | 1911 | 2138 | 0.89 | 48 | 87 | 43 | 5007 |
+| hellbender | 3133 | 2041 | 2656 | 0.77 | 112 | 96 | 31 | 152245 |
+| towtruck | 3135 | 1755 | 2542 | 0.69 | 31 | 93 | 34 | 6133 |
+| forklift | 3120 | 1716 | 2491 | 0.69 | 30 | 92 | 36 | 4072 |
+| firetruck | 3014 | 1459 | 2251 | 0.65 | 39 | 88 | 43 | 10263 |
+| cruiser | 3271 | 1570 | 2825 | 0.56 | 60 | 95 | 26 | 20349 |
+| outrider | 3607 | 1089 | 3210 | 0.34 | 39 | 96 | 21 | 14389 |
+| camper | 3453 | 1000 | 3049 | 0.33 | 26 | 96 | 21 | 5723 |
+| tiger | 1662 | 390 | 1482 | 0.26 | 216 | 92 | 32 | 11546 |
+| sandflea | 3619 | 809 | 3327 | 0.24 | 44 | 98 | 16 | 4187 |
+| viper | 3688 | 793 | 3287 | 0.24 | 37 | 97 | 23 | 9138 |
 
-## Matchups (build 129): who wrecks whom
+## Matchups (build 130): who wrecks whom
 
-- spider wrecked outrider: 16× · 849 damage
-- spider wrecked viper: 11× · 697 damage
-- spider wrecked forklift: 9× · 723 damage
-- spider wrecked dozer: 9× · 635 damage
-- spider wrecked hellbender: 8× · 658 damage
-- spider wrecked towtruck: 8× · 597 damage
-- bertha wrecked cruiser: 8× · 839 damage
-- dozer wrecked hellbender: 7× · 583 damage
-- dozer wrecked combine: 7× · 402 damage
-- combine wrecked sandflea: 7× · 430 damage
-- bertha wrecked outrider: 6× · 1043 damage
-- dozer wrecked firetruck: 6× · 577 damage
-- hellbender wrecked dozer: 6× · 397 damage
-- combine wrecked viper: 6× · 381 damage
-- dozer wrecked camper: 6× · 413 damage
+- dozer wrecked tanker: 7× · 267 damage
+- spider wrecked outrider: 6× · 356 damage
+- spider wrecked tanker: 5× · 165 damage
+- combine wrecked hellbender: 5× · 409 damage
+- spider wrecked combine: 5× · 354 damage
+- spider wrecked forklift: 5× · 466 damage
+- spider wrecked cruiser: 5× · 436 damage
+- spider wrecked hellbender: 5× · 187 damage
+- dozer wrecked bertha: 5× · 339 damage
+- hellbender wrecked outrider: 5× · 556 damage
+- spider wrecked viper: 5× · 354 damage
+- dozer wrecked viper: 4× · 394 damage
+- firetruck wrecked cruiser: 4× · 182 damage
+- towtruck wrecked hellbender: 4× (1 dragged into a hazard) · 115 damage
+- bertha wrecked sandflea: 4× · 276 damage
 
-## Voice variety (build 129, 26 matches)
+## Voice variety (build 130, 13 matches)
 
-- 478 lines heard; 0% were repeats within the same match, 42% repeats of a line already heard this session
-- per character (lines heard / distinct): Kwaku Anansi 55/55, Big Bertha 37/37, Emeka Danfo 34/34, King Arthur 33/33, Papa Jacques 33/33, Sheriff Buck 33/33, Uncle Bogdan 32/32, Dom 31/31, Ragnar Rustbeard 30/30, Captain McCaffrey 28/28, Maxine MacTavish 27/27, Bulldozer Bob 27/27, Cletus 20/20, Tony Cement 20/20, Jesse 13/13, Oberst Klaus 11/11
+- 235 lines heard; 0% were repeats within the same match, 31% repeats of a line already heard this session
+- per character (lines heard / distinct): Maxine MacTavish 22/22, Kwaku Anansi 22/22, Big Bertha 21/21, Papa Jacques 21/21, Ragnar Rustbeard 20/20, Cletus 18/18, Uncle Bogdan 16/16, Bulldozer Bob 16/16, Emeka Danfo 14/14, King Arthur 12/12, Captain McCaffrey 12/12, Tony Cement 10/10, Dom 10/10, Sheriff Buck 6/6, Mr. White 6/6, Oberst Klaus 4/4
 
 ## Voices, errors, network
 
 - Android: voice failures 0 over 1 matches · lines sent 26, started 19, errors 7
-- Mac: voice failures 377 over 970 matches · lines sent 48, started 32, errors 7
+- Mac: voice failures 377 over 983 matches · lines sent 48, started 32, errors 7
 - iPhone: voice failures 0 over 6 matches · lines sent 24, started 24, errors 0
 - other: voice failures 22 over 409 matches · lines sent 1, started 0, errors 1 (engine never started)
 ### Recorded voices vs computer voice (per device and build)
 
 | device | build | matches | lines | recorded clips | computer voice | no sound | top fallback reasons | audio not running | music | audio session |
 |---|---|---|---|---|---|---|---|---|---|---|
+| Mac | 130 | 13 | 0 | – | – | – | – | 0% | playing 0% · blocked: sound off 1170 | – |
 | Mac | 129 | 26 | 34 | 79% | 21% | 0% | noClip 7 | 0% | playing 7% · blocked: sound off 2164 | – |
 | Mac | 128 | 35 | 0 | – | – | – | – | 0% | playing 0% · blocked: sound off 3150 | – |
 | Mac | 127 | 34 | 0 | – | – | – | – | 0% | playing 0% · blocked: sound off 3061 | – |
@@ -370,17 +376,17 @@ Build 102+ reloads an autoplaying page whose memory runs away and logs what was 
 | iPhone | 122 | 1 | 57 | 100% | 0% | 0% | – | 0% | playing 100% | playback |
 | other | 118 | 28 | 0 | – | – | – | – | 100% | playing 0% · blocked: audio suspended 2971 | – |
 
-- errors & incidents (in and out of matches): 38× voice: voices: # recorded clips loaded (# voices); 7× voice: voices: stuck - # lines asked for, engine busy # s and none started (last voice default, # voices, spea; 2× #:#:# Uncaught TypeError: Cannot read properties of undefined (reading 'isReady') @three.module.js:#; 2× voice: voices: stuck - still busy # s after the tab came back from # s in the background (last voice default, ; 1× voice: voices: stuck - # lines asked for and not one reported back, engine idle (last voice default, # voices,
+- errors & incidents (in and out of matches): 39× voice: voices: # recorded clips loaded (# voices); 7× voice: voices: stuck - # lines asked for, engine busy # s and none started (last voice default, # voices, spea; 2× #:#:# Uncaught TypeError: Cannot read properties of undefined (reading 'isReady') @three.module.js:#; 2× voice: voices: stuck - still busy # s after the tab came back from # s in the background (last voice default, ; 1× voice: voices: stuck - # lines asked for and not one reported back, engine idle (last voice default, # voices,
 - network incidents: 60
 
 ## Autoplay
 
-- 1360 matches, 3961.8 game-minutes · endings: autoplay round done 1292, autoplay stopped 41, page closed mid-match 12, checkpoint: every # min 9, lost mid-match (crash, or the tab was ki 4, checkpoint: voice failure 1, checkpoint: physics: solver kick undone 1
+- 1373 matches, 4000.8 game-minutes · endings: autoplay round done 1305, autoplay stopped 41, page closed mid-match 12, checkpoint: every # min 9, lost mid-match (crash, or the tab was ki 5, checkpoint: voice failure 1
 - 14 autoplay matches spent time hidden (stats from those stretches are excluded from build 67)
 
 ### Autoplay health
 
-- **Mac** autoplay health: 68 sessions · ended: clean 5, vanished 6, no word yet (still running, or not reloaded since) 55, not reloaded yet, last gasp hidden 2 · wake lock: acquired 15, denied 0, released by tab hidden 3, by the system 0, by us 2 (asked again 0) · suspends 54 (32085 s asleep or frozen) · hidden 7×, frozen 0×, offline 0× · self-heal reloads 4 (memory 2, refresh 2), rate-limited 0, new game frames from the launcher 0 · launcher frame in its own process 12×, shared 0× · last: refresh reload after 90 min (planned fresh start after 90 min, 30 matches (clears memory the browser doesn't report); geometries 622, heap 214 MB) · last stop: vanished (no lifecycle event: power loss, crash, or the browser/OS killed it · last event: self-heal isolation: launcher · the game frame has its own p), last seen 2026-11-19T21:40:47.607Z
+- **Mac** autoplay health: 70 sessions · ended: clean 5, suspended 1, vanished 7, no word yet (still running, or not reloaded since) 55, not reloaded yet, last gasp hidden 1, not reloaded yet, last gasp pagehide 1 · wake lock: acquired 19, denied 0, released by tab hidden 4, by the system 0, by us 4 (asked again 0) · suspends 64 (39832 s asleep or frozen) · hidden 9×, frozen 0×, offline 1× · self-heal reloads 4 (memory 2, refresh 2), rate-limited 0, new game frames from the launcher 0 · launcher frame in its own process 13×, shared 0× · last: refresh reload after 90 min (planned fresh start after 90 min, 30 matches (clears memory the browser doesn't report); geometries 622, heap 214 MB) · last stop: suspended (tab hidden, then nothing (lid closed, sleep, or the tab discarded)), last seen 2026-11-20T01:31:54.051Z
 - **other** autoplay health: 20 sessions · ended: clean 2, no word yet (still running, or not reloaded since) 17, not reloaded yet, last gasp pagehide 1 · wake lock: acquired 4, denied 0, released by tab hidden 0, by the system 0, by us 0 (asked again 0) · suspends 191 (19940 s asleep or frozen) · hidden 2×, frozen 0×, offline 0× · self-heal reloads 0, rate-limited 0, new game frames from the launcher 0 · last stop: clean (page closed (pagehide)), last seen 2026-11-18T21:18:28.340Z
 
 ## Bug reports
@@ -396,10 +402,6 @@ Build 102+ reloads an autoplaying page whose memory runs away and logs what was 
 
 ## Changes since the previous report
 
-- physics catches up for bull: 1671 → 1684
-- physics catches up for Outrider: 4203 → 4215
-- physics catches up for Cruiser: 1336 → 1348
-- physics catches up for Forklift: 1491 → 1504
-- physics catches up for Viper: 1539 → 1546
-- physics catches up for Sandflea: 2391 → 2400
-- physics catches up for Tanker: 597 → 605
+- new stuck hotspot at (47,-86) ×74
+- physics catches up for Outrider: 4219 → 4241
+- physics catches up for Sandflea: 2403 → 2419
