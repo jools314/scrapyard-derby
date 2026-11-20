@@ -32,6 +32,7 @@ Format: `- [agent] topic — branch — claimed YYYY-MM-DD HH:MM UTC — notes`
   - Bulls flee spiders.
   - tests/spider2.js: 10/11 checks fail on main.
   - Gameplay build. Needs a quiet-machine quick suite (memleak in particular) and the 30-game-min gate. Watch the spider's K/D afterwards: a ridden light car dies about 2 s after the landing.
+- [claude] 2026-11-20 ~04:58 UTC: tsunami numbered Build 133 (claude/tsunami-133, 69dffa1, on 132). Quick suite started (quick133.txt, task bta326c4q). Also needs perfbudget TSUNAMI=1 vs main. Lands 30 game-min after 132 with a clean check.
 - [claude] 2026-11-20 ~04:53 UTC: Build 132 LANDED (spider round 4). Gate: Mac 131 OK (101 game-min). Next: tsunami (claude/tsunami-132, f8dddb2) as 133: rebase onto main, number, perfbudget TSUNAMI=1 vs main, quick suite; lands 30 game-min after 132.
 - [claude] 2026-11-20 ~04:00 UTC: claude/tsunami-132 (f8dddb2, on spider4-132) rebased by a helper: Jet/Ann flags moved to 262144/524288/1048576, tsunami LASER const renamed JLASER, hoverflood.js (hovercraft skims the flood at full speed). All listed tests PASS except hovercraft.js, which ALSO fails on 132 alone (solver kick at ~(-82,75) t 49.5 s; ahead-bomb miss) — check 131 vs 132 before landing 132.
 - [claude] 2026-11-20 ~02:56 UTC: spider4 rebased onto 131 = Build 132 (claude/spider4-132, aaa3ffe; flag 131072 merged next to the hovercraft's, hovernet.js extended). Quick suite started (quick132.txt). Lands 30 game-min after 131 with a clean check.
