@@ -1886,7 +1886,7 @@ function crushNow() {
     const by = c.lastAttacker && simTime - (c.lastAttackTime || -99) < 6 ? c.lastAttacker : null;
     for (let k = 0; k < 6; k++) c.dent(new THREE.Vector3(rand(-c.T.L / 2.5, c.T.L / 2.5), HULL_Y0 + c.T.H + (c.T.cabin ? c.T.cabin.h : 0), rand(-c.T.W / 3, c.T.W / 3)), { x: 0, y: 1, z: 0 }, 22);
     if (!c.wrecked) c.applyDamage(78 * S.damage, by, 'top', new THREE.Vector3(0, c.T.H + 0.8, 0), 25);
-    c.crushedBox = true; c.root.scale.set(c.wrecked ? 0.82 : 0.95, c.wrecked ? 0.42 : 0.68, c.wrecked ? 0.9 : 0.96); // folded down into a scrap bale
+    if (PLAYLOG.m) PLAYLOG.m.crush++; c.crushedBox = true; c.root.scale.set(c.wrecked ? 0.82 : 0.95, c.wrecked ? 0.42 : 0.68, c.wrecked ? 0.9 : 0.96); // folded down into a scrap bale
     if (game.state === 'playing') {
       if (c.isPlayer) toast('YOU GOT CRUSHED!', 'bad'); else if (by && by.isPlayer) { toast(`CRUSHED ${c.name}! +500`); game.addScore(500, null); }
       barks.announce('crusher', { v: c.isPlayer ? 'our hero' : c.name }, true); if (!c.isPlayer) barks.say(c, 'wrecked', true);
@@ -1902,7 +1902,7 @@ function updateCrusher(dt) {
     if (C.state === 'idle') { C.y = Math.min(C.top, C.y + dt * 2.2); if ((C.occ > 0.6 || C.t <= 0) && game.state !== 'menu') { C.state = 'warn'; C.t = 1.3; } }
     else if (C.state === 'warn') { if (C.t <= 0) { C.state = 'slam'; C.jam = false; } }
     else if (C.state === 'slam') { let floorY = C.low; for (const c of cars) if (c.T.skid && crusherInside(c.body.position)) floorY = Math.max(floorY, c.body.position.y + c.T.H + 0.9);
-      C.y = Math.max(floorY, C.y - dt * 26); if (C.y <= floorY + 0.01) { crushNow(); C.state = 'hold'; C.t = 1.2; } }
+      C.y = Math.max(floorY, C.y - dt * 26); if (C.y <= floorY + 0.01) { if (PLAYLOG.m) PLAYLOG.m.slam++; crushNow(); C.state = 'hold'; C.t = 1.2; } }
     else if (C.state === 'hold') { if (C.t <= 0) { C.state = 'idle'; C.t = rand(12, 20); } }
     if (C.state === 'slam' || C.state === 'hold') for (const c of cars) if (crusherInside(c.body.position) && !c.T.skid && c.body.position.y > C.y - 0.6) c.body.velocity.y = Math.min(c.body.velocity.y, -4); // pressed down with velocity, like crushNow (teleporting to y 0.6 put a standing spider, a wreck or a car on a bull ~0.8 m into the floor, and the solver shot it out: Build 129/132 logs)
   }
@@ -12704,7 +12704,7 @@ Object.assign(PLAYLOG, {
     const bs = barks.stats || {};
     this.m = { n: this.n, id: this.sid + '-' + this.n, at: Date.now(), p0: performance.now(), hidden: 0, hidAt: document.hidden ? performance.now() : 0,
       role: AUTO.on ? 'autoplay' : MP.role, mode: GAME_MODE, q0: QUALITY.level, qNow: QUALITY.level, qCh: [], hist: new Uint32Array(400), frames: 0, ftSum: 0, worst: 0,
-      veh: {}, vs: {}, vsD: {}, L: new Map(), weap: {}, me: [], meCur: null, meP: null, stuck: [], stuckN: 0, stuckS: 0, inN: 0, inL: [], launch: 0, launchW: [], below: 0, nan: 0,
+      veh: {}, vs: {}, vsD: {}, L: new Map(), weap: {}, me: [], meCur: null, meP: null, stuck: [], stuckN: 0, stuckS: 0, slam: 0, crush: 0, inN: 0, inL: [], launch: 0, launchW: [], below: 0, nan: 0,
       phys0: { fixes: PHYS.fixes, clamps: PHYS.clamps, blowups: PHYS.blowups }, kinds: {}, physL: [], inc: [], errs: [], errN: 0, voice: [], voiceN: 0, net: [], netN: 0,
       ev: [], evDrop: 0, bark0: { sent: bs.sent || 0, started: bs.started || 0, errors: bs.errors || 0, resets: bs.resets || 0 }, vox: VCLIP.blank(), sampT: 0 };
     this.ev('start', `${this.m.role} ${GAME_MODE} · ${cars.length} cars · q${QUALITY.level}`);
@@ -12748,7 +12748,7 @@ Object.assign(PLAYLOG, {
         if (Math.abs(v.y) > 25) { if (!c.__apL) { c.__apL = 1; m.launch++; const L = { car: c.type, vy: Math.round(v.y), y: Math.round(q.y), x: Math.round(q.x), z: Math.round(q.z), t: Math.round(game.time) }; if (m.launchW.length < 8) m.launchW.push(L); this.ev('launch', `${c.type} vy ${L.vy} at ${L.x},${L.z}`); } } else c.__apL = 0;
         if (q.y < -1) m.below++;
         const st = !c.wrecked && !c.carriedBy && !c.craned && Math.abs(c.ctrl.throttle) > 0.3 && Math.hypot(v.x, v.z) < 1;
-        if (st) { if (!c.__apS) c.__apS = { t: 0, x: Math.round(q.x), z: Math.round(q.z) }; c.__apS.t += 0.5; const wy = this.stuckWhy(c); if (wy) c.__apS.why = wy;
+        if (st) { if (!c.__apS) c.__apS = this.stuckAt(c, q, v); c.__apS.t += 0.5; const wy = this.stuckWhy(c); if (wy) c.__apS.why = wy; if (!c.__apS.as && (c.stuckA || 0) > (c.T.hover ? 1 : 0.7)) c.__apS.as = 1;
           if (c.__apS.t >= 10 && !c.__apS.big) { c.__apS.big = 1; this.ev('stuck', `${c.type}${c === player ? '(you)' : ''} 10 s at ${c.__apS.x},${c.__apS.z}`); this.soon('stuck car'); } }
         else if (c.__apS) this.stuckDone(c);
       }
@@ -12767,9 +12767,15 @@ Object.assign(PLAYLOG, {
     } catch (e) {}
     return undefined;
   },
+  stuckAt(c, q, v) { // a stuck episode opens (sampled twice a second, so once per episode): how the car stood when it stopped moving. Why Build 134's Mac
+    // autoplay had more stuck cars than 133 (more 'ground', more repeats by the same car) was not readable from where + what it touched alone.
+    const t = c.target; return { t: 0, x: Math.round(q.x), z: Math.round(q.z), v0: Math.round(Math.hypot(v.x, v.z) * 10) / 10, up: Math.round(c.up.y * 100) / 100, // speed when it stopped, tilt (up-vector y: 1 = flat, <0.5 = no traction assist)
+      w: (c.contacts | 0) + '/' + (c.nW | 0), ai: c.remote || (c.isPlayer && !AUTO.on) ? undefined : (c.mode || '?') + (c.reverseTimer > 0 ? '/rev' : ''), tg: t ? t.type : undefined }; // wheels touching / wheels, AI plan (/rev = backing out), whom it was after
+  },
+  stuckRec(c, s, x) { return { car: c.type, secs: s.t, x: s.x, z: s.z, me: c === player || undefined, ...x, why: s.why, hp: Math.round(c.health), cb: c.crushedBox ? 1 : 0, ai: s.ai, tg: s.tg, w: s.w, up: s.up, v0: s.v0, as: s.as ? 1 : 0 }; }, // + health, a crushed bale, assist fired
   stuckDone(c) {
     const s = c.__apS, m = this.m; c.__apS = null; if (!s || s.t < 4 || !m) return; m.stuckN++; m.stuckS += s.t;
-    const e = { car: c.type, secs: s.t, x: s.x, z: s.z, me: c === player || undefined, t: Math.round(game.time), why: s.why };
+    const e = this.stuckRec(c, s, { t: Math.round(game.time) });
     if (m.stuck.length < 12) m.stuck.push(e); else { const lo = m.stuck.reduce((a, x, i) => (x.secs < m.stuck[a].secs ? i : a), 0); if (s.t > m.stuck[lo].secs) m.stuck[lo] = e; }
     if (s.t >= 10) this.ev('unstuck', `${c.type} after ${s.t} s`);
   },
@@ -12825,7 +12831,7 @@ Object.assign(PLAYLOG, {
     for (const v of Object.values(veh)) { v.dmg = Math.round(v.dmg); v.taken = Math.round(v.taken); v.life = Math.round(v.life / Math.max(1, v.lives)); }
     const vsD = {}; for (const [k, v] of Object.entries(m.vsD)) if (v >= 1) vsD[k] = Math.round(v);
     const me = m.me.slice(); if (m.meCur) me.push({ car: m.meCur.car, secs: Math.round(simTime - m.meCur.t0), k: m.meCur.k, dmg: Math.round(m.meCur.dmg), alive: true });
-    const stuck = m.stuck.slice(); for (const c of cars) if (c.__apS && c.__apS.t >= 4 && stuck.length < 16) stuck.push({ car: c.type, secs: c.__apS.t, x: c.__apS.x, z: c.__apS.z, me: c === player || undefined, ongoing: true, why: c.__apS.why });
+    const stuck = m.stuck.slice(); for (const c of cars) if (c.__apS && c.__apS.t >= 4 && stuck.length < 16) stuck.push(this.stuckRec(c, c.__apS, { ongoing: true }));
     const causes = {}; for (const x of m.inc) causes[x.why] = r1((causes[x.why] || 0) + x.secs);
     const bs = barks.stats || {}, b0 = m.bark0, K = m.kinds;
     return { v: 2, kind, id: m.id, n: m.n, sid: this.sid, dev: this.devId, build: BUILD, start: new Date(m.at).toISOString(), end: new Date(now).toISOString(), ended,
@@ -12837,7 +12843,7 @@ Object.assign(PLAYLOG, {
       fps: m.frames ? { med: fps(this.pct(m, 0.5)), p5: fps(this.pct(m, 0.95)), low1: fps(this.pct(m, 0.99)), avg: fps(m.ftSum / m.frames), worstMs: Math.round(m.worst), frames: m.frames } : null,
       slow: { n: m.inc.length, secs: r1(m.inc.reduce((a, x) => a + x.secs, 0)), worstMs: m.inc.reduce((a, x) => Math.max(a, x.worst || 0), 0), causes, list: m.inc },
       phys: { fixes: PHYS.fixes - m.phys0.fixes, clamps: PHYS.clamps - m.phys0.clamps, blowups: PHYS.blowups - m.phys0.blowups, kinds: K, rescues: K['fell through floor, lifted back'] || 0, undos: K['solver kick undone'] || 0, escapes: K['escaped the arena, put back'] || 0, launches: m.launch, launchList: m.launchW, below: m.below, nan: m.nan, list: m.physL },
-      stuck: { n: m.stuckN, secs: r1(m.stuckS), list: stuck.sort((a, b) => b.secs - a.secs) },
+      stuck: { n: m.stuckN, secs: r1(m.stuckS), list: stuck.sort((a, b) => b.secs - a.secs) }, crusher: { slam: m.slam, crush: m.crush }, // (presses that came down, cars crushed in them)
       inside: MP.role !== 'guest' ? { n: m.inN || 0, secs: m.inL.reduce((a, x) => a + x.secs, 0), list: m.inL } : undefined, // cars inside objects (the host's record has them)
       veh, me, weap: m.weap,
       vox: VCLIP.recBlock(m.vox), // recorded clips vs computer-voice lines and why, audio context state samples, music (see VCLIP.note)

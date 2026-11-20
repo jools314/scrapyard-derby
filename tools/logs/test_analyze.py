@@ -265,6 +265,32 @@ def main():
     tb = json.load(open(os.path.join(out8, 'trend.json')))['balance'] if r.returncode == 0 else []
     ok({(x['build'], x['vehicle']): (x['kd'], x.get('life'), x['lives'], x['kills'], x['deaths']) for x in tb}.get((133, 'sandflea')) == (0.5, 22, 30, 15, 30), 'A13 trend.json balance rows keep their fields and add avg life per build — got: ' + str(tb))
 
+    # A14: how stuck cars stood — from the build that adds hp/cb/ai/tg/w/up/v0/as to each stuck entry and crusher {slam, crush} to the match,
+    # the stuck section breaks the events down by those fields (old entries without them are left out of the breakdown, and an
+    # all-old archive gets exactly the old section: no breakdown, no crusher line).
+    sec = lambda t: t.split('## Stuck hotspots')[-1].split('\n## ')[0] if '## Stuck hotspots' in t else ''
+    ok('how they stood' not in sec(md) and 'crusher:' not in sec(md), 'A14 old records only: the stuck section has no breakdown and no crusher line — got: ' + sec(md).replace('\n', ' / '))
+    sn = [{'car': 'dozer', 'secs': 8, 'x': 0, 'z': 0, 'why': 'ground', 'hp': 20, 'cb': 0, 'ai': 'hunt/rev', 'tg': 'viper', 'w': '4/4', 'up': 0.99, 'v0': 0.1, 'as': 0},
+          {'car': 'dozer', 'secs': 6, 'x': 60, 'z': 60, 'why': 'ground', 'hp': 50, 'cb': 1, 'ai': 'hunt/rev', 'tg': 'viper', 'w': '0/4', 'up': 0.3, 'v0': 0.6, 'as': 0},
+          {'car': 'viper', 'secs': 5, 'x': -60, 'z': 60, 'why': 'wall', 'hp': 90, 'cb': 0, 'w': '2/4', 'up': 0.7, 'v0': 0, 'as': 1, 'me': True}]
+    m5 = dict(MATCH, id='m5', build='135', game=1200, start='2026-11-20T20:00:00.000Z', stuck={'n': 3, 'secs': 19, 'list': sn}, crusher={'slam': 10, 'crush': 4})
+    arch9 = tempfile.mkdtemp(prefix='sd-arch-'); out9 = tempfile.mkdtemp(prefix='sd-out-')
+    with open(os.path.join(arch9, 'fixture-playlog.txt'), 'w') as f:
+        for x in [SESSION, MATCH, m5]: f.write(json.dumps(x) + '\n')
+    r = subprocess.run([sys.executable, os.path.join(HERE, 'analyze.py'), arch9, out9], capture_output=True, text=True)
+    s9 = sec(open(os.path.join(out9, 'report-latest.md')).read()) if r.returncode == 0 else ''
+    print('     ' + s9.strip().replace('\n', '\n     '))
+    ok('- how they stood (3 of 5 events carry it):' in s9, 'A14 breakdown counts only the entries that carry the new fields ' + r.stderr[-300:])
+    ok('traction assist fired: no 2, yes 1' in s9, 'A14 assist fired yes/no')
+    ok('wheels: all wheels down 1, airborne 1, some wheels down 1' in s9, 'A14 wheels touching: all / none / some')
+    ok('tilt: flat (up>0.9) 1, on its side/roof (<=0.5, no assist) 1, tilted (0.5-0.9) 1' in s9, 'A14 tilt buckets')
+    ok('speed when it stopped: stopped (<0.3) 2, creeping (0.3-1) 1' in s9, 'A14 speed-at-start buckets')
+    ok('health: <35 1, 35-70 1, 70+ 1 · crushed bale: 1' in s9, 'A14 health buckets and crushed bales')
+    ok('AI plan: hunt/rev 2 · after: viper 2' in s9, 'A14 AI plan and target (the player entry without ai is left out)')
+    ok('crusher: 10 slams, 4 cars crushed over 20.0 game-minutes (30.0 / 12.0 per hour)' in s9, 'A14 crusher slams and crushes per hour over the matches that record them')
+    j9 = json.load(open(os.path.join(out9, 'report-latest.json'))) if r.returncode == 0 else {}
+    ok(j9.get('stuckHow') == {'n': 3, 'assist': 1, 'grounded': 2, 'crushed': 1}, 'A14 report-latest.json carries stuckHow — got: ' + str(j9.get('stuckHow')))
+
     print('FAILED ' + str(len(fails)) if fails else 'ALL PASS')
     return 1 if fails else 0
 

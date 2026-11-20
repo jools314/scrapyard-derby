@@ -185,7 +185,33 @@ for (gx, gz), xs in hot[:12]:
     L.append(f'- ({cx}, {cz}): {len(xs)}× · {secs} s · ' + ', '.join(f'{k} {n}' for k, n in vc.most_common(5)) + (f' · touching: {", ".join(k for k, _ in why.most_common(3))}' if why else ''))
     J['stuck'][f'{cx},{cz}'] = len(xs)
 if not st: L.append('- none')
-L.append(f'- total {len(st)} stuck events, {round(sum(s.get("secs", 0) for s in st), 1)} s, over {mins(real)} game-minutes ({round(len(st) / max(0.1, mins(real)) * 60, 1)} per hour)\n')
+L.append(f'- total {len(st)} stuck events, {round(sum(s.get("secs", 0) for s in st), 1)} s, over {mins(real)} game-minutes ({round(len(st) / max(0.1, mins(real)) * 60, 1)} per hour)')
+# how the car stood (records from the build that added hp/cb/ai/tg/w/up/v0/as to each stuck entry; older entries don't have them and are left out here)
+sd = [s for s in st if 'hp' in s]
+if sd:
+    def cnt(f): return ', '.join(f'{k} {n}' for k, n in collections.Counter(f(s) for s in sd).most_common(6))
+    def grd(s):
+        w = str(s.get('w') or '?/?').split('/'); g = int(w[0]) if w[0].isdigit() else -1; n = int(w[1]) if w[1].isdigit() else 0
+        return '?' if g < 0 else 'airborne' if g == 0 else 'all wheels down' if g >= n else 'some wheels down'
+    def tilt(s): u = s.get('up'); return '?' if not isinstance(u, (int, float)) else 'flat (up>0.9)' if u > 0.9 else 'tilted (0.5-0.9)' if u > 0.5 else 'on its side/roof (<=0.5, no assist)'
+    def hpb(s): h = s.get('hp', 0); return 'wrecked/0' if h <= 0 else '<35' if h < 35 else '35-70' if h < 70 else '70+'
+    def v0b(s): v = s.get('v0'); return '?' if not isinstance(v, (int, float)) else 'stopped (<0.3)' if v < 0.3 else 'creeping (0.3-1)'
+    ai = [s for s in sd if s.get('ai')]
+    L.append(f'- how they stood ({len(sd)} of {len(st)} events carry it):')
+    L.append('  - traction assist fired: ' + cnt(lambda s: 'yes' if s.get('as') else 'no'))
+    L.append('  - wheels: ' + cnt(grd))
+    L.append('  - tilt: ' + cnt(tilt))
+    L.append('  - speed when it stopped: ' + cnt(v0b))
+    L.append('  - health: ' + cnt(hpb) + ' · crushed bale: ' + str(sum(1 for s in sd if s.get('cb'))))
+    if ai:
+        L.append('  - AI plan: ' + ', '.join(f'{k} {n}' for k, n in collections.Counter(s['ai'] for s in ai).most_common(6)) + ' · after: ' + ', '.join(f'{k} {n}' for k, n in collections.Counter(s.get('tg') or 'nobody' for s in ai).most_common(5)))
+    J['stuckHow'] = {'n': len(sd), 'assist': sum(1 for s in sd if s.get('as')), 'grounded': sum(1 for s in sd if grd(s) != 'airborne'), 'crushed': sum(1 for s in sd if s.get('cb'))}
+cr = [m['crusher'] for m in real if isinstance(m.get('crusher'), dict)]
+if cr:
+    cm = mins([m for m in real if isinstance(m.get('crusher'), dict)])
+    sl = sum(c.get('slam', 0) for c in cr); cu = sum(c.get('crush', 0) for c in cr)
+    L.append(f'- crusher: {sl} slams, {cu} cars crushed over {cm} game-minutes ({round(sl / max(0.1, cm) * 60, 1)} / {round(cu / max(0.1, cm) * 60, 1)} per hour)')
+L.append('')
 # --- cars inside objects (recorded from the build that added the detector: host/solo/autoplay records only)
 L.append('## Cars inside objects\n')
 IM = [m for m in real if isinstance(m.get('inside'), dict)]
