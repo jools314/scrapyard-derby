@@ -50,10 +50,10 @@ const { open } = require('./harness');
     out.dmg = ais.map((c, i) => +(h0[i] - c.health).toFixed(1)); out.wrecked = ais.filter((c) => c.wrecked).length; out.tlog = D.TSU.log.slice();
     await wt(1); D.TSU.at = 0; await wt(1); out.onceOnly = D.TSU.state === 'idle'; out.next = +(D.TSU.next - D.game.time).toFixed(0); // (it has been: not straight back)
     // three restarts, each with a (short) tsunami: nothing piles up
-    const mem = [];
+    const mem = []; // ("other" leaves out Big Bertha's boulders: up to 10 live a match past a lineup with a Bertha, by design; a random lineup made it +5/+10 at restart 3)
     for (let k = 0; k < 4; k++) { D.game.state = 'menu'; D.startMatch(); while (!(D.game.state === 'playing' && D.game.countdown <= 0)) await sleep(100);
       D.TSU.FLOOD = 3; D.startTsunami(true); await until(() => D.TSU.state === 'flood', 30); await until(() => D.TSU.state === 'idle', 30); await wt(0.5);
-      const mi = D.renderer.info.memory, deb = new Set(D.debris.map((d) => d.body)); mem.push({ geo: mi.geometries, tex: mi.textures, other: D.world.bodies.filter((b) => !b.prop && !b.car && !deb.has(b) && !b.bull).length, hulks: D.TSU.hulks.length, ghosts: D.TSU.ghosts.length, floaters: D.TSU.floaters.size, cars: D.cars.length, carBodies: D.world.bodies.filter((b) => b.car).length }); }
+      const mi = D.renderer.info.memory, deb = new Set(D.debris.map((d) => d.body)); mem.push({ geo: mi.geometries, tex: mi.textures, other: D.world.bodies.filter((b) => !b.prop && !b.car && !deb.has(b) && !b.bull && !b.boulder).length, hulks: D.TSU.hulks.length, ghosts: D.TSU.ghosts.length, floaters: D.TSU.floaters.size, cars: D.cars.length, carBodies: D.world.bodies.filter((b) => b.car).length }); }
     D.TSU.FLOOD = 34; out.mem = mem;
     return out; });
   console.log(JSON.stringify(r));
