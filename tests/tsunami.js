@@ -10,6 +10,11 @@
 //  - perf at the lowest quality (q7, 8 opponents, damage off so nothing piles up between the two windows): the water itself at most 2 draw calls; the whole frame's draw calls during the flood within +10% of the same match before it, the flood's own physics under 0.5 ms a step, contacts within 1.6x + 25 and awake bodies +30,
 //    and a loose wall-clock guard (3x + 2 ms a step: timing on a shared machine swings with other jobs). Frame time is printed, by eye only.
 // Hooks: __derby.startTsunami(fast) forces one (fast = 2 s warning), ?tsunami=N in the URL schedules one at N s.
+// Controlled, so it can gate (a random lineup on random spawns failed it about 1 run in 2): a fixed lineup, every AI parked (no brain) on open
+// floor picked by the same rules each run (wet, nothing within 6 m, well clear of the geysers, boost pads, fire pit, crusher, mud, the puddles,
+// the lit crate and the lane the player drives), the bulls held in a corner, and the burning car (a Tiger: a burning Camper or Tanker blows up
+// by design) measured on its own once the water has put it out. The q7 window uses the same controls with a Jet in the lineup, so Ann's launch
+// and the empty truck are in the numbers; with live AI the match itself (the Camper's junk, fights) moved contacts 12 -> 71 and draws +20%.
 const { open } = require('./harness');
 (async () => {
   const fails = [], ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (!c) fails.push(m); };
@@ -17,37 +22,49 @@ const { open } = require('./harness');
   const r = await page.evaluate(async () => { window.__noRender = true; const D = __derby, sleep = (ms) => new Promise((r) => setTimeout(r, ms)), out = {};
     const wt = async (s) => { const t0 = D.game.time, w0 = performance.now(); while (D.game.time - t0 < s && performance.now() - w0 < 400000) await sleep(30); };
     const until = async (f, s) => { const t0 = D.game.time, w0 = performance.now(); while (!f() && D.game.time - t0 < s && performance.now() - w0 < 600000) await sleep(30); return f(); };
+    // parking: open, wet floor (nothing within 6 m, clear of every hazard in avoid [x, z, r]), each spot >= sep from the others, scanned in a fixed order
+    const spots = window.__tsuSpots = (n, avoid, sep) => { const C = D.CANNON, rr = new C.RaycastResult(), A = D.ARENA, res = [], far = (x, z, q) => q.every((a) => Math.hypot(x - a[0], z - a[1]) >= a[2]);
+      const haz = [...A.geysers.map((g) => [g.x, g.z, 14]), ...A.boost.map((b) => [b.x, b.z, 12]), ...A.mud.map((m) => [m.x, m.z, m.r + 6]), [(A.firePit.x0 + A.firePit.x1) / 2, A.firePit.z, 16], [-112, -95, 16], [-130, -124, 30], ...avoid];
+      for (let z = -112; z <= 112 && res.length < n; z += 8) for (let x = -112; x <= 112 && res.length < n; x += 8) { if (!far(x, z, haz) || !far(x, z, res.map((r) => [r[0], r[1], sep])) || !D.spawnFree(x, z, 6)) continue;
+        rr.reset(); D.world.raycastClosest(new C.Vec3(x, 40, z), new C.Vec3(x, -1, z), { collisionFilterMask: ~(2 | 4) }, rr); if (rr.hasHit && rr.hitPointWorld.y > 0.3) continue; res.push([x, z]); }
+      return res; };
+    const park = window.__tsuPark = (c, [x, z]) => { const b = c.body; b.position.set(x, 1.6, z); b.quaternion.setFromEuler(0, 0, 0); b.velocity.set(0, 0, 0); b.angularVelocity.set(0, 0, 0); c.health = 100; };
+    const freeze = window.__tsuFreeze = () => { for (const c of D.cars) if (c !== D.player && !c.parked) { c.parked = true; c.think = () => { c.ctrl.throttle = 0; c.ctrl.steer = 0; c.ctrl.fire = false; c.ctrl.handbrake = true; c.ctrl.nitro = false; }; } };
     D.S.aiCount = 4; D.S.autoGfx = false; D.selectCar('outrider'); document.getElementById('btnStart').click();
     while (!(D.game.state === 'playing' && D.game.countdown <= 0)) await sleep(100);
-    for (const bl of D.BULLS) bl.body.position.set(-130, 1.3, -130 + bl.id * 4);
-    for (const c of D.cars.filter((c) => c !== D.player && c.T.jet)) D.respawnCar(c, 'viper'); // (an AI Jet would launch Ann, a new car with a live brain: this part is about the water alone)
-    const ais = D.cars.filter((c) => c !== D.player); for (const c of ais) { c.think = () => { c.ctrl.throttle = 0; c.ctrl.steer = 0; c.ctrl.fire = false; c.ctrl.handbrake = true; }; }
+    const bulls = D.BULLS.splice(0); for (const bl of bulls) { bl.body.position.set(-130, 1.3, -130 + bl.id * 4); bl.body.velocity.set(0, 0, 0); } // (held in the corner, out of the update until the restarts: a bull charging a parked car isn't the water)
+    const LINE = ['tiger', 'spider', 'camper', 'viper']; D.cars.filter((c) => c !== D.player).forEach((c, i) => D.respawnCar(c, LINE[i])); // (the burner first; no Jet here: an AI Jet launches Ann, and this part is about the water alone)
+    const ais = D.cars.filter((c) => c !== D.player); freeze(); out.lineup = ais.map((c) => c.type);
+    const crate = D.props.filter((p) => p.kind === 'wood' && p.body.mass < 150).sort((a, b) => Math.hypot(a.body.position.x - 60, a.body.position.z - 20) - Math.hypot(b.body.position.x - 60, b.body.position.z - 20))[0]; // (the same crate each run)
+    const lane = [-60, -45, -30, -15, 0].map((x) => [x, 75, 16]), sp = spots(4, [...lane, [-20, 20, 14], [30, -30, 14], ...(crate ? [[crate.body.position.x, crate.body.position.z, 16]] : [])], 32);
+    out.spots = sp; ais.forEach((c, i) => park(c, sp[i])); await wt(1);
     out.never = D.TSU.state === 'idle' && D.TSU.level === 0;
     // dry-land speed: full throttle on the open south lane for 3 s
     const P = D.player, place = async (x, z) => { const b = D.player.body; b.position.set(x, 1.6, z); b.quaternion.setFromEuler(0, 0, 0); b.velocity.set(0, 0, 0); b.angularVelocity.set(0, 0, 0); D.player.health = 100; await wt(0.8); };
     const run = async (s) => { const key = (d) => window.dispatchEvent(new KeyboardEvent(d ? 'keydown' : 'keyup', { code: 'KeyW', key: 'w' })); const p0 = D.player.body.position.clone(); key(true); await wt(s); key(false); const p1 = D.player.body.position; return Math.hypot(p1.x - p0.x, p1.z - p0.z) / s; };
     await place(-60, 75); out.vLand = +(await run(3)).toFixed(1);
     // things on fire before the wave: a car, a fuel puddle, a crate
-    const burner = ais[0]; burner.body.position.set(110, 1.6, -40); D.setCarAlight(burner, null); out.burnBefore = burner.burnT > 0;
+    const burner = ais[0], parked = ais.slice(1); burner.health = 100; D.setCarAlight(burner, null); out.burnBefore = burner.burnT > 0;
     D.addConcrete(-20, 20, 3, 'fuel'); const pud = D.CONCRETE.list[D.CONCRETE.list.length - 1]; pud.burning = 30; pud.t = 60;
-    const crate = D.props.find((p) => p.kind === 'wood' && p.body.mass < 150); if (crate) { D.wakeProp(crate); D.igniteProp(crate, 60); } out.crateLit = !!(crate && crate.fireT > 0);
+    if (crate) { D.wakeProp(crate); D.igniteProp(crate, 60); } out.crateLit = !!(crate && crate.fireT > 0);
     D.addConcrete(30, -30, 3, 'oil'); const oil = D.CONCRETE.list[D.CONCRETE.list.length - 1]; oil.t = 60;
-    const blow0 = D.PHYS.blowups; let h0 = null;
+    const blow0 = D.PHYS.blowups, h0 = parked.map((c) => c.health); out.hits = []; for (const c of parked) { const ad = c.applyDamage.bind(c); c.applyDamage = (d, by, zone, model, dv) => { if (d > 0.3 && out.hits.length < 12) out.hits.push([D.TSU.state, c.type, +d.toFixed(1), by ? by.type : c._hitWhat || (c.onFire ? 'fire' : '-'), zone, +(dv || 0).toFixed(1), Math.round(c.body.position.x), +c.body.position.y.toFixed(1), Math.round(c.body.position.z)]); return ad(d, by, zone, model, dv); }; } // (from the warning on: the wave arriving counts too)
     out.started = D.startTsunami(true); out.again = D.startTsunami(true) === false; // (at most one at a time)
     out.warnSeen = D.TSU.state === 'warn';
-    await until(() => D.TSU.state === 'flood', 30); h0 = ais.map((c) => c.health); out.hits = []; for (const c of ais) { const ad = c.applyDamage.bind(c); c.applyDamage = (d, by, zone, model, dv) => { if (d > 0.3 && out.hits.length < 12) out.hits.push([c.type, +d.toFixed(1), by ? by.type : c._hitWhat || (c.onFire ? 'fire' : '-'), zone, +(dv || 0).toFixed(1), Math.round(c.body.position.x), +c.body.position.y.toFixed(1), Math.round(c.body.position.z)]); return ad(d, by, zone, model, dv); }; } out.flood = D.TSU.state === 'flood'; out.level = +D.TSU.level.toFixed(2);
+    await until(() => D.TSU.state === 'flood', 30); out.flood = D.TSU.state === 'flood'; out.level = +D.TSU.level.toFixed(2);
     // how much of the yard is under water: the floor (raycast, scenery only) under the water line
     { const C = D.CANNON, rr = new C.RaycastResult(); let wet = 0, dry = 0;
       for (let x = -146; x <= 146; x += 4) for (let z = -146; z <= 146; z += 4) { rr.reset(); D.world.raycastClosest(new C.Vec3(x, 40, z), new C.Vec3(x, -1, z), { collisionFilterMask: ~(2 | 4) }, rr); const y = rr.hasHit ? rr.hitPointWorld.y : 0; if (D.waterAt(x, z) > y + 0.1) wet++; else dry++; }
       out.wetFrac = +(wet / (wet + dry)).toFixed(3); out.dryFrac = +(dry / (wet + dry)).toFixed(3); }
     await wt(1.5);
-    out.burnAfter = burner.burnT > 0; out.pudBurning = pud.burning > 0; out.crateAfter = !!(crate && crate.fireT > 0); out.oilGone = oil.t <= 2.6 || !D.CONCRETE.list.includes(oil);
+    out.burnAfter = burner.burnT > 0; const hB = burner.health; out.parkedK = parked.map((c) => +(c.floodK || 0).toFixed(2)); /* (they are in the water, so the check below means something) */ out.pudBurning = pud.burning > 0; out.crateAfter = !!(crate && crate.fireT > 0); out.oilGone = oil.t <= 2.6 || !D.CONCRETE.list.includes(oil);
     await place(-60, 75); out.vWater = +(await run(3)).toFixed(1); out.floodK = +(D.player.floodK || 0).toFixed(2);
     out.upright = D.cars.every((c) => c.up.y > 0.5); out.ups = D.cars.map((c) => +c.up.y.toFixed(2));
     await until(() => D.TSU.state === 'drain', 60); out.drainSeen = D.TSU.state === 'drain';
     out.blowFlood = D.PHYS.blowups - blow0; out.blowLog = D.PHYS.log.slice(-4);
     await until(() => D.TSU.state === 'idle', 20); out.dry = D.TSU.state === 'idle' && D.TSU.level === 0; out.done = D.TSU.done;
-    out.dmg = ais.map((c, i) => +(h0[i] - c.health).toFixed(1)); out.wrecked = ais.filter((c) => c.wrecked).length; out.tlog = D.TSU.log.slice();
+    out.dmg = parked.map((c, i) => +(h0[i] - c.health).toFixed(1)); out.burnDmg = +(hB - burner.health).toFixed(1); out.wrecked = ais.filter((c) => c.wrecked).length; out.tlog = D.TSU.log.slice();
+    D.BULLS.push(...bulls); // (back, so the restart frees them like any match's)
     await wt(1); D.TSU.at = 0; await wt(1); out.onceOnly = D.TSU.state === 'idle'; out.next = +(D.TSU.next - D.game.time).toFixed(0); // (it has been: not straight back)
     // three restarts, each with a (short) tsunami: nothing piles up
     const mem = []; // ("other" leaves out Big Bertha's boulders: up to 10 live a match past a lineup with a Bertha, by design; a random lineup made it +5/+10 at restart 3)
@@ -62,7 +79,9 @@ const { open } = require('./harness');
   ok(r.wetFrac >= 0.75, `it covers most of the yard (${(r.wetFrac * 100).toFixed(1)}% under water)`);
   ok(r.dryFrac >= 0.03, `a few high spots stay dry (${(r.dryFrac * 100).toFixed(1)}%)`);
   ok(r.vWater < r.vLand * 0.6 && r.vWater > 1.5, `cars are slowed but still drive: ${r.vLand} m/s on land, ${r.vWater} m/s in the water (floodK ${r.floodK})`);
-  ok(r.wrecked === 0 && Math.max(...r.dmg) < 1, `water alone hurts nobody (damage from the flood's start to the drain: ${JSON.stringify(r.dmg)}) ${JSON.stringify(r.hits)}`);
+  ok(r.spots.length === 4, `four open parking spots found ${JSON.stringify(r.spots)}`);
+  ok(r.wrecked === 0 && Math.max(...r.dmg) < 1 && Math.min(...r.parkedK) > 0.1, `water alone hurts nobody (${r.lineup.slice(1).join(', ')}, parked in the water, floodK ${JSON.stringify(r.parkedK)}: damage from the warning to the drain ${JSON.stringify(r.dmg)}) ${JSON.stringify(r.hits)}`);
+  ok(r.burnDmg < 1, `the burning ${r.lineup[0]}, once the water has put it out, takes no more damage (${r.burnDmg})`);
   ok(r.upright, 'nobody capsizes ' + JSON.stringify(r.ups));
   ok(r.burnBefore && !r.burnAfter && !r.pudBurning && r.crateLit && !r.crateAfter, 'fires go out: a burning car, burning fuel and a burning crate');
   ok(r.oilGone, 'the oil puddle washes away');
@@ -85,9 +104,15 @@ const { open } = require('./harness');
   const R = lm.resp, E = lm.elim;
   ok(R.gt >= 5400 && R.n >= 2 && R.gaps.every((g) => g >= 240), `a long respawn match gets more than one tsunami: ${R.n} in ${Math.round(R.gt / 60)} game-minutes (one every ${(R.gt / 60 / Math.max(1, R.n)).toFixed(1)} min), each >= 240 s after the last drained (gaps ${JSON.stringify(R.gaps)} s)`);
   ok(E.gt >= 5400 && E.n === 1, `elimination keeps it to the one a match (${E.n} in ${Math.round(E.gt / 60)} game-minutes)`);
-  // perf at the lowest quality, 8 opponents, the same match before and during the flood (rendering on)
+  // perf at the lowest quality, 8 opponents, the same match before, during and after the flood (rendering on). Controlled: a fixed lineup with a Jet
+  // (Ann's launch and the empty truck are the flood's own cost), every AI parked on open floor, the bulls held: with live AI the match itself moved
+  // the numbers (the Camper's junk alone put ~45 awake debris and +100 draws in a window), which made a before/after comparison a coin toss
   const p = await page.evaluate(async () => { window.__noRender = false; const D = __derby, sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-    D.S.aiCount = 8; D.S.autoGfx = false; D.applyQuality(7); const dmg0 = D.S.damage; D.S.damage = 0; /* (no panels coming off: a match piles up debris and loose parts as it goes, which would bias a before/after comparison) */ D.game.state = 'menu'; D.startMatch(); while (!(D.game.state === 'playing' && D.game.countdown <= 0)) await sleep(100); D.applyQuality(7); await sleep(1500);
+    D.S.aiCount = 8; D.S.autoGfx = false; D.applyQuality(7); const dmg0 = D.S.damage; D.S.damage = 0; /* (no panels coming off: a match piles up debris and loose parts as it goes, which would bias a before/after comparison) */ D.game.state = 'menu'; D.startMatch(); while (!(D.game.state === 'playing' && D.game.countdown <= 0)) await sleep(100); D.applyQuality(7);
+    const bulls = D.BULLS.splice(0); for (const bl of bulls) { bl.body.position.set(-130, 1.3, -130 + bl.id * 4); bl.body.velocity.set(0, 0, 0); }
+    const LINE = ['jet', 'tiger', 'spider', 'camper', 'viper', 'dozer', 'firetruck', 'hellbender']; D.cars.filter((c) => c !== D.player).forEach((c, i) => D.respawnCar(c, LINE[i]));
+    const pp = D.player.body.position, sp = window.__tsuSpots(8, [[pp.x, pp.z, 16]], 24); D.cars.filter((c) => c !== D.player).forEach((c, i) => window.__tsuPark(c, sp[i]));
+    window.__tsuFreeze(); const fz = setInterval(window.__tsuFreeze, 100); /* (Ann, when she launches, is a new car: parked too) */ await sleep(1500);
     const W = D.world, R = D.renderer;
     const ii = W.internalStep; const measure = async (ms) => { let stepMs = 0, steps = 0; let cont = 0; const fs0 = D.TSU.stepMs || 0, fn0 = D.TSU.steps || 0; W.internalStep = (dt) => { const t = performance.now(); const r = ii(dt); stepMs += performance.now() - t; steps++; cont += W.contacts.length; return r; }; // (per internal step: a slow frame runs more catch-up steps, which isn't the flood's cost)
       const calls = [], ft = []; let last = performance.now(); R.info.autoReset = false; R.info.reset(); const t0 = performance.now();
@@ -100,14 +125,18 @@ const { open } = require('./harness');
     // the water's own draw cost, in one frame: the same scene drawn with the water, foam and spray batch shown, then hidden
     const R2 = D.renderer, tsuObjs = [D.TSU.mesh, D.TSU.foam], vis0 = tsuObjs.map((o) => o.visible); R2.info.autoReset = false;
     R2.info.reset(); R2.render(D.scene, D.camera); const withW = R2.info.render.calls; tsuObjs.forEach((o) => { o.visible = false; }); R2.info.reset(); R2.render(D.scene, D.camera); const without = R2.info.render.calls; tsuObjs.forEach((o, i) => { o.visible = vis0[i]; }); R2.info.autoReset = true;
-    const waterCalls = withW - without; D.TSU.FLOOD = 34; D.S.damage = dmg0; const st = D.TSU.state, lite = D.TSU.lite;
-    return { dry, wet, waterCalls, st, lite, blow: D.PHYS.blowups, types: D.cars.map((c) => c.type), hulks: D.TSU.hulks.length }; });
+    const waterCalls = withW - without, st = D.TSU.state, lite = D.TSU.lite, types = D.cars.map((c) => c.type), hulks = D.TSU.hulks.length;
+    D.TSU.t = 0; { const w1 = performance.now(); while (D.TSU.state !== 'idle' && performance.now() - w1 < 400000) await sleep(50); } await sleep(1500); // drained (Ann back on Jet): nothing the flood added may stay
+    const after = await measure(6000); clearInterval(fz); D.BULLS.push(...bulls); D.TSU.FLOOD = 34; D.S.damage = dmg0;
+    return { dry, wet, after, waterCalls, st, lite, blow: D.PHYS.blowups, types, hulks, spots: sp.length, tlog: D.TSU.log.slice() }; });
   console.log('q7 perf: ' + JSON.stringify(p));
   ok(p.st === 'flood' && p.lite === true, 'at q7 the flood uses the flat, cheap water');
   ok(p.waterCalls <= 2, `q7: the water itself costs ${p.waterCalls} draw call(s) (budget 2)`);
-  ok(p.wet.calls <= p.dry.calls * 1.10 + 2, `q7 draw calls, whole frame: ${p.dry.calls} dry -> ${p.wet.calls} flooded (budget +10%, the perfbudget gate; the rest is the match itself changing: cars respawning, a few floating crates awake)`);
+  ok(p.spots === 8 && p.hulks === 1 && p.types.includes('ann'), `q7 lineup controlled: 8 parked on open floor, the Jet launched Ann (${p.types.join(', ')}; empty trucks ${p.hulks})`);
+  ok(p.wet.calls <= p.dry.calls * 1.10 + 2, `q7 draw calls, whole frame: ${p.dry.calls} dry -> ${p.wet.calls} flooded (budget +10%, the perfbudget gate; Ann and the empty Jet included)`);
   ok(p.wet.floodMs < 0.5, `q7: the flood's own physics work costs ${p.wet.floodMs} ms a step (budget 0.5)`);
   ok(p.wet.contacts <= p.dry.contacts * 1.6 + 25 && p.wet.awake <= p.dry.awake + 30, `q7 physics load: contacts ${p.dry.contacts} -> ${p.wet.contacts} a step (budget 1.6x + 25), awake bodies ${p.dry.awake} -> ${p.wet.awake} (budget +30)`);
+  ok(p.after.calls <= p.dry.calls * 1.05 + 2 && p.after.contacts <= p.dry.contacts * 1.25 + 6 && p.after.awake <= p.dry.awake + 8, `q7 after the drain, back to the dry match: draw calls ${p.dry.calls} -> ${p.after.calls} (budget +5%), contacts ${p.dry.contacts} -> ${p.after.contacts} (1.25x + 6), awake bodies ${p.dry.awake} -> ${p.after.awake} (+8) ${JSON.stringify(p.tlog)}`);
   ok(p.wet.physMs <= p.dry.physMs * 3 + 2, `q7 physics time: ${p.dry.physMs} -> ${p.wet.physMs} ms per step (loose guard 3x + 2: wall-clock timing on this shared, software-rendered machine swings with other jobs; the load numbers above are the real budget)`);
   console.log(`(q7 median frame: ${p.dry.frameMs} -> ${p.wet.frameMs} ms, software GPU, by eye only)`);
   const pe = errors.filter((e) => !e.includes('ERR_FAILED')); ok(!pe.length, 'no page errors ' + pe.slice(0, 3).join(' | '));
