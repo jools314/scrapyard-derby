@@ -3,7 +3,8 @@
 //     trail, its flamethrower used and not used, a straight run over the big launch ramp with a hard drifting turn after the landing)
 //     never catches fire from its own trail / exhaust and takes no fire damage.
 // (b) An AI Sandflea driving a real match on its own for 30 s (chasing, flaming, ramps, jumps) never catches fire either.
-//     Its target is kept doused so nothing else in the yard can burn.
+//     Its target is kept doused, other burning fuel is put out and the fire pit moved away, so only its own fire is left. Hull lost to hits (ramming the parked Tiger, bulls, props) is logged and
+//     refunded, so only fire could wreck it in the window.
 // (c) Real causes still light it: another car's burning trail, a plain burning fuel slick, another car's flamethrower, the fire pit.
 //     Fails on main: inFire() ignored who laid a burning patch, so the buggy's own trail (dropped right under its tail) lit it.
 // (d) Sturdier but still light: three 13 m/s Outrider side rams on open dirt cost it clearly less hull than main (main averaged 35-48 a ram).
@@ -68,16 +69,34 @@ const put = `const put = (c, x, z, yaw) => { const D = __derby; c.body.position.
     await start(page, 'tiger', 1);
     const r = await page.evaluate(`(async () => { ${park} ${put} const D = __derby, sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       let a = D.cars.find((c) => !c.isPlayer); D.respawnCar(a, 'sandflea'); a = D.cars.find((c) => !c.isPlayer); const p = D.player; park(p); put(p, 60, 60);
+      /* every hull loss is recorded with its cause. Fire: lost while it is "in fire" or burning (what this check is about), never refunded.
+         A burning prop beside it (a crate its own trail or flamer lit, 5 hull/s): kept, and listed. Hits (the target's armour when it rams the parked
+         Tiger, up to 60 hull at once; a bull's gore and shove, up to 59; props, ramps, scenery, blasts): listed and refunded, so nothing but fire can wreck it
+         in the window (a 30 s run once ended "0 burning, wrecked true, hull 100 -> 0" with no fire at all). */
+      const hits = {}, fireLoss = { fire: 0, prop: 0 }; let firstFire = null; const ad = a.applyDamage.bind(a);
+      a.applyDamage = (dmg, by, zone, model, dv) => { if (a.wrecked) return; const h0 = a.health, fire = !!(a.onFire || a.burnT > 0) && !model && !(dv > 0); /* (the fire's own damage: a crash while it happens to be "in fire" is a hit) */
+        const prop = !fire && !zone && !by && !(dv > 0) && dmg < 1 && D.props.some((pr) => pr.fireT > 0 && pr.body.position.distanceTo(a.body.position) < 2.6);
+        if (fire || prop) { ad(dmg, by, zone, model, dv); const lost = h0 - a.health; if (fire) { fireLoss.fire += lost; if (!firstFire) firstFire = { t: +(D.game.time - t0).toFixed(1), lost: +lost.toFixed(1), from: fireSrc() }; } else fireLoss.prop += lost; return; }
+        const what = a._hitWhat || (by && by.T ? by.T.name : zone ? 'hit ' + zone : 'blast'); a.health = 1e6; ad(dmg, by, zone, model, dv); const lost = 1e6 - a.health; a.health = h0; if (lost > 0.05) hits[what] = +((hits[what] || 0) + lost).toFixed(1); };
+      const fireSrc = () => { const q = a.body.position, F = D.ARENA.firePit; if (F && q.x > F.x0 && q.x < F.x1 && Math.abs(q.z - F.z) < F.hz && q.y < 2.2) return 'the fire pit';
+        const near = D.CONCRETE.list.filter((c) => c.kind === 'fuel' && c.burning > 0 && (q.x - c.x) ** 2 + (q.z - c.z) ** 2 < (c.r + 1) ** 2), pd = near.find((c) => c.owner !== a) || near[0]; if (!pd) return a.burnT > 0 ? 'burning, by ' + (a.burnBy ? a.burnBy.name : 'nobody') : 'none found';
+        return (pd.trail ? 'a fire-drift trail' : 'a burning fuel slick') + ' laid by ' + (pd.owner === a ? 'itself' : pd.owner ? pd.owner.name : 'nobody'); }, src = {};
+      /* and no fire but its own: the fire pit is moved out of the yard for the window, and any burning fuel that isn't its own fire-drift trail is put out
+         (a gas cylinder's burning slick, say: twice in ~30 runs it was "in fire" for one sample with no fire of its own near). fireSrc() names the source. */
+      const pit = D.ARENA.firePit, pit0 = pit && Object.assign({}, pit); if (pit) Object.assign(pit, { x0: 9000, x1: 9001 });
+      const douse = () => { for (const c of D.CONCRETE.list) if (c.burning > 0 && c.owner !== a) c.burning = 0; }, step0 = D.world.internalStep; D.world.internalStep = (dt) => { douse(); step0(dt); }; /* (before every physics step, so the buggy's in-fire test never sees one: a gas cylinder lit by a crate it torched blew up beside it once, and 'preStep' runs after the cars' own step) */
       const st = { onF: 0, burned: 0, maxOwn: 0, flames: 0, maxY: 0, dist: 0, h0: a.health, lastFire: false }; let last = a.body.position.clone(); const t0 = D.game.time;
       const think = a.think.bind(a); a.think = (dt) => { think(dt); const el = D.game.time - t0; if (el > 4 && el < 20) a.ctrl.fire = true; }; /* its own AI drives; between 4 s and 20 s it also torches the air whenever the flamer is ready (unused before and after) */
       while (D.game.time - t0 < 30 && !a.wrecked) { await sleep(40); p.douse = 1; p.burnT = 0; /* the target can never burn, so nothing else in the yard can light the buggy */
         if (D.game.time - t0 > 15 && p.body.position.distanceTo(a.body.position) < 12) { put(p, -p.body.position.x * 0.5 + 40, -p.body.position.z * 0.5 - 40); } /* move the target away now and then: more driving, more ramps */
-        if (a.onFire) st.onF++; if (a.burnT > 0) st.burned++; const f = a.specialT > 0; if (f && !st.lastFire) st.flames++; st.lastFire = f;
+        if (a.onFire || a.burnT > 0) { const k = fireSrc(); src[k] = (src[k] || 0) + 1; } if (a.onFire) st.onF++; if (a.burnT > 0) st.burned++; const f = a.specialT > 0; if (f && !st.lastFire) st.flames++; st.lastFire = f;
         st.maxOwn = Math.max(st.maxOwn, D.CONCRETE.list.filter((c) => c.owner === a && c.burning > 0).length); st.maxY = Math.max(st.maxY, a.body.position.y); st.dist += a.body.position.distanceTo(last); last.copy(a.body.position); }
-      return Object.assign(st, { h1: a.health, wrecked: !!a.wrecked, secs: +(D.game.time - t0).toFixed(1) }); })()`);
+      D.world.internalStep = step0; if (pit) Object.assign(pit, pit0);
+      return Object.assign(st, { h1: a.health, wrecked: !!a.wrecked, secs: +(D.game.time - t0).toFixed(1), hits, fireLoss: +fireLoss.fire.toFixed(1), propLoss: +fireLoss.prop.toFixed(1), firstFire, src }); })()`);
     console.log(JSON.stringify(r));
     ok(r.dist > 150, `the AI Sandflea drove ${Math.round(r.dist)} m in ${r.secs} s (highest point ${r.maxY.toFixed(1)} m), flamed ${r.flames}x, ${r.maxOwn} of its own trail patches alight at once`);
-    ok(r.onF === 0 && r.burned === 0 && !r.wrecked, `the AI Sandflea never caught fire from its own driving (${r.onF} samples "in fire", ${r.burned} burning, wrecked ${r.wrecked}, hull ${Math.round(r.h0)} -> ${Math.round(r.h1)})`);
+    ok(r.onF === 0 && r.burned === 0 && r.fireLoss === 0 && !r.wrecked && r.secs >= 29.9, `the AI Sandflea never caught fire from its own driving (${r.onF} samples "in fire", ${r.burned} burning, ${r.fireLoss} hull lost on fire${r.firstFire ? ' first at ' + JSON.stringify(r.firstFire) : ''}${Object.keys(r.src).length ? ', fire from ' + JSON.stringify(r.src) : ''}, wrecked ${r.wrecked} after ${r.secs} s, hull ${Math.round(r.h0)} -> ${Math.round(r.h1)})`);
+    console.log(`(info) hull lost beside burning props: ${r.propLoss}; hits taken (refunded, so only fire could wreck it): ${JSON.stringify(r.hits)}`);
     const errs = errors.filter((e) => e.startsWith('pageerror:')); ok(errs.length === 0, 'no page errors ' + JSON.stringify(errs.slice(0, 3)));
     await browser.close();
   }

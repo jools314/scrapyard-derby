@@ -5,7 +5,7 @@
 // Now the press pushes down with velocity (like crushNow does), and a crushed bale no longer restarts it.
 //   1 a Spider-Walker standing in the press, two press cycles: no safety-net catches, max |vy| < 10, crushed
 //   2 a wrecked spider in the press, two press cycles: the same; then the crushed wreck doesn't restart the press on its own
-//   3 the Buzzsaw Hover sitting on a bull in the press, two press cycles: the same
+//   3 the Buzzsaw Hover sitting on a bull in the press, two press cycles: the same (the bull kept calm and the hover unwrecked: only the press acts)
 //   4 an ordinary car parked in the press still starts it and gets crushed into a bale
 // Fails on Build 132.
 const { open } = require('./harness');
@@ -42,9 +42,15 @@ const { open } = require('./harness');
     holdOpen(); { out.baleIn = inPress(sw); let restarted = false; await wait(3, () => { if (C.state !== 'idle') restarted = true; return restarted; }); out.baleRestarts = restarted; }
     holdOpen(); place(sw, 20, 120); await settle(0.3);
     // 3 the Buzzsaw Hover sitting on a bull in the press
-    { const bl = D.BULLS[0], pin = () => { for (const b of [bl.body, hv.body]) { b.position.x += (C.x - b.position.x) * 0.2; b.position.z += (C.z - b.position.z) * 0.2; b.velocity.x = 0; b.velocity.z = 0; } }; /* (the bull walks and the hover slides off its back: both held over the middle, sideways only) */
+    // The bull is kept calm and the hover's hull topped up, so only the press acts on them. Left alone, the bull's AI picked the hover on its back,
+    // pawed and charged (held in place), and gored it as the press pushed it down: the gore's off-centre impulse (spin 16-31) was what the guard
+    // undid and logged as a "solver kick undone" (10 of 14 instrumented runs, every catch at the gore's exact time). And the second crush wrecked
+    // the hover: its wreck blast threw the bull up into it at ~12 m/s, the bull was "ploughed into" and tumbled, and the hover reached |vy| 10.
+    { const bl = D.BULLS[0], knocks0 = bl.knocks, pin = () => { for (const b of [bl.body, hv.body]) { b.position.x += (C.x - b.position.x) * 0.2; b.position.z += (C.z - b.position.z) * 0.2; b.velocity.x = 0; b.velocity.z = 0; } /* (the bull walks and the hover slides off its back: both held over the middle, sideways only) */
+        if (bl.state !== 'down') { bl.state = 'graze'; bl.t = 99; bl.target = null; bl.want = bl.yaw; } bl.hitCd = 99; if (!hv.wrecked) hv.health = 100; }; /* (no victim picking, no gore, no knock-down; never wrecked, so no wreck blast) */
       D.world.addEventListener('preStep', pin); bl.body.position.set(C.x, 1.3, C.z); bl.body.velocity.set(0, 0, 0); place(hv, C.x, C.z, Math.PI / 2); hv.body.position.y = 3.6; await settle(2);
-      out.hoverIn = inPress(hv); out.hoverRest = +hv.body.position.y.toFixed(2); out.bullY = +bl.body.position.y.toFixed(2); out.hover = await press(hv); D.world.removeEventListener('preStep', pin); bl.body.position.set(-130, 1.3, 100); }
+      out.hoverIn = inPress(hv); out.hoverRest = +hv.body.position.y.toFixed(2); out.bullY = +bl.body.position.y.toFixed(2); out.hover = await press(hv); D.world.removeEventListener('preStep', pin);
+      out.bullCalm = bl.state === 'graze' && bl.knocks === knocks0; out.hoverWrecked = !!hv.wrecked; bl.hitCd = 0; bl.t = 2; bl.body.position.set(-130, 1.3, 100); }
     holdOpen(); place(hv, 0, 100); await settle(0.3);
     // 4 an ordinary car parked in the press: it starts the press (no forcing) and gets crushed
     place(vp, C.x, C.z, Math.PI / 2); await settle(1.2); vp.health = 100; C.t = 999; C.occ = 0; { const n0 = log.length;
@@ -55,7 +61,7 @@ const { open } = require('./harness');
   ok(Sp.cycles === 2 && W.cycles === 2 && H.cycles === 2, `two press cycles ran on each (spider ${Sp.cycles}, wreck ${W.cycles}, hover ${H.cycles})`);
   ok(Sp.catches === 0 && Sp.vmax < 10, `a Spider-Walker standing in the press (rests at y ${r.spiderRest}): ${Sp.catches} safety-net catches, max |vy| ${Sp.vmax} m/s (lowest y ${Sp.ymin}) ${JSON.stringify(Sp.list)}`);
   ok(r.wreckIn && W.catches === 0 && W.vmax < 10, `a wrecked spider in the press (in ${r.wreckIn}, rests at y ${r.wreckRest}): ${W.catches} safety-net catches, max |vy| ${W.vmax} m/s (lowest y ${W.ymin}) ${JSON.stringify(W.list)}`);
-  ok(r.hoverIn && H.catches === 0 && H.vmax < 10, `the Buzzsaw Hover on a bull in the press (in ${r.hoverIn}, rests at y ${r.hoverRest}, bull ${r.bullY}): ${H.catches} safety-net catches, max |vy| ${H.vmax} m/s (lowest y ${H.ymin}) ${JSON.stringify(H.list)}`);
+  ok(r.hoverIn && r.bullCalm && !r.hoverWrecked && H.catches === 0 && H.vmax < 10, `the Buzzsaw Hover on a bull in the press (in ${r.hoverIn}, rests at y ${r.hoverRest}, bull ${r.bullY}, bull calm ${r.bullCalm}, hover wrecked ${r.hoverWrecked}): ${H.catches} safety-net catches, max |vy| ${H.vmax} m/s (lowest y ${H.ymin}) ${JSON.stringify(H.list)}`);
   ok(Sp.crushed && W.crushed && H.crushed, `all three were crushed into bales (spider ${Sp.crushed}, wreck ${W.crushed}, hover ${H.crushed})`);
   ok(r.baleIn && !r.baleRestarts, `a crushed wreck left in the press doesn't restart it (still in ${r.baleIn}, restarted: ${r.baleRestarts})`);
   ok(V.crushed && V.health < 50 && V.catches === 0, `an ordinary car parked in the press starts it and gets crushed (crushed ${V.crushed}, health 100 -> ${V.health}, ${V.catches} catches)`);
