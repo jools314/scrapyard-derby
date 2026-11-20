@@ -59,6 +59,12 @@ const { open } = require('./harness');
     for (const s of D.HPBAR.slots) D.HPBAR.free(s);
     const aj = D.respawnCar(D.cars.find((c) => c !== j), 'jet'); park(aj); put(aj, -20, 40, 0); await wt(0.5); aj.health = 100; aj.applyDamage(6, j, 'left', null, 0); out.hpJet = bar(aj);
     const aa = D.ejectAnn(aj); if (aa) { park(aa); await wt(0.5); aa.health = 100; aa.applyDamage(6, j, 'left', null, 0); } out.hpAnn = !!aa && bar(aa);
+    // 9. a new match lets go of the old one's cars (Build 133 kept them alive: the laser's shared hit result kept the last car it hit, a cash bundle left lying kept its cop, cannon's spent contacts kept the bodies they touched)
+    put(j, -60, 75, 0); put(aj, -46, 75, 0); key('KeyF', true); await wt(1); key('KeyF', false); await wt(0.2);
+    const cop2 = D.respawnCar(D.cars.find((c) => c !== j), 'cruiser'); await wt(0.3); D.dropCash(cop2, j); await wt(0.3);
+    out.held0 = { laser: !!D.JLASER.res.body, cash: D.CASH.b.filter((k) => k.from).length, contacts: D.world.narrowphase.contactPointPool.filter((e) => e.bi).length };
+    const old = new Set([...D.cars, ...D.BULLS].map((o) => o.body)), np = D.world.narrowphase; D.startMatch(); await sleep(300); for (const o of [...D.cars, ...D.BULLS]) old.delete(o.body); // (bodies that carry over into the new match don't count)
+    out.held = { laser: !!D.JLASER.res.body, cash: D.CASH.b.filter((k) => k.from).length, contacts: [...np.contactPointPool, ...np.frictionEquationPool, ...D.world.contacts].filter((e) => old.has(e.bi) || old.has(e.bj)).length };
     return out; });
   console.log(JSON.stringify(r));
   ok(r.type === 'jet' && r.annOnBed, 'Jet starts with Ann strapped on the bed');
@@ -73,6 +79,7 @@ const { open } = require('./harness');
   ok(r.hpLaser && r.hpDive, `health bars: the Jet's laser and Ann's dive zap put a bar over the car they hurt (laser ${r.hpLaser}, zap ${r.hpDive})`);
   ok(r.hpJet && r.hpAnn, `health bars over a Jet (${r.hpJet}) and an Ann (${r.hpAnn}) the player hurts`);
   ok(r.back && r.driveAfter > 6, `after the drain the player is back in a drivable Jet with Ann on board (drove ${r.driveAfter} m) ${JSON.stringify(r.reb)}`);
+  ok(r.held && !r.held.laser && r.held.cash === 0 && r.held.contacts === 0, `a new match holds nothing of the old one's cars: laser hit result ${r.held && r.held.laser}, cash bundles remembering a cop ${r.held && r.held.cash}, spent contacts on old bodies ${r.held && r.held.contacts} (before the restart: ${JSON.stringify(r.held0)})`);
   const pe = errors.filter((e) => !e.includes('ERR_FAILED')); ok(!pe.length, 'no page errors ' + pe.slice(0, 3).join(' | '));
   console.log(fails.length ? 'JET FAIL' : 'JET PASS'); await browser.close(); process.exit(fails.length ? 1 : 0);
 })();
