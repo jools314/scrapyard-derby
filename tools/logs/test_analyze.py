@@ -291,6 +291,27 @@ def main():
     j9 = json.load(open(os.path.join(out9, 'report-latest.json'))) if r.returncode == 0 else {}
     ok(j9.get('stuckHow') == {'n': 3, 'assist': 1, 'grounded': 2, 'crushed': 1}, 'A14 report-latest.json carries stuckHow — got: ' + str(j9.get('stuckHow')))
 
+    # A15: a thin newest build must not hide the last real one. Build 136 (log-only, 9 game-min) printed 'not judged yet' and Build 135
+    # (126 game-min on the Mac) was never judged, so a regression on 135 went unseen. Here 134 and 135 have 60 game-min each, 135's stuck/h
+    # jumps 6 -> 30, and 136 has 9 game-min: the check keeps the 'not judged yet' line for 136 and also flags 134 -> 135.
+    def rm(i, build, game, stuck):
+        return dict(MATCH, id=f'r{build}-{i}', sid='r1', build=build, device=MB, game=game, start=f'2026-11-20T{10 + i:02d}:00:00.000Z',
+                    stuck=dict(MATCH['stuck'], n=stuck), env={'throttledS': 0, 'hiddenS': 0, 'unfocusedS': 0, 'focusedNow': True})
+    rx = [rm(i, '134', 1200, 2) for i in range(3)] + [rm(i + 3, '135', 1200, 10) for i in range(3)] + [rm(7, '136', 540, 2)]
+    arch10 = tempfile.mkdtemp(prefix='sd-arch-'); out10 = tempfile.mkdtemp(prefix='sd-out-')
+    with open(os.path.join(arch10, 'fixture-playlog.txt'), 'w') as f:
+        for x in [SESSION] + rx: f.write(json.dumps(x) + '\n')
+    r = subprocess.run([sys.executable, os.path.join(HERE, 'analyze.py'), arch10, out10], capture_output=True, text=True)
+    md10 = open(os.path.join(out10, 'report-latest.md')).read() if r.returncode == 0 else ''
+    rc10 = md10.split('### Regression check')[-1].split('\n\n')[1] if '### Regression check' in md10 else ''
+    l10 = [l for l in rc10.split('\n') if 'MacBook' in l]
+    print('     ' + '\n     '.join(l10))
+    ok(any('build 136 has only 9.0 game-min (need 30) — not judged yet' in l for l in l10), 'A15 the thin newest build 136 keeps its not-judged line — got: ' + ' / '.join(l10) + r.stderr[-300:])
+    ok(any(l.startswith('- **REGRESSION** MacBook: build 134 -> 135: stuck/h 6.0 -> 30.0') for l in l10), 'A15 the newest 30+ game-min build 135 is judged against 134 and flagged — got: ' + ' / '.join(l10))
+    j10 = json.load(open(os.path.join(out10, 'report-latest.json'))) if r.returncode == 0 else {}
+    ok([(x['from'], x['to']) for x in j10.get('regressions', [])] == [(134, 135)], 'A15 report-latest.json lists the 134 -> 135 regression — got: ' + str(j10.get('regressions')))
+    ok(not any('not judged yet' in l for l in rc7.split('\n')) and len([l for l in rc7.split('\n') if 'MacBook' in l]) == 1, 'A15 a newest build with 30+ game-min still gets exactly one line (A12 data)')
+
     print('FAILED ' + str(len(fails)) if fails else 'ALL PASS')
     return 1 if fails else 0
 

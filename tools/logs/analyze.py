@@ -81,17 +81,13 @@ L.append('')
 # --- regression check (thresholds from QUALITY-GATES.md section 3): newest build vs the one before it, per device, once it has >= 30 game-minutes
 L.append('### Regression check (newest build vs previous, per device)\n')
 J['regressions'] = []; rc_lines = []
-for d in sorted({r['device'] for r in TR}):
-    rows = sorted([r for r in TR if r['device'] == d], key=lambda r: r['build'])
-    if len(rows) < 2: continue
-    a = rows[-1]
-    if a['gameMin'] < 30: rc_lines.append(f"- {d}: build {a['build']} has only {a['gameMin']} game-min (need 30) — not judged yet"); continue
-    # The baseline is the newest earlier build that also has >= 30 game-min: a thin previous build (Mac 118: 5 matches, 12 game-min, the lowest
-    # rates of any Mac build 104-124) is noise, and comparing against it flagged a false Mac 118 -> 124 'regression'.
-    full = [r for r in rows[:-1] if r['gameMin'] >= 30]
-    if not full: rc_lines.append(f"- {d}: build {a['build']} has no earlier build with 30+ game-min to compare with — not judged"); continue
+def judge(d, rows, a, note=''):
+    # Judge build a (30+ game-min) against the newest earlier build in rows that also has >= 30 game-min. A thin previous build (Mac 118:
+    # 5 matches, 12 game-min, the lowest rates of any Mac build 104-124) is noise, and comparing against it flagged a false Mac 118 -> 124 'regression'.
+    full = [r for r in rows if r['build'] < a['build'] and r['gameMin'] >= 30]
+    if not full: return f"- {d}: build {a['build']} has no earlier build with 30+ game-min to compare with — not judged"
     b = full[-1]
-    thin = [r for r in rows[:-1] if r['build'] > b['build']]
+    thin = [r for r in rows if b['build'] < r['build'] < a['build']]
     skip = (' (skipped as too thin: ' + ', '.join(f"{r['build']} {r['gameMin']} game-min" for r in thin) + ')') if thin else ''
     bad = []
     if a['fpsLow1'] < b['fpsLow1'] - 5: bad.append(f"1% low fps {b['fpsLow1']} -> {a['fpsLow1']}")
@@ -105,8 +101,19 @@ for d in sorted({r['device'] for r in TR}):
     if fa is not None and fb is not None and min(fa, fb) < max(fa, fb) / 2 and abs(fa - fb) >= 20:
         fnote = f" (focus differs: {fb}% vs {fa}% of matches ended focused — slow s/h not comparable)"
     if bad:
-        rc_lines.append(f"- **REGRESSION** {d}: build {b['build']} -> {a['build']}: " + '; '.join(bad) + fnote + skip); J['regressions'].append({'device': d, 'from': b['build'], 'to': a['build'], 'what': bad, 'focusNote': fnote.strip(' ()') or None})
-    else: rc_lines.append(f"- OK {d}: build {b['build']} -> {a['build']} (fps low {b['fpsLow1']}->{a['fpsLow1']}, stuck/h {b['stuckPerHour']}->{a['stuckPerHour']}, phys/h {b['physPerHour']}->{a['physPerHour']})" + fnote + skip)
+        J['regressions'].append({'device': d, 'from': b['build'], 'to': a['build'], 'what': bad, 'focusNote': fnote.strip(' ()') or None})
+        return f"- **REGRESSION** {d}: build {b['build']} -> {a['build']}: " + '; '.join(bad) + fnote + skip + note
+    return f"- OK {d}: build {b['build']} -> {a['build']} (fps low {b['fpsLow1']}->{a['fpsLow1']}, stuck/h {b['stuckPerHour']}->{a['stuckPerHour']}, phys/h {b['physPerHour']}->{a['physPerHour']})" + fnote + skip + note
+for d in sorted({r['device'] for r in TR}):
+    rows = sorted([r for r in TR if r['device'] == d], key=lambda r: r['build'])
+    if len(rows) < 2: continue
+    a = rows[-1]
+    if a['gameMin'] >= 30: rc_lines.append(judge(d, rows, a)); continue
+    rc_lines.append(f"- {d}: build {a['build']} has only {a['gameMin']} game-min (need 30) — not judged yet")
+    # A thin newest build (Build 136, log-only, 9 game-min) must not hide the last real one (135, 126 game-min on the Mac): also judge the newest
+    # build with 30+ game-min against the newest earlier one with 30+ game-min, so a regression there is still flagged.
+    full = [r for r in rows if r['gameMin'] >= 30]
+    if len(full) >= 2: rc_lines.append(judge(d, rows, full[-1], f" — newest build with 30+ game-min ({a['build']} too thin)"))
 L.extend(rc_lines or ['- not enough data yet'])
 L.append('')
 causes = collections.Counter()
