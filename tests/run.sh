@@ -41,6 +41,7 @@ quick() {
   t tracks 900 "TRACKS PASS"
   t blade 600 "BLADE PASS"
   t crusheropen 600 "CRUSHEROPEN PASS"
+  t crusherkick 600 "CRUSHERKICK PASS"
   t lightcount 600 "LIGHTCOUNT PASS"
   t portalstart 900 "PORTALSTART PASS"
   t fastboot 900 "FASTBOOT PASS"
