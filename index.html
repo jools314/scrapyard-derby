@@ -2814,7 +2814,7 @@ const WEAPONS = {
       for (let i = 0; i < 4; i++) emit('fire', p.x, p.y, p.z, f.x * rand(10, 16) + rand(-2, 2) + b.velocity.x, rand(-0.5, 1.5), f.z * rand(10, 16) + rand(-2, 2) + b.velocity.z, rand(0.4, 0.6), rand(0.4, 0.8));
       igniteFuelNear(p.x + f.x * 6, p.z + f.z * 6, 4);
       for (const bl of BULLS) { const l = b.pointToLocalFrame(bl.body.position); if (l.x > 0 && l.x < 11 && Math.abs(l.z) < 1.8 + l.x * 0.3) cookBull(bl, car, dt); }
-      for (const pr of props) { const l = b.pointToLocalFrame(pr.body.position); if (l.x > 0 && l.x < 10 && Math.abs(l.z) < 1.6 + l.x * 0.3 && igniteProp(pr) && car.isPlayer && !pr.toasted) { pr.toasted = true; toast('🔥 SET IT ALIGHT', 'cool'); } }
+      for (const pr of props) { const l = b.pointToLocalFrame(pr.body.position); if (l.x > 0 && l.x < 10 && Math.abs(l.z) < 1.6 + l.x * 0.3 && igniteProp(pr, 8, car) && car.isPlayer && !pr.toasted) { pr.toasted = true; toast('🔥 SET IT ALIGHT', 'cool'); } }
       for (const c of cars) { if (c === car || c.wrecked) continue; const l = b.pointToLocalFrame(c.body.position); if (l.x > 0 && l.x < 11 && Math.abs(l.z) < 1.5 + l.x * 0.3) { c.applyDamage(16 * dt * S.damage * c.T.armor, car, 'front', null, 0); if (Math.random() < 0.3) emit('fire', c.body.position.x, c.body.position.y + 0.5, c.body.position.z, 0, 2, 0, 0.6, 0.7); c.ignite = (c.ignite || 0) + dt; if (c.ignite > 0.45) setCarAlight(c, car); } }
     },
   },
@@ -3163,12 +3163,12 @@ function updateBooms(dt) {
 // ---------- Fire on things: crates, cardboard, tyres, bins and potties burn; fire spreads; water puts it out ----------
 const flammable = (pr) => !pr.body.gas && !pr.charred && ['wood', 'cardboard', 'rubber', 'plastic'].includes(pr.body.propKind);
 let _charMat = null;
-function igniteProp(pr, t = 8) {
+function igniteProp(pr, t = 8, by = null) { // by: the car whose own fire lit it (a Sandflea's fire-drift trail or flamer; passed on when it spreads crate to crate), else null
   if (!pr || !props.includes(pr) || MP.role === 'guest') return false;
   if (pr.body.gas) { if (!pr.lit && typeof GASQ !== 'undefined' && !GASQ.some((q) => q.pr === pr)) GASQ.push({ pr, t: rand(0.3, 0.9) }); return true; } // gas bottles just go bang
   if (!flammable(pr) || pr.fireT > 0) return false;
   ptag('prop caught fire');
-  pr.fireT = t + rand(0, 3); wakeProp(pr); return true;
+  pr.fireT = t + rand(0, 3); pr.litBy = by || null; wakeProp(pr); return true;
 }
 function charProp(pr) { // burnt out: blackened (cardboard burns away to ash)
   const m = pr.mesh, p = pr.body.position;
@@ -3180,7 +3180,7 @@ function charProp(pr) { // burnt out: blackened (cardboard burns away to ash)
 let fireScanT = 0;
 function updatePropFires(dt) {
   if (MP.role !== 'guest' && (fireScanT -= dt) <= 0) { fireScanT = 0.4; // burning fuel lights up whatever sits in it
-    for (const pd of CONCRETE.list) if (pd.burning > 0) { for (const pr of props) { const q = pr.body.position; if ((q.x - pd.x) ** 2 + (q.z - pd.z) ** 2 < (pd.r + 0.6) ** 2) igniteProp(pr); }
+    for (const pd of CONCRETE.list) if (pd.burning > 0) { for (const pr of props) { const q = pr.body.position; if ((q.x - pd.x) ** 2 + (q.z - pd.z) ** 2 < (pd.r + 0.6) ** 2) igniteProp(pr, 8, pd.trail ? pd.owner : null); }
       for (const bl of BULLS) { const q = bl.body.position; if ((q.x - pd.x) ** 2 + (q.z - pd.z) ** 2 < (pd.r + 0.5) ** 2) cookBull(bl, null, 0.25); } } } // bulls standing in burning fuel slowly turn into burgers
   for (const pr of props) { if (!(pr.fireT > 0)) continue; const p = pr.body.position;
     pr.fireT -= dt;
@@ -3188,8 +3188,8 @@ function updatePropFires(dt) {
     if (Math.random() < 0.15) emit('smoke', p.x, p.y + 1.2, p.z, rand(-0.5, 0.5), rand(1.5, 3), rand(-0.5, 0.5), rand(1.5, 2.5), rand(0.6, 1));
     if (MP.role === 'guest') continue;
     if (puddleAt(p.x, p.z, 'water', 0.6)) { pr.fireT = 0; for (let k = 0; k < 6; k++) emit('steam', p.x, p.y + 0.5, p.z, rand(-1, 1), rand(1.5, 3), rand(-1, 1), rand(0.6, 1), rand(0.4, 0.6)); continue; }
-    if (Math.random() < dt * 0.7) for (const o of props) if (o !== pr && !(o.fireT > 0) && (flammable(o) || o.body.gas) && o.body.position.distanceTo(p) < 2.7) { igniteProp(o); break; } // spreads to the next crate
-    for (const c of cars) if (!c.wrecked && c.body.position.distanceTo(p) < 2.6) c.applyDamage(5 * dt * S.damage * c.T.armor, null, null, null);
+    if (Math.random() < dt * 0.7) for (const o of props) if (o !== pr && !(o.fireT > 0) && (flammable(o) || o.body.gas) && o.body.position.distanceTo(p) < 2.7) { igniteProp(o, 8, pr.litBy); break; } // spreads to the next crate (still the same car's fire)
+    for (const c of cars) if (!c.wrecked && !(pr.litBy === c && c.type === 'sandflea') && c.body.position.distanceTo(p) < 2.6) c.applyDamage(5 * dt * S.damage * c.T.armor, null, null, null); // (not a Sandflea beside a crate its own trail or flamer lit: 0-17 hull per 30 s of AI driving; anyone else's burning prop still hurts it. Host-side, like litBy)
     for (const bl of BULLS) if (bl.body.position.distanceTo(p) < 2.6) cookBull(bl, null, dt * 0.5);
     if (pr.fireT <= 0) charProp(pr);
   }
