@@ -25,6 +25,8 @@ const { open } = require('./harness');
     put(D.player, -60, 75); put(ai, -44, 75); await wt(1.2); ai.health = 100;
     key('KeyF', true); await wt(2.2); out.bat = +(D.player.lzBat ?? 1).toFixed(2); key('KeyF', false); await wt(0.3);
     out.laserDmg = +(100 - ai.health).toFixed(1); out.beams = D.JLASER.i;
+    const bar = (c) => D.HPBAR.slots.some((s) => s.car === c); // (a health bar slot is following that car)
+    out.hpLaser = bar(ai);
     // 2. the tsunami: Ann launches, the player is in her
     ai.health = 100; ai.body.position.set(-60, 1.7, 40); const jet0 = D.player;
     D.startTsunami(true); await until(() => D.player.type === 'ann', 30);
@@ -40,7 +42,7 @@ const { open } = require('./harness');
     key('KeyJ', true); await wt(0.1); key('KeyJ', false); await wt(0.3); out.diving = ann.diveT > 0; out.mask = ann.body.collisionFilterMask;
     put(ai, ann.body.position.x + 0.5, ann.body.position.z, 0); ai.body.position.y = 2.2;
     const up0 = D.TSU.upHits || 0; await until(() => !(ann.diveT > 0), 4); await wt(0.2);
-    out.surfaced = !(ann.diveT > 0) && ann.body.collisionFilterMask === -1; out.upHits = (D.TSU.upHits || 0) - up0; out.diveDmg = +(100 - ai.health).toFixed(1);
+    out.surfaced = !(ann.diveT > 0) && ann.body.collisionFilterMask === -1; out.upHits = (D.TSU.upHits || 0) - up0; out.diveDmg = +(100 - ai.health).toFixed(1); out.hpDive = bar(ai) && D.HPBAR.slots.find((s) => s.car === ai).lagF > ai.health / 100; // (Ann's zap shows on the victim's bar: the drained chunk)
     // 5. the broadside: a car alongside, 15 m off her right
     put(ann, 40, 60, 0); ann.body.position.y = 1.4; ann.broadCd = 0.5; await wt(0.4); put(ai, 40, 75, 0); ai.body.position.y = 1.8; const sh0 = D.shells.length; let maxSh = sh0;
     { const t0 = D.game.time; while (D.game.time - t0 < 2) { maxSh = Math.max(maxSh, D.shells.length); await sleep(20); } } out.broadside = maxSh - sh0;
@@ -53,6 +55,10 @@ const { open } = require('./harness');
     await until(() => D.TSU.state === 'idle', 90); await wt(1);
     const j = D.player; out.back = j.type === 'jet' && j.isPlayer && !j.wrecked && j.annAboard === true && !!j.annOnBed.visible && D.TSU.hulks.length === 0; out.sameTruck = j === jet0; out.reb = D.TSU.log.filter((e) => e.ev === 'reboard');
     put(j, -60, 75, 0); await wt(1); const p0 = j.body.position.clone(); key('KeyW', true); await wt(2.5); key('KeyW', false); out.driveAfter = +Math.hypot(j.body.position.x - p0.x, j.body.position.z - p0.z).toFixed(1);
+    // 8. health bars (Build 129) over a Jet and an Ann the player hurts
+    for (const s of D.HPBAR.slots) D.HPBAR.free(s);
+    const aj = D.respawnCar(D.cars.find((c) => c !== j), 'jet'); park(aj); put(aj, -20, 40, 0); await wt(0.5); aj.health = 100; aj.applyDamage(6, j, 'left', null, 0); out.hpJet = bar(aj);
+    const aa = D.ejectAnn(aj); if (aa) { park(aa); await wt(0.5); aa.health = 100; aa.applyDamage(6, j, 'left', null, 0); } out.hpAnn = !!aa && bar(aa);
     return out; });
   console.log(JSON.stringify(r));
   ok(r.type === 'jet' && r.annOnBed, 'Jet starts with Ann strapped on the bed');
@@ -64,6 +70,8 @@ const { open } = require('./harness');
   ok(r.broadside >= 3, `her cannons fire a broadside at a car alongside (${r.broadside} cannonballs)`);
   ok(r.cash && r.grabbed >= 1 && r.rob1.length >= 1 && r.rob1.every((v) => v === 100), `the Cruiser drops cash, driving over it grabs it: the first robbery pays ${JSON.stringify(r.rob1)} (100 a bundle)`);
   ok(r.rob2 && r.rob2.length >= 1 && r.rob2.every((v) => v === 1000) && r.rob3 && r.rob3.length >= 1 && r.rob3.every((v) => v === 1000), `robbing the cops again pays 1,000 a bundle: second robbery ${JSON.stringify(r.rob2)}, third ${JSON.stringify(r.rob3)}`);
+  ok(r.hpLaser && r.hpDive, `health bars: the Jet's laser and Ann's dive zap put a bar over the car they hurt (laser ${r.hpLaser}, zap ${r.hpDive})`);
+  ok(r.hpJet && r.hpAnn, `health bars over a Jet (${r.hpJet}) and an Ann (${r.hpAnn}) the player hurts`);
   ok(r.back && r.driveAfter > 6, `after the drain the player is back in a drivable Jet with Ann on board (drove ${r.driveAfter} m) ${JSON.stringify(r.reb)}`);
   const pe = errors.filter((e) => !e.includes('ERR_FAILED')); ok(!pe.length, 'no page errors ' + pe.slice(0, 3).join(' | '));
   console.log(fails.length ? 'JET FAIL' : 'JET PASS'); await browser.close(); process.exit(fails.length ? 1 : 0);
