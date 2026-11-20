@@ -66,6 +66,7 @@ quick() {
   t soggy 600 "SOGGY PASS"
   t groundbeef 600 "GROUNDBEEF PASS"
   t goldcone 600 "GOLDCONE PASS"
+  t sandflea 900 "SANDFLEA PASS"
   t trombone 600 "TROMBONE PASS"
   t honkback 600 "HONKBACK PASS"
   t confetti 600 "CONFETTI PASS"
