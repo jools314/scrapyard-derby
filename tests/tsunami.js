@@ -101,7 +101,7 @@ const { open } = require('./harness');
     const R2 = D.renderer, tsuObjs = [D.TSU.mesh, D.TSU.foam], vis0 = tsuObjs.map((o) => o.visible); R2.info.autoReset = false;
     R2.info.reset(); R2.render(D.scene, D.camera); const withW = R2.info.render.calls; tsuObjs.forEach((o) => { o.visible = false; }); R2.info.reset(); R2.render(D.scene, D.camera); const without = R2.info.render.calls; tsuObjs.forEach((o, i) => { o.visible = vis0[i]; }); R2.info.autoReset = true;
     const waterCalls = withW - without; D.TSU.FLOOD = 34; D.S.damage = dmg0; const st = D.TSU.state, lite = D.TSU.lite;
-    return { dry, wet, waterCalls, st, lite, blow: D.PHYS.blowups }; });
+    return { dry, wet, waterCalls, st, lite, blow: D.PHYS.blowups, types: D.cars.map((c) => c.type), hulks: D.TSU.hulks.length }; });
   console.log('q7 perf: ' + JSON.stringify(p));
   ok(p.st === 'flood' && p.lite === true, 'at q7 the flood uses the flat, cheap water');
   ok(p.waterCalls <= 2, `q7: the water itself costs ${p.waterCalls} draw call(s) (budget 2)`);
