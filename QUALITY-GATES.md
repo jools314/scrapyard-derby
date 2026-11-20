@@ -19,7 +19,7 @@ The quick suite covers:
 - syntax;
 - every car driving with keys and touch (straight, both turns, reverse, handbrake, firing its weapon);
 - tracked vehicles on slopes;
-- the 21 weapon × object interactions (including the scarecrows);
+- the 23 weapon × object interactions (including the scarecrows);
 - two-thumb touch controls, and zoom blocked;
 - phone layout with no overlapping buttons, portrait and landscape;
 - matchup logging, and idle autoplay.

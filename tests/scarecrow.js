@@ -6,7 +6,8 @@
 //    it settles (limb bodies gone), and a second ram sends it off again; zero solver-kick undos on the car that hit it;
 //  - fire burns it down to a charred stick; a bull standing next to one ignores it;
 //  - at most SCARE_CAP() rag dolls are active at once, however many are knocked over together;
-//  - 3 match restarts in the middle of all that leave no orphaned limb bodies, joints or geometries.
+//  - 3 match restarts in the middle of all that leave no orphaned limb bodies, joints or geometries;
+//  - the tsunami (Build 133) knocks standing scarecrows off their posts, floats them (capable devices) and puts a burning one out.
 // Fails on Build 123 (no scarecrows).
 const { open } = require('./harness');
 (async () => {
@@ -107,6 +108,20 @@ const { open } = require('./harness');
   ok(leak.rows.every((r) => r.mid.limbs > 0), 'rag dolls were flying at each restart (' + leak.rows.map((r) => r.mid.limbs).join(', ') + ' limb bodies)');
   ok(leak.rows.every((r) => r.after.bodies === leak.base0.bodies && r.after.limbs === r.after.active * 5 && r.after.cons === r.after.limbs && r.after.stale === 0), `3 restarts: non-prop bodies ${leak.base0.bodies} -> ${leak.rows.map((r) => r.after.bodies)}, joints ${leak.rows.map((r) => r.after.cons)} = 5 per rag doll active in the fresh yard (${leak.rows.map((r) => r.after.active)}), no stale prop bodies`);
   ok(leak.orphanGeo === 0, `3 restarts leave no orphaned geometries (${leak.orphanGeo}; ${leak.orphans - leak.orphanGeo} textures from elsewhere, memleak.js budgets those)`);
+
+  // 6. the tsunami (Build 133): the wave knocks standing scarecrows off their posts, they float on the flood, and a burning one is put out
+  const flood = await page.evaluate(`(async () => { ${PRE} park(); const T = D.TSU; window.__noRender = true; const q0 = D.QUALITY.level; D.S.autoGfx = false; D.applyQuality(4); /* (a capable device: light junk floats; on lite quality it stays put) */
+    p.body.position.set(0, 1.2, 100); p.body.velocity.set(0, 0, 0); T.FLOOD = 14; const L0 = T.LEVEL; T.LEVEL = 1.3; /* (the water stays below a standing scarecrow's straw: 1.24-1.36 m, the torso is at 1.9) */ D.startTsunami(true);
+    const w0 = performance.now(); while (T.state !== 'flood' && performance.now() - w0 < 120000) await sleep(50);
+    const live = D.SCARE.filter((s) => !s.gone && !s.stick), a = live[0], c = live[1]; p.body.position.set(0, 1.2, 50); p.body.velocity.set(0, 0, 0);
+    D.scarePlace(a, -6, 62, 0); D.scarePlace(c, 6, 62, 0); D.wakeProp(a.pr); D.wakeProp(c.pr); await waitG(0.1); const lit = D.igniteProp(a.pr, 30), fire0 = +(a.pr.fireT || 0).toFixed(1);
+    let out = null; const t0 = D.game.time; while (D.game.time - t0 < 6) { await sleep(25); if (out === null && !(a.pr.fireT > 0)) out = +(D.game.time - t0).toFixed(1); }
+    const ys = [a, c].map((s) => +s.pr.body.position.y.toFixed(2)), lvl = +T.level.toFixed(2), st = T.state;
+    T.FLOOD = 34; T.LEVEL = L0; const lite = D.QUALITY.lite; D.applyQuality(q0); return { lite, noFloat: !!T.noFloat, st, lvl, lit, fire0, out, stick: a.stick, knocked: [a, c].map((s) => !s.up), ys, active: D.SCARE.filter((s) => s.active).length }; })()`);
+  console.log('  flood: ' + JSON.stringify(flood));
+  ok(flood.lit && flood.out !== null && flood.out < 2 && !flood.stick, `the flood puts out a burning scarecrow standing in it (out after ${flood.out} s, not burnt to a stick)`);
+  ok(flood.knocked.every(Boolean), `the flood knocks standing scarecrows off their posts (${flood.knocked})`);
+  ok(!flood.lite && !flood.noFloat && flood.knocked.every(Boolean) && flood.ys.every((y) => y > flood.lvl - 0.7 && y < flood.lvl + 0.45), `they float on the flood: torsos at y ${flood.ys} with the water at ${flood.lvl} m (not lying on the floor at ~0.3)`);
 
   const pe = errors.filter((e) => e.startsWith('pageerror') || (e.startsWith('error') && !e.includes('ERR_FAILED')));
   ok(!pe.length, 'no page errors ' + pe.slice(0, 3).join(' | '));

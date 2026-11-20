@@ -7753,6 +7753,7 @@ function floodStep() {
   if (!TSU.noFloat && !QUALITY.lite) for (const pr of props) { // (weak devices: the junk stays on the floor under the water; floating crates cost a draw and contacts each)
     if (pr.dormant) continue; const b = pr.body; if (b.mass > 150 || b.type !== CANNON.Body.DYNAMIC || b.sleepState === CANNON.Body.SLEEPING) continue; const p = b.position, wy = waterAt(p.x, p.z), sub = clamp((wy - p.y + 0.35) / 0.7, 0, 1); if (!sub) continue;
     const m = b.mass, v = b.velocity; _tzF.set(-v.x * m * 1.2 * sub, m * g * 1.3 * sub - v.y * m * 3 * sub, -v.z * m * 1.2 * sub); b.applyForce(_tzF, _tzZ); TSU.floaters.add(pr); } // (no current: it bobs up, settles and falls asleep on the surface, so it costs nothing until something bumps it; floodFrame wakes it when the water goes)
+  if (!TSU.noFloat && !QUALITY.lite) for (const sc of SCARE) if (sc.active) for (const pb of sc.pb) { const p = pb.position, sub = clamp((waterAt(p.x, p.z) - p.y + 0.2) / 0.4, 0, 1); if (!sub) continue; const m = pb.mass, v = pb.velocity; _tzF.set(-v.x * m * 1.2 * sub, m * g * 1.3 * sub - v.y * m * 3 * sub, -v.z * m * 1.2 * sub); pb.applyForce(_tzF, _tzZ); } // a scarecrow's rag-doll limbs float too (at most 3 rag dolls), or they'd drag its straw body under
   TSU.stepMs = (TSU.stepMs || 0) + performance.now() - t0; TSU.steps = (TSU.steps || 0) + 1; // (its own cost, for tests/tsunami.js)
 }
 // per frame (host / solo): fires out and puddles washed away under the water; Jets in the water launch their boats
@@ -7762,6 +7763,9 @@ function floodFrame(dt) {
   for (const pd of CONCRETE.list) if (!pd.strip && waterAt(pd.x, pd.z) > 0.3) { pd.burning = 0; if (pd.t > 2.5) pd.t = 2.5; } // washed away: they fade out over the next couple of seconds (and nothing under water burns)
   for (const pr of props) if (pr.fireT > 0 && waterAt(pr.body.position.x, pr.body.position.z) > pr.body.position.y - 0.4) { pr.fireT = 0; emit('steam', pr.body.position.x, pr.body.position.y + 0.5, pr.body.position.z, 0, 2, 0, 1, 0.7); }
   for (const o of BOULDERS) if (o.fireT > 0 && waterAt(o.body.position.x, o.body.position.z) > 0.3) o.fireT = 0.001;
+  for (const sc of SCARE) { if (sc.gone || sc.stick) continue; const pr = sc.pr, b = pr.body, q = b.position; if (waterAt(q.x, q.z) < 0.6) continue; // a scarecrow in the flood: the straw soaks it up (one standing on its post burns above the water line), and the water lifts it off its post
+    if (pr.fireT > 0) { pr.fireT = 0; emit('steam', q.x, q.y + 0.5, q.z, 0, 2, 0, 1, 0.7); }
+    if (sc.up && !pr.dormant && !TSU.noFloat && !QUALITY.lite) { wakeProp(pr); b.wakeUp(); b.velocity.set(rand(-1, 1), 1.5, TSU.state === 'surge' ? 6 : rand(-1.5, 1.5)); sc.by = null; if (scareLaunch(sc, null)) sc.said = true; } } // (weak devices: it stays on its post, like the junk stays on the floor; no commentary, the tsunami has its own)
 }
 function tsuJets() { // a Jet with Ann on board, standing in the water: she launches (on high ground the truck keeps her until it drives in)
   for (const c of cars.slice()) if (c.T.jet && !c.wrecked && c.annAboard !== false && !c.ghost && (c.floodK || 0) > 0.08) ejectAnn(c);
