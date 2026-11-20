@@ -233,14 +233,38 @@ if pc:
     J['physHot'] = {f'{cent(xs)[0]},{cent(xs)[1]}': len(xs) for (g, xs) in cells}
 # --- balance
 L.append('## Balance (all real matches)\n')
-vb = collections.defaultdict(lambda: collections.Counter())
-for m in real:
-    for k, v in (m.get('veh') or {}).items(): vb[k].update({'lives': v.get('lives', 0), 'k': v.get('k', 0), 'd': v.get('d', 0), 'dmg': v.get('dmg', 0), 'taken': v.get('taken', 0), 'fires': v.get('fires', 0), 'lifew': (v.get('life', 0) or 0) * (v.get('lives', 0) or 0)})
+def veh_balance(xs): # per-vehicle totals over some matches: lives, kills, deaths, damage dealt/taken, fires, life seconds weighted by lives
+    vb = collections.defaultdict(lambda: collections.Counter())
+    for m in xs:
+        for k, v in (m.get('veh') or {}).items(): vb[k].update({'lives': v.get('lives', 0), 'k': v.get('k', 0), 'd': v.get('d', 0), 'dmg': v.get('dmg', 0), 'taken': v.get('taken', 0), 'fires': v.get('fires', 0), 'lifew': (v.get('life', 0) or 0) * (v.get('lives', 0) or 0)})
+    return vb
+def kd_of(c): return round(c['k'] / max(1, c['d']), 2)
+def life_of(c): return round(c['lifew'] / max(1, c['lives']))
+vb = veh_balance(real)
 rows = sorted(vb.items(), key=lambda kv: -(kv[1]['k'] / max(1, kv[1]['d'])))
 L.append('| vehicle | lives | kills | deaths | K/D | dmg/life | taken/life | avg life s | fires |\n|---|---|---|---|---|---|---|---|---|')
 for k, c in rows: L.append(f"| {k} | {c['lives']} | {c['k']} | {c['d']} | {round(c['k'] / max(1, c['d']), 2)} | {round(c['dmg'] / max(1, c['lives']))} | {round(c['taken'] / max(1, c['lives']))} | {round(c['lifew'] / max(1, c['lives']))} | {c['fires']} |")
 J['kd'] = {k: round(c['k'] / max(1, c['d']), 2) for k, c in vb.items()}
 L.append('')
+# Per build: the pooled table mixes every build, so a car change can't be judged from it (Build 133's sturdier Sandflea hid inside the
+# all-builds K/D 0.25). Compare the newest builds that have >= 30 game-min of real play, per vehicle, and flag big K/D moves.
+BAL_MIN, BAL_N, KD_MOVE, KD_LIVES = 30, 3, 0.15, 10
+bb = collections.defaultdict(list)
+for m in real: bb[int(m.get('build') or 0)].append(m)
+bfull = [b for b in sorted(bb) if mins(bb[b]) >= BAL_MIN and any(m.get('veh') for m in bb[b])][-BAL_N:]
+if bfull:
+    L.append(f'### Balance per build (newest builds with {BAL_MIN}+ game-min: ' + ', '.join(f'{b} {mins(bb[b])} min' for b in bfull) + ')\n')
+    BV = {b: veh_balance(bb[b]) for b in bfull}
+    cell = lambda b, v: f"{b} {kd_of(BV[b][v])} / {life_of(BV[b][v])} s" if BV[b][v]['lives'] else f'{b} –'
+    for v in sorted({v for b in bfull for v in BV[b]}): L.append(f'- {v}: ' + ' -> '.join(cell(b, v) for b in bfull))
+    if len(bfull) >= 2:
+        a, z = bfull[-2], bfull[-1]
+        mv = sorted(((v, kd_of(BV[a][v]), kd_of(BV[z][v])) for v in BV[z] if BV[a][v]['lives'] >= KD_LIVES and BV[z][v]['lives'] >= KD_LIVES
+                     and round(abs(kd_of(BV[z][v]) - kd_of(BV[a][v])), 2) > KD_MOVE), key=lambda t: -abs(t[2] - t[1]))
+        L.append(f'- **K/D moved more than {KD_MOVE} from {a} to {z}** ({KD_LIVES}+ lives in both): ' + (', '.join(f'{v} {x} -> {y} ({y - x:+.2f})' for v, x, y in mv) if mv else 'none'))
+    else: L.append(f'- only one build has {BAL_MIN}+ game-min: no K/D move check yet')
+    J['kdBuild'] = {str(b): {v: {'kd': kd_of(c), 'life': life_of(c), 'lives': c['lives']} for v, c in BV[b].items()} for b in bfull}
+    L.append('')
 # --- matchups (build 68+): who wrecks whom, how often by dragging into a hazard, damage dealt by pair
 VS = collections.defaultdict(collections.Counter)
 for m in real:
@@ -415,8 +439,6 @@ open(os.path.join(OUT, 'report-latest.md'), 'w').write('\n'.join(L) + '\n')
 stamp = time.strftime('%Y%m%d-%H%M', time.gmtime()); open(os.path.join(OUT, f'report-{stamp}.md'), 'w').write('\n'.join(L) + '\n')
 json.dump(J, open(pj, 'w'))
 # --- trend file for the Derby Health dashboard: per device/build perf rows, per build/vehicle balance rows
-KB = collections.defaultdict(collections.Counter)
-for m in real:
-    for k, v in (m.get('veh') or {}).items(): KB[(int(m.get('build') or 0), k)].update({'lives': v.get('lives', 0), 'k': v.get('k', 0), 'd': v.get('d', 0)})
-kdrows = [{'build': b, 'vehicle': v, 'lives': c['lives'], 'kills': c['k'], 'deaths': c['d'], 'kd': round(c['k'] / max(1, c['d']), 2)} for (b, v), c in sorted(KB.items())]
+kdrows = [{'build': b, 'vehicle': v, 'lives': c['lives'], 'kills': c['k'], 'deaths': c['d'], 'kd': kd_of(c), 'life': life_of(c)}
+          for b in sorted(bb) for v, c in sorted(veh_balance(bb[b]).items())]
 json.dump({'generated': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), 'perf': TR, 'balance': kdrows, 'matchups': VSROWS}, open(os.path.join(OUT, 'trend.json'), 'w'))

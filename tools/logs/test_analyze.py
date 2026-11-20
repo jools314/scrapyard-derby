@@ -243,6 +243,28 @@ def main():
     ok('REGRESSION' not in l7 and 'build 114 -> 124' in l7, 'A12 MacBook compares 124 with 114 (30+ game-min), not the thin 118 — got: ' + l7 + r.stderr[-300:])
     ok('skipped as too thin: 118 5.0 game-min' in l7, 'A12 the line says 118 was skipped as too thin — got: ' + l7)
 
+    # A13: balance per build — the pooled table mixed Build 133's sturdier Sandflea with every older build. The newest builds with 30+ game-min
+    # get a per-vehicle K/D / avg-life line, big K/D moves between the two newest are flagged, and a thin newer build (134, 5 game-min) is left out.
+    def bm(i, build, game, flea, dozer):
+        return dict(MATCH, id=f'b{build}-{i}', sid='b1', build=build, game=game, start=f'2026-11-20T{10 + i:02d}:00:00.000Z', veh={'sandflea': flea, 'dozer': dozer})
+    dz = {'lives': 10, 'k': 10, 'd': 10, 'life': 40}
+    bx = [bm(i, '132', 1200, {'lives': 10, 'k': 3, 'd': 10, 'life': 16}, dz) for i in range(3)]
+    bx += [bm(i + 3, '133', 1200, {'lives': 10, 'k': 5, 'd': 10, 'life': 22}, dz) for i in range(3)]
+    bx += [bm(7, '134', 300, {'lives': 2, 'k': 9, 'd': 1, 'life': 90}, dz)]
+    arch8 = tempfile.mkdtemp(prefix='sd-arch-'); out8 = tempfile.mkdtemp(prefix='sd-out-')
+    with open(os.path.join(arch8, 'fixture-playlog.txt'), 'w') as f:
+        for x in [SESSION] + bx: f.write(json.dumps(x) + '\n')
+    r = subprocess.run([sys.executable, os.path.join(HERE, 'analyze.py'), arch8, out8], capture_output=True, text=True)
+    md8 = open(os.path.join(out8, 'report-latest.md')).read() if r.returncode == 0 else ''
+    sec8 = md8.split('### Balance per build')[-1].split('\n\n')[1] if '### Balance per build' in md8 else ''
+    print('     ' + sec8.replace('\n', '\n     '))
+    ok('### Balance per build (newest builds with 30+ game-min: 132 60.0 min, 133 60.0 min)' in md8, 'A13 per-build balance section names the builds with 30+ game-min (thin 134 left out) ' + r.stderr[-300:])
+    ok('- sandflea: 132 0.3 / 16 s -> 133 0.5 / 22 s' in sec8, 'A13 sandflea K/D and avg life per build — got: ' + sec8.replace('\n', ' / '))
+    ok('- dozer: 132 1.0 / 40 s -> 133 1.0 / 40 s' in sec8, 'A13 dozer unchanged across builds')
+    ok('K/D moved more than 0.15 from 132 to 133** (10+ lives in both): sandflea 0.3 -> 0.5 (+0.20)' in sec8 and 'dozer 1.0 ->' not in sec8, 'A13 sandflea flagged as a K/D move, dozer not — got: ' + sec8.replace('\n', ' / '))
+    tb = json.load(open(os.path.join(out8, 'trend.json')))['balance'] if r.returncode == 0 else []
+    ok({(x['build'], x['vehicle']): (x['kd'], x.get('life'), x['lives'], x['kills'], x['deaths']) for x in tb}.get((133, 'sandflea')) == (0.5, 22, 30, 15, 30), 'A13 trend.json balance rows keep their fields and add avg life per build — got: ' + str(tb))
+
     print('FAILED ' + str(len(fails)) if fails else 'ALL PASS')
     return 1 if fails else 0
 

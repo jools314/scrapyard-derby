@@ -22,7 +22,7 @@ Both folders are git-ignored; keep raw logs out of the repo.
 - performance per device, with a **release-to-release table** per device and build (fps median, p5 and 1% low, worst frame, render scale, slow seconds per hour, stuck events per hour, physics catches per hour, throttled seconds) and the causes of slow moments;
 - **stuck hotspots**, clustered on a 12 m grid, with the vehicles involved;
 - physics safety-net catches per vehicle;
-- **balance**: lives, kills, deaths, K/D and damage per life per vehicle;
+- **balance**: lives, kills, deaths, K/D and damage per life per vehicle, plus a per-build view (K/D and avg life for the newest 2–3 builds with 30+ game-min) that flags K/D moves over 0.15 between the two newest;
 - **matchups**: who wrecks whom, including tow-truck and forklift "dragged into a hazard" wrecks;
 - voice failures, errors and network incidents;
 - autoplay health, recent bug reports, and what changed since the previous report.
