@@ -102,6 +102,7 @@ quick() {
   TAG=-jet t crusheropen 600 "CRUSHEROPEN PASS" TYPE=jet
   t jet 1800 "JET PASS"
   t tsunami 2400 "TSUNAMI PASS"
+  t hoverflood 600 "HOVERFLOOD PASS"
 }
 release() {
   quick
