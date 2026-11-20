@@ -1897,14 +1897,14 @@ function crushNow() {
 function updateCrusher(dt) {
   const C = CRUSHER; C.t -= dt;
   if (MP.role !== 'guest') {
-    let occ = false; for (const c of cars) if (crusherInside(c.body.position)) { occ = true; break; }
+    let occ = false; for (const c of cars) if (!c.crushedBox && crusherInside(c.body.position)) { occ = true; break; } // (a bale already crushed doesn't restart the press: a wreck left in it was pressed every ~3 s)
     C.occ = occ ? C.occ + dt : 0;
     if (C.state === 'idle') { C.y = Math.min(C.top, C.y + dt * 2.2); if ((C.occ > 0.6 || C.t <= 0) && game.state !== 'menu') { C.state = 'warn'; C.t = 1.3; } }
     else if (C.state === 'warn') { if (C.t <= 0) { C.state = 'slam'; C.jam = false; } }
     else if (C.state === 'slam') { let floorY = C.low; for (const c of cars) if (c.T.skid && crusherInside(c.body.position)) floorY = Math.max(floorY, c.body.position.y + c.T.H + 0.9);
       C.y = Math.max(floorY, C.y - dt * 26); if (C.y <= floorY + 0.01) { crushNow(); C.state = 'hold'; C.t = 1.2; } }
     else if (C.state === 'hold') { if (C.t <= 0) { C.state = 'idle'; C.t = rand(12, 20); } }
-    if (C.state === 'slam' || C.state === 'hold') for (const c of cars) if (crusherInside(c.body.position) && !c.T.skid && c.body.position.y > C.y - 0.6) { c.body.position.y = Math.max(0.6, C.y - 0.6); c.body.velocity.y = Math.min(0, c.body.velocity.y); }
+    if (C.state === 'slam' || C.state === 'hold') for (const c of cars) if (crusherInside(c.body.position) && !c.T.skid && c.body.position.y > C.y - 0.6) c.body.velocity.y = Math.min(c.body.velocity.y, -4); // pressed down with velocity, like crushNow (teleporting to y 0.6 put a standing spider, a wreck or a car on a bull ~0.8 m into the floor, and the solver shot it out: Build 129/132 logs)
   }
   // visuals: plate, ram, warning lamps, hiss and clank
   C.plate.position.set(C.x, C.y + 0.4, C.z); C.ram.position.set(C.x, (9 + C.y + 0.8) / 2, C.z); C.ram.scale.y = Math.max(0.1, 9 - C.y - 0.8);
