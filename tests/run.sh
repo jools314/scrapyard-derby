@@ -46,7 +46,7 @@ quick() {
   t portalstart 900 "PORTALSTART PASS"
   t fastboot 900 "FASTBOOT PASS"
   t watchdog 600 "WATCHDOG PASS"
-  t interact 1500 "^21/21"
+  t interact 1600 "^23/23"
   t scarecrow 1200 "SCARECROW PASS"
   t twothumb 600 "TWO-THUMB PASS"
   t touchcam 600 "TOUCHCAM PASS"
