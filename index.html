@@ -7668,6 +7668,7 @@ function fireLaser(car, visual) { // a beam from the emitter to whatever it hits
   if (L.res.hasHit) emit('spark', L.res.hitPointWorld.x, L.res.hitPointWorld.y, L.res.hitPointWorld.z, rand(-3, 3), rand(1, 4), rand(-3, 3), rand(0.12, 0.25), 0.06);
   if (player && (car.lzSnd = !car.lzSnd)) sfx.at(car.body.position).tone('square', 1900, 520, wv(car, 130) * 0.05, 0.07); // pew (every other beam)
   if (!visual && MP.role !== 'guest') { const dv = new THREE.Vector3(dx, dy, dz); roundHit(car, L.res, dv, 1.2); if (L.res.body && L.res.body.car && PLAYLOG.m) { const V = PLAYLOG.V(car.type); V.lasers = (V.lasers || 0) + 1; } }
+  L.res.reset(); // (let go of the body it hit: the shared result otherwise keeps that car, and every car it remembers, alive after its match is over)
 }
 function laserAim(car, dt) { // the emitter swings onto the car ahead (bulls, gas bottles and drums when nobody's there)
   if (!car.lzYaw) return; const tg = car.wrecked ? null : frontTarget(car, 80, car.T.boat ? 0.5 : 1.2) || frontObject(car, 45, 0.5); car.lzTarget = tg;
@@ -7859,7 +7860,8 @@ const CASH = { n: 10, im: null, b: [], m: new THREE.Matrix4(), q: new THREE.Quat
   pool() { if (this.im) return this.im; const geo = new THREE.BoxGeometry(0.55, 0.2, 0.32), mat = new THREE.MeshStandardMaterial({ color: 0x3f9a46, roughness: 0.7, emissive: 0x0c2a10 });
     const im = this.im = new THREE.InstancedMesh(geo, mat, this.n); im.instanceMatrix.setUsage(THREE.DynamicDrawUsage); im.frustumCulled = false; im.visible = false; im.userData.keep = true; im.castShadow = true;
     for (let i = 0; i < this.n; i++) { im.setMatrixAt(i, this.zero); this.b.push({ on: false, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, spin: 0, t: 0 }); } scene.add(im); return im; },
-  reset() { for (const k of this.b) k.on = false; this.live = false; if (this.im) { for (let i = 0; i < this.n; i++) this.im.setMatrixAt(i, this.zero); this.im.instanceMatrix.needsUpdate = true; this.im.visible = false; } this.grabbed = 0; this.drops = 0; this.robs.clear(); },
+  reset() { for (const k of this.b) { k.on = false; k.from = null; } // (from: a bundle left lying at the end of a match kept its old cop, and the cars it remembered, alive)
+    this.live = false; if (this.im) { for (let i = 0; i < this.n; i++) this.im.setMatrixAt(i, this.zero); this.im.instanceMatrix.needsUpdate = true; this.im.visible = false; } this.grabbed = 0; this.drops = 0; this.robs.clear(); },
   pay(c, k) { // which robbery this bundle is for its grabber: the first drop they rob this match pays 100 a bundle, any later drop 1,000 (keyed by driver, so it carries over a respawn)
     const key = SCORE.keyOf(c); let m = this.robs.get(key); if (!m) this.robs.set(key, (m = new Map()));
     let v = m.get(k.drop); if (v == null) m.set(k.drop, (v = m.size ? 1000 : 100)); return v; },
@@ -10115,7 +10117,7 @@ function updateRespawnSheet(dt) {
   if (MP.role === 'guest' && player) { if (player.wrecked) player.respawnT = (player.respawnT ?? RESPAWN_HUMAN) - (dt || 0); else player.respawnT = undefined; }
   if (game.state !== 'playing' || !player || (GAME_MODE !== 'respawn' && RS.auto)) { if (RS.open) closeRespawnSheet(); return; }
   if (GAME_MODE !== 'respawn') { if (RS.open) $('rsSub').textContent = MP.role === 'guest' ? '' : 'Elimination: a new car starts the round again'; return; }
-  if (player.wrecked && !RS.open && RS.wreckedCar !== player) { RS.wreckedCar = player; openRespawnSheet(true); }
+  if (player.wrecked && !RS.open && (RS.wreckedCar && RS.wreckedCar.deref()) !== player) { RS.wreckedCar = new WeakRef(player); openRespawnSheet(true); } // (weak: it kept the last wrecked player car alive after its match)
   if (RS.open && RS.auto) { const left = player.wrecked ? Math.max(0, player.respawnT ?? RESPAWN_HUMAN) : 0; $('rsSub').textContent = player.wrecked ? `Back in the same car in ${Math.ceil(left)}… or pick one now` : ''; if (!player.wrecked) closeRespawnSheet(); }
   else if (RS.open) $('rsSub').textContent = 'Come back somewhere open, a little way from here';
 }
@@ -10260,6 +10262,12 @@ function setControlsFor(type) {
   }
   { const T0 = CAR_TYPES[type]; const lab = document.querySelector('.row.gun-only .label'); if (lab) lab.textContent = T0.gun ? 'Cannon' : T0.pour ? (T0.pour === 'fuel' ? 'Fuel' : 'Concrete') : 'Weapon'; }
 }
+function forgetContacts() { // cannon keeps its spent contact equations to reuse, each still pointing at the two bodies it last touched: a pool entry
+  // that no later match needed (fewer contacts at once) kept an old car or bull, and every car that one remembered, alive. Spend them now, pointing at nothing.
+  const np = world.narrowphase, cp = np.contactPointPool, fp = np.frictionEquationPool;
+  for (const e of world.contacts) cp.push(e); world.contacts.length = 0; for (const e of world.frictionEquations) fp.push(e); world.frictionEquations.length = 0;
+  for (const e of cp) { e.bi = e.bj = null; e.si = e.sj = null; } for (const e of fp) e.bi = e.bj = null;
+}
 function resetMatch() {
   if (PLAYLOG.roundReset) PLAYLOG.roundReset(); // a match that is thrown away still goes in the play log
   game.crashCam = null; if (typeof CRUSHER !== 'undefined') { CRUSHER.state = 'idle'; CRUSHER.t = 8; CRUSHER.y = CRUSHER.top; }
@@ -10283,7 +10291,7 @@ function resetMatch() {
   clearSkids();
   buildProps(); batchProps();
   buildPickups();
-  tsuReset(); CASH.reset();
+  tsuReset(); CASH.reset(); forgetContacts();
   spawnCars(); SCORE.reset(); SCORE.show(false);
   game.chatT = 14; game.score = 0; game.time = 0; game.overTimer = -1; game.attractReset = -1; game.shake = 0; game.propHits = 0; game.tromboneDone = false; game.tromboneKind = null;
 }
@@ -12253,7 +12261,7 @@ const PERFREP = { f: [], max: 900, seq: 0, lastT: 0, r0: 0, render: 0, calls: 0,
   },
   check() { // called every frame: a fresh wreck, or two quiet minutes, sends a report
     if (!player || game.state !== 'playing') return;
-    if (player.wrecked && this.wreckCar !== player) { this.wreckCar = player; this.send('wrecked'); }
+    if (player.wrecked && (this.wreckCar && this.wreckCar.deref()) !== player) { this.wreckCar = new WeakRef(player); this.send('wrecked'); } // (weak: it kept the last wrecked player car, of a match long over, alive)
     else if (performance.now() - this.lastT > 120000 && this.f.length > 300) this.send('every 2 minutes');
   },
 };
