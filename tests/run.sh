@@ -81,6 +81,7 @@ quick() {
   t aim 900 "AIM PASS"
   t heaps 300 "HEAPS PASS"
   t inside 600 "INSIDE PASS"
+  t stuckdiag 600 "STUCKDIAG PASS"
   t voicelines 300 "VOICELINES PASS"
   t voicepath 600 "VOICEPATH PASS"
   t broadphase 600 "BROADPHASE PASS"
