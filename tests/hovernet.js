@@ -18,7 +18,7 @@ if (pk && un.length) {
   const webLeft = (t) => (t.webbedT > 0 ? Math.max(0, Math.min(1, t.webbedT / (t.webHold0 || t.webbedT))) : 0);
   const pack = new Function('c', 'webLeft', 'return ' + pk[1]);
   const unpack = new Function('B', 'const c = {};\n' + un.join('\n') + '\nreturn c;');
-  const base = { wrecked: false, boosting: false, braking: false, sirenOn: false, turretGone: false, burnT: 0, webbedT: 0, latch: null, laserT: 0, laserPin: false, hovAir: false, hovUp: false, skirtDown: false };
+  const base = { wrecked: false, boosting: false, braking: false, sirenOn: false, turretGone: false, burnT: 0, webbedT: 0, latch: null, laserT: 0, laserPin: false, hovAir: false, hovUp: false, skirtDown: false, T: {}, craned: false, carriedBy: null };
   // each state, and what the guest must see for it (net* fields; everything else must stay off)
   const S = {
     webbed: [{ webbedT: 3, webHold0: 3 }, { netWebbed: true, netWebQ: 3 }],
@@ -29,8 +29,9 @@ if (pk && un.length) {
     hoverAir: [{ hovAir: true }, { netAir: true }],
     hoverUp: [{ hovUp: true }, { netAir: true }],
     skirt: [{ skirtDown: true }, { netSkirt: true }],
+    craned: [{ T: { walker: true }, craned: true }, { netFlail: true }], // Build 132: a lifted spider kicks its legs on guests' screens too
   };
-  const flags = ['netWebbed', 'netLatched', 'netLaser', 'netLaserPin', 'netAir', 'netSkirt'], q = (c) => c.netWebQ || 0;
+  const flags = ['netWebbed', 'netLatched', 'netLaser', 'netLaserPin', 'netAir', 'netSkirt', 'netFlail'], q = (c) => c.netWebQ || 0;
   const check = (name, ...ks) => { const st = Object.assign({}, base, ...ks.map((k) => S[k][0])), want = Object.assign({}, ...ks.map((k) => S[k][1]));
     const g = unpack([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100, pack(st, webLeft)]), bad = flags.filter((f) => !!g[f] !== !!want[f]);
     if (q(g) !== (want.netWebQ || 0)) bad.push(`netWebQ ${q(g)} (want ${want.netWebQ || 0})`);
@@ -39,6 +40,7 @@ if (pk && un.length) {
   check('a hovercraft webbed down (full hold)', 'webbed', 'hoverAir');
   check('a hovercraft webbed down, skirt dropped', 'webbedLast', 'skirt');
   check('a spider riding a boosted hovercraft, big beam on', 'bigBeam', 'hoverUp', 'webbed');
+  check('a craned spider, webbed', 'craned', 'webbed');
   // and no two packed constants share a bit (the web hold's two bits included)
   const consts = [...pk[1].matchAll(/\? (\d+) : 0\)/g)].map((m) => +m[1]), shifts = [...pk[1].matchAll(/\) << (\d+) : 0\)/g)].map((m) => 3 << +m[1]);
   const all = consts.concat(shifts); let clash = []; for (let i = 0; i < all.length; i++) for (let j = i + 1; j < all.length; j++) if (all[i] & all[j]) clash.push(`${all[i]} & ${all[j]}`);
