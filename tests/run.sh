@@ -48,6 +48,7 @@ quick() {
   t watchdog 600 "WATCHDOG PASS"
   t interact 1600 "^23/23"
   t scarecrow 1200 "SCARECROW PASS"
+  t carai 900 "CARAI PASS"
   t twothumb 600 "TWO-THUMB PASS"
   t touchcam 600 "TOUCHCAM PASS"
   t gearmenu 600 "GEARMENU PASS"
