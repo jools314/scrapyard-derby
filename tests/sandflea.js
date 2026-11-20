@@ -7,6 +7,8 @@
 //     refunded, so only fire could wreck it in the window.
 // (c) Real causes still light it: another car's burning trail, a plain burning fuel slick, another car's flamethrower, the fire pit.
 //     Fails on main: inFire() ignored who laid a burning patch, so the buggy's own trail (dropped right under its tail) lit it.
+// (e) A burning crate beside it hurts it only when someone else's fire lit it: one lit by its own fire-drift trail costs it 0 hull over 5 s
+//     (fails on main: 5 hull/s from any burning prop), one lit by another car's trail or lit directly still burns it.
 // (d) Sturdier but still light: three 13 m/s Outrider side rams on open dirt cost it clearly less hull than main (main averaged 35-48 a ram).
 const { open } = require('./harness');
 const fails = []; const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (!c) fails.push(m); };
@@ -51,7 +53,19 @@ const put = `const put = (c, x, z, yaw) => { const D = __derby; c.body.position.
       await reset(30, -60); D.respawnCar(other, 'sandflea'); const fl = D.cars.find((c) => !c.isPlayer); park(fl);
       put(fl, p.body.position.x - 5, p.body.position.z); await sleep(400); fl.specialCd = 0; fl.ctrl.fire = true;
       const flamer = Object.assign(await waitLit(2.5, () => { fl.body.position.set(p.body.position.x - 5, fl.body.position.y, p.body.position.z); fl.body.quaternion.set(0, 0, 0, 1); }), { flName: fl.name });
-      return { self, theirTrail, slick, pit, flamer }; })()`);
+      /* (e) a burning crate parked 2.3 m beside the stopped buggy for 5 s: lit by its own fire-drift trail (no hull lost), by another car's trail and lit
+         directly (both still cost hull). The crate is lit by a small trail patch laid under it, out of the buggy's own reach, which is put out once it catches. */
+      park(fl); put(fl, -100, -100); const crate = D.props.find((pr) => pr.body.propKind === 'wood' && !pr.body.gas && !pr.charred && pr.body.mass < 400);
+      const besideCrate = async (lightBy) => { await reset(30, 30); const q = p.body.position, cx = q.x, cz = q.z + 2.3; crate.fireT = 0; crate.litBy = undefined;
+        const hold = () => { crate.body.position.set(cx, crate.body.position.y, cz); crate.body.velocity.set(0, 0, 0); crate.body.angularVelocity.set(0, 0, 0); };
+        hold(); D.wakeProp(crate); await sleep(200); hold();
+        if (lightBy) { D.addConcrete(cx, cz, 0.6, 'fuel'); const pd = D.CONCRETE.list[D.CONCRETE.list.length - 1]; pd.burning = 30; pd.owner = lightBy; pd.trail = true; const t1 = D.game.time; while (D.game.time - t1 < 3 && !(crate.fireT > 0)) { await sleep(40); hold(); } pd.burning = 0; pd.t = 0.5; }
+        else D.igniteProp(crate);
+        const lit = crate.fireT > 0, by = crate.litBy ? crate.litBy.name : null; for (const c of D.CONCRETE.list) c.burning = 0; await sleep(100);
+        const h0 = p.health, t2 = D.game.time; let burned = 0; while (D.game.time - t2 < 5) { await sleep(40); hold(); if (crate.fireT > 0) crate.fireT = Math.max(crate.fireT, 3); if (p.burnT > 0) burned++; }
+        const d = +crate.body.position.distanceTo(p.body.position).toFixed(1); crate.fireT = 0; return { lit, by, lost: +(h0 - p.health).toFixed(1), burned, d }; };
+      const crateOwn = crate ? await besideCrate(p) : null, crateTheirs = crate ? await besideCrate(fl) : null, crateDirect = crate ? await besideCrate(null) : null;
+      return { self, theirTrail, slick, pit, flamer, crateOwn, crateTheirs, crateDirect, crateKind: crate && crate.body.propKind }; })()`);
     console.log(JSON.stringify(r));
     ok(r.self.maxOwn >= 3, `the Sandflea laid its own burning fire-drift trail (${r.self.maxOwn} patches alight at once) and used its flamethrower ${r.self.flames}x`);
     ok(r.self.maxY > 3, `it jumped the launch ramp (highest point ${r.self.maxY.toFixed(1)} m)`);
@@ -61,6 +75,9 @@ const put = `const put = (c, x, z, yaw) => { const D = __derby; c.body.position.
     ok(r.slick.burnT > 0, `a burning fuel slick still sets it alight (burnT ${r.slick.burnT})`);
     ok(!r.pit || r.pit.burnT > 0, `the fire pit still sets it alight (${r.pit ? 'burnT ' + r.pit.burnT : 'no fire pit in this yard'})`);
     ok(r.flamer.burnT > 0 && r.flamer.by === r.flamer.flName, `another car's flamethrower still sets it alight, credited to ${r.flamer.flName} (burnT ${r.flamer.burnT}, by ${r.flamer.by})`);
+    ok(!!r.crateOwn && r.crateOwn.lit && r.crateOwn.d < 2.6 && r.crateOwn.lost === 0 && r.crateOwn.burned === 0, `(e) a crate lit by its own fire-drift trail, burning ${r.crateOwn && r.crateOwn.d} m beside it for 5 s, costs it no hull (${JSON.stringify(r.crateOwn)})`);
+    ok(!!r.crateTheirs && r.crateTheirs.lit && r.crateTheirs.d < 2.6 && r.crateTheirs.lost > 5, `(e) a crate lit by another car's trail beside it still burns it (${JSON.stringify(r.crateTheirs)})`);
+    ok(!!r.crateDirect && r.crateDirect.lit && r.crateDirect.d < 2.6 && r.crateDirect.lost > 5, `(e) a crate lit directly (a blast, a shell) beside it still burns it (${JSON.stringify(r.crateDirect)})`);
     const errs = errors.filter((e) => e.startsWith('pageerror:')); ok(errs.length === 0, 'no page errors ' + JSON.stringify(errs.slice(0, 3)));
     await browser.close();
   }
@@ -70,7 +87,7 @@ const put = `const put = (c, x, z, yaw) => { const D = __derby; c.body.position.
     const r = await page.evaluate(`(async () => { ${park} ${put} const D = __derby, sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       let a = D.cars.find((c) => !c.isPlayer); D.respawnCar(a, 'sandflea'); a = D.cars.find((c) => !c.isPlayer); const p = D.player; park(p); put(p, 60, 60);
       /* every hull loss is recorded with its cause. Fire: lost while it is "in fire" or burning (what this check is about), never refunded.
-         A burning prop beside it (a crate its own trail or flamer lit, 5 hull/s): kept, and listed. Hits (the target's armour when it rams the parked
+         A burning prop beside it (a crate its own trail or flamer lit: 5 hull/s before this branch, now none; see (e)): kept, and listed. Hits (the target's armour when it rams the parked
          Tiger, up to 60 hull at once; a bull's gore and shove, up to 59; props, ramps, scenery, blasts): listed and refunded, so nothing but fire can wreck it
          in the window (a 30 s run once ended "0 burning, wrecked true, hull 100 -> 0" with no fire at all). */
       const hits = {}, fireLoss = { fire: 0, prop: 0 }; let firstFire = null; const ad = a.applyDamage.bind(a);
