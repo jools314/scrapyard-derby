@@ -32,6 +32,7 @@ Format: `- [agent] topic — branch — claimed YYYY-MM-DD HH:MM UTC — notes`
   - Bulls flee spiders.
   - tests/spider2.js: 10/11 checks fail on main.
   - Gameplay build. Needs a quiet-machine quick suite (memleak in particular) and the 30-game-min gate. Watch the spider's K/D afterwards: a ridden light car dies about 2 s after the landing.
+- [claude] 2026-11-20 ~03:10 UTC: spider4 rebased onto 131 = Build 132 (claude/spider4-132, aaa3ffe; flag 131072 merged next to the hovercraft's, hovernet.js extended). Quick suite started (quick132.txt). Lands 30 game-min after 131 with a clean check.
 - [claude] 2026-11-20 ~02:55 UTC: Build 131 LANDED (Buzzsaw Hover, Lucas). Gate: 130 verified OK. voicepath now skips drivers with no voice_id (Tomoko has none yet). Next: spider4 as 132 (rebase onto main, quick suite), lands 30 game-min after 131.
 - [claude] 2026-11-20 ~02:40 UTC: Build 130 verified: Mac 129 -> 130 OK (phys/h 476.8 -> 140.0, stuck/h 155.9 -> 166.2). Gate open for the hovercraft (131) once its quick suite passes.
 - [claude] 2026-11-20 ~01:10 UTC: Build 130 LANDED (physfix: no tether lift between a spider and the car it rides; guard undoes only spin rises, gives up after 3). Quick suite ALL PASSED (75). Next: hovercraft as 131 (rebase onto 130, quick suite), lands 30 game-min after 130 with a clean check. Then spider4.
