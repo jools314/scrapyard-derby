@@ -7593,11 +7593,12 @@ class Car {
       if (hits === 2 && this.avoid === 0) this.avoid = 1.2;
     }
     if (dist > 12 || this.rampGoal) steer = clamp(steer + this.avoid, -1, 1);
-    if (this.blocked && this.speed < 5) { this.reverseTimer = Math.max(this.reverseTimer, 1.0); }
+    if (this.blocked && this.speed < 5 && !(this.fwdTimer > 0)) { this.reverseTimer = Math.max(this.reverseTimer, 1.0); }
 
-    if (throttle > 0 && Math.abs(this.speed) < 1.2) this.stuckTimer += dt; else this.stuckTimer = 0;
+    if (throttle > 0 && this.reverseTimer <= 0 && !(this.fwdTimer > 0) && Math.abs(this.speed) < 1.2) this.stuckTimer += dt; else this.stuckTimer = 0; // the throttle it will apply: not the plan while a reverse overrides it (that re-armed a slow reverse forever)
     if (this.stuckTimer > 1.4) { this.reverseTimer = 1.4; this.stuckTimer = 0; }
-    if (this.reverseTimer > 0) { this.reverseTimer -= dt; throttle = -1; steer = -steer; }
+    if (this.reverseTimer > 0) { this.reverseTimer -= dt; throttle = -1; steer = this.escT > 0 ? (this.T.skid ? this.escSteer : -this.escSteer) : -steer; }
+    if (Math.abs(this.speed) >= 1.2) this.revStuck = 0; else if (this.reverseTimer > 0 && (this.revStuck = (this.revStuck || 0) + dt) > 1.6) { this.revStuck = 0; this.reverseTimer = 0; this.fwdTimer = 1.4; if (!(this.escT > 0)) this.escSteer = angle < 0 ? -1 : 1; this.escT = 5; } // backing out, going nowhere (over one reverse or a chain of them): drive out forwards instead, on full lock towards the target
     if (this.T.special && !this.specialCd && Math.random() < 0.12) { // AI weapon use: every driver knows their gadget
       const sp = this.T.special, l = b.pointToLocalFrame(t.body.position), ahead = l.x > 0 && Math.abs(l.z) < Math.max(2.5, l.x * 0.6);
       const behind = cars.some((c) => c !== this && !c.wrecked && (() => { const q = b.pointToLocalFrame(c.body.position); return q.x < -this.T.L / 2 && q.x > -32 && Math.abs(q.z) < 7 + -q.x * 0.15; })());
@@ -7631,6 +7632,8 @@ class Car {
       if (this.afloat) { throttle = Math.max(throttle, 0.85); if (this.reverseTimer > 0) throttle = -1; }
       if (this.afloat && Math.random() < dt * 0.02) barks.say(this, 'boat');
     }
+    if (this.escT > 0) this.escT -= dt; // (for 5 s after that the reverses swing the nose the same way: a three-point turn, not a wiggle; a tank's tracks pivot it the way the stick points either way)
+    if (this.fwdTimer > 0) { this.fwdTimer -= dt; throttle = this.T.skid ? 0 : 1; steer = this.escSteer; if (!this.T.skid && this.fwdTimer < 0.9 && Math.abs(this.speed) < 0.5) { this.fwdTimer = 0; this.reverseTimer = 1.4; } } // driving out forwards on full lock (a new heading off whatever it backed into; a tank turns on the spot instead); nosed into something again: back the other way
     ctrl.throttle = throttle; ctrl.steer = steer; ctrl.pitch = 0;
     ctrl.handbrake = this.T.hover ? !!this.hoverHB && S.aiSkill > 0.3 : Math.abs(angle) > 1.2 && this.speed > 14 && S.aiSkill > 0.4;
     if (this.latchedBy && this.latchedBy.latch && this.latchedBy.latch.c === this) { ctrl.throttle = 1; ctrl.steer = Math.sin(simTime * 3.2 + this.number) > 0 ? 1 : -1; ctrl.handbrake = false; if (this.body.mass < 3000 && this.contacts >= 3 && Math.random() < 0.003) ctrl.jump = true; } // a spider on the roof: swerve hard to sling it off (and now and then jump: a jump throws it; rarer since 11-19, the spider holds on better)
