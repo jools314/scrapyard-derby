@@ -7693,6 +7693,11 @@ class Car {
       if (there) { if (this.carry) liftRelease(this, false); else towRelease(this, false); this.delivery = null; this.mode = 'backup'; this.modeT = 2; if (game.state === 'playing') { barks.say(this, 'gloat', true); barks.announce(D0.to === 'crusher' ? 'intoCrusher' : 'underBall', { a: this.name, v: load.isPlayer ? 'our hero' : load.name }, true); } }
       else if (simTime > D0.until) this.delivery = { ...D0, until: Infinity, gaveUp: true }; // couldn't get there: the normal toss/whip takes over
     } else { this.delivery = null; this.gentle = false; this.reverseTo = null; }
+    if (AI && AI.plunder && !tPlat) { // the pirate: battery flat or a cop to rob, it rams instead of zapping; loose cash nearby, it goes for the loot; a wave coming, it drives into it (Ann launches off the bed). (Here, before the steering reads the aim: it used to come after it, and neither the loot nor the wave ever steered it)
+      if (this.mode === 'kite' && (this.lzLock > 0 || t.T.police)) { this.mode = 'hunt'; this.modeT = rand(3, 5); }
+      if (CASH.live) { let best = null, bd = 30; for (const k of CASH.b) if (k.on) { const d = Math.hypot(k.x - b.position.x, k.z - b.position.z); if (d < bd) { bd = d; best = k; } } if (best) aim.set(best.x, 0, best.z); }
+      if (AI.flood && this.annAboard !== false && (TSU.state === 'warn' || TSU.state === 'surge')) aim.set(clamp(b.position.x, 30 - A, A - 30), 0, Math.max(30 - A, Math.min(b.position.z - 25, TSU.state === 'surge' ? TSU.front - 10 : b.position.z)));
+    }
     const local = b.pointToLocalFrame(aim);
     const angle = Math.atan2(-local.z, local.x); // + = target on the left
     let steer = clamp(angle * 1.8, -1, 1);
@@ -7738,11 +7743,6 @@ class Car {
       for (const c of cars) { if (c === this || c.wrecked) continue; const l = b.pointToLocalFrame(c.body.position); if (l.x < -this.T.L / 2 && l.x > -38 && Math.abs(l.z) < 9 && Math.random() < 0.08) { ctrl.fire = true; break; } }
       if (!ctrl.fire && (this.mode === 'flee' || this.health < 40) && Math.random() < 0.02) ctrl.fire = true; // leave a trail when running
       if (!ctrl.fire && Math.random() < 0.01 && cars.some((c) => c !== this && !c.wrecked && c.body.position.distanceTo(b.position) < 22 && b.pointToLocalFrame(c.body.position).x < 0)) ctrl.fire = true; // someone close on our tail
-    }
-    if (AI && AI.plunder && !tPlat) { // the pirate: battery flat or a cop to rob, it rams instead of zapping; loose cash nearby, it goes for the loot; a wave coming, it drives into it (Ann launches off the bed)
-      if (this.mode === 'kite' && (this.lzLock > 0 || t.T.police)) { this.mode = 'hunt'; this.modeT = rand(3, 5); }
-      if (CASH.live) { let best = null, bd = 30; for (const k of CASH.b) if (k.on) { const d = Math.hypot(k.x - b.position.x, k.z - b.position.z); if (d < bd) { bd = d; best = k; } } if (best) aim.set(best.x, 0, best.z); }
-      if (AI.flood && this.annAboard !== false && (TSU.state === 'warn' || TSU.state === 'surge')) aim.set(clamp(b.position.x, 30 - A, A - 30), 0, Math.max(30 - A, Math.min(b.position.z - 25, TSU.state === 'surge' ? TSU.front - 10 : b.position.z)));
     }
     if (this.T.gun && AI && this.barrelBend > 0.22 && this.mode === 'kite') { this.mode = 'hunt'; this.modeT = rand(4, 7); } // bent barrel: firing would blow it up, so it's crushing only now
     if (this.T.gun && !this.gunBlown && this.mode !== 'charge' && this.mode !== 'flee' && !(AI ? this.barrelBend > 0.22 : this.barrelBend > 0.4 && Math.random() < 0.7)) { // tanks hang back and shoot
