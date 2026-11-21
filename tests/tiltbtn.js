@@ -38,10 +38,11 @@ const SHOTS = process.env.SHOTS;
     if (SHOTS) await page.screenshot({ path: `${SHOTS}/tilt-${name.replace(/ /g, '_')}-on.png` }).catch(() => {}); /* (a picture for a person; under load it can time out) */
     if (name === 'iPhone 13') { /* drive with it: twist the phone left, then right, and the car turns that way (heading change over 1.5 s at full throttle) */
       const drive = async (a) => page.evaluate(async (a) => { const gw = (s) => new Promise((r) => { const t = __derby.game.time, t0 = performance.now(), f = () => (__derby.game.time >= t + s || performance.now() - t0 > 20000 ? r() : setTimeout(f, 30)); f(); }); /* wait on the game clock: a busy machine draws slowly */ const P = __derby.player, yaw = () => { const q = P.body.quaternion; return Math.atan2(2 * (q.w * q.y + q.x * q.z), 1 - 2 * (q.y * q.y + q.x * q.x)); };
+        /* start each drive from a standstill, pointing the same way: a hard left at full throttle can leave the car spinning, and a leftover spin failed the right-turn check (Builds 139/140 suites) */ window.__tiltA = 0; __derby.touch.throttle = 0; for (let k = 0; k < 3; k++) { P.body.velocity.set(0, 0, 0); P.body.angularVelocity.set(0, 0, 0); await gw(0.15); } const spin0 = +P.body.angularVelocity.y.toFixed(2);
         __derby.touch.throttle = 1; window.__tiltA = 0; await gw(0.4); window.__tiltA = a; await gw(0.3);
         const st = __derby.tilt.steer, c0 = P.ctrl.steer, y0 = yaw(), t0 = __derby.game.time; await gw(1.5);
         let d = yaw() - y0; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; window.__tiltA = 0; __derby.touch.throttle = 0;
-        return { paused: __derby.game.paused, state: __derby.game.state, tiltSteer: +st.toFixed(2), ctrlSteer: +c0.toFixed(2), turn: +d.toFixed(2), dt: +(__derby.game.time - t0).toFixed(1) }; }, a);
+        return { paused: __derby.game.paused, state: __derby.game.state, tiltSteer: +st.toFixed(2), ctrlSteer: +c0.toFixed(2), turn: +d.toFixed(2), dt: +(__derby.game.time - t0).toFixed(1), spin0 }; }, a);
       await page.evaluate(() => { __derby.respawnCar(__derby.player, 'viper'); for (const c of __derby.cars) if (c !== __derby.player) { c.think = () => {}; c.ctrl.throttle = 0; c.ctrl.steer = 0; } }); await page.waitForTimeout(800); /* (park the AI: Build 115's suite run had one ram the test car mid-turn) */
       const L = await drive(0.35), R = await drive(-0.35);
       console.log(`  tilt drive: left ${JSON.stringify(L)} right ${JSON.stringify(R)}`);
