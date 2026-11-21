@@ -8,7 +8,7 @@
 //   6 Spider (its combo, on Build 137): webs the car it hunts, reels in on the thread and gives it the big beam from the roof; doesn't go off to perch
 //   7 Buzzsaw Hover saw-rams: slides into a car with a saw flank, not its nose
 //   8 Jet holds its range and lasers a light car; 9 Jet picks the cop car over a nearer Viper and rams its cash loose
-//   0 Ann (the tsunami): an AI Jet launches her, and she goes for a heavy wading in the flood (not a car up on a platform), hurting it, staying afloat
+//   0 Ann (the tsunami): an AI Jet drives at the wave and launches her, and she goes for a heavy wading in the flood (not a car up on a platform), hurting it, staying afloat
 // ONLY=135 runs just those scenes.
 // Each scene runs up to 3 times (the AI has dice in it); a check passes on 2 of 3.
 const { open } = require('./harness');
@@ -16,10 +16,11 @@ const { open } = require('./harness');
   const fails = []; const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (!c) fails.push(m); };
   const { browser, page, errors } = await open({ viewport: { width: 200, height: 140 } });
   await page.evaluate(async () => { window.__noRender = true; const D = __derby, sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-    D.S.aiCount = 4; D.startMatch(); while (!(D.game.state === 'playing' && D.game.countdown <= 0)) await sleep(100); D.game.grace = 0; });
+    D.S.aiCount = 4; D.startMatch(); while (!(D.game.state === 'playing' && D.game.countdown <= 0)) await sleep(100); D.game.grace = 0; D.TSU.at = D.TSU.win = Infinity; });
   const scene = (name, fn) => page.evaluate(async ({ name, src }) => {
     const D = __derby, CA = D.CANNON, sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     if (D.game.state !== 'playing') { D.startMatch(); while (!(D.game.state === 'playing' && D.game.countdown <= 0)) await sleep(100); D.game.grace = 0; } // (a scene that wrecked every other car, or the player, ended the match: a fresh one)
+    if (D.TSU.state === 'idle') D.TSU.at = D.TSU.win = Infinity; // no tsunami of its own in a staged scene (one in three matches gets one 70-220 s in, about when the Jet scenes run: the Jet then drives into the wave and Ann launches); scene 0 starts its own
     const until = async (secs, each) => { const s0 = D.simTime; while (D.simTime - s0 < secs) { if (each && each(D.simTime - s0)) break; await sleep(16); } };
     const place = (c, x, z, yaw = 0) => { c.body.position.set(x, 1.4, z); c.body.velocity.set(0, 0, 0); c.body.angularVelocity.set(0, 0, 0); c.body.quaternion.setFromAxisAngle(new CA.Vec3(0, 1, 0), yaw); c.body.wakeUp(); };
     const park = (c, k) => { c.think = function () { Object.assign(this.ctrl, { throttle: 0, steer: 0, fire: false, nitro: false, jump: false, handbrake: true }); }; place(c, -120 + k * 12, 135); };
@@ -28,7 +29,7 @@ const { open } = require('./harness');
       for (let i = 0; i < ai.length; i++) { const c = D.respawnCar(ai[i], types[i] || 'forklift'); c.health = 100; if (i >= types.length) park(c, i); else out.push(c); }
       const p = D.player; p.body.position.set(120, 1.4, 135); p.body.velocity.set(0, 0, 0); p.health = 100; for (const c of D.cars) { c.lastAttacker = null; }
       for (const c of D.cars) if (c.isPlayer) c.ghost = false;
-      D.CONCRETE.list.slice().forEach((pd) => { pd.t = Math.min(pd.t, 0.05); }); return out; };
+      D.CONCRETE.list.slice().forEach((pd) => { pd.t = Math.min(pd.t, 0.05); }); D.CASH.reset(); return out; }; // (and no cash left lying from the trial before: the Jet would go for that loot first)
     const drive = (c, steerTo) => { c.think = function () { const b = this.body, q = steerTo(); const l = b.pointToLocalFrame(new CA.Vec3(q.x, b.position.y, q.z)); const a = Math.atan2(-l.z, l.x); Object.assign(this.ctrl, { throttle: 1, steer: Math.max(-1, Math.min(1, a * 1.8)), fire: false, nitro: false, jump: false, handbrake: false }); }; };
     return await (eval('(' + src + ')'))({ D, CA, sleep, until, place, park, setup, drive });
   }, { name, src: fn.toString() });
@@ -137,22 +138,28 @@ const { open } = require('./harness');
   console.log('  9 ' + JSON.stringify(t9.rs));
   ok(t9.good >= 2, `Jet goes for the cop car over a nearer Viper and rams its cash loose (${t9.good}/${t9.rs.length})`);
 
-  // 0 Ann: a tsunami with an AI Jet in the yard: she launches, then picks the Tiger wading in the flood over a nearer Viper up on a platform, rings it and hurts it, afloat nearly all the time
-  const t0 = !ONLY.includes(0) ? skip : await trials(1, async ({ D, sleep, until, place, setup }) => {
+  // 0 Ann: a tsunami with an AI Jet in the yard: it drives at the wave (north) and she launches; then she picks the Tiger wading in the flood over a nearer Viper up on a platform, rings it and hurts it, afloat nearly all the time
+  //   (on Build 139 as first written the Jet's wave and loot aims came after its steering and did nothing: it drove off south after the Tiger and only launched Ann because the wave got to it anyway)
+  const t0 = !ONLY.includes(0) ? skip : await trials(1, async ({ D, CA, sleep, until, place, setup }) => {
     const [j, tg, v] = setup(['jet', 'tiger', 'viper']); let E = null; for (let x = -140; x <= 140 && !E; x += 4) for (let z = -140; z <= 140 && !E; z += 4) { const e = D.platformOf({ x, y: 30, z }); if (e && e.y > 2.5 && e.x1 - e.x0 > 6 && e.z1 - e.z0 > 6) E = e; }
     if (!E) return { launched: false, noPlatform: true };
-    const ex = (E.x0 + E.x1) / 2, ez = (E.z0 + E.z1) / 2; place(v, ex, ez, 0); v.body.position.y = E.y + 1.4; const far = (q) => Math.hypot(q.x - ex, q.z - ez);
-    const sx = ex > 0 ? -1 : 1, sz = ez > 0 ? -1 : 1; place(j, ex + sx * 30, ez, 0); place(tg, ex + sx * 45, ez + sz * 25, Math.PI / 2); j.target = tg; j.retarget = 99; // (the Tiger out in open water, clear of the platform's ramp)
+    const ex = (E.x0 + E.x1) / 2, ez = (E.z0 + E.z1) / 2, sx = ex > 0 ? -1 : 1, sz = ez > 0 ? -1 : 1;
+    const ground = (x, z) => { let y = 0; D.world.raycastAll(new CA.Vec3(x, 12, z), new CA.Vec3(x, -1, z), { skipBackfaces: true }, (r) => { if (r.body && r.body.mass === 0 && r.hitPointWorld.y > y) y = r.hitPointWorld.y; }); return y; }; // (the yard itself, not the cars on it)
+    let shore = 18; while (shore < 40 && [0, 1, 2, 3, 4, 5, 6].some((k) => ground(ex + sx * (shore + k), ez) > 0.05)) shore++; // the foot of the platform's slope (a mesa is much wider at the base than on top): Ann starts in open water past it, not on the bank
+    const ax = ex + sx * (shore + 3); place(v, ex, ez, 0); v.body.position.y = E.y + 1.4;
+    place(j, ex + sx * 30, ez, 0); place(tg, ex + sx * 45, ez + sz * 25, Math.PI / 2); j.target = tg; j.retarget = 99; // (the Tiger out in open water, clear of the platform's ramp)
     tg.think = function () { Object.assign(this.ctrl, { throttle: 0, steer: 0, fire: false, handbrake: true }); }; v.think = tg.think; tg.reload = 99; await sleep(200);
-    D.startTsunami(true); let ann = null; await until(30, () => { ann = D.cars.find((c) => c.type === 'ann' && !c.isPlayer); return !!ann; });
+    const z0 = j.body.position.z; D.startTsunami(true); let ann = null; await until(30, () => { ann = D.cars.find((c) => c.type === 'ann' && !c.isPlayer); return !!ann; });
     if (!ann) return { launched: false, state: D.TSU.state };
+    const toWave = +(z0 - ann.body.position.z).toFixed(1); // how far north (towards the wave, which comes over the north wall) the Jet drove before Ann launched
     await until(30, () => D.TSU.state === 'flood'); let dmg = 0, n = 0, afloat = 0, onTiger = 0; const od = tg.applyDamage.bind(tg); tg.applyDamage = (d, by, ...a) => { if (by === ann) dmg += d; return od(d, by, ...a); };
-    const ap = ann.body.position; ann.body.position.set(ex + sx * 20, D.TSU.level + 0.4, ez); ann.body.velocity.set(0, 0, 0); ann.body.angularVelocity.set(0, 0, 0); ann.target = null; ann.retarget = 0; await sleep(300); // (on the water, the Viper on the platform ~20 m away, the Tiger ~35 m)
+    ann.body.position.set(ax, D.TSU.level + 0.4, ez); ann.body.quaternion.setFromAxisAngle(new CA.Vec3(0, 1, 0), sx > 0 ? 0 : Math.PI); ann.body.velocity.set(0, 0, 0); ann.body.angularVelocity.set(0, 0, 0); ann.target = null; ann.retarget = 0; await sleep(300); // (on open water facing away from the bank, the Viper on the platform nearer than the Tiger)
+    const vD = +Math.hypot(ax - ex, 0).toFixed(1), tD = +Math.hypot(tg.body.position.x - ax, tg.body.position.z - ez).toFixed(1);
     await until(14, () => { tg.health = Math.max(tg.health, 40); v.health = 100; ann.health = 100; tg.reload = 99; n++; if (ann.afloat) afloat++; if (ann.target === tg) onTiger++; });
-    return { launched: true, dmg: +dmg.toFixed(1), afloat: +(afloat / Math.max(1, n)).toFixed(2), onTiger: +(onTiger / Math.max(1, n)).toFixed(2), vOnPlat: !!D.platformOf(v.body.position) };
-  }, (r) => r.launched && r.dmg > 3 && r.afloat > 0.8 && r.onTiger > 0.6);
+    return { launched: true, toWave, dmg: +dmg.toFixed(1), afloat: +(afloat / Math.max(1, n)).toFixed(2), onTiger: +(onTiger / Math.max(1, n)).toFixed(2), vOnPlat: !!D.platformOf(v.body.position), vD, tD };
+  }, (r) => r.launched && r.toWave > 8 && r.vD < r.tD && r.dmg > 3 && r.afloat > 0.8 && r.onTiger > 0.6);
   console.log('  0 ' + JSON.stringify(t0.rs));
-  ok(t0.good >= 1, `Ann: an AI Jet launches her in the tsunami; she goes for the Tiger wading in the flood, not the nearer Viper up on a platform, hurts it and stays afloat (${t0.good}/${t0.rs.length})`);
+  ok(t0.good >= 1, `Ann: an AI Jet drives at the tsunami wave and launches her; she goes for the Tiger wading in the flood, not the nearer Viper up on a platform, hurts it and stays afloat (${t0.good}/${t0.rs.length})`);
 
   const pe = errors.filter((e) => !e.includes('ERR_FAILED')); ok(pe.length === 0, 'no page errors ' + JSON.stringify(pe.slice(0, 3)));
   await browser.close(); console.log(fails.length ? 'CARAI FAIL' : 'CARAI PASS'); process.exit(fails.length ? 1 : 0);
