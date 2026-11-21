@@ -2,36 +2,40 @@
   "high": {
     "level": 0,
     "runs": 3,
-    "callsAvg": 503,
-    "callsMax": 509,
-    "trisAvg": 222430,
-    "geometries": 648,
-    "textures": 110,
-    "frameMsMed": 937,
-    "frameMsP95": 2718.6,
-    "physMsPerStep": 3.667,
+    "callsAvg": 373,
+    "callsMax": 373,
+    "trisAvg": 228767,
+    "geometries": 446,
+    "textures": 80,
+    "frameMsMed": 543.5,
+    "frameMsP95": 1216,
+    "callsFixedCam": 371,
+    "layoutReadsPerFrame": 0,
+    "physMsPerStep": 4.31,
     "spread": {
       "callsAvg": [
-        503,
-        514
+        363,
+        406
       ]
     }
   },
   "low": {
     "level": 7,
     "runs": 3,
-    "callsAvg": 453,
-    "callsMax": 455,
-    "trisAvg": 195896,
-    "geometries": 619,
-    "textures": 114,
-    "frameMsMed": 474.6,
-    "frameMsP95": 980.1,
-    "physMsPerStep": 5.81,
+    "callsAvg": 324,
+    "callsMax": 329,
+    "trisAvg": 194638,
+    "geometries": 421,
+    "textures": 81,
+    "frameMsMed": 372.5,
+    "frameMsP95": 739.2,
+    "callsFixedCam": 306,
+    "layoutReadsPerFrame": 0,
+    "physMsPerStep": 4.488,
     "spread": {
       "callsAvg": [
-        452,
-        465
+        320,
+        330
       ]
     }
   }
