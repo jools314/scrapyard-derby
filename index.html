@@ -7783,7 +7783,7 @@ class Car {
     if (this.latchedBy && this.latchedBy.latch && this.latchedBy.latch.c === this) { ctrl.throttle = 1; ctrl.steer = Math.sin(simTime * 3.2 + this.number) > 0 ? 1 : -1; ctrl.handbrake = false; if (this.body.mass < 3000 && this.contacts >= 3 && Math.random() < 0.003) ctrl.jump = true; } // a spider on the roof: swerve hard to sling it off (and now and then jump: a jump throws it; rarer since 11-19, the spider holds on better)
     ctrl.nitro = (this.mode === 'charge' && Math.abs(angle) < 0.35) || this.mode === 'flee' || this.evading || (this.mode === 'peel' && Math.abs(angle) < 0.5) || (this.pinGo && Math.abs(angle) < 0.3) || (Math.abs(angle) < 0.2 && dist > 35 && this.nitro > 0.35 && S.aiSkill > 0.3);
     if (this.persona && this.persona.style === 'chaos' && this.body.mass < 3000 && this.contacts >= 3 && Math.random() < 0.002) ctrl.jump = true;
-    if (S.aiSkill > 0.4 && this.body.mass < 3000 && dist < 14 && Math.abs(angle) < 0.25 && Math.random() < 0.004 * S.aiSkill) ctrl.jump = true;
+    if (S.aiSkill > 0.4 && this.body.mass < 3000 && dist < 14 && Math.abs(angle) < 0.25 && Math.random() < 0.004 * S.aiSkill && !this.T.walker) ctrl.jump = true; // (not the spider: its leaps are spiderLeaps' call; a hop pressed mid-leap stayed buffered and threw it off the roof it landed on before it could laser)
     if (t.isPlayer && dist < 60 && Math.random() < 0.004) barks.say(this, 'taunt');
     else if (!t.isPlayer && dist < 25 && Math.random() < 0.002) barks.say(this, 'taunt', false, { target: t.name, insult: undefined, car: t.T.name });
     if (this.contacts === 0 && b.position.y > 4 && Math.random() < 0.02) barks.say(this, 'air');
