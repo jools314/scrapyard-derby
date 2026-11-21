@@ -7498,7 +7498,7 @@ class Car {
       if (!AI.face && Math.abs(aim.x) > A - 20) aim.x = Math.sign(aim.x) * (A - 20); if (!AI.face && Math.abs(aim.z) > A - 20) aim.z = Math.sign(aim.z) * (A - 20);
     } else if (this.mode === 'pin') { // shove it into the nearest hazard (not a wall: that's just two stuck cars): get on the far side, then drive straight through it
       let hx = 0, hz = 0, hd = 45, have = false;
-      for (const H of PIN_SPOTS) { const d = Math.hypot(H.x - tp.x, H.z - tp.z); if (d < hd) { hd = d; hx = H.x; hz = H.z; have = true; } }
+      for (const H of pinSpots()) { const d = Math.hypot(H.x - tp.x, H.z - tp.z); if (d < hd) { hd = d; hx = H.x; hz = H.z; have = true; } }
       const bx = p.x - tp.x, bz = p.z - tp.z;
       if (have) { const ux = (hx - tp.x) / (hd || 1), uz = (hz - tp.z) / (hd || 1), behind = -(bx * ux + bz * uz) / (dist || 1);
         if (behind > 0.55 || (dist < 7 && behind > 0)) { aim.set(clamp(tp.x + ux * 8, 6 - A, A - 6), 0, clamp(tp.z + uz * 8, 6 - A, A - 6)); this.pinGo = dist < 30; } // lined up: through it, into the hazard
@@ -9142,7 +9142,7 @@ function aiPlans(style, type) {
   for (const k of HOME_TACTICS) if (W[k] && !(P && (P.home === k || P.can.has(k)))) delete W[k]; // each needs its kit (a sniper's kite in a dozer would just stand there)
   out = Object.entries(W).filter(([, w]) => w > 0); AI_PLANS.set(key, out); return out;
 }
-const PIN_SPOTS = [{ x: BALL.px, z: BALL.pz }, { x: CRUSHER.x + CRUSHER.hx + 3, z: CRUSHER.z }, { x: (ARENA.firePit.x0 + ARENA.firePit.x1) / 2, z: ARENA.firePit.z }]; // heavies shove their prey into these
+let _pinSpots = null; const pinSpots = () => _pinSpots || (_pinSpots = [{ x: BALL.px, z: BALL.pz }, { x: CRUSHER.x + CRUSHER.hx + 3, z: CRUSHER.z }, { x: (ARENA.firePit.x0 + ARENA.firePit.x1) / 2, z: ARENA.firePit.z }]); // heavies shove their prey into these (built on first use: the voice-line extractor loads this part of the script without the arena)
 const AI_V = new CANNON.Vec3(), AI_FROM = new CANNON.Vec3(), AI_TO = new CANNON.Vec3(), AI_RES = new CANNON.RaycastResult(), AI_RAYOPT = { skipBackfaces: true }; // scratch for the AI's local-frame checks
 const JUMP_RAMPS = [{ x: 0, z: 96, dx: 0, dz: -1 }, { x: 0, z: -96, dx: 0, dz: 1 }, { x: 25, z: -100, dx: 1, dz: 0 }]; // the two big kickers and the fire-pit jump (centre, uphill direction)
 const COP = { nick: 'Sheriff Buck', from: 'Sheriff Dolly Mae Buck, a loud Deep South county sheriff', style: 'brawler', lang: 'en-US', pitch: 1.1, rate: 1.0, color: '#2f6fd0',
